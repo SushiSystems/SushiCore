@@ -41,6 +41,13 @@ _TOOL_ENV_SUFFIXES: Mapping[str, str] = {
 }
 
 
+# Environment variables that steer any build in the stack, whatever the module.
+_COMMON_ENV_TOKENS: tuple[str, ...] = (
+    "PATH", "CC", "CXX", "CMAKE", "NINJA", "VCPKG", "PKG_CONFIG",
+    "LD_LIBRARY_PATH",
+)
+
+
 @dataclass(frozen=True)
 class ModuleProfile:
     """The identity of one Sushi* module, as its CLI and the shared code see it.
@@ -54,6 +61,8 @@ class ModuleProfile:
     @param env_fields    Which config fields accept a prefixed override. Empty
                          means all of them, which is what every CLI but sushidsp
                          wants; sushidsp exposes a deliberate subset.
+    @param env_of_interest Extra environment-variable tokens `<prog> env` shows
+                         on top of the ones every build cares about.
     """
 
     name: str
@@ -64,6 +73,7 @@ class ModuleProfile:
     default_target: str = ""
     extra_env_overrides: Mapping[str, str] = field(default_factory=dict)
     env_fields: tuple[str, ...] = ()
+    env_of_interest: tuple[str, ...] = ()
 
     def env_overrides(self) -> dict[str, str]:
         """Map each config field to the environment variable that overrides it.
@@ -82,6 +92,16 @@ class ModuleProfile:
         }
         derived.update(self.extra_env_overrides)
         return derived
+
+    def env_tokens(self) -> tuple[str, ...]:
+        """Environment variables `<prog> env` surfaces without ``--all``.
+
+        The common set is what every build in the stack steers on; a module adds
+        only what is genuinely its own (sushiruntime's oneAPI and CUDA
+        variables, say). Shared so the four CLIs cannot quietly disagree about
+        which variables count as build-relevant.
+        """
+        return _COMMON_ENV_TOKENS + tuple(self.env_of_interest)
 
     def not_a_project_message(self) -> str:
         """The error shown when a command runs outside a checkout."""
