@@ -8,6 +8,7 @@ profile is for. The second was a defect in three of them.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -49,12 +50,20 @@ class Runner:
         Resolving to a full path is what stops subprocess.CreateProcess from
         doing its own PATH lookup against a plain-dict env. On Windows that dict
         can hold both "Path" (from os.environ) and "PATH" (from a vcvars
-        overlay); subprocess sees two keys and picks between them unpredictably,
-        so a tool on one of the two is intermittently not found.
+        overlay); subprocess sees two keys and picks between them
+        unpredictably, so a tool on one of the two is intermittently not found.
+
+        Every PATH-spelled key is searched, joined in the env's own iteration
+        order. Reading only the first one would move that same coin flip into
+        this function rather than remove it: whichever spelling `next()`
+        happened to reach would be searched and the other silently ignored,
+        which is how a tool that is genuinely on the path comes back as a bare
+        name. The union can only find a tool the single-key read misses.
         """
         if env is None:
             return shutil.which(name) or name
-        env_path = next((v for k, v in env.items() if k.upper() == "PATH"), None)
+        paths = [v for k, v in env.items() if k.upper() == "PATH" and v]
+        env_path = os.pathsep.join(paths) if paths else None
         return shutil.which(name, path=env_path) or shutil.which(name) or name
 
     def _not_found(self, name: str) -> None:
