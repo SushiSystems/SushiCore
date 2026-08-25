@@ -16,6 +16,12 @@ from typing import Mapping, Sequence
 
 from .cmake_cache import cached_value, generator_sentinel, is_stale
 
+_DEFAULT_DOXYGEN_HINT = (
+    "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
+    "  - Linux:   apt-get install -y doxygen graphviz\n"
+    "  - macOS:   brew install doxygen graphviz\n"
+    "  - or set doxygen_exe in config.local.toml to an existing doxygen binary.")
+
 
 class CMakeDriver:
     """The cmake and ctest half of what five project.py copies shared.
@@ -126,12 +132,15 @@ class CMakeDriver:
     # -- docs -----------------------------------------------------------
 
     def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *,
-                install_hint: str) -> int:
+                install_hint: str = _DEFAULT_DOXYGEN_HINT) -> int:
         """Run Doxygen over *doxyfile*, or explain why it cannot.
 
         @param install_hint Platform installation guidance, appended to the
-            not-installed message. The module supplies it because the message
-            names the module's own config file.
+            not-installed message. Defaults to the common per-platform install
+            commands plus a pointer at `config.local.toml`, which is correct
+            for a module whose local config lives at that path relative to
+            cwd. Pass this only when a module genuinely has something extra to
+            say -- a different config path, an additional install method.
         @precondition doxyfile must live under cwd. Every module passes
             `root / ...` with `cwd=root`; a Doxyfile outside cwd raises
             ValueError out of relative_to rather than silently falling back to
