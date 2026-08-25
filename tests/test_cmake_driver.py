@@ -3,8 +3,6 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from sushicore.cmake_driver import CMakeDriver
 
 
@@ -123,6 +121,28 @@ def test_clean_tree_says_so_when_there_is_nothing_to_clean(tmp_path):
     driver = CMakeDriver(console, _Runner())
     driver.clean_tree(tmp_path / "absent")
     assert any("nothing to clean" in line for line in console.lines)
+
+
+def test_clean_tree_removes_the_directory_it_is_given(tmp_path):
+    build = tmp_path / "build"
+    (build / "CMakeFiles").mkdir(parents=True)
+    (build / "CMakeCache.txt").write_text("")
+    driver = CMakeDriver(_Console(), _Runner())
+    driver.clean_tree(build)
+    assert not build.exists()
+
+
+def test_clean_tree_removes_only_that_directory(tmp_path):
+    """The failure that would matter: removing the parent instead of the tree."""
+    sibling = tmp_path / "keep"
+    sibling.mkdir()
+    build = tmp_path / "build"
+    build.mkdir()
+    driver = CMakeDriver(_Console(), _Runner())
+    driver.clean_tree(build)
+    assert not build.exists()
+    assert sibling.is_dir()
+    assert tmp_path.is_dir()
 
 
 def _installed_doxygen(tmp_path: Path):

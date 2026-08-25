@@ -3,8 +3,6 @@
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from sushicore.proc import Runner
 
 

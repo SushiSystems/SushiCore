@@ -1,10 +1,15 @@
-"""sushicore — shared, config-driven CLI presentation layer for sr / se / ss.
+"""sushicore — shared foundation for the Sushi* developer CLIs: sr, se, ss, sa, sb, sd.
 
-Public surface: :func:`build_console` assembles a :class:`Console` from
-layered TOML config + environment, using pluggable :mod:`~sushicore.theme` and
-:mod:`~sushicore.icons` presets rendered through a pluggable
-:mod:`~sushicore.renderer` backend. Each piece can be registered, overridden,
-or swapped independently — see the module docstrings for how.
+Two things live here. A config-driven CLI presentation layer: :func:`build_console`
+assembles a :class:`Console` from layered TOML config + environment, using pluggable
+:mod:`~sushicore.theme` and :mod:`~sushicore.icons` presets rendered through a pluggable
+:mod:`~sushicore.renderer` backend. And the build machinery that decides what reaches a
+compiler in five of those repositories: :class:`~sushicore.proc.Runner` (spawning),
+:mod:`~sushicore.cmake_cache` (reading CMakeCache.txt), :class:`~sushicore.cmake_driver.CMakeDriver`
+(the cmake and ctest invocations) and :mod:`~sushicore.toolchain_args` (compiler and vcpkg
+prefix derivation). Each consumer's own ``services/project.py`` keeps its own build policy
+and calls into these. Each piece can be registered, overridden, or swapped independently —
+see the module docstrings for how.
 """
 
 from __future__ import annotations
