@@ -43,6 +43,21 @@ def test_resolve_exe_reads_path_case_insensitively(tmp_path):
     assert runner.resolve_exe("tool", {"Path": str(tmp_path)}).lower() == str(exe).lower()
 
 
+def test_resolve_exe_finds_the_tool_when_the_env_holds_both_path_keys():
+    """The collision the whole function exists for: os.environ's "Path" plus a
+    vcvars overlay's "PATH". Whichever key wins, the tool must still resolve."""
+    import os
+    import tempfile
+    with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+        name = "tool.exe" if os.name == "nt" else "tool"
+        exe = Path(second) / name
+        exe.write_text("")
+        exe.chmod(0o755)
+        runner = Runner(_Recorder(), "sb")
+        resolved = runner.resolve_exe("tool", {"Path": first, "PATH": second})
+        assert resolved.lower() == str(exe).lower()
+
+
 def test_not_found_message_names_the_program():
     console = _Recorder()
     runner = Runner(console, "sb")
