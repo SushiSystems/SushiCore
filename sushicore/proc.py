@@ -14,10 +14,16 @@ from pathlib import Path
 from typing import Mapping, Protocol
 
 
+class RichConsoleLike(Protocol):
+    """The one Rich console method this needs, so `console` is not typed `object`."""
+
+    def print(self, *objects: object, **kwargs: object) -> None: ...
+
+
 class ConsoleLike(Protocol):
     """The slice of a CLI's console module this needs."""
 
-    console: object
+    console: RichConsoleLike
 
     def command(self, text: str) -> None: ...
 
