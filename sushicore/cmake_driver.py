@@ -74,8 +74,7 @@ class CMakeDriver:
     # -- build ----------------------------------------------------------
 
     def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
-                config: str | None = None, targets: Sequence[str] = (),
-                jobs: int | None = None) -> int:
+                config: str | None = None, targets: Sequence[str] = ()) -> int:
         """Bring an already-configured tree up to date.
 
         @param config The configuration to build. When None it is read from the
@@ -87,8 +86,6 @@ class CMakeDriver:
         cmd = [self.cmake(cfg), "--build", str(build_dir), "--config", config]
         for target in targets:
             cmd += ["--target", target]
-        if jobs is not None:
-            cmd += ["-j", str(jobs)]
         return self._runner.run(cmd, cwd, env)
 
     # -- test -----------------------------------------------------------
@@ -135,6 +132,11 @@ class CMakeDriver:
         @param install_hint Platform installation guidance, appended to the
             not-installed message. The module supplies it because the message
             names the module's own config file.
+        @precondition doxyfile must live under cwd. Every module passes
+            `root / ...` with `cwd=root`; a Doxyfile outside cwd raises
+            ValueError out of relative_to rather than silently falling back to
+            an absolute argument, which would change the command line for
+            whichever module hit it first.
         """
         if not doxyfile.is_file():
             self._console.error(f"Doxyfile not found at {doxyfile}.")
