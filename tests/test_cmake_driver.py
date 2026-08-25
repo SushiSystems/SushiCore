@@ -123,3 +123,49 @@ def test_clean_tree_says_so_when_there_is_nothing_to_clean(tmp_path):
     driver = CMakeDriver(console, _Runner())
     driver.clean_tree(tmp_path / "absent")
     assert any("nothing to clean" in line for line in console.lines)
+
+
+def _installed_doxygen(tmp_path: Path):
+    """A doxygen_exe pointing at a file that exists, so the driver's own
+    not-installed check passes and execution reaches the run() call."""
+    doxy = tmp_path / "doxygen.exe"
+    doxy.write_text("")
+    return str(doxy)
+
+
+def test_doxygen_passes_a_path_relative_to_cwd(tmp_path):
+    """The child resolves its argument against cwd; every module hands the driver an
+    absolute Doxyfile so its own existence check is robust to being invoked from a
+    subdirectory, so the driver must derive the relative form rather than take it."""
+    doxyfile = tmp_path / "Doxyfile"
+    doxyfile.write_text("")
+    doxy = _installed_doxygen(tmp_path)
+    driver, runner = _driver()
+
+    driver.doxygen(_cfg(doxygen_exe=doxy), doxyfile, tmp_path, None, install_hint="")
+
+    assert runner.calls == [("run", [doxy, "Doxyfile"], str(tmp_path))]
+
+
+def test_doxygen_derives_a_nested_relative_path(tmp_path):
+    """SushiEngine's Doxyfile lives under .config/doxygen/; the argv must name it the
+    same way the module always has, not the absolute path the existence check needs."""
+    doxyfile = tmp_path / ".config" / "doxygen" / "Doxyfile"
+    doxyfile.parent.mkdir(parents=True)
+    doxyfile.write_text("")
+    doxy = _installed_doxygen(tmp_path)
+    driver, runner = _driver()
+
+    driver.doxygen(_cfg(doxygen_exe=doxy), doxyfile, tmp_path, None, install_hint="")
+
+    assert runner.calls[0][1] == [doxy, ".config/doxygen/Doxyfile"]
+
+
+def test_doxygen_not_found_names_the_absolute_path():
+    """Printed, not spawned, so naming the full path here cannot move the argv."""
+    console = _Console()
+    driver = CMakeDriver(console, _Runner())
+    missing = Path("/project/Doxyfile")
+
+    assert driver.doxygen(_cfg(), missing, Path("/project"), None, install_hint="") == 1
+    assert any(str(missing) in line for line in console.lines)

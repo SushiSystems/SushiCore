@@ -144,4 +144,10 @@ class CMakeDriver:
             self._console.error(
                 "Doxygen is not installed or not on PATH.\n" + install_hint)
             return 1
-        return self._runner.run([doxy, str(doxyfile)], cwd, env)
+        # The child resolves its argument against cwd, and every module passes a
+        # path relative to the project root rather than an absolute one. Derive
+        # it rather than asking for it twice: as_posix() is load-bearing on
+        # Windows, where relative_to yields backslashes and str() would change
+        # the command line.
+        argument = doxyfile.relative_to(cwd).as_posix()
+        return self._runner.run([doxy, argument], cwd, env)
