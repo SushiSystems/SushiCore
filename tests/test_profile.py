@@ -11,6 +11,18 @@ def test_env_overrides_are_prefixed_from_the_profile():
 
 
 def test_extra_env_overrides_win_over_the_prefix():
+    """A collision is the only thing that proves precedence, so use one."""
+    plain = ModuleProfile(name="SushiBLAS", program="sb", env_prefix="SB")
+    assert plain.env_overrides()["cxx"] == "SB_CXX"
+
+    overridden = ModuleProfile(
+        name="SushiBLAS", program="sb", env_prefix="SB",
+        extra_env_overrides={"cxx": "SUSHIRUNTIME_CXX"})
+    assert overridden.env_overrides()["cxx"] == "SUSHIRUNTIME_CXX"
+
+
+def test_an_extra_override_for_a_non_tool_field_is_still_carried():
+    """The real use: a sibling directory, which has no prefix-derived entry."""
     profile = ModuleProfile(
         name="SushiBLAS", program="sb", env_prefix="SB",
         siblings=("sushiruntime",),
