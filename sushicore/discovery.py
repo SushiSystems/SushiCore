@@ -135,3 +135,31 @@ class ExecutableIndex:
             "Select a number", choices=[str(i) for i in range(1, len(exes) + 1)]
         )
         return exes[choice - 1]
+
+    def resolve(self, build_root: Path, console: ConsoleLike, *, target: str | None = None,
+                sort: bool = False, default: str = "") -> Path | None:
+        """The executable a `run` command should launch, or None with the reason printed.
+
+        This is the policy every `run` command shares: *sort* means "let me pick",
+        an explicit *target* wins over everything else, and *default* -- a CLI's
+        own configured ``target_bin`` -- is what runs when neither was given.
+        *default* is the only knob, because it is the only piece of this decision
+        that is actually build policy rather than the shared shape of the choice.
+
+        Every failing path prints the same message the four call sites used to
+        carry separately and returns None, so the caller's own ``return 1``
+        stays exactly where it already was.
+        """
+        if sort:
+            return self.select(build_root, console)
+
+        if target:
+            exe = self.match(build_root, target)
+            if exe is None:
+                console.error(f"Executable matching '{target}' not found.")
+            return exe
+
+        exe = self.match(build_root, default)
+        if exe is None:
+            console.error(f"Default target '{default}' not found.")
+        return exe
