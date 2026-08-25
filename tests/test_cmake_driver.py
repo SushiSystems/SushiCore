@@ -116,6 +116,41 @@ def test_reconfigure_when_an_expectation_is_violated(tmp_path):
                                   expect={"CMAKE_BUILD_TYPE": "Debug"}) is True
 
 
+# -- root: the stale-source-path check (comparison itself is cmake_cache's) -----
+#
+# test_cmake_cache.py already pins is_stale's own comparison (case/separator handling,
+# an unconfigured tree, etc.). These tests are about needs_configure's wiring of it: that
+# passing root turns the check on at all, that it warns when it fires, and that omitting
+# root -- what every call site did before this -- leaves an otherwise-fresh tree alone.
+
+def test_root_mismatch_forces_reconfigure_and_warns(tmp_path):
+    build_dir = tmp_path / "build"
+    build_dir.mkdir()
+    (build_dir / "build.ninja").write_text("")
+    (build_dir / "CMakeCache.txt").write_text(
+        "CMAKE_HOME_DIRECTORY:INTERNAL=/workspace/sushiengine\n")
+    console = _Console()
+    driver = CMakeDriver(console, _Runner())
+
+    assert driver.needs_configure(build_dir, "Ninja",
+                                  root=tmp_path / "sushiengine") is True
+    assert any("different source path" in line for line in console.lines)
+
+
+def test_root_match_does_not_reconfigure_or_warn(tmp_path):
+    build_dir = tmp_path / "build"
+    build_dir.mkdir()
+    (build_dir / "build.ninja").write_text("")
+    root = tmp_path / "sushiengine"
+    (build_dir / "CMakeCache.txt").write_text(
+        f"CMAKE_HOME_DIRECTORY:INTERNAL={root}\n")
+    console = _Console()
+    driver = CMakeDriver(console, _Runner())
+
+    assert driver.needs_configure(build_dir, "Ninja", root=root) is False
+    assert console.lines == []
+
+
 def test_clean_tree_says_so_when_there_is_nothing_to_clean(tmp_path):
     console = _Console()
     driver = CMakeDriver(console, _Runner())
