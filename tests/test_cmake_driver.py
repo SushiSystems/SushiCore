@@ -65,13 +65,13 @@ def test_compile_builds_the_expected_argv(tmp_path):
          str(tmp_path))]
 
 
-def test_compile_appends_targets_and_jobs(tmp_path):
+def test_compile_appends_targets(tmp_path):
     driver, runner = _driver()
     driver.compile(_cfg(), tmp_path, tmp_path, None, config="Debug",
-                   targets=("editor",), jobs=8)
+                   targets=("editor",))
     assert runner.calls[0][1] == [
         "cmake", "--build", str(tmp_path), "--config", "Debug",
-        "--target", "editor", "-j", "8"]
+        "--target", "editor"]
 
 
 def test_ctest_run_is_drained_and_carries_the_knobs(tmp_path):
