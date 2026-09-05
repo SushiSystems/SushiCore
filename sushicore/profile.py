@@ -19,7 +19,13 @@ specific to one CLI belongs in that CLI.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Mapping
+
+#: File the release build writes at the root of an unpacked binary install. A
+#: module CLI reads nothing but its presence; ``ss`` reads the product, version
+#: and platform inside it. See docs/agent/specs/2026-09-05-hub-design.md, §5.
+RELEASE_MANIFEST = "sushi-release.json"
 
 # Config field -> the suffix its environment override carries, after the
 # module's own prefix. Shared because ToolConfig (the fields these name) is
@@ -55,7 +61,9 @@ class ModuleProfile:
     @param name          Display name used in messages, e.g. ``"SushiEngine"``.
     @param program       The command a user types, e.g. ``"se"``.
     @param env_prefix    Prefix on this CLI's environment overrides, e.g. ``"SE"``.
-    @param root_marker   File whose presence marks the project root.
+    @param root_marker   File whose presence marks the root of a checkout.
+    @param release_manifest File whose presence marks the root of an unpacked
+                         binary install, and tells the two forms apart.
     @param siblings      Sibling module directories this project builds in-tree.
     @param default_target Executable ``run`` falls back to with no target named.
     @param env_fields    Which config fields accept a prefixed override. Empty
@@ -69,6 +77,7 @@ class ModuleProfile:
     program: str
     env_prefix: str
     root_marker: str = "CMakeLists.txt"
+    release_manifest: str = RELEASE_MANIFEST
     siblings: tuple[str, ...] = ()
     default_target: str = ""
     extra_env_overrides: Mapping[str, str] = field(default_factory=dict)
@@ -103,11 +112,27 @@ class ModuleProfile:
         """
         return _COMMON_ENV_TOKENS + tuple(self.env_of_interest)
 
+    def markers(self) -> tuple[str, ...]:
+        """Return every file whose presence marks this module's root.
+
+        A checkout carries the root marker, an unpacked release carries the
+        manifest, and a CLI invoked inside either has to find its root.
+        """
+        return (self.root_marker, self.release_manifest)
+
+    def presence(self, root: Path) -> str:
+        """Report how the module at *root* arrived: "binary" or "source".
+
+        @param root Directory that carries one of :meth:`markers`.
+        """
+        return "binary" if (root / self.release_manifest).is_file() else "source"
+
     def not_a_project_message(self) -> str:
         """The error shown when a command runs outside a checkout."""
         return (
-            f"Not inside a {self.name} project: no {self.root_marker} found in "
-            "the current directory or any parent. cd into the repo and try again."
+            f"Not inside a {self.name} project: no {' or '.join(self.markers())} "
+            "found in the current directory or any parent. cd into the repo and "
+            "try again."
         )
 
     def sibling_skip_dirs(self) -> tuple[str, ...]:

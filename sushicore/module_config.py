@@ -3,9 +3,10 @@
 Every Sushi* CLI is installed outside the repository it builds -- pip or pipx
 puts it in a venv -- so the package's own location says nothing about where the
 project lives. The invocation directory does. Each CLI therefore walks up from
-the cwd looking for a marker file, then layers config.toml, the workspace-shared
-config.local.toml that ``ss install`` writes, and the repo's own
-config.local.toml, in that order.
+the cwd looking for one of its markers -- the checkout's marker file, or the
+release manifest an unpacked binary install carries -- then layers config.toml,
+the workspace-shared config.local.toml that ``ss install`` writes, and the repo's
+own config.local.toml, in that order.
 
 That is the same procedure five times over, differing only in the marker, the
 project's name in the error message, and the prefix on the environment
@@ -55,16 +56,26 @@ class ModuleConfig:
         return self._profile
 
     def find_project_root(self, start: Path | None = None) -> Path:
-        """Walk up from *start* (default cwd) to the module's root marker.
+        """Walk up from *start* (default cwd) to any of the profile's markers.
+
+        The nearest directory carrying either marker wins, so the same walk
+        finds a checkout and an unpacked release.
 
         @raise SystemExit when run outside a checkout. Callers that can work
                without a project -- the console, ``--help`` -- catch it; that is
                deliberate, and why it is SystemExit rather than a return of None.
         """
-        root = walk_up(start or Path.cwd(), has_marker(self._profile.root_marker))
+        root = walk_up(start or Path.cwd(), has_marker(*self._profile.markers()))
         if root is None:
             raise SystemExit(self._profile.not_a_project_message())
         return root
+
+    def presence(self, root: Path | None = None) -> str:
+        """Report how this module is present: "binary" or "source".
+
+        @param root The module root, or None to walk up from the cwd for it.
+        """
+        return self._profile.presence(root or self.find_project_root())
 
     def config_dir(self, root: Path | None = None) -> Path:
         """Directory holding config.toml / config.local.toml (the repo's cli/)."""
