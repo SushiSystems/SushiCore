@@ -16,12 +16,13 @@ Small, swappable pieces (SOLID), not one monolith:
 - `IconSet` (`sushicore.icons`) — pure data: the prefix/glyph printed before a
   line. Presets: `text` (`[INFO]`, ...), `emoji`, `minimal`, `none`.
   Register your own with `register_icon_set(...)`.
-- `Renderer` (`sushicore.renderer`) — a `Protocol` describing how a themed
-  message actually gets drawn. `RichRenderer` is the default (colored, via
-  Rich); `PlainRenderer` is the no-color fallback used for `NO_COLOR`,
-  `color = "never"`, or a non-TTY stream. Any object implementing the same
-  four methods is a drop-in replacement — e.g. a future JSON renderer for
-  machine-readable CI logs.
+- `Renderer` (`sushicore.renderer`) — a `Protocol` of eight methods describing
+  how a themed message gets drawn: `line`, `command`, `header`, `panel`,
+  `table`, `progress`, `result`, `prompt`. `RichRenderer` is the default
+  (colored, via Rich, or with ANSI stripped for `NO_COLOR`, `color = "never"`
+  and a non-TTY stream); `PlainRenderer` writes markup-free text;
+  `JsonRenderer` writes one JSON event per line for a program to read. Any
+  object implementing the same eight methods is a drop-in replacement.
 - `Console` (`sushicore.console`) — the facade every CLI actually calls
   (`console.info(...)`, `console.error(...)`, ...). It only translates
   semantic calls into renderer calls using a theme + icon set; it never picks
@@ -31,6 +32,36 @@ Small, swappable pieces (SOLID), not one monolith:
 
 Themes and icon sets are pure data, so most customization needs **no code at
 all** — just a config file.
+
+## Machine-readable output
+
+`build_console(paths, machine=True)` selects `JsonRenderer`; `LazyConsole.machine = True`
+does the same for a console built on first use, so a CLI sets it while parsing its
+command line. Theme and icons are still loaded. The event vocabulary lives in
+`sushicore.events`; `event_line(kind, **fields)` is its one serialisation.
+
+One JSON object per line, UTF-8, no other bytes on stdout. Anything printed through
+`console.console` (the raw Rich console) goes to stderr, so stdout stays parseable.
+Keys are stable; the desktop application's schema depends on them.
+
+```json
+{"event": "line",     "level": "info",   "message": "..."}          level ∈ info|success|warn|error
+{"event": "command",  "command": "cmake -S . -B build"}
+{"event": "header",   "title": "SushiStack Install"}
+{"event": "panel",    "title": "...", "body": "..."}
+{"event": "table",    "title": "...", "columns": ["A","B"], "rows": [["a1","b1"]]}
+{"event": "progress", "label": "install-deps", "index": 2, "count": 4, "fraction": 0.5}   fraction may be null
+{"event": "result",   "ok": true, "payload": {}}
+{"event": "prompt",   "id": "confirm-1", "message": "...", "default": "n"}               default may be null
+```
+
+A `prompt` event is answered by one line on stdin. The renderer reads it and returns it
+stripped; an empty line returns the default; EOF returns the default. The `level` of a
+`line` event is the first of `info`, `success`, `warn`, `error` named in the icon prefix,
+case-insensitively; a prefix that names none of them (an emoji set, an empty prefix)
+yields `info`.
+
+The design is in `docs/agent/specs/2026-09-05-hub-design.md`, sections 4 and 7.
 
 ## Config schema
 
@@ -79,6 +110,10 @@ error = console.error
 command = console.command
 header = console.header
 fail_panel = console.fail_panel
+table = console.table          # table(columns, rows, title="")
+progress = console.progress    # progress(label, index, count, fraction=None)
+result = console.result        # result(ok, payload=None)
+prompt = console.prompt        # prompt(message, default=None) -> str
 ```
 
 `build_console` only reads the `[cli]` table — it's safe to hand it the exact
