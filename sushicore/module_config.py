@@ -22,7 +22,7 @@ from typing import TypeVar
 
 from .config_base import ToolConfig, load_tool_config
 from .profile import ModuleProfile
-from .workspace import has_marker, resolve_env_path, walk_up
+from .workspace import has_marker, resolve_env_path, walk_up, WORKSPACE_CLI_DIR
 
 # The marker `ss init` writes at the root of a workspace.
 _WORKSPACE_MARKER = ".sushistack"
@@ -101,10 +101,10 @@ class ModuleConfig:
 
         Inside a workspace the machine-specific tool paths (compiler, vcpkg,
         cmake) are resolved once by ``ss`` and written to
-        ``<home>/cli/config.local.toml``, so nothing is configured twice.
+        ``<home>/sushihub/cli/config.local.toml``, so nothing is configured twice.
         """
         home = self.workspace_home()
-        return (home / "cli" / "config.local.toml") if home else None
+        return (home / WORKSPACE_CLI_DIR / "config.local.toml") if home else None
 
     def sources(self) -> list[Path]:
         """The config files to layer, lowest precedence first."""

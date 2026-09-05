@@ -22,6 +22,10 @@ except ModuleNotFoundError:  # Python 3.10 fallback
     import tomli as tomllib
 
 
+#: Where the workspace keeps the `ss` package and the config `ss install` writes, relative to the root.
+WORKSPACE_CLI_DIR = Path("sushihub") / "cli"
+
+
 def read_toml(path: Path) -> dict:
     """Parse a TOML file, or return ``{}`` when it does not exist."""
     if not path.is_file():
