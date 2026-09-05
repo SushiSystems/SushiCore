@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 from typing import Protocol
 
+from .events import event_line
 from .theme import Theme
 
 
@@ -211,3 +212,70 @@ class PlainRenderer:
         except EOFError:
             answer = None
         return _answer(answer, default)
+
+
+_LEVELS = ("info", "success", "warn", "error")
+
+
+def _level_from_prefix(prefix: str) -> str:
+    """Return the first of info, success, warn, error named in the prefix, or ``info``."""
+    lowered = prefix.lower()
+    for level in _LEVELS:
+        if level in lowered:
+            return level
+    return "info"
+
+
+class JsonRenderer:
+    """Write one JSON event per line to stdout and route every stray Rich print to stderr."""
+
+    def __init__(self, stream=None, error_stream=None, input_stream=None) -> None:
+        """Bind the event stream, the error stream and the stream prompts read from."""
+        self._stream = stream or sys.stdout
+        self._error_stream = error_stream or sys.stderr
+        self._input_stream = input_stream or sys.stdin
+
+    @property
+    def raw(self):
+        """Return a colourless Rich console bound to the error stream."""
+        from rich.console import Console as _RichConsole
+
+        return _RichConsole(no_color=True, file=self._error_stream)
+
+    def _emit(self, kind: str, **fields) -> None:
+        """Write one event line and flush."""
+        self._stream.write(event_line(kind, **fields) + "\n")
+        self._stream.flush()
+
+    def line(self, style: str, prefix: str, message: str) -> None:
+        """Emit a ``line`` event whose level the icon prefix names, ``info`` when it names none."""
+        self._emit("line", level=_level_from_prefix(prefix), message=message)
+
+    def command(self, cmd_style: str, prefix_style: str, prefix: str, cmd: str) -> None:
+        """Emit a ``command`` event."""
+        self._emit("command", command=cmd)
+
+    def header(self, title: str, style: str) -> None:
+        """Emit a ``header`` event."""
+        self._emit("header", title=title)
+
+    def panel(self, title: str, body: str, border_style: str) -> None:
+        """Emit a ``panel`` event."""
+        self._emit("panel", title=title, body=body)
+
+    def table(self, title: str, columns: list[str], rows: list[list[str]], header_style: str) -> None:
+        """Emit a ``table`` event."""
+        self._emit("table", title=title, columns=list(columns), rows=[list(row) for row in rows])
+
+    def progress(self, label: str, index: int, count: int, fraction: float | None) -> None:
+        """Emit a ``progress`` event."""
+        self._emit("progress", label=label, index=index, count=count, fraction=fraction)
+
+    def result(self, ok: bool, payload: dict) -> None:
+        """Emit a ``result`` event."""
+        self._emit("result", ok=ok, payload=payload)
+
+    def prompt(self, prompt_id: str, message: str, default: str | None) -> str:
+        """Emit a ``prompt`` event, read one line from the input stream and return the answer."""
+        self._emit("prompt", id=prompt_id, message=message, default=default)
+        return _answer(self._input_stream.readline(), default)
