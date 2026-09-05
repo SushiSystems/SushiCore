@@ -71,3 +71,14 @@ def test_prompt_emits_the_event_and_reads_one_line():
 def test_prompt_returns_default_on_eof():
     r, _, _ = _renderer("")
     assert r.prompt("prompt-1", "Go?", "n") == "n"
+
+
+def test_default_streams_are_forced_to_utf8(monkeypatch):
+    """A redirected stdout on Windows defaults to cp1252; the contract says UTF-8."""
+    import io
+    import sys
+
+    raw = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", raw)
+    JsonRenderer()
+    assert sys.stdout.encoding.lower().replace("-", "") == "utf8"

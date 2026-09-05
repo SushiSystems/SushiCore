@@ -231,6 +231,8 @@ class JsonRenderer:
 
     def __init__(self, stream=None, error_stream=None, input_stream=None) -> None:
         """Bind the event stream, the error stream and the stream prompts read from."""
+        if stream is None:
+            _force_utf8_streams()
         self._stream = stream or sys.stdout
         self._error_stream = error_stream or sys.stderr
         self._input_stream = input_stream or sys.stdin
