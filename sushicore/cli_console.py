@@ -18,13 +18,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Sequence
 
-# The names a CLI's console module exposes. `console` is the raw Rich console
-# for callers printing a Table or Panel directly; the rest are the semantic
-# helpers. Kept here so every CLI offers the same surface.
 _ATTRS = frozenset({
     "console",
     "info", "success", "warn", "error",
     "command", "header", "fail_panel", "accent",
+    "table", "progress", "result", "prompt",
 })
 
 
@@ -36,13 +34,18 @@ class LazyConsole:
     that is how every CLI's ``config_dir`` reports "not inside a checkout", and
     it degrades here to a console with no config sources rather than killing a
     command that never needed a project.
+
+    *machine* selects the JSON renderer. It is read once, at the first build,
+    so a CLI sets it while parsing its command line, before anything prints.
     """
 
-    __slots__ = ("_config_dir", "_console")
+    __slots__ = ("_config_dir", "_console", "machine")
 
     def __init__(self, config_dir: Callable[[], Path]) -> None:
+        """Remember the config-dir resolver; nothing is built yet."""
         self._config_dir = config_dir
         self._console = None
+        self.machine = False
 
     @property
     def built(self) -> bool:
@@ -60,11 +63,9 @@ class LazyConsole:
     def get(self):
         """Return the console, building it once on first call."""
         if self._console is None:
-            # Imported here, not at module scope: importing a CLI's console
-            # module must not drag in the renderer stack before anything prints.
             from . import build_console
 
-            self._console = build_console(self.sources())
+            self._console = build_console(self.sources(), machine=self.machine)
         return self._console
 
     def attribute(self, name: str):

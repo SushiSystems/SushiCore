@@ -21,7 +21,7 @@ from typing import Sequence
 from .config import load_appearance
 from .console import Console
 from .icons import IconSet, get_icon_set, known_icon_sets, register_icon_set
-from .renderer import PlainRenderer, Renderer, RichRenderer
+from .renderer import JsonRenderer, PlainRenderer, Renderer, RichRenderer
 from .theme import Theme, get_theme, known_themes, register_theme
 from .typer_theme import apply_typer_theme
 
@@ -32,6 +32,7 @@ __all__ = [
     "Renderer",
     "RichRenderer",
     "PlainRenderer",
+    "JsonRenderer",
     "build_console",
     "register_theme",
     "register_icon_set",
@@ -44,6 +45,7 @@ __all__ = [
 
 
 def _use_color(mode: str) -> bool:
+    """Decide whether colour is on for ``always``, ``never`` or ``auto`` (a TTY stdout)."""
     if mode == "always":
         return True
     if mode == "never":
@@ -51,17 +53,22 @@ def _use_color(mode: str) -> bool:
     return sys.stdout.isatty()  # auto
 
 
-def build_console(config_paths: Sequence[Path] = ()) -> Console:
+def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False) -> Console:
     """Build a themed :class:`Console` from a repo's own config files.
 
-    ``config_paths`` is the same list of TOML files a repo already resolves
-    for its build config (e.g. ``[config.toml, config.local.toml]``, low to
-    high precedence) — pass them straight through; only the ``[cli]`` table
-    is read here, everything else is ignored.
+    Args:
+        config_paths: The TOML files a repo already resolves for its build config,
+            low to high precedence; only the ``[cli]`` table is read.
+        machine: When true, render through :class:`JsonRenderer` so stdout carries
+            one JSON event per line. Theme and icons are still loaded.
     """
     spec = load_appearance(list(config_paths))
     theme = get_theme(spec.theme).merged(spec.color_overrides)
     icons = get_icon_set(spec.icons).merged(spec.icon_overrides)
     apply_typer_theme(theme)
-    renderer: Renderer = RichRenderer(theme, no_color=not _use_color(spec.color))
+    renderer: Renderer
+    if machine:
+        renderer = JsonRenderer()
+    else:
+        renderer = RichRenderer(theme, no_color=not _use_color(spec.color))
     return Console(renderer, theme, icons)
