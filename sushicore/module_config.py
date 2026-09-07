@@ -5,7 +5,7 @@ puts it in a venv -- so the package's own location says nothing about where the
 project lives. The invocation directory does. Each CLI therefore walks up from
 the cwd looking for one of its markers -- the checkout's marker file, or the
 release manifest an unpacked binary install carries -- then layers config.toml,
-the workspace-shared config.local.toml that ``ss install`` writes, and the repo's
+the workspace-shared config.local.toml that ``hub install`` writes, and the repo's
 own config.local.toml, in that order.
 
 That is the same procedure five times over, differing only in the marker, the
@@ -24,7 +24,7 @@ from .config_base import ToolConfig, load_tool_config
 from .profile import ModuleProfile
 from .workspace import has_marker, resolve_env_path, walk_up, WORKSPACE_CLI_DIR
 
-# The marker `ss init` writes at the root of a workspace.
+# The marker `hub init` writes at the root of a workspace.
 _WORKSPACE_MARKER = ".sushistack"
 
 _C = TypeVar("_C", bound=ToolConfig)
@@ -43,7 +43,7 @@ class ModuleConfig:
     def __init__(self, profile: ModuleProfile, *, use_workspace_config: bool = True) -> None:
         """
         @param use_workspace_config Whether to layer the workspace-shared
-               config.local.toml that ``ss install`` writes. A module with no
+               config.local.toml that ``hub install`` writes. A module with no
                toolchain of its own to pin has nothing to read from it, and
                says so by passing False rather than reading it and finding
                nothing.
@@ -97,10 +97,10 @@ class ModuleConfig:
         return walk_up(start, has_marker(_WORKSPACE_MARKER))
 
     def _shared_config_local(self) -> Path | None:
-        """The workspace-shared config.local.toml ``ss install`` writes, if any.
+        """The workspace-shared config.local.toml ``hub install`` writes, if any.
 
         Inside a workspace the machine-specific tool paths (compiler, vcpkg,
-        cmake) are resolved once by ``ss`` and written to
+        cmake) are resolved once by ``hub`` and written to
         ``<home>/sushihub/cli/config.local.toml``, so nothing is configured twice.
         """
         home = self.workspace_home()

@@ -1,7 +1,7 @@
 """Toolchain resolution for a module that consumes the shared dependency tree.
 
 SushiEngine, SushiAI and SushiBLAS are heads of the stack: they select no SYCL
-toolchain of their own, they consume the one ``ss install`` provisions into
+toolchain of their own, they consume the one ``hub install`` provisions into
 ``<workspace>/dependencies``. Resolving the compiler and vcpkg from that tree
 is identical work in all three, and each carried its own copy of it.
 

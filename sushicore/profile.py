@@ -1,6 +1,6 @@
 """What one Sushi* CLI has to say about itself, said once.
 
-Five CLIs -- ss, sr, se, sa, sb, and now sd -- differ from each other in a
+Five CLIs -- hub, sr, se, sa, sb, and now sd -- differ from each other in a
 handful of facts: a display name, the command a user types, the prefix on their
 environment overrides, the file that marks a project root, and which sibling
 checkouts they build in-tree. Everything else about locating a project, layering
@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Mapping
 
 #: File the release build writes at the root of an unpacked binary install. A
-#: module CLI reads nothing but its presence; ``ss`` reads the product, version
+#: module CLI reads nothing but its presence; ``hub`` reads the product, version
 #: and platform inside it. See docs/agent/specs/2026-09-05-hub-design.md, §5.
 RELEASE_MANIFEST = "sushi-release.json"
 

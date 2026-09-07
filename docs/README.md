@@ -1,7 +1,7 @@
 # sushicore
 
 Shared, config-driven CLI presentation layer for the Sushi* developer CLIs
-(`sr` / sushiruntime, `se` / sushiengine, `ss` / sushistack). One seam for
+(`sr` / sushiruntime, `se` / sushiengine, `hub` / sushistack). One seam for
 colors, icons, and output formatting so a visual change (e.g. "I want
 different CLI colors") is a config edit in one place, not a hunt through
 three hardcoded `console.py` files.
@@ -127,9 +127,9 @@ install it directly in normal use:
 
 - **End users** never handle it. The SushiStack bootstrap
   (`curl … | bash` / `irm … | iex`) clones it into `<workspace>/sushicore`, and
-  `ss install-cli <module>` injects it (editable) into each module CLI's pipx
+  `hub install-cli <module>` injects it (editable) into each module CLI's pipx
   venv automatically.
-- **`ss status`** shows where the checkout is and its state (`fetched`,
+- **`hub status`** shows where the checkout is and its state (`fetched`,
   `linked`, `sibling`, or `missing`), so it is visible rather than a black box.
 
 ### Working on sushicore itself
@@ -137,14 +137,14 @@ install it directly in normal use:
 Point the workspace at your own checkout so every CLI uses it:
 
 ```bash
-ss link sushicore /path/to/sushicore    # records it in modules.local.toml
+hub link sushicore /path/to/sushicore    # records it in modules.local.toml
 ```
 
 You can also override the lookup for one command with the `SUSHICORE_DIR`
-environment variable. Resolution order is: `SUSHICORE_DIR` → an `ss link sushicore`
+environment variable. Resolution order is: `SUSHICORE_DIR` → an `hub link sushicore`
 path → `<workspace>/sushicore` (the fetched checkout) → a sibling checkout next to
 the workspace. Because injection is editable, edits to your checkout apply to the
-installed `sr` / `se` / `ss` without reinstalling.
+installed `sr` / `se` / `hub` without reinstalling.
 
 For a standalone editable install into the current environment:
 
