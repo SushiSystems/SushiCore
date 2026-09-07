@@ -1,6 +1,6 @@
 """Shared, domain-agnostic config plumbing for the Sushi* developer CLIs.
 
-Every module CLI (`sr`, `se`, `ss`) resolves its config the same way — walk up
+Every module CLI (`sr`, `se`, `hub`) resolves its config the same way — walk up
 for a marker file, merge a ``[tool]`` table with its ``[tool.<platform>]``
 override, then let ``PREFIX_*`` environment variables win. That plumbing used to
 be copy-pasted into each repo's ``config.py``; it lives here so there is one seam.
@@ -22,7 +22,7 @@ except ModuleNotFoundError:  # Python 3.10 fallback
     import tomli as tomllib
 
 
-#: Where the workspace keeps the `ss` package and the config `ss install` writes, relative to the root.
+#: Where the workspace keeps the `hub` package and the config `hub install` writes, relative to the root.
 WORKSPACE_CLI_DIR = Path("sushihub") / "cli"
 
 

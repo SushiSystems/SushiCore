@@ -1,4 +1,4 @@
-"""sushicore — shared foundation for the Sushi* developer CLIs: sr, se, ss, sa, sb, sd.
+"""sushicore — shared foundation for the Sushi* developer CLIs: sr, se, hub, sa, sb, sd.
 
 Two things live here. A config-driven CLI presentation layer: :func:`build_console`
 assembles a :class:`Console` from layered TOML config + environment, using pluggable

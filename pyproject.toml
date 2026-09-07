@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sushicore"
 version = "0.1.0"
-description = "Shared core for the Sushi* developer CLIs (ss / sr / se / sa / sb / sd): workspace resolution, layered config, presentation, and the cmake/ctest driver."
+description = "Shared core for the Sushi* developer CLIs (hub / sr / se / sa / sb / sd): workspace resolution, layered config, presentation, and the cmake/ctest driver."
 authors = [{ name = "Mustafa Garip", email = "mustafagarip@sushisystems.io" }]
 requires-python = ">=3.10"
 dependencies = [

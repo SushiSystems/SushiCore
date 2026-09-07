@@ -1,6 +1,6 @@
 """Shared build-tool config schema and load/write skeleton for the Sushi* CLIs.
 
-Every module CLI (`sr`, `se`, `ss`) shells out to the same host build tools —
+Every module CLI (`sr`, `se`, `hub`) shells out to the same host build tools —
 cmake, ninja, vcpkg, a vcvars batch on Windows — and so carries the same handful
 of tool-path fields plus the same layered-load and ``[tool]``-write skeleton.
 That generic part lives here as :class:`ToolConfig` and the two helpers below.
