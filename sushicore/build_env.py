@@ -52,6 +52,32 @@ def prepend_path(env: dict[str, str], var: str, dirs: Sequence[str]) -> None:
     env[key] = os.pathsep.join(list(dirs) + ([existing] if existing else []))
 
 
+#: Variables that pick which accelerator a program runs on. The snapshot dumps
+#: the whole environment of the shell that produced it, so anything exported for
+#: one debugging session would otherwise be frozen into the cache and replayed
+#: into every later build and run -- including from a fresh terminal, since the
+#: snapshot is merged over the current environment. These name a run-time choice,
+#: never a toolchain fact, so they are dropped on the way in and on the way out.
+RUNTIME_DEVICE_VARS = frozenset({
+    "ONEAPI_DEVICE_SELECTOR",
+    "SYCL_DEVICE_FILTER",
+    "SYCL_DEVICE_ALLOWLIST",
+    "CUDA_VISIBLE_DEVICES",
+    "HIP_VISIBLE_DEVICES",
+    "ZE_AFFINITY_MASK",
+})
+
+
+def without_device_selection(env: Mapping[str, str]) -> dict[str, str]:
+    """Copy *env* without the variables that choose an accelerator.
+
+    Applied to a snapshot before it is cached and to one read back, so a cache
+    written before this existed heals on its next read rather than having to be
+    deleted by hand.
+    """
+    return {k: v for k, v in env.items() if k.upper() not in RUNTIME_DEVICE_VARS}
+
+
 def parse_windows_set(output: str) -> dict[str, str]:
     """Parse the KEY=VALUE lines that cmd.exe's ``set`` prints."""
     env: dict[str, str] = {}
@@ -83,7 +109,7 @@ def snapshot_windows(cfg, console) -> dict[str, str] | None:
     if result.returncode != 0:
         console.warn("vcvars64 returned non-zero; using current env.")
         return None
-    return parse_windows_set(result.stdout)
+    return without_device_selection(parse_windows_set(result.stdout))
 
 
 def read_cache(cache_file: Path, key: str) -> dict[str, str] | None:
@@ -97,7 +123,7 @@ def read_cache(cache_file: Path, key: str) -> dict[str, str] | None:
     if not isinstance(cached, dict) or cached.get("key") != key:
         return None
     env = cached.get("env")
-    return env if isinstance(env, dict) else None
+    return without_device_selection(env) if isinstance(env, dict) else None
 
 
 def write_cache(cache_file: Path, key: str, env: Mapping[str, str]) -> None:
