@@ -2140,3 +2140,97 @@ It builds the two candidates, `Logo(glow=dark_background)` and `Logo(wordmark=Fa
 - `HelpGroup.console_provider` defaults to `None`. When it is `None`, or when building the page raises any `Exception` (a provider that fails outside a workspace, a stray `[/]` in a `rich` docstring), the group logs one warning through `logging.getLogger("sushicore.help")` naming the exception, and falls back to Typer's own help: `TyperGroup.format_help(self, ctx, formatter)` for a group and `type(command).format_help(command, ctx, formatter)` for a child. It never lets a traceback reach `--help`. Tests: a provider that raises `RuntimeError` and one that raises `SystemExit`-free `ValueError` both leave `--help` exit code 0 with Typer's screen and one warning record (`caplog`); `HelpGroup` used directly, without `help_group`, also falls back.
 - Remove the Rich style-cache fixture from `tests/test_typer_help.py`; Task 16's `tests/conftest.py` replaces it.
 - The module docstring of `typer_help.py` and the docstring of `HelpPage` state what they do in at most three lines each; remove "and nothing else" and "not how each draws".
+
+
+---
+
+## Wave 7: a readable table for `hub doctor`
+
+Added 2026-09-21 after the owner ran `hub doctor` and found its table unreadable: the `Detail` column wraps
+long manifest descriptions to three to six lines, the `Owner` value repeats on every row, and nothing
+separates one row from the next. The owner chose, from three drawn layouts, option C: rows grouped by
+owner under a heading, the status words coloured, and after the table a one-line summary and a
+"Needs attention" list of what is missing. The choice was made on the mock in
+`docs/agent/reports/` (Task 19's report reproduces it).
+
+Two changes, in two repositories, in order: Task 19 in sushicore, then Task 20 in `hub`.
+
+**Interface fixed here (Task 19).** `Console.table(columns, rows, title="", *, group_by=None)` and
+`Renderer.table(title, columns, rows, header_style, group_by=None)`. `group_by` is the header of one column
+or `None`. The `Renderer` Protocol gains that one optional parameter and nothing else. `Console.table` passes
+`group_by` to the renderer only when it is not `None`, so a renderer written before this change keeps working
+for every call that does not group. `JsonRenderer` ignores it: the `table` event carries the same
+`columns` and `rows` as before, so the desktop application's parser and its fixtures do not change.
+`PlainRenderer` ignores it too and prints the flat table it always did.
+
+| Wave | Tasks | Files | Waits on | Build the owner runs after it |
+| --- | --- | --- | --- | --- |
+| 7a | 19 Grouped, coloured `Table` | `sushicore/ui/table.py`, `sushicore/renderer.py`, `sushicore/console.py`, `tests/ui/test_table.py`, `tests/test_renderer_components.py`, `tests/test_console_semantics.py`, `tests/test_json_renderer.py` | Wave 6 | `python -m pytest tests -q` |
+| 7b | 20 `hub doctor` uses it | `sushihub/cli/sushistack/setup/steps.py`, `sushihub/cli/tests/test_doctor_table.py` | 19 | `python -m pytest tests -q` from `sushihub/cli`, with `PYTHONPATH` set to the sushicore checkout |
+
+### Task 19: a grouped and coloured `Table`
+
+**Acceptance criterion:** `Table(columns, rows, title, group_by="Owner")` draws a heading per owner with the
+remaining columns aligned across all groups, status words are coloured from the theme, nothing changes for a
+table drawn without `group_by`, and `python -m pytest tests -q` passes.
+
+**`Table` in `sushicore/ui/table.py`.**
+
+- New field `group_by: str | None = None`, last, after `title`. It must name one of `columns`; anything else
+  raises `ValueError` with the column names in the message.
+- Without `group_by`, the table is drawn exactly as today (header row, one rule, no frame), with one
+  addition: a cell whose whole text equals a status word, compared case-insensitively, is drawn in the theme
+  style that word maps to. The map is a module constant, `K_STATUS_STYLES`, from word to `Theme` field name:
+  `OK` to `success`; `MISSING`, `FAIL`, `FAILED` and `ERROR` to `error`; `WARN` and `WARNING` to `warn`;
+  `NOT NEEDED`, `SKIPPED` and `N/A` to `muted`. Any other cell is drawn as it is today (as Rich markup).
+- With `group_by`, the named column is removed from the columns. Rows are grouped by that column's value in
+  order of first appearance, and each group keeps its rows in the given order. The title, when there is one,
+  comes first as before, then a blank line. Each group is a heading line in `theme.header`, then its rows
+  indented two spaces, then a blank line before the next group (no trailing blank line after the last). All
+  groups share the same column widths: every column but the last is as wide as its widest cell across all
+  groups, on one line; the last column takes what is left of the console width and wraps, and its wrapped
+  lines line up under its first line. Column headers are drawn once, under the title and above the first
+  group, in `theme.header` with the muted rule the flat table uses, aligned with the columns below them.
+  Status cells are coloured as above. A group value that is empty is drawn as `-`.
+
+**`Console`, `Renderer` and the three renderers.** `Console.table(columns, rows, title="", *, group_by=None)`
+forwards `group_by` only when it is not `None`. The `Renderer` Protocol's `table` gains `group_by: str | None
+= None`. `RichRenderer.table` builds the `Table` with it. `PlainRenderer.table` and `JsonRenderer.table` accept
+it and ignore it; their output is unchanged, and a test proves the JSON event is byte-identical with and
+without `group_by`.
+
+**Tests.** `tests/ui/test_table.py`: the existing tests still pass untouched; a grouped table on a small
+fixed set of rows (two groups, one long last-column text that wraps) checks the headings, the shared column
+alignment across groups, the blank line between groups and none after the last, the repeated group column
+being gone, the column headers appearing once, and `group_by` naming an unknown column raising `ValueError`;
+status colouring is checked through `capture_ansi`: `OK` carries the success style's codes, `MISSING` the error
+style's, `NOT NEEDED` the muted style's, a plain cell carries none. `tests/test_renderer_components.py`: a
+grouped table through `RichRenderer`. `tests/test_console_semantics.py` and `tests/test_json_renderer.py`: the
+JSON `table` event is identical with and without `group_by`, and a renderer whose `table` does not accept
+`group_by` still works for an ungrouped call.
+
+### Task 20: `hub doctor` groups its table and lists what is missing
+
+Repository `D:/Projects/sushistack`, package `sushihub/cli`. Run every command and test with
+`PYTHONPATH=D:/Projects/sushicore`; nothing is installed.
+
+**Acceptance criterion:** `hub doctor` prints the inventory grouped by owner, then one summary line, then a
+"Needs attention" list when something is missing, and every existing hub test and the `--json` event stream
+for the inventory are unchanged.
+
+**Change.** In `sushistack/setup/steps.py`, `run` passes `group_by="Owner"` to `console.table`; the columns
+and rows it passes are unchanged. After the table and the existing two `console.info` lines about vendored
+dependencies, it counts the rows by status text (`OK`, `MISSING`, `NOT NEEDED`, and any other status counted
+under its own name) and prints one `console.info` line, `9 OK | 1 missing | 1 not needed`, with zero counts
+left out. When at least one row is `MISSING` it prints `console.warn("Needs attention")`, then one
+`console.info` line per missing row, `<component>  <detail>`, and last `console.info("Run `hub install` to
+provision what is missing.")`. When nothing is missing it prints neither. The summary and list are computed
+from the same rows the table shows, in one small function beside `inventory_rows`, so the table and the
+summary cannot disagree.
+
+**Tests** in `sushihub/cli/tests/test_doctor_table.py`: with a fake set of rows (one OK, one MISSING, one NOT
+NEEDED, two owners) the human output has the two group headings, the summary line and the attention list; with
+no MISSING row there is a summary and no attention list; the machine (`--json`) event for the table has the
+same four columns and the same rows as before, and no `group_by` key. Follow how existing tests in
+`sushihub/cli/tests/` drive the doctor step and capture console output. Do not edit `sushihub/gui/`, the
+contract schemas, or any fixture; if a GUI fixture or a golden test fails, stop and report it.
