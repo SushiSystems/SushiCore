@@ -2274,3 +2274,88 @@ Rich style; `[/]` untouched; an already escaped bracket untouched; several brack
 a string with no brackets unchanged; `[link https://example.com]x[/link]` untouched. `tests/ui/test_table.py`:
 `Dear ImGui (imgui[glfw-binding,opengl3-binding])` prints whole in a flat and in a grouped table; a cell
 `[error]FAIL[/error]` prints `FAIL` in the error style through `capture_ansi`; the existing tests pass untouched.
+
+
+### Task 22: switch on virtual terminal processing in a Windows console
+
+Source: the owner ran `hub` in a classic `cmd` window and in a PowerShell window and saw no logo. A classic
+Windows console starts a native program with virtual terminal (VT) processing off. Rich reads that as a legacy
+console, picks the 16-colour Windows renderer, and the help page's gate (256 or true colour) hides the logo.
+Windows Terminal and the VS Code terminal run with VT on, which is why the logo appears there. Turning VT on
+for the console before Rich looks is what `colorama.just_fix_windows_console()` does and what many tools do;
+the mode belongs to the console buffer, so it stays on after the program exits, which shells cope with.
+
+**Acceptance criterion:** on Windows, building a `RichRenderer` asks the console for VT processing on stdout
+and stderr, on any other platform or when a stream is not a console nothing is touched, and
+`python -m pytest tests -q` passes.
+
+**`sushicore/windows_console.py`** (new):
+
+```python
+def enable_virtual_terminal(kernel32=None) -> bool:
+    """Turn on virtual terminal processing for stdout and stderr and report whether either was turned on."""
+```
+
+It does nothing and returns `False` unless `sys.platform == "win32"`. Otherwise, for the standard output
+handle (`-11`) and the standard error handle (`-12`) it calls `GetStdHandle`, then `GetConsoleMode`; when that
+succeeds and bit `0x0004` (`ENABLE_VIRTUAL_TERMINAL_PROCESSING`) is not set it calls `SetConsoleMode` with the
+mode or `0x0004`, and counts the handle as turned on when `SetConsoleMode` succeeds. A handle whose
+`GetConsoleMode` fails (redirected to a file or a pipe) is skipped. `kernel32` is any object with those three
+functions; when `None` it is `ctypes.windll.kernel32`, imported inside the function so the module imports on
+every platform. Any `OSError` or `AttributeError` from the calls is caught and the result is `False`, because
+this is best effort and must never stop a command. A handle that already has the bit set counts as on and is
+not written.
+
+**`RichRenderer.__init__`** in `sushicore/renderer.py` calls `enable_virtual_terminal()` before it builds the
+Rich console, importing the function inside `__init__` like the file's other Rich imports, so `import
+sushicore` still loads neither Rich nor `windows_console`. `PlainRenderer` and `JsonRenderer` are untouched.
+
+**Tests** in `tests/test_windows_console.py`, with a fake `kernel32` object that records calls: both handles
+turned on when `GetConsoleMode` succeeds and the bit is clear (the recorded modes are the old mode or `0x0004`);
+a handle with the bit already set is not written to but counts as on; a handle whose `GetConsoleMode` fails is
+skipped and gives `False` when both fail; a `SetConsoleMode` that fails counts as not turned on; an `OSError`
+from the fake gives `False`; on a non-Windows `sys.platform` (monkeypatched) nothing is called and the result is
+`False`. In `tests/test_renderer_components.py`: constructing a `RichRenderer` calls
+`sushicore.windows_console.enable_virtual_terminal` once (monkeypatch it), and the existing subprocess test that
+asserts `import sushicore` loads no Rich still passes. Do not run the real function against the real console in
+any test.
+
+
+### Task 23: print the help page through Rich, not through Click's `echo`
+
+Source: a screenshot from the owner's VS Code terminal. The wordmark's `SYSTEMS` and the roll's amber came out
+light grey, and the nori outline came out bright green. Typer 0.27 carries its own copy of Click under
+`typer/_click/`, and that copy's `_compat.py` still wraps the output streams on Windows with
+`colorama.AnsiToWin32`. `HelpGroup.format_help` wrote an ANSI string into Click's formatter, Click printed it
+with `echo`, and colorama read the true-colour sequence `38;2;R;G;B` as separate parameters: the `0` of
+`240;165;0` reset to the default colour and the `32` of `26;28;32` set a green foreground. Typer's own help
+never shows this because it prints through Rich, straight to the console. The page now does the same.
+
+**Acceptance criterion:** `HelpGroup` and the wrapped children print the page with the Rich console the
+provider's `Console` carries, write nothing into Click's formatter, and fall back to Typer's own screen exactly
+as before when building or rendering the page fails; `python -m pytest tests -q` passes.
+
+**`sushicore/typer_help.py`.**
+
+- `_write_page(command, ctx, formatter, console)` builds the model and the page as now, renders the page with
+  `console.theme` into a renderable, and prints it with `console.console.print(renderable)`. The console decides
+  width, colour system and colour setting; the `_draw` function and its `io` import go, together with anything
+  else that only served it. The formatter is not written to.
+- The logo gate `_logo_visible(raw)` and `_logo_for` are unchanged.
+- The guard is unchanged in behaviour: an exception raised while the model or the page is built or rendered
+  logs one warning and hands over to Typer's own screen. Rich renders a renderable in full before it writes
+  anything, so a failure in `render` leaves no partial page; add a test that proves it with a component whose
+  `render` raises after an earlier block rendered fine.
+- `ctx.get_help()` now returns an empty string for a group that draws its page, because the page is printed
+  while `get_help` runs. `hub`'s bare invocation calls `typer.echo(ctx.get_help())`, which prints the page and
+  then one blank line; state that in the module docstring in one sentence.
+
+**Tests** in `tests/test_typer_help.py`: the stand-ins already carry a Rich console; read the page from that
+console's stream instead of from `CliRunner`'s `result.output`, and keep every existing assertion about
+content, grouping, examples, the logo gate and the guard. Two additions: the page printed on the fake truecolour
+terminal contains the real ANSI colour codes of the roll (`38;2;240;165;0` for amber and `38;2;26;28;32` for
+nori), which the old route could not show a test; and `result.output` from `CliRunner` for a page-drawing group
+does not contain the page (the formatter is untouched). `tests/help/` and `tests/ui/` are unaffected.
+
+**Docs** (the orchestrator does them): the spec's "Help" paragraph about writing into Click's formatter, and
+`docs/README.md`'s "Help screens".

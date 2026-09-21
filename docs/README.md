@@ -72,6 +72,15 @@ background = "dark"   # auto | dark | light
 
 `SUSHI_CLI_BACKGROUND` sets the same thing from the environment.
 
+The page is printed on the console's Rich stream, the way Typer prints its own help,
+and not through Click's `echo`: on Windows Click wraps its output in colorama, which
+cannot read true-colour codes. So `ctx.get_help()` returns an empty string for a group
+that draws its page.
+
+A classic Windows console (`cmd`, a PowerShell window) starts a program with virtual
+terminal processing off, and Rich then draws 16 colours. Building a `RichRenderer`
+turns that mode on for stdout and stderr, so true colour and the logo work there too.
+
 If drawing the page fails, `--help` logs one warning under `sushicore.help` and shows
 Typer's own screen.
 

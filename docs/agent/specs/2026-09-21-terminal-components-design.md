@@ -92,11 +92,15 @@ the glow. A terminal that sets no `COLORFGBG`, Windows Terminal among them, need
 
 `sushicore/typer_help.py` is the only module that imports Typer. `help_group(console)` takes
 a callable returning the CLI's `Console` and returns a `TyperGroup` subclass. Its `format_help`
-builds the model and the page and writes the page, drawn to the console's width and colour
-setting, into Click's formatter. Writing through the formatter keeps `ctx.get_help()` working,
-which `hub`'s bare invocation uses. Each CLI writes `typer.Typer(cls=help_group(...))` on the
-root and on every `add_typer` sub-app, and supplies a provider for its `Console`, so `--help`
-still runs outside a workspace.
+builds the model and the page and prints the page on the Rich console that `Console` carries,
+the way Typer prints its own help, and writes nothing into Click's formatter. Click's `echo`
+is avoided on purpose: on Windows Click wraps its output in colorama, which reads the 24-bit
+colour sequence `38;2;R;G;B` as separate parameters (`0` resets, `32` is green), so the roll
+and the wordmark lose their colours. `ctx.get_help()` therefore returns an empty string for a
+group that draws its page, and `hub`'s bare invocation, which echoes it, prints the page and
+then one blank line. Each CLI writes `typer.Typer(cls=help_group(...))` on the root and on
+every `add_typer` sub-app, and supplies a provider for its `Console`, so `--help` still runs
+outside a workspace.
 
 Typer ignores a group's `command_class` (it builds each command with `command_info.cls or
 TyperCommand`), so the group wraps `get_command` and replaces each child's `format_help` as it
@@ -108,8 +112,8 @@ that has, and its removal is a later, separate change.
 
 ## Machine output
 
-Nothing here reaches `--json`. `JsonRenderer` still emits events. Help text goes through
-Click's formatter to stdout, as it does today, and contains no event.
+Nothing here reaches `--json`. `JsonRenderer` still emits events. A help page is printed on the console's own Rich
+stream, as Typer prints its help, and contains no event.
 
 ## Package layout
 
