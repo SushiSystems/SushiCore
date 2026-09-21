@@ -116,12 +116,13 @@ Click's formatter to stdout, as it does today, and contains no event.
 ```
 sushicore/
   brand.py
+  terminal_background.py
   theme.py                  gains Theme.muted
   renderer.py               table, panel, header delegate to ui/
   typer_help.py
   ui/    __init__.py component.py logo.py header.py panel.py table.py
          title.py usage.py definition_list.py
-  help/  __init__.py model.py from_click.py page.py
+  help/  __init__.py model.py from_click.py page.py logo_choice.py
 ```
 
 Dependency direction is `typer_help` to `help` to `ui` to `theme` and `brand`, and `renderer` to
@@ -165,11 +166,12 @@ writes its examples in `epilog`. The groups:
 | Workspace | `init`, `home`, `status` |
 | Modules | `add`, `link`, `install-cli`, `update`, `sync` |
 | Dependencies | `install`, `doctor`, `remove` |
-| Desktop app | `gui` |
 | Account | `login`, `logout`, `whoami`, `license` |
+| Desktop app | `gui` |
 
-The screen lists groups in the order each first appears among the commands, which is the order
-above because `gui` is registered before `login`.
+The screen lists groups in the order each first appears among the commands. Typer lists
+registered commands before sub-apps, so `gui` comes last and the screen reads Workspace,
+Modules, Dependencies, Account, Desktop app.
 
 `hub`'s `pyproject.toml` raises its sushicore lower bound to 0.4.0, and `sushihub/cli/README.md`
 and `docs/reference/CHANGELOG.md` change in the same commit. `hub --describe` and the JSON

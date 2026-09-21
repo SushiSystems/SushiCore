@@ -97,3 +97,7 @@ The glow rendering is plain text, so colour differences show only as block shape
 - No commit, and no edit to `pyproject.toml`, `README.md`, `docs/README.md`, the changelog, specs, plans or any `__init__.py`.
 - Task 15's files were not touched.
 - `python -m pytest tests -q` is 296 passed with Task 15's worker possibly writing at the same time; I ran it once, at the time shown above.
+
+## Orchestrator note
+
+The claim that `width` and `render` cannot disagree held for the mark only. The wave-6 review showed a ragged wordmark makes them disagree, and the orchestrator fixed it by computing `width` from the same composed grid `render` draws, with a test.
