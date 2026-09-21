@@ -9,7 +9,9 @@ import pytest
 import typer
 import typer.main
 from rich.console import Console as RichConsole
+from rich.console import Group, RenderableType
 from rich.errors import MarkupError
+from rich.text import Text
 from typer.testing import CliRunner
 
 from sushicore.console import Console
@@ -24,11 +26,18 @@ K_BLOCKS = "▀▄█"
 K_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 K_TYPER_PANEL = "─ Options ─"
 K_LOGGER_NAME = "sushicore.help"
+K_AMBER_CODE = "38;2;240;165;0"
+K_NORI_CODE = "38;2;26;28;32"
+K_FIRST_BLOCK = "the block that drew"
 
 
-def _app() -> typer.Typer:
-    """Return the hub-like test app whose help draws through the page."""
-    console = Console(PlainRenderer(stream=io.StringIO()), Theme(), IconSet())
+def _plain_console(stream: io.StringIO) -> Console:
+    """Return a colourless Console whose Rich console writes to ``stream``."""
+    return Console(PlainRenderer(stream=stream), Theme(), IconSet())
+
+
+def _app(console: Console) -> typer.Typer:
+    """Return the hub-like test app whose help draws on ``console``."""
     group = help_group(lambda: console)
     app = typer.Typer(cls=group, name="hub", help="Manage the stack.", rich_markup_mode="rich")
     gui = typer.Typer(cls=group, name="gui", help="The desktop application.")
@@ -59,10 +68,11 @@ def _app() -> typer.Typer:
 
 
 def _run(*args: str) -> str:
-    """Return the output of one CliRunner invocation, asserting it exited zero."""
-    result = CliRunner().invoke(_app(), list(args))
+    """Return the page the console printed for ``args``, asserting the run exited zero."""
+    stream = io.StringIO()
+    result = CliRunner().invoke(_app(_plain_console(stream)), list(args))
     assert result.exit_code == 0, result.output
-    return result.output
+    return stream.getvalue()
 
 
 def test_root_help_groups_commands_under_their_panels():
@@ -101,11 +111,17 @@ def test_no_logo_on_a_console_that_is_not_a_terminal():
     assert not any(ch in _run("--help") for ch in K_BLOCKS)
 
 
+def test_the_click_formatter_is_left_empty_for_a_page_drawing_group():
+    result = CliRunner().invoke(_app(_plain_console(io.StringIO())), ["--help"])
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == ""
+
+
 def test_the_provider_is_called_as_a_plain_function_not_bound_to_the_group():
     seen = []
 
     def provider():
-        console = Console(PlainRenderer(stream=io.StringIO()), Theme(), IconSet())
+        console = _plain_console(io.StringIO())
         seen.append(console)
         return console
 
@@ -124,13 +140,14 @@ def test_the_provider_is_called_as_a_plain_function_not_bound_to_the_group():
 
 
 def test_looking_a_child_up_twice_leaves_it_with_one_help_page():
-    group = typer.main.get_command(_app())
+    stream = io.StringIO()
+    group = typer.main.get_command(_app(_plain_console(stream)))
     ctx = click.Context(group, info_name="hub")
     first = group.get_command(ctx, "add")
     second = group.get_command(ctx, "add")
     assert first is second
-    page = second.get_help(click.Context(second, info_name="add", parent=ctx))
-    assert page.count("Usage: hub add") == 1
+    assert second.get_help(click.Context(second, info_name="add", parent=ctx)) == ""
+    assert stream.getvalue().count("Usage: hub add") == 1
 
 
 class _TerminalConsole:
@@ -170,18 +187,19 @@ def _two_commands(app: typer.Typer) -> typer.Typer:
     return app
 
 
-def _terminal_app(
-    color_system: str,
-    no_color: bool = False,
-    width: int = 80,
-    dark_background: bool = False,
-) -> typer.Typer:
-    """Return a two-command app whose help draws on a terminal of the given colour."""
+def _terminal_page(*args: str, **shape) -> str:
+    """Return what the terminal consoles of shape ``shape`` printed while ``args`` ran."""
+    consoles: list[_TerminalConsole] = []
 
     def provider() -> _TerminalConsole:
-        return _TerminalConsole(color_system, no_color, width, dark_background)
+        console = _TerminalConsole(**shape)
+        consoles.append(console)
+        return console
 
-    return _two_commands(typer.Typer(cls=help_group(provider), name="hub", help="Manage."))
+    app = _two_commands(typer.Typer(cls=help_group(provider), name="hub", help="Manage."))
+    result = CliRunner().invoke(app, list(args))
+    assert result.exit_code == 0, result.output
+    return "".join(console.console.file.getvalue() for console in consoles)
 
 
 def _shows_logo(output: str) -> bool:
@@ -202,47 +220,49 @@ def _drawn_alone(logo: Logo, width: int) -> list[str]:
 
 @pytest.mark.parametrize("color_system", ["256", "truecolor"])
 def test_the_root_page_shows_the_logo_on_a_terminal_with_256_colours_or_more(color_system):
-    assert _shows_logo(CliRunner().invoke(_terminal_app(color_system), ["--help"]).output)
+    assert _shows_logo(_terminal_page("--help", color_system=color_system))
+
+
+def test_the_page_reaches_a_truecolour_terminal_with_the_rolls_own_colour_codes():
+    output = _terminal_page("--help", color_system="truecolor")
+    assert K_AMBER_CODE in output and K_NORI_CODE in output
 
 
 def test_a_dark_terminal_draws_the_lockup_with_its_glow():
     logo = Logo(glow=True)
-    app = _terminal_app("truecolor", width=logo.width, dark_background=True)
-    output = CliRunner().invoke(app, ["--help"]).output
+    output = _terminal_page(
+        "--help", color_system="truecolor", width=logo.width, dark_background=True
+    )
     assert _block_rows(output) == _drawn_alone(logo, logo.width)
 
 
 def test_a_light_terminal_draws_the_lockup_without_a_glow():
     logo = Logo(glow=False)
-    app = _terminal_app("truecolor", width=logo.width)
-    output = CliRunner().invoke(app, ["--help"]).output
+    output = _terminal_page("--help", color_system="truecolor", width=logo.width)
     assert _block_rows(output) == _drawn_alone(logo, logo.width)
 
 
 def test_a_console_too_narrow_for_the_wordmark_draws_the_mark_alone():
     mark = Logo(wordmark=False, glow=False)
-    app = _terminal_app("truecolor", width=mark.width)
-    output = CliRunner().invoke(app, ["--help"]).output
+    output = _terminal_page("--help", color_system="truecolor", width=mark.width)
     assert _block_rows(output) == _drawn_alone(mark, mark.width)
 
 
 def test_a_console_narrower_than_the_mark_draws_no_logo():
-    app = _terminal_app("truecolor", width=Logo(wordmark=False, glow=False).width - 1)
-    assert not _shows_logo(CliRunner().invoke(app, ["--help"]).output)
+    width = Logo(wordmark=False, glow=False).width - 1
+    assert not _shows_logo(_terminal_page("--help", color_system="truecolor", width=width))
 
 
 def test_a_leaf_page_does_not_show_the_logo_on_a_colour_terminal():
-    output = CliRunner().invoke(_terminal_app("truecolor"), ["add", "--help"]).output
-    assert not _shows_logo(output)
+    assert not _shows_logo(_terminal_page("add", "--help", color_system="truecolor"))
 
 
 def test_the_root_page_hides_the_logo_on_a_standard_colour_terminal():
-    assert not _shows_logo(CliRunner().invoke(_terminal_app("standard"), ["--help"]).output)
+    assert not _shows_logo(_terminal_page("--help", color_system="standard"))
 
 
 def test_the_root_page_hides_the_logo_when_colour_is_switched_off_on_a_terminal():
-    app = _terminal_app("truecolor", no_color=True)
-    assert not _shows_logo(CliRunner().invoke(app, ["--help"]).output)
+    assert not _shows_logo(_terminal_page("--help", color_system="truecolor", no_color=True))
 
 
 def _guarded_app(provider, help_text: str = "Manage the stack.", **options) -> typer.Typer:
@@ -296,7 +316,7 @@ def test_a_help_group_used_without_a_provider_falls_back_to_typers_help(caplog):
 
 
 def test_a_stray_close_tag_in_rich_help_is_logged_and_handed_to_typers_help(caplog):
-    console = Console(PlainRenderer(stream=io.StringIO()), Theme(), IconSet())
+    console = _plain_console(io.StringIO())
     app = _guarded_app(lambda: console, "Manage [/] the stack.", rich_markup_mode="rich")
     with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
         result = CliRunner().invoke(app, ["--help"])
@@ -320,3 +340,30 @@ def test_each_help_call_logs_one_warning_of_its_own(caplog):
         CliRunner().invoke(app, ["--help"])
         CliRunner().invoke(app, ["add", "--help"])
     assert len(_warnings(caplog)) == 2
+
+
+class _Exploding:
+    """Raises while Rich draws it, after the block before it has drawn."""
+
+    def __rich_console__(self, console, options):
+        """Raise instead of yielding segments."""
+        raise RuntimeError("the second block cannot be drawn")
+
+
+class _HalfDrawnPage:
+    """Stands in for a page whose second block fails once the first has drawn."""
+
+    def __init__(self, model, logo=None) -> None:
+        """Take the arguments HelpPage takes and keep none of them."""
+
+    def render(self, theme: Theme) -> RenderableType:
+        """Return a block that draws and, after it, a block that raises."""
+        return Group(Text(K_FIRST_BLOCK), _Exploding())
+
+
+def test_a_block_that_fails_to_draw_leaves_no_part_of_the_page_on_the_console(monkeypatch, caplog):
+    monkeypatch.setattr("sushicore.typer_help.HelpPage", _HalfDrawnPage)
+    stream = io.StringIO()
+    output = _invoke_and_warn(_app(_plain_console(stream)), caplog, "--help")
+    assert stream.getvalue() == ""
+    assert K_FIRST_BLOCK not in output and K_TYPER_PANEL in output
