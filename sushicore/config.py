@@ -13,6 +13,7 @@ Schema (in any of the given TOML files)::
     theme = "default"      # preset name; see sushicore.theme
     icons = "text"         # preset name; see sushicore.icons
     color = "auto"         # auto | always | never
+    background = "auto"    # auto | dark | light
 
     [cli.colors]           # optional partial override merged onto the preset
     error = "bold red on white"
@@ -31,6 +32,8 @@ import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .terminal_background import K_AUTO, K_VALUES
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:  # Python 3.10 fallback
@@ -44,6 +47,7 @@ class AppearanceSpec:
     theme: str = "default"
     icons: str = "text"
     color: str = "auto"  # auto | always | never
+    background: str = "auto"  # auto | dark | light
     color_overrides: dict = field(default_factory=dict)
     icon_overrides: dict = field(default_factory=dict)
 
@@ -87,6 +91,8 @@ def load_appearance(config_paths: list[Path]) -> AppearanceSpec:
             spec.icons = table["icons"]
         if "color" in table and isinstance(table["color"], str):
             spec.color = table["color"]
+        if "background" in table and isinstance(table["background"], str):
+            spec.background = table["background"]
         colors = table.get("colors")
         if isinstance(colors, dict):
             spec.color_overrides.update(colors)
@@ -101,10 +107,14 @@ def load_appearance(config_paths: list[Path]) -> AppearanceSpec:
         spec.icons = env[f"{_ENV_PREFIX}_ICONS"]
     if f"{_ENV_PREFIX}_COLOR" in env:
         spec.color = env[f"{_ENV_PREFIX}_COLOR"]
+    if f"{_ENV_PREFIX}_BACKGROUND" in env:
+        spec.background = env[f"{_ENV_PREFIX}_BACKGROUND"]
     if "NO_COLOR" in env:  # https://no-color.org — always wins when set
         spec.color = "never"
 
     if spec.color not in ("auto", "always", "never"):
         spec.color = "auto"
+    if spec.background not in K_VALUES:
+        spec.background = K_AUTO
 
     return spec
