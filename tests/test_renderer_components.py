@@ -29,6 +29,23 @@ def test_table_has_a_title_a_header_a_rule_and_no_frame(capsys):
     assert not set("".join(lines)) & K_FRAME
 
 
+def test_grouped_table_prints_a_heading_per_group_without_the_group_column(capsys):
+    RichRenderer(Theme(), no_color=True).table(
+        "Inventory",
+        ["Owner", "Component", "Status"],
+        [["shared", "python", "OK"], ["sushiruntime", "adaptivecpp", "MISSING"]],
+        header_style="bold",
+        group_by="Owner",
+    )
+    lines = _lines(capsys)
+    assert [line for line in lines if line and line[0] not in " ─"] == [
+        "Inventory",
+        "shared",
+        "sushiruntime",
+    ]
+    assert "Owner" not in "\n".join(lines)
+
+
 def test_header_prints_a_blank_line_then_a_rule_holding_the_title(capsys):
     RichRenderer(Theme(), no_color=True).header("Setup", style="bold")
     lines = _lines(capsys)

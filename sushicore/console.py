@@ -82,9 +82,25 @@ class Console:
         """Print a failure body inside a bordered panel."""
         self._renderer.panel(title, body, self._theme.panel_border)
 
-    def table(self, columns: list[str], rows: list[list[str]], title: str = "") -> None:
-        """Print a table of string cells with the theme's header style."""
-        self._renderer.table(title, columns, rows, self._theme.header)
+    def table(
+        self,
+        columns: list[str],
+        rows: list[list[str]],
+        title: str = "",
+        *,
+        group_by: str | None = None,
+    ) -> None:
+        """Print a table of string cells with the theme's header style.
+
+        Args:
+            group_by: Header of the column whose values group the rows, or None for a flat
+                table. It reaches the renderer only when it is not None, so a renderer written
+                before grouping existed keeps serving every ungrouped call.
+        """
+        if group_by is None:
+            self._renderer.table(title, columns, rows, self._theme.header)
+            return
+        self._renderer.table(title, columns, rows, self._theme.header, group_by=group_by)
 
     def progress(self, label: str, index: int, count: int, fraction: float | None = None) -> None:
         """Report step ``index`` of ``count`` for ``label``, with a fraction when known."""

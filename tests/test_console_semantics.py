@@ -76,6 +76,31 @@ def test_console_table_passes_the_theme_header_style():
     assert spy.calls == [("table", ("T", ["A"], [["1"]], Theme().header))]
 
 
+class _GroupingSpy(_Spy):
+    """A renderer whose table accepts the grouping column the newer Protocol declares."""
+
+    def table(self, *a, group_by=None):
+        self.calls.append(("table", a, group_by))
+
+
+def test_console_leaves_group_by_out_of_the_call_when_it_is_not_asked_for():
+    spy = _GroupingSpy()
+    _console(spy).table(["A"], [["1"]], title="T")
+    assert spy.calls == [("table", ("T", ["A"], [["1"]], Theme().header), None)]
+
+
+def test_console_forwards_the_grouping_column_when_it_is_given():
+    spy = _GroupingSpy()
+    _console(spy).table(["A", "B"], [["1", "2"]], title="T", group_by="A")
+    assert spy.calls == [("table", ("T", ["A", "B"], [["1", "2"]], Theme().header), "A")]
+
+
+def test_a_renderer_that_never_heard_of_group_by_still_draws_an_ungrouped_table():
+    spy = _Spy()
+    _console(spy).table(["A"], [["1"]], title="T")
+    assert spy.calls == [("table", ("T", ["A"], [["1"]], Theme().header))]
+
+
 def test_console_progress_defaults_fraction_to_none():
     spy = _Spy()
     _console(spy).progress("step", 1, 3)

@@ -37,8 +37,15 @@ class Renderer(Protocol):
         """Draw a bordered block of text under a title."""
         ...
 
-    def table(self, title: str, columns: list[str], rows: list[list[str]], header_style: str) -> None:
-        """Draw a table of string cells under a title."""
+    def table(
+        self,
+        title: str,
+        columns: list[str],
+        rows: list[list[str]],
+        header_style: str,
+        group_by: str | None = None,
+    ) -> None:
+        """Draw a table of string cells under a title, grouped by one column when named."""
         ...
 
     def progress(self, label: str, index: int, count: int, fraction: float | None) -> None:
@@ -123,11 +130,18 @@ class RichRenderer:
 
         self._console.print(Panel(title, body).render(self._theme))
 
-    def table(self, title: str, columns: list[str], rows: list[list[str]], header_style: str) -> None:
-        """Print the rows as a table under one header rule."""
+    def table(
+        self,
+        title: str,
+        columns: list[str],
+        rows: list[list[str]],
+        header_style: str,
+        group_by: str | None = None,
+    ) -> None:
+        """Print the rows as a table under one header rule, grouped when a column is named."""
         from .ui.table import Table
 
-        table = Table(tuple(columns), tuple(tuple(row) for row in rows), title)
+        table = Table(tuple(columns), tuple(tuple(row) for row in rows), title, group_by)
         self._console.print(table.render(self._theme))
 
     def progress(self, label: str, index: int, count: int, fraction: float | None) -> None:
@@ -187,7 +201,14 @@ class PlainRenderer:
         self._write(body)
         self._write("-" * (len(title) + 8))
 
-    def table(self, title: str, columns: list[str], rows: list[list[str]], header_style: str) -> None:
+    def table(
+        self,
+        title: str,
+        columns: list[str],
+        rows: list[list[str]],
+        header_style: str,
+        group_by: str | None = None,
+    ) -> None:
         """Print the title, a header row and the rows, cells joined by two spaces."""
         if title:
             self._write(title)
@@ -263,8 +284,15 @@ class JsonRenderer:
         """Emit a ``panel`` event."""
         self._emit("panel", title=title, body=body)
 
-    def table(self, title: str, columns: list[str], rows: list[list[str]], header_style: str) -> None:
-        """Emit a ``table`` event."""
+    def table(
+        self,
+        title: str,
+        columns: list[str],
+        rows: list[list[str]],
+        header_style: str,
+        group_by: str | None = None,
+    ) -> None:
+        """Emit a ``table`` event, which carries no grouping because the reader is a program."""
         self._emit("table", title=title, columns=list(columns), rows=[list(row) for row in rows])
 
     def progress(self, label: str, index: int, count: int, fraction: float | None) -> None:

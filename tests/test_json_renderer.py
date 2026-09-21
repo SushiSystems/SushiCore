@@ -56,6 +56,14 @@ def test_events_carry_the_contract_keys():
     ]
 
 
+def test_the_table_event_is_byte_identical_with_and_without_a_grouping_column():
+    flat, flat_out, _ = _renderer()
+    grouped, grouped_out, _ = _renderer()
+    flat.table("T", ["Owner", "State"], [["shared", "cloned"]], "bold")
+    grouped.table("T", ["Owner", "State"], [["shared", "cloned"]], "bold", group_by="Owner")
+    assert grouped_out.getvalue() == flat_out.getvalue()
+
+
 def test_raw_writes_to_the_error_stream_not_stdout():
     r, out, err = _renderer()
     r.raw.print("stray")
