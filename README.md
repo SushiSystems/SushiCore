@@ -1,8 +1,9 @@
 # sushicore
 
 The shared core of the Sushi developer CLIs. `hub`, `sr`, `se`, `sa`, `sb`, `sd` and `st` all
-import it for the same four things: locating a workspace, loading layered TOML configuration,
-printing to a terminal or to a JSON stream, and driving cmake and ctest.
+import it for the same five things: locating a workspace, loading layered TOML configuration,
+printing to a terminal or to a JSON stream, driving cmake and ctest, and reading the
+`sushistack.deps.toml` fragment a repository writes about what it needs.
 
 ```bash
 pip install sushicore
