@@ -4,6 +4,7 @@ One line per meaningful change, newest first. Format: date, a past-tense verb, w
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
 - 2026-09-21 — Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).
+- 2026-09-22 — Added blank lines around the help logo and made definition-list terms not bold, so headings stand out (`sushicore/help/page.py`, `sushicore/ui/definition_list.py`).
 - 2026-09-22 — Printed the help page on the console's Rich stream, not through Click's `echo`, which garbled true-colour codes on Windows (`sushicore/typer_help.py`).
 - 2026-09-22 — Added `enable_virtual_terminal`, called when a `RichRenderer` is built, so a classic Windows console draws true colour (`sushicore/windows_console.py`, `sushicore/renderer.py`).
 - 2026-09-21 — Kept a bracket in a table cell as text unless it names a style (`sushicore/markup.py`, `sushicore/ui/table.py`).
