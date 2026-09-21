@@ -2234,3 +2234,43 @@ no MISSING row there is a summary and no attention list; the machine (`--json`) 
 same four columns and the same rows as before, and no `group_by` key. Follow how existing tests in
 `sushihub/cli/tests/` drive the doctor step and capture console output. Do not edit `sushihub/gui/`, the
 contract schemas, or any fixture; if a GUI fixture or a golden test fails, stop and report it.
+
+
+### Task 21: a bracket in table data stays text
+
+Source: Task 20's report and the owner's own `hub doctor` output. A table cell is read as Rich markup, so
+`Dear ImGui (imgui[glfw-binding,opengl3-binding])` prints as `Dear ImGui (imgui)` and `hdf5[core,zlib]` as
+`hdf5`: the bracket is taken for a style tag and dropped. The 0.3.0 table did the same, so this is an old
+data-loss bug, not a regression. It cannot be fixed by making cells plain text, because `sushitrack` puts
+markup in its cells on purpose (`[success]ok[/success]`, `[error]FAIL[/error]`, `[dim]...[/dim]`,
+`[cmd]0[/cmd]`). A bracket is markup only when what it names is a style.
+
+**Acceptance criterion:** a table cell keeps every bracket that does not name a style, a cell that does name one
+is still styled, and `python -m pytest tests -q` passes.
+
+**`sushicore/markup.py`** (new; it is not a component, so it lives beside `theme.py`):
+
+```python
+def escape_unknown_tags(text: str, known_styles: Collection[str]) -> str:
+    """Return ``text`` with every bracket escaped that does not open or close a known style."""
+```
+
+A bracket is `[` then any characters but `[` and `]` then `]`. It is left as it is when the text between the
+brackets is empty, or is `/` alone (Rich's close-everything tag), or, after removing one leading `/`, is in
+`known_styles` or is accepted by `rich.style.Style.parse` (a parse that raises `rich.errors.StyleSyntaxError`
+or `rich.errors.ColorParseError` means "not a style"). Any other bracket gets a backslash before its `[`.
+A `[` already preceded by a backslash is left alone, so nothing is escaped twice. The function reads no
+console and no global state.
+
+**`Table`** in `sushicore/ui/table.py`: every cell that is not a status word goes through
+`Text.from_markup(escape_unknown_tags(cell, theme.as_rich_styles()))` in both the flat and the grouped
+layout, so the theme's own names (`success`, `error`, `warn`, `cmd`, `header`, `muted`) count as known. The
+architecture test's allowed-import set gains `sushicore.markup`; that is the only edit to
+`tests/test_ui_architecture.py`.
+
+**Tests.** `tests/test_markup.py`: `[core,zlib]` escaped; `[red]x[/red]` and `[bold red]x[/]` untouched;
+`[success]ok[/success]` untouched when `success` is in `known_styles` and escaped when it is not and is not a
+Rich style; `[/]` untouched; an already escaped bracket untouched; several brackets in one string, mixed;
+a string with no brackets unchanged; `[link https://example.com]x[/link]` untouched. `tests/ui/test_table.py`:
+`Dear ImGui (imgui[glfw-binding,opengl3-binding])` prints whole in a flat and in a grouped table; a cell
+`[error]FAIL[/error]` prints `FAIL` in the error style through `capture_ansi`; the existing tests pass untouched.
