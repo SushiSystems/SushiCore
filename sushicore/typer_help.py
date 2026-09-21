@@ -1,12 +1,12 @@
 """Wires the help page into Typer; the only module in sushicore that imports Typer.
 
 The group replaces each child's format_help as it hands the child out; the reason is in
-docs/agent/specs/2026-09-21-terminal-components-design.md.
+docs/agent/specs/2026-09-21-terminal-components-design.md. A command that draws a page prints
+it on the Rich console while get_help runs, so ctx.get_help() gives back an empty string.
 """
 
 from __future__ import annotations
 
-import io
 import logging
 from functools import partial
 from typing import Any, Callable, ClassVar
@@ -19,7 +19,6 @@ from .console import Console
 from .help.from_click import build_model
 from .help.logo_choice import choose_logo
 from .help.page import HelpPage
-from .theme import Theme
 from .ui.logo import Logo
 
 K_LOGO_COLOUR_SYSTEMS = ("256", "truecolor")
@@ -40,7 +39,7 @@ class HelpGroup(TyperGroup):
     draws_help_page: ClassVar[bool] = True
 
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        """Write this group's help page into the formatter, or Typer's help when it cannot."""
+        """Print this group's help page, or write Typer's help into the formatter instead."""
         _write_guarded(
             self, ctx, formatter, self.console_provider, partial(TyperGroup.format_help, self)
         )
@@ -62,7 +61,7 @@ def _page_writer(command: Any, provider: Provider | None) -> HelpWriter:
     """Return the format_help that draws ``command`` as a page on the provider's console."""
 
     def format_help(ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        """Write the command's help page into the formatter, or Typer's help when it cannot."""
+        """Print the command's help page, or write Typer's help into the formatter instead."""
         _write_guarded(
             command, ctx, formatter, provider, partial(type(command).format_help, command)
         )
@@ -77,11 +76,11 @@ def _write_guarded(
     provider: Provider | None,
     typer_help: HelpWriter,
 ) -> None:
-    """Write ``command``'s page, or log one warning and let Typer write its own help instead."""
+    """Print ``command``'s page, or log one warning and let Typer write its own help instead."""
     try:
         if provider is None:
             raise _HelpPageError("the help group was built without a console provider")
-        _write_page(command, ctx, formatter, provider())
+        _print_page(command, ctx, provider())
     except Exception as error:
         K_LOGGER.warning(
             "the help page for %s was not drawn (%s: %s); Typer's own help is used instead",
@@ -92,17 +91,12 @@ def _write_guarded(
         typer_help(ctx, formatter)
 
 
-def _write_page(
-    command: Any,
-    ctx: click.Context,
-    formatter: click.HelpFormatter,
-    console: Console,
-) -> None:
-    """Build the page for ``command`` and write it, drawn for ``console``, into ``formatter``."""
+def _print_page(command: Any, ctx: click.Context, console: Console) -> None:
+    """Build the page for ``command`` and print it on ``console``, leaving Click's formatter be."""
     raw = console.console
     page = HelpPage(build_model(command, ctx), logo=_logo_for(raw, console.dark_background))
-    # The page is drawn in full before the single write.
-    formatter.write(_draw(page, console.theme, raw))
+    # Rich draws the whole renderable before it writes, so a failure here leaves no half page.
+    raw.print(page.render(console.theme))
 
 
 def _logo_for(raw: RichConsole, dark_background: bool) -> Logo | None:
@@ -120,18 +114,3 @@ def _logo_visible(raw: RichConsole) -> bool:
         and raw.color_system in K_LOGO_COLOUR_SYSTEMS
         and raw.encoding.lower().startswith("utf")
     )
-
-
-def _draw(page: HelpPage, theme: Theme, raw: RichConsole) -> str:
-    """Return the page as text shaped like ``raw``: its width, colour system and colour setting."""
-    target = RichConsole(
-        file=io.StringIO(),
-        width=raw.width,
-        force_terminal=raw.is_terminal,
-        color_system=raw.color_system,
-        no_color=raw.no_color,
-        legacy_windows=False,
-        highlight=False,
-    )
-    target.print(page.render(theme))
-    return target.file.getvalue()
