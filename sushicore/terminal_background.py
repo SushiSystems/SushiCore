@@ -30,7 +30,7 @@ def is_dark_background(setting: str, environ: Mapping[str, str]) -> bool:
 def _names_a_dark_colour(value: str) -> bool:
     """Report whether COLORFGBG's last field is a colour index this module calls dark."""
     background = value.rsplit(";", 1)[-1]
-    # An unreadable value is unknown, and unknown is not dark: a light terminal keeps its look.
+    # An unreadable value is not dark.
     if not background.isdecimal():
         return False
     return int(background) in K_DARK_INDICES

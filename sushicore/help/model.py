@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class HelpSection:
     """Holds a heading and the term and text pairs listed under it."""
@@ -13,6 +15,7 @@ class HelpSection:
     entries: tuple[tuple[str, str], ...]
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class HelpModel:
     """Holds everything one help screen shows."""

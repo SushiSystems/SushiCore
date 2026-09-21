@@ -13,6 +13,7 @@ from rich.text import Text
 from ..theme import Theme
 
 K_INDENT = 2
+K_COLUMN_GAP = 2
 
 
 @final
@@ -25,7 +26,7 @@ class DefinitionList:
 
     def render(self, theme: Theme) -> RenderableType:
         """Return the heading and the indented grid; terms are literal, text is markup."""
-        grid = RichTable.grid(padding=(0, 2))
+        grid = RichTable.grid(padding=(0, K_COLUMN_GAP))
         grid.add_column(no_wrap=True)
         grid.add_column()
         for term, text in self.entries:
