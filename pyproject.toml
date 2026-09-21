@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sushicore"
-version = "0.3.0"
+version = "0.4.0"
 description = "Shared core for the Sushi* developer CLIs (hub / sr / se / sa / sb / sd / st): workspace resolution, layered config, presentation, and the cmake/ctest driver."
 readme = "README.md"
 license = "Apache-2.0"
@@ -29,7 +29,8 @@ Homepage = "https://github.com/SushiSystems/SushiCore"
 Source = "https://github.com/SushiSystems/SushiCore"
 
 [project.optional-dependencies]
-test = ["pytest>=7.0"]
+typer = ["typer>=0.12"]
+test = ["pytest>=7.0", "typer>=0.12"]
 
 [tool.setuptools.packages.find]
 where = ["."]
