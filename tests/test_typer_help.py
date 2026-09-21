@@ -4,7 +4,6 @@ import io
 import logging
 import re
 
-import click
 import pytest
 import typer
 import typer.main
@@ -29,6 +28,8 @@ K_LOGGER_NAME = "sushicore.help"
 K_AMBER_CODE = "38;2;240;165;0"
 K_NORI_CODE = "38;2;26;28;32"
 K_FIRST_BLOCK = "the block that drew"
+# Typer names the argument MODULE up to 0.20 and module from 0.27 on.
+K_ARGUMENT_ROW = re.compile(r"^ +module\b", re.IGNORECASE | re.MULTILINE)
 
 
 def _plain_console(stream: io.StringIO) -> Console:
@@ -87,9 +88,15 @@ def test_a_bare_invocation_prints_the_same_page():
 
 def test_leaf_help_lists_arguments_options_and_examples():
     out = _run("add", "--help")
-    assert "Arguments" in out and "MODULE" in out
+    assert "Arguments" in out and K_ARGUMENT_ROW.search(out)
     assert "--dry-run" in out and "Show the plan only." in out
     assert "Examples" in out and "hub add sr" in out and "bring sushiruntime in" in out
+
+
+def test_leaf_help_shows_the_extras_typer_puts_on_a_parameter():
+    out = _run("add", "--help")
+    assert "The module.  [required]" in out
+    assert "\\" not in out
 
 
 def test_a_sub_group_draws_its_own_page_not_a_leaf_page():
@@ -142,11 +149,12 @@ def test_the_provider_is_called_as_a_plain_function_not_bound_to_the_group():
 def test_looking_a_child_up_twice_leaves_it_with_one_help_page():
     stream = io.StringIO()
     group = typer.main.get_command(_app(_plain_console(stream)))
-    ctx = click.Context(group, info_name="hub")
+    ctx = group.make_context("hub", [], resilient_parsing=True)
     first = group.get_command(ctx, "add")
     second = group.get_command(ctx, "add")
     assert first is second
-    assert second.get_help(click.Context(second, info_name="add", parent=ctx)) == ""
+    leaf_ctx = second.make_context("add", [], parent=ctx, resilient_parsing=True)
+    assert second.get_help(leaf_ctx) == ""
     assert stream.getvalue().count("Usage: hub add") == 1
 
 

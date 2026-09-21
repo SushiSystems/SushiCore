@@ -1,5 +1,7 @@
 """A help page prints the text of a Click or Typer command as written, and never raises on it."""
 
+from typing import Any
+
 import click
 import typer
 import typer.main
@@ -11,17 +13,21 @@ from tests.ui.capture import capture
 K_WIDTH = 100
 
 
-def _page(command: click.Command, ctx: click.Context) -> str:
+def _page(command: Any, ctx: Any) -> str:
     """Return the help page of ``command`` as plain text."""
     return capture(HelpPage(build_model(command, ctx)), width=K_WIDTH)
 
 
-def _typer_leaf(app: typer.Typer, name: str) -> tuple[click.Command, click.Context]:
-    """Return the sub-command ``name`` of ``app`` and its context."""
+def _typer_leaf(app: typer.Typer, name: str) -> tuple[Any, Any]:
+    """Return the sub-command ``name`` of ``app`` and its context.
+
+    The contexts come from the commands themselves, because Typer carries its own copy of
+    Click and the separate ``click`` package's ``Context`` is a different class from 0.27 on.
+    """
     command = typer.main.get_command(app)
-    parent = click.Context(command, info_name="tool")
+    parent = command.make_context("tool", [], resilient_parsing=True)
     leaf = command.get_command(parent, name)
-    return leaf, click.Context(leaf, info_name=name, parent=parent)
+    return leaf, leaf.make_context(name, [], parent=parent, resilient_parsing=True)
 
 
 def _typer_app(**settings) -> typer.Typer:
