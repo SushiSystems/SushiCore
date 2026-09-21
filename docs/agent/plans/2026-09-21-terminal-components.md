@@ -2389,3 +2389,47 @@ with the default `Theme` (a Theme, not the sushiweb preset, so read `Theme().hea
 build the expected codes from them) the heading carries bold and the term does not; every existing text test
 passes untouched. The `--help` tests in `tests/test_typer_help.py` that count lines may need their expected
 line indexes updated for the blank lines around a logo: change only those, and say which.
+
+
+### Task 25: make the help screen right on Typer 0.27, and stop importing `click`
+
+Source: the first CI run on GitHub, which failed in all four jobs. CI installs the newest Typer (0.27.2). That
+release carries its own copy of Click and no longer installs the `click` package, and it hands out its help
+records differently from 0.20. Two defects follow, and the tests only ever ran on 0.20.
+
+1. `sushicore/typer_help.py` imported `click` at module level (fixed by the orchestrator: the import now sits
+   under `TYPE_CHECKING`, and `HelpWriter` names the classes as strings). The three test modules that
+   `import click` failed to collect.
+2. A real product defect, reproduced with Typer 0.27.2 and Click 8.5.0. Typer 0.20 hands the extras of a
+   parameter over already escaped (`The module.  \[required]`, `Kind.  \[default: debug]`). Typer 0.27 does not
+   (`The module.  [required]`, `Kind.  [default: debug]`). `DefinitionList` reads its text as Rich markup, so on
+   0.27 the brackets are taken for style tags and dropped: the owner's `hub add --help` shows neither
+   `[required]` nor `[default: ...]`. The same holds for a `Title` description. `Table` already keeps a bracket
+   as text unless it names a style (Task 21); the list and the title never got that rule.
+
+**Acceptance criterion:** `DefinitionList` and `Title` keep a bracket as text unless it names a style, so
+`[required]` and `[default: debug]` show whether or not Typer escaped them, `[cyan]x[/cyan]` is still styled,
+an already escaped `\[required]` shows `[required]` once; the whole suite passes both in the current
+environment (Typer 0.20, Click 8.2.1) and in the isolated CI-like environment `ci_venv` (Typer 0.27.2, Click
+8.5.0, no other change) described below.
+
+**Change.**
+
+- `sushicore/ui/definition_list.py`: entry text goes through `escape_unknown_tags(text, theme.as_rich_styles())`
+  before `Text.from_markup`, as `Table._cell` does. `sushicore/ui/title.py`: the description likewise. Both
+  already may import `sushicore.markup` (the architecture test allows it).
+- The four tests that failed on 0.27 were written for 0.20's exact record format and built their contexts with
+  the separate `click` package, which is the wrong `Context` class for Typer 0.27's own Click. Build the context
+  the way Typer does, from the command: `command.make_context(name, [], parent=..., resilient_parsing=True)`,
+  and assert what the screen shows instead of the raw record: the argument's name appears (case does not
+  matter, `MODULE` on 0.20 and `module` on 0.27), the words `[required]` and `[default: a]` appear on the page,
+  and no backslash sits in front of a bracket. `tests/test_typer_help.py` must not import `click` any more.
+  `tests/help/test_from_click.py` and `tests/help/test_markup_safety.py` test the reader against plain Click
+  commands and keep `import click`; the orchestrator adds `click` to the `test` extra.
+- New tests: `DefinitionList` and `Title` on `[required]`, `[default: debug]`, `\[required]` and `[cyan]x[/cyan]`.
+
+**Environment for the check.** `D:/Projects/sushistack`'s scratchpad holds `ci_venv`, a virtualenv with only
+`rich`, `pytest`, `typer` 0.27.2 and `click` 8.5.0, made to reproduce CI. Its interpreter is
+`C:/Users/sushi/AppData/Local/Temp/claude/D--Projects-sushistack/43335f2f-2bdd-481b-a169-5cc2c051201f/scratchpad/ci_venv/Scripts/python.exe`.
+Run the suite with it from the repository root as `python -m pytest tests -q -p no:cacheprovider`, with
+`PYTHONDONTWRITEBYTECODE=1`, and never install anything into it or into any other environment.
