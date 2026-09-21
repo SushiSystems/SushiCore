@@ -78,6 +78,19 @@ Typer's own screen.
 Typer turns an app with one command and no callback into a plain command, so
 the group never sees it and Typer's own screen stays.
 
+## Tables
+
+`console.table(columns, rows, title)` draws a header row, one rule under it and the rows, with no
+frame. A cell whose whole text is a status word is coloured from the theme: `OK` in the success
+style, `MISSING`, `FAIL` and `ERROR` in the error style, `WARN` in the warn style, and `NOT NEEDED`,
+`SKIPPED` and `N/A` muted.
+
+`group_by="Owner"` names a column whose values become headings above their rows. That column
+drops out of the table, the remaining columns line up across all groups, and the last column
+wraps under itself. It only changes the terminal: `--json` still carries every column and row
+in the same `table` event, and a renderer written before `group_by` existed keeps working for
+every call that does not use it.
+
 ## Machine-readable output
 
 `build_console(paths, machine=True)` selects `JsonRenderer`; `LazyConsole.machine = True`
