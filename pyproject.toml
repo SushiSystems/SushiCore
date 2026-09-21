@@ -1,17 +1,32 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sushicore"
 version = "0.1.0"
-description = "Shared core for the Sushi* developer CLIs (hub / sr / se / sa / sb / sd): workspace resolution, layered config, presentation, and the cmake/ctest driver."
+description = "Shared core for the Sushi* developer CLIs (hub / sr / se / sa / sb / sd / st): workspace resolution, layered config, presentation, and the cmake/ctest driver."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Build Tools",
+]
 authors = [{ name = "Mustafa Garip", email = "mustafagarip@sushisystems.io" }]
 requires-python = ">=3.10"
 dependencies = [
     "rich>=13.0",
     "tomli>=2.0; python_version < '3.11'",
 ]
+
+[project.urls]
+Homepage = "https://github.com/SushiSystems/SushiCore"
+Source = "https://github.com/SushiSystems/SushiCore"
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
