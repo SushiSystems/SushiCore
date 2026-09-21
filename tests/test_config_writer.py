@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sushicore.config_base import write_tool_section
+from sushicore.config_base import write_toml_document, write_tool_section
 from sushicore.workspace import read_toml
 
 
@@ -35,3 +35,16 @@ def test_a_non_string_in_a_sibling_table_is_refused(tmp_path):
     target.write_text('[counts]\nmodules = 4\n\n[tool]\n', encoding="utf-8")
     with pytest.raises(TypeError):
         write_tool_section(target, {"toolchain": "acpp"}, ["# header"])
+
+
+def test_the_document_writer_renders_every_table_it_is_given(tmp_path):
+    """write_toml_document writes each table, tool first, the rest sorted."""
+    target = tmp_path / "workspace.toml"
+    write_toml_document(
+        target,
+        {"modules": {"sushiai": "D:\\Projects\\sushiai"}, "tool": {"toolchain": "acpp"},
+         "workspace": {"version": "1"}},
+        ["# header"])
+    body = target.read_text(encoding="utf-8")
+    assert body.index("[tool]") < body.index("[modules]") < body.index("[workspace]")
+    assert 'sushiai = "D:/Projects/sushiai"' in body
