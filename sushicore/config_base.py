@@ -91,13 +91,40 @@ def load_tool_config(cls: Type[C], sources: Iterable[Path], plat: str,
     return cfg
 
 
+def _emit_table(name: str, table: dict) -> list[str]:
+    """Render one top-level table of string values as TOML lines.
+
+    Backslashes become forward slashes, as they do for the ``[tool.<platform>]``
+    paths above: a Windows path written raw into a basic string is an invalid
+    escape, and the file would not parse the next time it is read.
+
+    @pre *table* is a table of string values; anything else raises, because
+        silently dropping it is how a caller loses data it thought was saved.
+    """
+    if not isinstance(table, dict):
+        raise TypeError(
+            f"[{name}]: only tables are preserved, got {type(table).__name__}")
+    lines = ["", f"[{name}]"]
+    for key in sorted(table):
+        value = table[key]
+        if not isinstance(value, str):
+            raise TypeError(
+                f"[{name}] {key}: only string values are preserved, got {type(value).__name__}")
+        lines.append(f'{key} = "{value.replace(chr(92), "/")}"')
+    return lines
+
+
 def write_tool_section(target: Path, updates: dict, header_lines: Iterable[str]) -> Path:
     """Merge *updates* into ``[tool]`` of *target* and rewrite the file.
 
     Scalar keys are written under ``[tool]``; existing ``[tool.<platform>]`` sub-
     tables (the machine-specific paths a probe wrote) are preserved verbatim.
+    Every other top-level table already in the file — one this function was not
+    asked to write — is carried through unchanged via :func:`_emit_table`, so a
+    caller sharing the file with another writer never loses that writer's data.
     Used to persist small, deliberate edits — e.g. the selected toolchain — while
-    leaving the auto-discovered path tables untouched. Returns the path written.
+    leaving the auto-discovered path tables and sibling tables untouched. Returns
+    the path written.
     """
     doc = read_toml(target)
     tool = dict(doc.get("tool", {}))
@@ -119,6 +146,9 @@ def write_tool_section(target: Path, updates: dict, header_lines: Iterable[str])
         for key in sorted(tables[tname]):
             val = str(tables[tname][key]).replace("\\", "/")
             lines.append(f'{key} = "{val}"')
+
+    for name in sorted(k for k in doc if k != "tool"):
+        lines.extend(_emit_table(name, doc[name]))
     lines.append("")
 
     target.write_text("\n".join(lines), encoding="utf-8")

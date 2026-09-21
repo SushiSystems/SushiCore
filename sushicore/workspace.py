@@ -22,8 +22,20 @@ except ModuleNotFoundError:  # Python 3.10 fallback
     import tomli as tomllib
 
 
-#: Where the workspace keeps the `hub` package and the config `hub install` writes, relative to the root.
-WORKSPACE_CLI_DIR = Path("sushihub") / "cli"
+#: The directory `hub init` writes at a workspace root. Every Sushi CLI walks up for it.
+WORKSPACE_MARKER = ".sushistack"
+
+#: The one file inside the marker that holds what the workspace owns.
+WORKSPACE_FILE = "workspace.toml"
+
+#: Where `hub install` wrote the shared tool paths before 2026-09-22, relative to the root.
+#: Read as a fallback so a workspace that no `hub` command has upgraded yet still resolves.
+LEGACY_SHARED_CONFIG = Path("sushihub") / "cli" / "config.local.toml"
+
+
+def workspace_file(root: Path) -> Path:
+    """The file a workspace keeps its own data in: ``<root>/.sushistack/workspace.toml``."""
+    return root / WORKSPACE_MARKER / WORKSPACE_FILE
 
 
 def read_toml(path: Path) -> dict:
