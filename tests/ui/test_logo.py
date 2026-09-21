@@ -156,3 +156,12 @@ def test_the_light_logo_matches_its_golden_file():
 def test_the_dark_logo_matches_its_golden_file():
     golden = (K_GOLDEN / "logo_dark_truecolor.txt").read_text(encoding="utf-8")
     assert capture_ansi(Logo(glow=True), width=K_WIDE) == golden
+
+
+def test_width_matches_the_widest_row_when_the_wordmark_is_ragged(monkeypatch):
+    monkeypatch.setattr("sushicore.ui.logo.K_MARK_PIXELS", ("aa", "aa"))
+    monkeypatch.setattr("sushicore.ui.logo.K_WORDMARK_PIXELS", ("a", "aaaa"))
+    monkeypatch.setattr("sushicore.ui.logo.K_PALETTE", {"a": "#f0a500"})
+    logo = Logo(indent=0)
+    rows = capture(logo, 80).split("\n")[:-1]
+    assert logo.width == max(len(row) for row in rows)
