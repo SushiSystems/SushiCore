@@ -6,11 +6,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from sushicore.renderer import RichRenderer
 from sushicore.theme import Theme
 
 K_FRAME = set("│┃┌┐└┘╭╮╰╯|+")
 K_REPOSITORY = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(autouse=True)
+def _keep_the_real_console_untouched(monkeypatch):
+    """Replace the Win32 switch with a no-op so no test here reaches the real console."""
+    monkeypatch.setattr("sushicore.windows_console.enable_virtual_terminal", lambda: False)
 
 
 def _lines(capsys) -> list[str]:
@@ -59,17 +67,37 @@ def test_panel_prints_its_title_and_body_inside_a_border(capsys):
     assert "cmake exited 1" in lines[1] and lines[2][0] in "╰└"
 
 
-def test_importing_sushicore_does_not_load_rich():
-    """Import sushicore in a fresh interpreter and require that Rich stays unloaded."""
+def _exit_code_when_loaded_after_import(module: str) -> subprocess.CompletedProcess:
+    """Import sushicore in a fresh interpreter and exit 1 when ``module`` is loaded by it."""
     environment = {**os.environ, "PYTHONPATH": str(K_REPOSITORY)}
-    result = subprocess.run(
-        [sys.executable, "-c", "import sys, sushicore; sys.exit('rich' in sys.modules)"],
+    return subprocess.run(
+        [sys.executable, "-c", f"import sys, sushicore; sys.exit({module!r} in sys.modules)"],
         env=environment,
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def test_importing_sushicore_does_not_load_rich():
+    """Import sushicore in a fresh interpreter and require that Rich stays unloaded."""
+    result = _exit_code_when_loaded_after_import("rich")
     assert result.returncode == 0, result.stderr
+
+
+def test_importing_sushicore_does_not_load_the_windows_console_module():
+    """Import sushicore in a fresh interpreter and require that windows_console stays unloaded."""
+    result = _exit_code_when_loaded_after_import("sushicore.windows_console")
+    assert result.returncode == 0, result.stderr
+
+
+def test_constructing_a_rich_renderer_switches_on_virtual_terminal_processing_once(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "sushicore.windows_console.enable_virtual_terminal", lambda: calls.append(1) or True,
+    )
+    RichRenderer(Theme(), no_color=True)
+    assert calls == [1]
 
 
 def test_header_title_keeps_parsing_markup(capsys):
