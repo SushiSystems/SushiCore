@@ -25,12 +25,17 @@ class DefinitionList:
     entries: tuple[tuple[str, str], ...]
 
     def render(self, theme: Theme) -> RenderableType:
-        """Return the heading and the indented grid; terms are literal, text is markup."""
+        """Return the heading and the indented grid; terms are literal, text is markup.
+
+        A term takes the theme's command style with bold switched off, so the heading is the
+        heavier of the two.
+        """
+        term_style = f"{theme.cmd} not bold"
         grid = RichTable.grid(padding=(0, K_COLUMN_GAP))
         grid.add_column(no_wrap=True)
         grid.add_column()
         for term, text in self.entries:
-            grid.add_row(Text(term, style=theme.cmd), Text.from_markup(text))
+            grid.add_row(Text(term, style=term_style), Text.from_markup(text))
         return Group(
             Text(self.heading, style=theme.header),
             Padding(grid, (0, 0, 0, K_INDENT), expand=False),

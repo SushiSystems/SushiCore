@@ -80,3 +80,36 @@ def test_a_page_without_a_logo_draws_none():
 def test_the_logo_never_shows_on_a_sub_command_page():
     text = capture(HelpPage(_leaf(), logo=Logo()), width=K_LOGO_WIDTH)
     assert not any(ch in text for ch in K_BLOCKS)
+
+
+def _lines_with_logo() -> list[str]:
+    """Return the lines of a root page drawn with its logo."""
+    return capture(HelpPage(_root(), logo=Logo()), width=K_LOGO_WIDTH).split("\n")
+
+
+def _logo_rows(lines: list[str]) -> list[int]:
+    """Return the indexes of the lines that hold logo pixels."""
+    return [i for i, line in enumerate(lines) if any(ch in line for ch in K_BLOCKS)]
+
+
+def test_the_logo_has_one_blank_line_above_it():
+    lines = _lines_with_logo()
+    assert lines[0] == ""
+    assert _logo_rows(lines)[0] == 1
+
+
+def test_two_blank_lines_separate_the_logo_from_the_title():
+    lines = _lines_with_logo()
+    last_row = _logo_rows(lines)[-1]
+    assert lines[last_row + 1 : last_row + 3] == ["", ""]
+    assert lines[last_row + 3] == "hub"
+
+
+def test_a_root_page_without_a_logo_starts_at_its_title():
+    lines = capture(HelpPage(_root()), width=K_LOGO_WIDTH).split("\n")
+    assert lines[0] == "hub"
+
+
+def test_a_leaf_page_given_a_logo_still_starts_at_its_title():
+    lines = capture(HelpPage(_leaf(), logo=Logo()), width=K_LOGO_WIDTH).split("\n")
+    assert lines[0] == "hub add"

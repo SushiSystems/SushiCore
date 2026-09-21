@@ -228,6 +228,15 @@ def test_the_page_reaches_a_truecolour_terminal_with_the_rolls_own_colour_codes(
     assert K_AMBER_CODE in output and K_NORI_CODE in output
 
 
+def test_the_root_page_leaves_one_blank_line_above_the_logo_and_two_below_it():
+    output = _terminal_page("--help", color_system="truecolor", width=90, dark_background=True)
+    lines = K_ANSI.sub("", output).split("\n")
+    rows = [i for i, line in enumerate(lines) if _shows_logo(line)]
+    assert lines[: rows[0]] == [""]
+    assert lines[rows[-1] + 1 : rows[-1] + 3] == ["", ""]
+    assert lines[rows[-1] + 3].strip() == "hub"
+
+
 def test_a_dark_terminal_draws_the_lockup_with_its_glow():
     logo = Logo(glow=True)
     output = _terminal_page(
