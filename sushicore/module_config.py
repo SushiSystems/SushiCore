@@ -22,10 +22,14 @@ from typing import TypeVar
 
 from .config_base import ToolConfig, load_tool_config
 from .profile import ModuleProfile
-from .workspace import has_marker, resolve_env_path, walk_up, WORKSPACE_CLI_DIR
-
-# The marker `hub init` writes at the root of a workspace.
-_WORKSPACE_MARKER = ".sushistack"
+from .workspace import (
+    LEGACY_SHARED_CONFIG,
+    WORKSPACE_MARKER,
+    has_marker,
+    resolve_env_path,
+    walk_up,
+    workspace_file,
+)
 
 _C = TypeVar("_C", bound=ToolConfig)
 
@@ -94,17 +98,27 @@ class ModuleConfig:
             start = root or self.find_project_root()
         except SystemExit:
             return None
-        return walk_up(start, has_marker(_WORKSPACE_MARKER))
+        return walk_up(start, has_marker(WORKSPACE_MARKER))
 
     def _shared_config_local(self) -> Path | None:
-        """The workspace-shared config.local.toml ``hub install`` writes, if any.
+        """The workspace-shared config ``hub install`` writes, if any.
 
         Inside a workspace the machine-specific tool paths (compiler, vcpkg,
-        cmake) are resolved once by ``hub`` and written to
-        ``<home>/sushihub/cli/config.local.toml``, so nothing is configured twice.
+        cmake) are resolved once by ``hub`` and written to the workspace's own
+        file, so nothing is configured twice. Since 2026-09-22 that is
+        ``<home>/.sushistack/workspace.toml``; before it, ``sushihub/cli/
+        config.local.toml`` in the checkout. The older path is read when the
+        newer one is absent, so a workspace no ``hub`` command has upgraded yet
+        still hands its paths to `sr`, `se`, `sa` and `sb`.
         """
         home = self.workspace_home()
-        return (home / WORKSPACE_CLI_DIR / "config.local.toml") if home else None
+        if home is None:
+            return None
+        current = workspace_file(home)
+        if current.is_file():
+            return current
+        legacy = home / LEGACY_SHARED_CONFIG
+        return legacy if legacy.is_file() else None
 
     def sources(self) -> list[Path]:
         """The config files to layer, lowest precedence first."""
