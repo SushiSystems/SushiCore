@@ -114,24 +114,21 @@ def _emit_table(name: str, table: dict) -> list[str]:
     return lines
 
 
-def write_tool_section(target: Path, updates: dict, header_lines: Iterable[str]) -> Path:
-    """Merge *updates* into ``[tool]`` of *target* and rewrite the file.
+def write_toml_document(target: Path, tables: dict, header_lines: Iterable[str]) -> Path:
+    """Render *tables* as a whole TOML document and write it to *target*.
 
-    Scalar keys are written under ``[tool]``; existing ``[tool.<platform>]`` sub-
-    tables (the machine-specific paths a probe wrote) are preserved verbatim.
-    Every other top-level table already in the file — one this function was not
-    asked to write — is carried through unchanged via :func:`_emit_table`, so a
-    caller sharing the file with another writer never loses that writer's data.
-    Used to persist small, deliberate edits — e.g. the selected toolchain — while
-    leaving the auto-discovered path tables and sibling tables untouched. Returns
-    the path written.
+    ``tool`` is rendered first — its scalars under ``[tool]``, its sub-tables
+    (the machine-specific paths a probe wrote) as ``[tool.<platform>]`` — then
+    every other table follows, sorted by name. Backslashes become forward
+    slashes throughout, and a value the emitter cannot render raises rather
+    than disappearing. Returns the path written.
+
+    @pre Every table in *tables* holds only strings, bools, or nested tables
+        of strings; anything else raises.
     """
-    doc = read_toml(target)
-    tool = dict(doc.get("tool", {}))
-    tool.update(updates)
-
+    tool = dict(tables.get("tool", {}))
     scalars = {k: v for k, v in tool.items() if not isinstance(v, dict)}
-    tables = {k: v for k, v in tool.items() if isinstance(v, dict)}
+    subtables = {k: v for k, v in tool.items() if isinstance(v, dict)}
 
     lines = list(header_lines) + ["", "[tool]"]
     for key in sorted(scalars):
@@ -140,16 +137,34 @@ def write_tool_section(target: Path, updates: dict, header_lines: Iterable[str])
             lines.append(f"{key} = {'true' if val else 'false'}")
         else:
             lines.append(f'{key} = "{val}"')
-    for tname in sorted(tables):
+    for tname in sorted(subtables):
         lines.append("")
         lines.append(f"[tool.{tname}]")
-        for key in sorted(tables[tname]):
-            val = str(tables[tname][key]).replace("\\", "/")
+        for key in sorted(subtables[tname]):
+            val = str(subtables[tname][key]).replace("\\", "/")
             lines.append(f'{key} = "{val}"')
 
-    for name in sorted(k for k in doc if k != "tool"):
-        lines.extend(_emit_table(name, doc[name]))
+    for name in sorted(k for k in tables if k != "tool"):
+        lines.extend(_emit_table(name, tables[name]))
     lines.append("")
 
     target.write_text("\n".join(lines), encoding="utf-8")
     return target
+
+
+def write_tool_section(target: Path, updates: dict, header_lines: Iterable[str]) -> Path:
+    """Merge *updates* into ``[tool]`` of *target* and rewrite the file.
+
+    Every other top-level table already in the file — one this function was not
+    asked to write — is carried through unchanged, so a caller sharing the file
+    with another writer never loses that writer's data. Used to persist small,
+    deliberate edits — e.g. the selected toolchain — while leaving the
+    auto-discovered path tables and sibling tables untouched. Returns the path
+    written.
+    """
+    doc = read_toml(target)
+    tool = dict(doc.get("tool", {}))
+    tool.update(updates)
+    tables = dict(doc)
+    tables["tool"] = tool
+    return write_toml_document(target, tables, header_lines)
