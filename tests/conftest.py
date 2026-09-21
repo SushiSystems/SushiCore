@@ -14,6 +14,14 @@ def _clear_caches(owner: type) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _leave_the_real_console_alone(monkeypatch):
+    """Replace the virtual terminal switch, so no test changes the console it runs in."""
+    monkeypatch.setattr(
+        "sushicore.windows_console.enable_virtual_terminal", lambda *args, **kwargs: False,
+    )
+
+
+@pytest.fixture(autouse=True)
 def _clear_shared_style_cache():
     """Clear, after each test, the styles and colours Rich caches for one colour system."""
     yield

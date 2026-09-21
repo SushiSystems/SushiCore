@@ -99,7 +99,10 @@ class RichRenderer:
         from rich.console import Console as _RichConsole
         from rich.theme import Theme as _RichTheme
 
+        from .windows_console import enable_virtual_terminal
+
         _force_utf8_streams()
+        enable_virtual_terminal()
         self._theme = theme
         self._console = _RichConsole(theme=_RichTheme(theme.as_rich_styles()), no_color=no_color)
 
