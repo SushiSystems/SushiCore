@@ -97,13 +97,11 @@ class Logo:
     @property
     def width(self) -> int:
         """Return the columns one row takes, indent included."""
-        width = self.indent + len(_trimmed(K_MARK_PIXELS, _colours(self.glow))[0])
-        if self.wordmark:
-            width += K_GAP + len(K_WORDMARK_PIXELS[0])
-        return width
+        pixels = _pixels(_trimmed(K_MARK_PIXELS, _colours(self.glow)), self.wordmark)
+        return self.indent + (len(pixels[0]) if pixels else 0)
 
     def render(self, theme: Theme) -> Text:
-        """Return the logo as styled text; its colours come from the brand, not from ``theme``."""
+        """Return the logo as styled text, two pixel rows per terminal row."""
         colours = _colours(self.glow)
         pixels = _pixels(_trimmed(K_MARK_PIXELS, colours), self.wordmark)
         rows = []

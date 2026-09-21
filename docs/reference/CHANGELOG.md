@@ -4,6 +4,7 @@ One line per meaningful change, newest first. Format: date, a past-tense verb, w
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
 - 2026-09-21 — Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).
+- 2026-09-21 — Fixed `Logo.width` disagreeing with the drawn width when the wordmark rows differ in length (`sushicore/ui/logo.py`).
 - 2026-09-21 — Made `help_group` fall back to Typer's own help, with one logged warning, when drawing the page fails (`sushicore/typer_help.py`).
 - 2026-09-21 — Added `choose_logo` and replaced `HelpPage`'s `show_logo` with a `logo` field (`sushicore/help/logo_choice.py`, `sushicore/help/page.py`).
 - 2026-09-21 — Added `is_dark_background`, the `[cli] background` setting and `Console.dark_background` (`sushicore/terminal_background.py`, `sushicore/config.py`, `sushicore/console.py`).
