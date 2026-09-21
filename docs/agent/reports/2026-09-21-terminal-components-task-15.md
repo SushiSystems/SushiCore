@@ -242,3 +242,7 @@ finding 4, `Padding(expand=False)`, and it belongs to Task 16's `definition_list
 - `HelpPageError` is new public surface in `sushicore/typer_help.py`. The plan does not name it;
   raising it is how the missing provider reaches the one `except` without a bare `Exception`. Say
   the word and it becomes a private `_HelpPageError`.
+
+## Orchestrator note
+
+`HelpPageError`, which this report leaves as an open question, is now the private `_HelpPageError`; the orchestrator renamed it. The 11-second suite timings do not reproduce: the suite runs in under a second here.

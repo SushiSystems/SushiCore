@@ -145,3 +145,7 @@ glow=True wordmark=True width=72 indent0_width=70 rows=8
 
 - No commit, no edit of `logo.py`, `pyproject.toml`, any `__init__.py`, the docs, the plan, or the changelog.
 - No visual check in a real dark terminal; the strong glow was verified only through the SGR codes in the golden and the tiny-grid test.
+
+## Orchestrator note
+
+The line `wordmark identical to plan: True 16` supports the wordmark copy, not the claim about the golden's colour codes. The orchestrator counted the codes in `tests/golden/logo_dark_truecolor.txt`: `140;140;140` and `61;61;61` are present and `107` is absent.

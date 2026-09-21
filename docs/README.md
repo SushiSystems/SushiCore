@@ -48,16 +48,18 @@ A Typer CLI gets the themed help screen with one argument:
 app = typer.Typer(cls=help_group(provider), rich_markup_mode="rich")
 ```
 
-`provider` returns the CLI's `Console`. It is called when help is drawn, not at
-import, so `--help` runs outside a workspace. Pass the same class to every
+`provider` returns the CLI's `Console`, the object `LazyConsole.get()` builds, not
+the `LazyConsole` itself. It is called when help is drawn, not at import, so
+`--help` runs outside a workspace. Pass the same class to every
 `add_typer` sub-app; a sub-app without it keeps Typer's own screen.
 
 Commands are grouped by Typer's `rich_help_panel`, and a command with none lands
 under `Commands`. Examples come from a command's `epilog`, one per line as
 `command  # note`. The logo prints on the root page only, and only on a UTF-8
 terminal with colour on and 256 colours or more. It is the roll with `SUSHI SYSTEMS`
-beside it when the console is 72 columns wide (68 without the glow), and the roll
-alone when it is narrower.
+beside it when the console is at least 72 columns wide (68 without the glow), the
+roll alone when only that fits (20 columns with the glow, 16 without), and nothing
+below that.
 
 On a dark terminal the roll gets a white glow. `sushicore` decides that from
 `COLORFGBG` and otherwise leaves the glow off, so a light terminal keeps its look.

@@ -2112,7 +2112,7 @@ Copy the wordmark exactly. It is drawn by hand: every letter is 7 pixels tall an
 
 ### Task 15: choose the logo and wire it into the page
 
-**Acceptance criterion:** `--help` at the root draws the lockup on a wide dark colour terminal, the mark alone on a narrow one, nothing below 20 columns, and no glow unless `console.dark_background`; `python -m pytest tests -q` passes.
+**Acceptance criterion:** `--help` at the root draws the lockup on a wide dark colour terminal, the mark alone on a narrow one, nothing when even the mark does not fit, and no glow unless `console.dark_background`; `python -m pytest tests -q` passes.
 
 **`sushicore/help/logo_choice.py`:**
 
