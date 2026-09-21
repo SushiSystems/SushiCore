@@ -1,5 +1,7 @@
 """The shared executable walk, match, and `run`-command resolution policy."""
 
+import os
+import stat
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,6 +23,9 @@ def _exe(build_root: Path, name: str) -> Path:
     """Create a file that `_is_executable` recognizes, regardless of platform."""
     path = build_root / (name if name.endswith(".exe") else f"{name}.exe")
     path.write_text("")
+    # On Linux `_is_executable` asks os.access for X_OK; the suffix alone is a Windows rule.
+    if os.name != "nt":
+        path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return path
 
 
