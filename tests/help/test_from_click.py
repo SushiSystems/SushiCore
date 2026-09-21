@@ -61,7 +61,11 @@ def _root(group_class: type[click.Group] = _RegistrationOrderGroup):
 
 
 def _typer_root():
-    """Return a default-mode Typer app as a Click command, and a context for it."""
+    """Return a default-mode Typer app as a Click command, and a context built the Typer way.
+
+    The context comes from the command itself, because Typer carries its own copy of Click
+    and the separate ``click`` package's ``Context`` is a different class from 0.27 on.
+    """
     app = typer.Typer(name="tool", help="Tend a garden.")
 
     @app.command(name="grow", help="Grow a module.", rich_help_panel="Garden")
@@ -76,7 +80,15 @@ def _typer_root():
         pass
 
     command = typer.main.get_command(app)
-    return command, click.Context(command, info_name="tool")
+    return command, command.make_context("tool", [], resilient_parsing=True)
+
+
+def _unescaped(text: str) -> str:
+    """Return ``text`` with Rich's escaping backslash removed from every bracket.
+
+    Typer escaped a parameter's extras up to 0.20 and hands them over plain from 0.27.
+    """
+    return text.replace("\\[", "[")
 
 
 def _leaf_model(command: click.Command, parent: click.Context):
@@ -166,7 +178,7 @@ def test_the_description_joins_wrapped_lines_and_stops_at_a_form_feed():
     assert build_model(group, ctx).description == "Manage the stack.\n\nSecond paragraph."
 
 
-def test_a_typer_app_groups_by_its_panels_and_keeps_typer_help_records():
+def test_a_typer_app_groups_by_its_panels():
     command, ctx = _typer_root()
     model = build_model(command, ctx)
     assert model.name == "tool"
@@ -175,11 +187,20 @@ def test_a_typer_app_groups_by_its_panels_and_keeps_typer_help_records():
         ("Garden", (("grow", "Grow a module."),)),
         ("Commands", (("rest", "Rest a while."),)),
     ]
+
+
+def test_a_typer_leaf_keeps_the_help_records_typer_hands_out():
+    command, ctx = _typer_root()
     grow = command.get_command(ctx, "grow")
-    leaf = build_model(grow, click.Context(grow, info_name="grow", parent=ctx))
-    assert leaf.arguments == (("MODULE", "The module.  \\[required]"),)
-    assert ("--kind TEXT", "Kind [x].  \\[default: a]") in leaf.options
-    assert leaf.usage == "tool grow [OPTIONS] MODULE"
+    leaf = build_model(grow, grow.make_context("grow", [], parent=ctx, resilient_parsing=True))
+    ((argument, text),) = leaf.arguments
+    # Typer names the argument MODULE up to 0.20 and module from 0.27 on.
+    assert argument.lower() == "module"
+    assert _unescaped(text) == "The module.  [required]"
+    kind = [entry for entry in leaf.options if entry[0].startswith("--kind ")]
+    assert [_unescaped(text) for _, text in kind] == ["Kind [x].  [default: a]"]
+    assert leaf.usage.startswith("tool grow [OPTIONS]")
+    assert "module" in leaf.usage.lower()
 
 
 def test_a_plain_click_option_has_its_default_marker_escaped():

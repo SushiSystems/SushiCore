@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Any, Callable, ClassVar
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
-import click
 from rich.console import Console as RichConsole
 from typer.core import TyperGroup
 
@@ -21,11 +20,14 @@ from .help.logo_choice import choose_logo
 from .help.page import HelpPage
 from .ui.logo import Logo
 
+if TYPE_CHECKING:
+    import click
+
 K_LOGO_COLOUR_SYSTEMS = ("256", "truecolor")
 K_LOGGER = logging.getLogger("sushicore.help")
 
 Provider = Callable[[], Console]
-HelpWriter = Callable[[click.Context, click.HelpFormatter], None]
+HelpWriter = Callable[["click.Context", "click.HelpFormatter"], None]
 
 
 class _HelpPageError(Exception):
