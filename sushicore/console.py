@@ -26,8 +26,7 @@ class Console:
         """Bind the renderer, theme and icon set this console speaks through.
 
         Args:
-            dark_background: What the caller decided about the terminal's background;
-                this console never reads the environment to find out.
+            dark_background: Whether the terminal's background is dark.
         """
         self._renderer = renderer
         self._theme = theme

@@ -101,7 +101,7 @@ def _write_page(
     """Build the page for ``command`` and write it, drawn for ``console``, into ``formatter``."""
     raw = console.console
     page = HelpPage(build_model(command, ctx), logo=_logo_for(raw, console.dark_background))
-    # The page is drawn in full before the one write, so a failure leaves the formatter untouched.
+    # The page is drawn in full before the single write.
     formatter.write(_draw(page, console.theme, raw))
 
 

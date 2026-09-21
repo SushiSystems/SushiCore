@@ -1,4 +1,4 @@
-"""Reads a Click or Typer command into a HelpModel by asking the command object for what it has.
+"""Reads a Click or Typer command into a HelpModel.
 
 The model's text is Rich markup; text from a command that does not write markup is escaped.
 """
