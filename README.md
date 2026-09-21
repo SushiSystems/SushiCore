@@ -1,4 +1,4 @@
-# sushicore
+# SushiCore
 
 The shared core of the Sushi developer CLIs. `hub`, `sr`, `se`, `sa`, `sb`, `sd` and `st` all
 import it for the same five things: locating a workspace, loading layered TOML configuration,
