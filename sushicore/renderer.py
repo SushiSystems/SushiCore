@@ -93,6 +93,7 @@ class RichRenderer:
         from rich.theme import Theme as _RichTheme
 
         _force_utf8_streams()
+        self._theme = theme
         self._console = _RichConsole(theme=_RichTheme(theme.as_rich_styles()), no_color=no_color)
 
     @property
@@ -111,26 +112,23 @@ class RichRenderer:
         self._console.print(f"{lead}Executing: [{cmd_style}]{cmd}[/{cmd_style}]")
 
     def header(self, title: str, style: str) -> None:
-        """Print a blank line and a titled rule."""
-        self._console.print()
-        self._console.rule(f"[{style}]{title}")
+        """Print a blank line and a rule holding the title."""
+        from .ui.header import Header
+
+        self._console.print(Header(title).render(self._theme))
 
     def panel(self, title: str, body: str, border_style: str) -> None:
-        """Print the body inside a Rich ``Panel``."""
-        from rich.panel import Panel
+        """Print the body inside a bordered panel under the title."""
+        from .ui.panel import Panel
 
-        self._console.print(Panel(body, title=f"[{border_style}]{title}", border_style=border_style))
+        self._console.print(Panel(title, body).render(self._theme))
 
     def table(self, title: str, columns: list[str], rows: list[list[str]], header_style: str) -> None:
-        """Print the rows as a Rich ``Table``."""
-        from rich.table import Table
+        """Print the rows as a table under one header rule."""
+        from .ui.table import Table
 
-        table = Table(title=title or None, header_style=header_style)
-        for column in columns:
-            table.add_column(column)
-        for row in rows:
-            table.add_row(*row)
-        self._console.print(table)
+        table = Table(tuple(columns), tuple(tuple(row) for row in rows), title)
+        self._console.print(table.render(self._theme))
 
     def progress(self, label: str, index: int, count: int, fraction: float | None) -> None:
         """Print ``[label] index/count`` and a percentage when the fraction is known."""
