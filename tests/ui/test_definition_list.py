@@ -40,6 +40,28 @@ def test_an_entry_without_text_prints_its_term_alone():
     assert capture(DefinitionList("Examples", (("hub doctor", ""),))) == "Examples\n  hub doctor\n"
 
 
+def test_an_unescaped_extra_marker_stays_on_the_page():
+    text = capture(DefinitionList("Arguments", (("module", "The module.  [required]"),)))
+    assert "The module.  [required]" in text
+
+
+def test_an_escaped_extra_marker_shows_its_brackets_once():
+    text = capture(DefinitionList("Options", (("--kind", "Kind.  \\[default: debug]"),)))
+    assert "Kind.  [default: debug]" in text
+    assert "\\" not in text
+
+
+def test_a_bracket_that_names_a_style_still_styles_its_text():
+    entries = (("--kind", "Paint [cyan]x[/cyan]."),)
+    assert "Paint x." in capture(DefinitionList("Options", entries))
+    assert _painted("cyan", "x") in capture_ansi(DefinitionList("Options", entries))
+
+
+def test_a_theme_style_name_in_the_text_is_still_a_tag():
+    entries = (("--kind", "Say [success]yes[/success]."),)
+    assert "Say yes." in capture(DefinitionList("Options", entries))
+
+
 def test_a_row_is_not_padded_to_the_console_width():
     entries = (("add", "Bring a module in."), ("install-cli", "Install a module's CLI."))
     lines = capture_raw(DefinitionList("Modules", entries), width=200).splitlines()
