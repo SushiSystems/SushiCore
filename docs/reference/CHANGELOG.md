@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-09-22 — Added `deps_fragment`, the one reader of a `sushistack.deps.toml` fragment (`sushicore/deps_fragment.py`).
 - 2026-09-22 — Split `write_tool_section` into the document writer and its `[tool]`-merging caller (`sushicore/config_base.py`).
 - 2026-09-22 — Moved the workspace contract into `workspace.py`: the marker, `workspace.toml` and the pre-2026-09-22 shared-config path (`sushicore/workspace.py`, `sushicore/module_config.py`).
 - 2026-09-22 — Removed `WORKSPACE_CLI_DIR`, which named another repository's source layout (`sushicore/workspace.py`).
