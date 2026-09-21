@@ -1,7 +1,8 @@
 """Draws rows under one header rule, flat or grouped, with no frame around them.
 
 A cell whose whole text is a status word is coloured from the theme; the map
-from word to theme field is ``K_STATUS_STYLES``.
+from word to theme field is ``K_STATUS_STYLES``. Any other cell is Rich markup in which
+only a bracket that names a style is a tag.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from rich.rule import Rule
 from rich.table import Table as RichTable
 from rich.text import Text
 
+from ..markup import escape_unknown_tags
 from ..theme import Theme
 
 K_INDENT = 2
@@ -38,10 +40,13 @@ K_STATUS_STYLES: dict[str, str] = {
 
 
 def _cell(text: str, theme: Theme) -> Text:
-    """Return the cell as text: a status word in its theme style, anything else as markup."""
+    """Return the cell as text: a status word in its theme style, anything else as markup.
+
+    A bracket in the markup that names no style stays as text.
+    """
     field = K_STATUS_STYLES.get(text.upper())
     if field is None:
-        return Text.from_markup(text)
+        return Text.from_markup(escape_unknown_tags(text, theme.as_rich_styles()))
     return Text(text, style=getattr(theme, field))
 
 

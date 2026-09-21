@@ -11,7 +11,12 @@ import pytest
 
 K_UI = Path(__file__).resolve().parent.parent / "sushicore" / "ui"
 K_PACKAGE = ("sushicore", "ui")
-K_ALLOWED_INTERNAL = {"sushicore.theme", "sushicore.brand", "sushicore.ui.component"}
+K_ALLOWED_INTERNAL = {
+    "sushicore.theme",
+    "sushicore.brand",
+    "sushicore.markup",
+    "sushicore.ui.component",
+}
 K_ALLOWED_EXTERNAL = {"rich"}
 K_FILES = sorted(p for p in K_UI.glob("*.py") if p.name not in {"__init__.py", "component.py"})
 
