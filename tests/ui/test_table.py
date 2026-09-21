@@ -1,8 +1,11 @@
 """A table has a header row, one rule under it, and no frame."""
 
+import io
 import re
 
 import pytest
+from rich.console import Console
+from rich.theme import Theme as RichTheme
 
 from sushicore.theme import Theme
 from sushicore.ui.table import Table
@@ -157,3 +160,50 @@ def test_a_cell_that_is_not_a_status_word_carries_no_style():
     text = capture_ansi(Table(("Module", "State"), (("sushiruntime", "cloned"),)), width=50)
     row = next(line for line in text.split("\n") if "sushiruntime" in line)
     assert re.search(r"\x1b\[[0-9;]*m(?=cloned)", row) is None
+
+
+K_BRACKET_CELL = "Dear ImGui (imgui[glfw-binding,opengl3-binding])"
+
+
+def _themed_ansi(table: Table, theme: Theme) -> str:
+    """Return the table as a terminal that carries the theme's own style names would show it."""
+    stream = io.StringIO()
+    console = Console(
+        file=stream,
+        width=100,
+        color_system="truecolor",
+        force_terminal=True,
+        legacy_windows=False,
+        theme=RichTheme(theme.as_rich_styles()),
+    )
+    console.print(table.render(theme))
+    return stream.getvalue()
+
+
+def test_a_bracket_that_names_no_style_stays_in_a_flat_cell():
+    text = capture(Table(("Name", "Detail"), (("imgui", K_BRACKET_CELL),)), width=100)
+    assert K_BRACKET_CELL in text
+
+
+def test_a_bracket_that_names_no_style_stays_in_a_grouped_cell():
+    rows = (("shared", "imgui", K_BRACKET_CELL),)
+    table = Table(("Owner", "Name", "Detail"), rows, group_by="Owner")
+    assert K_BRACKET_CELL in capture(table, width=100)
+
+
+def test_a_cell_that_names_a_theme_style_is_drawn_in_that_style_and_without_its_tags():
+    table = Table(("Name", "State"), (("imgui", "[error]FAIL[/error]"),))
+    text = _themed_ansi(table, Theme())
+    assert "\x1b[1;31mFAIL" in text
+    assert "[error]" not in text
+
+
+def test_a_grouped_cell_that_names_a_theme_style_is_drawn_in_that_style():
+    rows = (("shared", "imgui", "[error]FAIL[/error]"),)
+    table = Table(("Owner", "Name", "State"), rows, group_by="Owner")
+    assert "\x1b[1;31mFAIL" in _themed_ansi(table, Theme())
+
+
+def test_a_styled_cell_may_hold_a_bracket_that_names_no_style():
+    table = Table(("Name", "State"), (("imgui", "[cmd]imgui[core,zlib][/cmd]"),))
+    assert "imgui[core,zlib]" in capture(table, width=100)

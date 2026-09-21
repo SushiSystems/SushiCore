@@ -83,7 +83,8 @@ the group never sees it and Typer's own screen stays.
 `console.table(columns, rows, title)` draws a header row, one rule under it and the rows, with no
 frame. A cell whose whole text is a status word is coloured from the theme: `OK` in the success
 style, `MISSING`, `FAIL` and `ERROR` in the error style, `WARN` in the warn style, and `NOT NEEDED`,
-`SKIPPED` and `N/A` muted.
+`SKIPPED` and `N/A` muted. A bracket in a cell is text unless it names a style, so
+`pkg[extra]` prints whole while `[dim]x[/dim]` still dims.
 
 `group_by="Owner"` names a column whose values become headings above their rows. That column
 drops out of the table, the remaining columns line up across all groups, and the last column
