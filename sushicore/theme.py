@@ -31,6 +31,8 @@ class Theme:
     # fixed color — it renders white on a dark terminal, black on a light
     # one, instead of a color chosen without knowing the user's background.
     rule_line: str = "default"
+    # Secondary text and the rule under a table header.
+    muted: str = "dim"
 
     def merged(self, overrides: dict) -> "Theme":
         """Return a copy with only the recognized keys in ``overrides`` applied."""
@@ -47,6 +49,7 @@ class Theme:
             "cmd": self.cmd,
             "header": self.header,
             "rule.line": self.rule_line,
+            "muted": self.muted,
             # rich.progress.Progress's built-in columns (SpinnerColumn,
             # BarColumn, the [progress.*] TextColumn templates) read these
             # theme keys directly — override them so `rich.progress.track()`

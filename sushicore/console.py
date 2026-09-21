@@ -16,11 +16,23 @@ from .theme import Theme
 class Console:
     """Translate semantic calls into renderer calls with a theme and an icon set."""
 
-    def __init__(self, renderer: Renderer, theme: Theme, icons: IconSet) -> None:
-        """Bind the renderer, theme and icon set this console speaks through."""
+    def __init__(
+        self,
+        renderer: Renderer,
+        theme: Theme,
+        icons: IconSet,
+        dark_background: bool = False,
+    ) -> None:
+        """Bind the renderer, theme and icon set this console speaks through.
+
+        Args:
+            dark_background: What the caller decided about the terminal's background;
+                this console never reads the environment to find out.
+        """
         self._renderer = renderer
         self._theme = theme
         self._icons = icons
+        self._dark_background = dark_background
         self._prompt_count = 0
 
     @property
@@ -32,6 +44,16 @@ class Console:
     def accent(self) -> str:
         """Return the theme's header style, for callers building their own Rich renderables."""
         return self._theme.header
+
+    @property
+    def theme(self) -> Theme:
+        """Return the theme this console styles its output with."""
+        return self._theme
+
+    @property
+    def dark_background(self) -> bool:
+        """Return whether the terminal this console writes to has a dark background."""
+        return self._dark_background
 
     def info(self, msg: str) -> None:
         """Print an informational line."""

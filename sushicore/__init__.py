@@ -14,6 +14,7 @@ see the module docstrings for how.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -22,6 +23,7 @@ from .config import load_appearance
 from .console import Console
 from .icons import IconSet, get_icon_set, known_icon_sets, register_icon_set
 from .renderer import JsonRenderer, PlainRenderer, Renderer, RichRenderer
+from .terminal_background import is_dark_background
 from .theme import Theme, get_theme, known_themes, register_theme
 from .typer_theme import apply_typer_theme
 
@@ -71,4 +73,4 @@ def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False) -
         renderer = JsonRenderer()
     else:
         renderer = RichRenderer(theme, no_color=not _use_color(spec.color))
-    return Console(renderer, theme, icons)
+    return Console(renderer, theme, icons, is_dark_background(spec.background, os.environ))
