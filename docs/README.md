@@ -11,7 +11,7 @@ three hardcoded `console.py` files.
 Small, swappable pieces (SOLID), not one monolith:
 
 - `Theme` (`sushicore.theme`) — pure data: style tokens (`info`, `success`,
-  `warn`, `error`, `cmd`, `header`, `panel_border`). Presets: `default`,
+  `warn`, `error`, `cmd`, `header`, `panel_border`, `muted`). Presets: `default`,
   `mono`, `muted`. Register your own with `register_theme(name, Theme(...))`.
 - `IconSet` (`sushicore.icons`) — pure data: the prefix/glyph printed before a
   line. Presets: `text` (`[INFO]`, ...), `emoji`, `minimal`, `none`.
@@ -27,11 +27,54 @@ Small, swappable pieces (SOLID), not one monolith:
   (`console.info(...)`, `console.error(...)`, ...). It only translates
   semantic calls into renderer calls using a theme + icon set; it never picks
   a color itself.
+- `ui` (`sushicore.ui`) — one file per terminal element: `Logo`, `Header`,
+  `Panel`, `Table`, `Title`, `Usage`, `DefinitionList`. Each is a frozen
+  dataclass with `render(theme)`, and each reads only `Theme` and `brand`.
+  `RichRenderer.table`, `panel` and `header` draw through them.
+- `help` (`sushicore.help`) — a help screen as data (`HelpModel`, built from
+  a Click command by `build_model`) and the `HelpPage` that lays it out from
+  `ui` components.
 - `build_console()` (`sushicore.__init__`) — the factory that wires the above
   together from layered config. This is the one function a CLI needs to call.
 
 Themes and icon sets are pure data, so most customization needs **no code at
 all** — just a config file.
+
+## Help screens
+
+A Typer CLI gets the themed help screen with one argument:
+
+```python
+app = typer.Typer(cls=help_group(provider), rich_markup_mode="rich")
+```
+
+`provider` returns the CLI's `Console`. It is called when help is drawn, not at
+import, so `--help` runs outside a workspace. Pass the same class to every
+`add_typer` sub-app; a sub-app without it keeps Typer's own screen.
+
+Commands are grouped by Typer's `rich_help_panel`, and a command with none lands
+under `Commands`. Examples come from a command's `epilog`, one per line as
+`command  # note`. The logo prints on the root page only, and only on a UTF-8
+terminal with colour on and 256 colours or more. It is the roll with `SUSHI SYSTEMS`
+beside it when the console is 72 columns wide (68 without the glow), and the roll
+alone when it is narrower.
+
+On a dark terminal the roll gets a white glow. `sushicore` decides that from
+`COLORFGBG` and otherwise leaves the glow off, so a light terminal keeps its look.
+Windows Terminal does not set the variable; say it once in the CLI's config:
+
+```toml
+[cli]
+background = "dark"   # auto | dark | light
+```
+
+`SUSHI_CLI_BACKGROUND` sets the same thing from the environment.
+
+If drawing the page fails, `--help` logs one warning under `sushicore.help` and shows
+Typer's own screen.
+
+Typer turns an app with one command and no callback into a plain command, so
+the group never sees it and Typer's own screen stays.
 
 ## Machine-readable output
 
