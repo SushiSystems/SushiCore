@@ -2433,3 +2433,61 @@ environment (Typer 0.20, Click 8.2.1) and in the isolated CI-like environment `c
 `C:/Users/sushi/AppData/Local/Temp/claude/D--Projects-sushistack/43335f2f-2bdd-481b-a169-5cc2c051201f/scratchpad/ci_venv/Scripts/python.exe`.
 Run the suite with it from the repository root as `python -m pytest tests -q -p no:cacheprovider`, with
 `PYTHONDONTWRITEBYTECODE=1`, and never install anything into it or into any other environment.
+
+
+---
+
+## Wave 8: the other consumers adopt the help screen and one set of colours
+
+Added 2026-09-22. sushicore 0.4.0 is published and only `hub` has adopted the help screen. The owner asked for
+the other Typer CLIs to get it too, and for one set of colours and styles everywhere. Measured that day: all
+seven CLIs already resolve the same preset (`theme = "default"`, `icons = "text"`, `color = "auto"`) and none
+registers its own theme, so the palette is already shared. What differs is markup written into the source with
+raw Rich colour names: `sr` 10, `se` 2, `sa` 3, `sb` 1, `sd` 0, `st` 5, `hub` 22, in all about 43. A raw name
+does not follow the palette (`[green]` is terminal green, the theme's `success` is `#6bbf59`), so it goes.
+
+**Mapping, applied to CLI source, not to tests.** `[green]` becomes `[success]`, `[red]` `[error]`, `[yellow]`
+`[warn]`, `[cyan]` `[cmd]`, `[blue]` `[info]`, `[dim]` `[muted]`. A closing tag follows its opener. A bare
+`[bold]` stays, because a theme has no bare bold token. Any other colour or a hex code is reported, not guessed.
+These are the theme's tokens (`success`, `error`, `warn`, `cmd`, `info`, `muted`, `header`); the names are
+Rich styles registered from `Theme.as_rich_styles()`, so they work in any string printed through the console.
+
+**Scope now.** `sr` (sushiruntime), `sa` (sushiai) and `sb` (sushiblas): clean working trees on `main`, nothing
+unpushed, the last commit hours old. `se` (sushiengine, 26 uncommitted files, three commits unpushed), `sd`
+(sushidsp, 63 uncommitted files) and `st` (sushitrack, on the branch `third-party-licences`) are being worked
+in and are not touched; `st` is not a Typer CLI, so it takes only the colour mapping and no help screen. `hub`'s
+22 raw markups wait until the session that is cutting `sushihub` 0.2.0 is done with that tree.
+
+### Tasks 26, 27 and 28: `sr`, `sa` and `sb` (one template, three repositories, run in parallel)
+
+**Acceptance criterion:** in its repository, on a new branch `feature/sushicore_help_screen` off `main`, the CLI's
+`--help` at the root, at every sub-app and at every command draws sushicore's help page; commands sit under
+named groups; every command's help ends with examples that the worker checked against the command's real options;
+no raw Rich colour name is left in the CLI's source; `sushicore>=0.4.0` is the lower bound; the repository's CLI
+tests pass with the sushicore 0.4.0 checkout on `PYTHONPATH`; nothing is merged, pushed or tagged.
+
+**Change, in `<repo>/cli/`.**
+
+- The package's `console.py` gains `current()`, returning `_lazy.get()`, the sushicore `Console`, as hub's does.
+  Read hub's `cli/sushihub/console.py` and `cli.py` first as the model; where a CLI's `console.py` rebinds `_lazy`
+  (as `set_machine` does in hub) `current()` must read the rebound name.
+- Every `typer.Typer(...)` in `cli.py`, the root and each sub-app, gets `cls=_help_group` where
+  `_help_group = help_group(console.current)` sits above the first app. Every `add_typer` gets a
+  `rich_help_panel`; every top-level command gets `rich_help_panel` and `epilog`, and so does every sub-command
+  an `epilog`. The panel names are short Title Case nouns chosen from how the CLI's own README groups its
+  commands, and are listed in the report. An `epilog` is one example per line as `command  # note`, the note
+  optional; every example is checked against the command's real options and drops if it names one that does not
+  exist. A Typer app with one command and no callback never reaches the group; report any such app.
+- The colour mapping above, in the CLI's own source under `cli/<package>/`.
+- `cli/pyproject.toml`: `sushicore>=0.1.0` becomes `sushicore>=0.4.0`. The README gains one short paragraph on
+  the grouped help and the `background` setting, worded like hub's (`cli/README.md` in `D:/Projects/sushistack`,
+  the paragraph before "Tab completion"). The changelog gains one line per change in the file's own format.
+- A test file `cli/tests/test_help_screen.py` modelled on hub's: the root screen lists each group with its
+  commands, a leaf shows Examples, a sub-app draws a page, and no raw colour name remains (a test that greps the
+  package source for `[green]`, `[red]`, `[yellow]`, `[cyan]`, `[blue]` and `[dim]` inside string literals).
+
+**Constraints.** Do not touch C++, CMake, other modules or another repository. Run the CLI's tests from
+`<repo>/cli` with `PYTHONPATH=D:/Projects/sushicore`; install nothing. Do not switch to another branch than the
+new one, and finish on it. Do not use `git stash`. The pipx venv of the CLI already holds sushicore 0.4.0 and an
+editable install of the CLI, so it runs whatever the checkout holds; leave the checkout on
+`feature/sushicore_help_screen` when done and say so, because the owner's command runs from it.
