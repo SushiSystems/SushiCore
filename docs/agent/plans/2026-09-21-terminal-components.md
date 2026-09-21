@@ -2359,3 +2359,33 @@ does not contain the page (the formatter is untouched). `tests/help/` and `tests
 
 **Docs** (the orchestrator does them): the spec's "Help" paragraph about writing into Click's formatter, and
 `docs/README.md`'s "Help screens".
+
+
+### Task 24: breathing room around the logo, and headings that stand out
+
+Source: the owner, after using `hub` in VS Code, `cmd` and PowerShell. Two requests: the logo needs some
+padding above and below, and headings such as `Workspace` and `Modules` should be bold. Measured on the real
+theme: a heading is already `\x1b[1;38;2;240;165;0m` (bold amber), but so is every command name under it,
+because `theme.cmd` is `bold #f0a500` too, so nothing marks a heading as heavier than its rows.
+
+**Acceptance criterion:** on a root page that shows a logo, one blank line comes before the logo and two blank
+lines separate the logo from the title (the normal separator plus one); a definition list's heading stays bold
+and its terms are the theme's command style without bold; `python -m pytest tests -q` passes.
+
+**`sushicore/help/page.py`.** A module constant `K_LOGO_MARGIN = 1` names the extra blank lines. When the page
+draws a logo (it is the first block), the rendered parts start with `K_LOGO_MARGIN` blank lines and the logo is
+followed by `K_LOGO_MARGIN` blank lines beyond the one blank line that already separates two blocks. A page
+without a logo is unchanged. The margin is the page's layout decision, not `Logo`'s, so `Logo` and
+`choose_logo` do not change.
+
+**`sushicore/ui/definition_list.py`.** The term style is the theme's command style with bold switched off
+(`f"{theme.cmd} not bold"`, a Rich style string), so a term is amber and a heading, which keeps `theme.header`,
+is bold amber. The heading style is unchanged. A theme whose `cmd` is not bold (`muted`) is unaffected.
+
+**Tests.** `tests/help/test_page.py`: with a logo the output starts with one empty line and there are two empty
+lines between the last logo row and the title; with no logo the first line is the title and nothing else
+changed; on a leaf page (no logo) nothing changed. `tests/ui/test_definition_list.py`: through `capture_ansi`
+with the default `Theme` (a Theme, not the sushiweb preset, so read `Theme().header` and `Theme().cmd` and
+build the expected codes from them) the heading carries bold and the term does not; every existing text test
+passes untouched. The `--help` tests in `tests/test_typer_help.py` that count lines may need their expected
+line indexes updated for the blank lines around a logo: change only those, and say which.
