@@ -303,7 +303,7 @@ def _invoke_and_warn(app: typer.Typer, caplog, *args: str) -> str:
         result = CliRunner().invoke(app, list(args))
     assert result.exit_code == 0, result.output
     assert len(_warnings(caplog)) == 1, [record.getMessage() for record in _warnings(caplog)]
-    return result.output
+    return K_ANSI.sub("", result.output)
 
 
 def test_a_group_whose_provider_raises_falls_back_to_typers_help(caplog):
@@ -328,7 +328,7 @@ def test_a_help_group_used_without_a_provider_falls_back_to_typers_help(caplog):
     with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
         result = CliRunner().invoke(app, ["--help"])
     assert result.exit_code == 0, result.output
-    assert K_TYPER_PANEL in result.output
+    assert K_TYPER_PANEL in K_ANSI.sub("", result.output)
     assert len(_warnings(caplog)) == 1
 
 
