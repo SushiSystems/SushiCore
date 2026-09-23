@@ -113,3 +113,72 @@ def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
         if isinstance(values.get(key), str):
             values[key] = values[key].strip().lower() in ("1", "true", "yes", "on")
     return values
+
+
+#: The value written into ``[workspace] version``, as a string so it can become "1.1".
+WORKSPACE_VERSION = "1"
+
+#: The comment block every writer puts at the top of ``workspace.toml``.
+WORKSPACE_HEADER = [
+    "# The SushiStack workspace's own data. `hub` locates this directory by walking up from the",
+    "# working directory, and everything it records about this machine lives in this one file.",
+    "#",
+    "# [workspace] version  the format's version, so a later `hub` can migrate this file.",
+    "# [modules]            name = path, written by `hub link`.",
+    "# [tool]               tool paths and the selected toolchain, written by `hub install`.",
+]
+
+
+def registered_modules(root: Path) -> dict[str, str]:
+    """Return the ``[modules]`` table of *root*'s workspace.toml as name -> path.
+
+    Answers empty when *root* has no workspace.toml yet, so a caller needs no
+    workspace of its own to ask the question.
+
+    @param root The workspace root, passed in explicitly; this never walks up.
+    """
+    mods = read_toml(workspace_file(root)).get("modules", {})
+    return {k: str(v) for k, v in mods.items() if isinstance(v, str)}
+
+
+def write_module(root: Path, name: str, path: Path) -> Path:
+    """Record (or update) a ``name -> path`` entry in *root*'s ``[modules]``.
+
+    Re-renders the whole document through
+    :func:`sushicore.config_base.write_toml_document`, the one renderer
+    ``[tool]``'s writer also goes through, so the tables sharing the file
+    survive the write.
+
+    @param root The workspace root, passed in explicitly; this never walks up.
+    @return     The path written.
+    """
+    from .config_base import write_toml_document
+
+    target = workspace_file(root)
+    document = dict(read_toml(target))
+    registry = dict(document.get("modules", {}))
+    registry[name] = str(path)
+    document["modules"] = registry
+    document.setdefault("workspace", {"version": WORKSPACE_VERSION})
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return write_toml_document(target, document, WORKSPACE_HEADER)
+
+
+def remove_module(root: Path, name: str) -> bool:
+    """Remove *name* from *root*'s ``[modules]`` table. Return whether it was present.
+
+    @param root The workspace root, passed in explicitly; this never walks up.
+    """
+    from .config_base import write_toml_document
+
+    target = workspace_file(root)
+    document = dict(read_toml(target))
+    registry = dict(document.get("modules", {}))
+    if name not in registry:
+        return False
+    del registry[name]
+    document["modules"] = registry
+    document.setdefault("workspace", {"version": WORKSPACE_VERSION})
+    target.parent.mkdir(parents=True, exist_ok=True)
+    write_toml_document(target, document, WORKSPACE_HEADER)
+    return True
