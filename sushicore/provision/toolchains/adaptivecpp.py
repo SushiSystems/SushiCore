@@ -28,8 +28,7 @@ __all__ = ["install_adaptivecpp"]
 ACPP_VERSION = "v24.10.0"
 #: clang/llvm major version used to build acpp.
 ACPP_LLVM = "17"
-#: Full LLVM release vendored on Windows when no LLVM dev install exists. Matches
-#: ACPP_LLVM. The official clang+llvm Windows tarball ships lib/cmake/llvm.
+#: Full LLVM release vendored on Windows when no LLVM dev install exists.
 LLVM_WINDOWS_VERSION = "17.0.6"
 #: Seconds to wait for consent before downloading the heavy LLVM (default: no).
 _LLVM_CONSENT_TIMEOUT = 30
@@ -40,9 +39,6 @@ _YES = ("y", "yes", "e", "evet")
 def _confirm_timeout(message: str, timeout: int = _LLVM_CONSENT_TIMEOUT,
                      default: bool = False) -> bool:
     """Ask a yes/no question, returning *default* if unanswered within *timeout*.
-
-    Must be called outside any Rich progress/live context, since a prompt
-    rendered under a spinner is not answerable.
 
     Args:
         message: The question to print, as Rich markup.
@@ -131,8 +127,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
             _download(url, archive)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
-            # NSIS installer requires elevation (WinError 740). PowerShell triggers
-            # the UAC prompt via -Verb RunAs so it can install silently.
+            # PowerShell triggers a UAC prompt via -Verb RunAs to install silently.
             ps_cmd = (
                 f"Start-Process -FilePath '{archive}' "
                 f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
@@ -155,17 +150,12 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
                         assume_yes: bool = False) -> str | None:
     """Build AdaptiveCpp from source; return the ``acpp`` executable path.
 
-    Best-effort: a failure is reported but left non-fatal by the caller, since
-    the intel-llvm toolchain already provides a working SYCL compiler. On
-    Windows a missing LLVM dev install triggers a timed consent prompt before
-    the heavy (~2-3 GB) LLVM download.
-
     Args:
         cfg: Resolved configuration; selects platform-specific paths and tools.
         mgr: The Linux distro package manager, or None off Linux.
         vcpkg: The vcpkg manager, or None when unavailable.
         dry_run: Report the action without touching the filesystem.
-        assume_yes: Skip the Windows LLVM consent prompt (explicit opt-in command).
+        assume_yes: Skip the Windows LLVM consent prompt.
 
     Returns:
         The ``acpp`` executable path on success, None when it could not be built.
@@ -225,9 +215,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
         if cfg.ninja_exe:
             cfg_cmd.append(f"-DCMAKE_MAKE_PROGRAM={cfg.expand(cfg.ninja_exe)}")
 
-        # On Windows, clang-cl needs rc.exe (Windows SDK Resource Compiler) on
-        # PATH for the manifest-embed step. vcvars is not sourced here, so the
-        # SDK bin dir is located and injected into the subprocess environment.
+        # clang-cl needs rc.exe (Windows SDK Resource Compiler) on PATH for the manifest embed.
         if cfg.is_windows:
             rc_dir = _find_windows_sdk_rc_dir()
             if rc_dir and rc_dir.lower() not in os.environ.get("PATH", "").lower():
@@ -304,10 +292,6 @@ def _acpp_deps_windows(vcpkg: "IPackageManager | None",
                        assume_yes: bool = False) -> tuple[str | None, str | None]:
     """Install acpp build deps on Windows; return ``(LLVM_DIR, clang_prefix)``.
 
-    boost-context/fiber come from vcpkg. acpp also needs an LLVM dev install
-    (``lib/cmake/llvm``); if one is already present it is reused. Otherwise
-    acquiring it means a ~2-3 GB download, so the user is asked first.
-
     Args:
         vcpkg: The vcpkg manager, or None when unavailable.
         assume_yes: Skip the consent prompt for the heavy LLVM download.
@@ -319,13 +303,11 @@ def _acpp_deps_windows(vcpkg: "IPackageManager | None",
     if existing:
         return existing
 
-    # Consent is gathered up front by the caller (before the progress spinner),
-    # never here — prompting mid-pipeline is unanswerable. Without consent, skip.
+    # Consent is gathered by the caller before the progress spinner, never here.
     if not assume_yes:
         return (None, None)
 
-    # Consent given. Prefer winget if available (installs to Program Files),
-    # else vendor the official tarball into the deps folder.
+    # Prefer winget when available; otherwise vendor the official tarball.
     if shutil.which("winget"):
         console.info("Installing LLVM via winget ...")
         subprocess.run(

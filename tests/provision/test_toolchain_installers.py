@@ -103,7 +103,7 @@ def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, fake_conso
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
 
-    assert result == root
+    assert result == str(root)
     assert fake_console.has_call("warn")  # no sanitizer runtime in the fake tree
 
 
@@ -112,7 +112,7 @@ def test_install_intel_llvm_dry_run_reports_without_downloading(provision_home, 
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=True)
 
-    assert result == root
+    assert result == str(root)
     assert not root.exists()
     assert fake_console.has_call("info")
 
@@ -131,7 +131,7 @@ def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, fak
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False, refresh=True)
 
-    assert result == root
+    assert result == str(root)
 
 
 def test_install_intel_llvm_downloads_and_extracts_on_first_install(provision_home, fake_console,
@@ -150,7 +150,7 @@ def test_install_intel_llvm_downloads_and_extracts_on_first_install(provision_ho
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
 
-    assert result == root
+    assert result == str(root)
     assert clang.is_file()
     assert read_toolchain_stamp(root)["tag"] == "nightly-2"
 
@@ -289,11 +289,17 @@ def test_find_windows_llvm_finds_a_vendored_tree(provision_home):
     assert result == (str(cmake_dir), str(provision_home / "tools" / "llvm"))
 
 
-def test_find_windows_llvm_returns_none_when_nothing_is_installed(provision_home):
+def test_find_windows_llvm_returns_none_when_nothing_is_installed(provision_home, monkeypatch):
+    # Hermetic regardless of whether this host has its own LLVM install.
+    monkeypatch.setattr(adaptivecpp.Path, "is_dir", lambda _self: False)
+
     assert adaptivecpp._find_windows_llvm() is None
 
 
-def test_confirm_timeout_returns_the_default_when_unanswered(fake_console):
+def test_confirm_timeout_returns_the_default_when_unanswered(fake_console, monkeypatch):
+    # A real input() would block under -s; make it fail at once like a closed stdin.
+    monkeypatch.setattr("builtins.input", lambda: (_ for _ in ()).throw(EOFError()))
+
     result = adaptivecpp._confirm_timeout("Proceed?", timeout=1, default=False)
 
     assert result is False
@@ -325,7 +331,9 @@ class _FakeAptManager:
         return True
 
 
-def test_acpp_deps_linux_apt_installs_the_pinned_llvm_packages(fake_console):
+def test_acpp_deps_linux_apt_installs_the_pinned_llvm_packages(fake_console, monkeypatch):
+    # Hermetic regardless of whether this host has its own llvm-17 dev tree.
+    monkeypatch.setattr(adaptivecpp.Path, "is_dir", lambda _self: False)
     mgr = _FakeAptManager()
 
     llvm_dir, clang_prefix = adaptivecpp._acpp_deps_linux(mgr)
@@ -336,7 +344,7 @@ def test_acpp_deps_linux_apt_installs_the_pinned_llvm_packages(fake_console):
         "libboost-context-dev", "libboost-fiber-dev",
     ]
     assert clang_prefix == f"/usr/lib/llvm-{adaptivecpp.ACPP_LLVM}"
-    assert llvm_dir is None  # the apt tree does not exist on the test machine
+    assert llvm_dir is None
 
 
 class _FakeGenericManager:
