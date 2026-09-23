@@ -1,13 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Tool-path probing shared by every provisioning CLI.
-
-Kept separate from the pipeline steps so a step stays a thin orchestrator: this
-module knows *where tools live*, a step knows *when to write them out*. The
-values produced here mirror the fields :class:`~sushicore.provision.config.ProvisionConfig`
-already exposes, so the probed ``[tool]`` table plugs straight into a CLI's
-existing layered-config + env-snapshot machinery with no other changes.
-"""
+"""Tool-path probing shared by every provisioning CLI."""
 
 from __future__ import annotations
 
@@ -33,16 +26,11 @@ _ICX_GLOBS = [
     r"C:/Program Files (x86)/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
     r"C:/Program Files/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
 ]
-# Mirrors toolchains._find_windows_sdk_rc_dir without importing it (that module
-# pulls in package_managers, which imports this one — an import cycle).
 _RC_GLOBS = [
     r"C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe",
     r"C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe",
 ]
-# Linux well-known install locations. Neither the apt CUDA toolkit nor oneAPI
-# add themselves to PATH: nvcc lands under /usr/local/cuda*, and icpx/icx under
-# /opt/intel/oneapi/compiler/*/bin (normally exposed only after `setvars.sh`).
-# The probe checks these directly so a fresh `hub install` reports them present.
+# Neither the apt CUDA toolkit nor oneAPI add themselves to PATH, so these well-known install locations are checked directly.
 _NVCC_GLOBS_LINUX = [
     "/usr/local/cuda/bin/nvcc",
     "/usr/local/cuda-*/bin/nvcc",
@@ -54,6 +42,7 @@ _ICX_GLOBS_LINUX = [
 
 
 def _first_glob(patterns: list[str]) -> str:
+    """Return the last (highest-sorting) match among *patterns*, or ''."""
     for pat in patterns:
         hits = sorted(glob.glob(pat))
         if hits:
@@ -62,6 +51,7 @@ def _first_glob(patterns: list[str]) -> str:
 
 
 def _first_existing(paths: list[str]) -> str:
+    """Return the first path in *paths* that exists, or ''."""
     for p in paths:
         if Path(p).exists():
             return p
@@ -92,14 +82,7 @@ def _discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str])
 
 
 def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, str]]:
-    """Installed/missing status for each SYCL toolchain (and CUDA if *gpu*).
-
-    One row per toolchain: ``(name, present, detail)``. Lives here rather than
-    on a pipeline step because it is pure probing — the same kind of "where does
-    this tool live and does it run" question the rest of this module answers —
-    and keeping it here lets any caller (not just a detect step) ask the same
-    question without going through the pipeline.
-    """
+    """Return one ``(name, present, detail)`` row per SYCL toolchain (and CUDA if *gpu*)."""
     win = cfg.platform == "windows"
     base = _toolchains_dir()
 
@@ -123,9 +106,7 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
     oneapi_ok = (active in ("icx-cl", "icpx")
                  or (bool(oneapi_bin) and binary_works(oneapi_bin)))
 
-    # Rich table cells are rendered as markup, so a path in square brackets (e.g.
-    # from a Windows drive-letter-free relative path someone configured) would be
-    # parsed as a tag and crash rendering. Escape it.
+    # A path in square brackets would otherwise be parsed as rich markup.
     from rich.markup import escape as _rich_escape
 
     rows = [
@@ -279,14 +260,7 @@ def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
 
 
 def find_configured_toolchain(cfg: ProvisionConfig) -> tuple[str | None, str]:
-    """Return (label, path) for a SYCL compiler installed by the provisioning CLI, or (None, '').
-
-    Unlike :func:`find_sycl_compiler`, this consults the off-PATH binaries the
-    installer drops in (the intel/llvm bundle's clang++ and AdaptiveCpp's acpp),
-    via the configured paths first and the toolchains dir as a fallback. Used by
-    a detect step so a re-run reports those toolchains accurately instead of
-    falsely showing the compiler as missing.
-    """
+    """Return (label, path) for a SYCL compiler installed by the provisioning CLI, or (None, '')."""
     win = cfg.platform == "windows"
     base = _toolchains_dir()
 
@@ -327,6 +301,7 @@ def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False) -> dict[str, s
 
 
 def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
+    """Probe Windows-specific tool paths for :func:`resolve_local_config`."""
     values: dict[str, str] = {}
 
     vcvars = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
@@ -345,9 +320,7 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
     if icx:
         values["icx_compiler"] = icx
 
-    # The intel-llvm toolchain drives clang++ in GNU-like mode, not clang-cl, so
-    # vcvars is never sourced for it — rc.exe (needed for any target with .rc
-    # resources) would otherwise be invisible to the build.
+    # clang++ runs GNU-like, not clang-cl, so vcvars is never sourced for rc.exe.
     rc = shutil.which("rc") or _first_glob(_RC_GLOBS)
     if rc:
         values["rc_exe"] = rc
@@ -357,10 +330,7 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
     if ninja:
         values["ninja_exe"] = ninja
 
-    # VS BuildTools omits the CMake component, so pin the discovered cmake/ctest
-    # rather than relying on PATH at build time, where the snapshotted env may not
-    # expose it. cmake may live outside PATH for a non-interactive shell: a system
-    # MSI in Program Files, or the portable zip we extract under deps/tools/cmake.
+    # cmake/ctest may be off PATH in a non-interactive shell, so known install locations are checked too.
     _cmake_pf = [str(portable_bin / "cmake.exe"),
                  r"C:/Program Files/CMake/bin/cmake.exe",
                  r"C:/Program Files (x86)/CMake/bin/cmake.exe"]
@@ -380,8 +350,7 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
     if vcpkg_root and (".conda" in vcpkg_root or "envs" in vcpkg_root):
         vcpkg_root = ""
     if not (vcpkg_root and Path(vcpkg_root).is_dir()):
-        # Self-contained default: the deps vcpkg tree. Written even when absent so
-        # VcpkgManager bootstraps there instead of a system-wide location.
+        # Default to the dependency root's vcpkg tree when none is configured.
         vcpkg_root = str(home.root() / "vcpkg")
     if vcpkg_root:
         values["vcpkg_root"] = vcpkg_root
@@ -405,10 +374,10 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
 
 
 def _resolve_linux(cfg: ProvisionConfig) -> dict[str, str]:
+    """Probe Linux-specific tool paths for :func:`resolve_local_config`."""
     values: dict[str, str] = {}
     compiler, path = find_sycl_compiler(cfg)
     if compiler == "clang++":
-        # intel/llvm path: project.py already falls back, but make it explicit.
         values["cxx"] = "clang++"
         values["cc"] = "clang"
     oneapi = cfg.expand(cfg.oneapi_root) if cfg.oneapi_root else ""
