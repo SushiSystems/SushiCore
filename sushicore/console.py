@@ -9,7 +9,7 @@ or another backend can hand it any ``Renderer`` without subclassing.
 from __future__ import annotations
 
 from .icons import IconSet
-from .renderer import Renderer
+from .renderer import JsonRenderer, Renderer
 from .theme import Theme
 
 
@@ -53,6 +53,10 @@ class Console:
     def dark_background(self) -> bool:
         """Return whether the terminal this console writes to has a dark background."""
         return self._dark_background
+
+    def is_machine(self) -> bool:
+        """Return whether this console renders JSON events instead of terminal output."""
+        return isinstance(self._renderer, JsonRenderer)
 
     def info(self, msg: str) -> None:
         """Print an informational line."""

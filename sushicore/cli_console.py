@@ -23,6 +23,7 @@ _ATTRS = frozenset({
     "info", "success", "warn", "error",
     "command", "header", "fail_panel", "accent",
     "table", "progress", "result", "prompt",
+    "is_machine",
 })
 
 

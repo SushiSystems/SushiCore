@@ -2,7 +2,8 @@
 
 import io
 
-from sushicore.renderer import PlainRenderer, RichRenderer
+from sushicore.icons import IconSet
+from sushicore.renderer import JsonRenderer, PlainRenderer, RichRenderer
 from sushicore.theme import Theme
 
 
@@ -119,3 +120,17 @@ def test_console_prompt_numbers_prompts_per_instance():
     assert c.prompt("Go?", "n") == "y"
     c.prompt("Again?")
     assert [a[0] for k, a in spy.calls] == ["prompt-1", "prompt-2"]
+
+
+def test_console_is_machine_is_false_for_a_rich_renderer():
+    from sushicore.console import Console
+
+    console = Console(RichRenderer(Theme(), no_color=True), Theme(), IconSet())
+    assert console.is_machine() is False
+
+
+def test_console_is_machine_is_true_for_a_json_renderer():
+    from sushicore.console import Console
+
+    console = Console(JsonRenderer(stream=io.StringIO()), Theme(), IconSet())
+    assert console.is_machine() is True

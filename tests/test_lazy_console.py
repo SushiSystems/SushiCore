@@ -23,3 +23,15 @@ def test_lazy_console_exposes_the_new_names():
     lazy = LazyConsole(lambda: Path("/nowhere"))
     for name in ("table", "progress", "result", "prompt"):
         assert callable(lazy.attribute(name))
+
+
+def test_lazy_console_is_machine_true_when_machine_flag_is_set():
+    lazy = LazyConsole(lambda: Path("/nowhere"))
+    lazy.machine = True
+    assert lazy.attribute("is_machine")() is True
+
+
+def test_lazy_console_is_machine_false_when_machine_flag_is_unset():
+    lazy = LazyConsole(lambda: Path("/nowhere"))
+    lazy.machine = False
+    assert lazy.attribute("is_machine")() is False
