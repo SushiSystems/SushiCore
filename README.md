@@ -21,4 +21,31 @@ it knows nothing about SYCL, a renderer, or any one module's schema.
 | `sushicore.help`, `sushicore.typer_help` | A themed help screen for a Typer CLI: `typer.Typer(cls=help_group(provider))` |
 | `sushicore.cmake_driver`, `cmake_cache`, `proc`, `toolchain_args` | The configure, build and test driver the CLIs share |
 
+## Provisioning
+
+`sushicore.provision` is the dependency root, registry and doctor every module CLI shares.
+The root is `SUSHISYSTEMS_HOME`, else `~/.sushisystems`; a consumer overrides it with
+`home.bind_root(provider)`. `register_provision_commands(app, module)` adds four commands —
+`setup`, `doctor`, `link` and `unlink` — to a Typer app from one `ModuleProvision`, and binds
+the module's console through `bind_console` on each call.
+
+```python
+import typer
+from sushicore.provision.commands import ModuleProvision, register_provision_commands
+
+app = typer.Typer()
+
+module = ModuleProvision(
+    profile=PROFILE,
+    project_root=lambda: PROJECT_ROOT,
+    load_config=load_config,
+    console=lambda: console,
+)
+
+register_provision_commands(app, module)
+```
+
+`setup` takes `--dry-run` and `--yes`; `doctor` takes `--for` to restrict the report to one
+check group; `link` and `unlink` take `--workspace` to name the workspace registry explicitly.
+
 The manual is in `docs/README.md`. Licensed under the terms in `LICENSE`.

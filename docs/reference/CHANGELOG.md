@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-09-23 — Added `sushicore.provision`: dependency root, registry, doctor and module commands, moved from hub (`sushicore/provision/`).
 - 2026-09-21 — Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).
 - 2026-09-22 — Stopped `typer_help` importing `click` at run time, since Typer 0.27 no longer installs it, and added `click` to the `test` extra (`sushicore/typer_help.py`, `pyproject.toml`).
 - 2026-09-22 — Kept a bracket in a help title or list as text unless it names a style, so `[required]` and `[default: x]` show on Typer 0.27 (`sushicore/ui/definition_list.py`, `sushicore/ui/title.py`).
