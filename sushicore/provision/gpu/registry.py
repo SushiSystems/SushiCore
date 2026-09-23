@@ -13,8 +13,11 @@ from .rocm import ROCM
 class Registry:
     """An ordered, duplicate-free set of :class:`GpuBackendSpec`.
 
-    :param specs: The backends to register, in report order.
-    :raises ValueError: When two specs share a vendor name or a probe key.
+    Args:
+        specs: The backends to register, in report order.
+
+    Raises:
+        ValueError: When two specs share a vendor name or a probe key.
     """
 
     def __init__(self, specs: tuple[GpuBackendSpec, ...]) -> None:

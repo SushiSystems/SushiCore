@@ -20,9 +20,7 @@ from sushicore.provision.gpu.registry import Registry
 from sushicore.provision.gpu.rocm import ROCM
 
 
-# --------------------------------------------------------------------------- #
 # CUDA
-# --------------------------------------------------------------------------- #
 
 def test_cuda_spec_declares_the_adapter_build_inputs():
     assert CUDA.vendor == "cuda"
@@ -102,9 +100,7 @@ def test_linux_cuda_provision_installs_when_nvcc_does_not_run(monkeypatch, recor
     assert commands  # the pinned apt install ran, not skipped
 
 
-# --------------------------------------------------------------------------- #
 # ROCm
-# --------------------------------------------------------------------------- #
 
 def test_rocm_spec_declares_the_adapter_build_inputs():
     assert ROCM.vendor == "rocm"
@@ -117,9 +113,7 @@ def test_rocm_spec_declares_the_adapter_build_inputs():
     assert ROCM.adapter_definitions(install) == {"UR_HIP_ROCM_DIR": str(root)}
 
 
-# --------------------------------------------------------------------------- #
 # Level Zero
-# --------------------------------------------------------------------------- #
 
 def test_level_zero_spec_declares_the_adapter_build_inputs():
     assert LEVEL_ZERO.vendor == "level_zero"
@@ -131,9 +125,7 @@ def test_level_zero_spec_declares_the_adapter_build_inputs():
     assert LEVEL_ZERO.adapter_definitions(install) == {}
 
 
-# --------------------------------------------------------------------------- #
 # Platform coverage
-# --------------------------------------------------------------------------- #
 
 @pytest.mark.parametrize("spec", [CUDA, ROCM, LEVEL_ZERO])
 def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
@@ -144,9 +136,7 @@ def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
     assert spec.locator.provision(cfg, dry_run=True) is True
 
 
-# --------------------------------------------------------------------------- #
 # Linux dry-run commands pinned to a fixed text
-# --------------------------------------------------------------------------- #
 
 def test_cuda_linux_provision_command_matches_the_pinned_text(monkeypatch, recording_console):
     monkeypatch.setattr(cuda_mod.probe, "binary_works", lambda cmd: False)
@@ -205,9 +195,7 @@ def test_level_zero_linux_provision_command_matches_the_pinned_text(
     ]
 
 
-# --------------------------------------------------------------------------- #
 # The Level Zero locator finds a real shared library, not an executable
-# --------------------------------------------------------------------------- #
 
 def test_level_zero_locator_finds_the_loader_via_find_library(monkeypatch):
     monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library",
@@ -242,9 +230,7 @@ def test_level_zero_locator_reports_nothing_when_the_loader_is_absent(monkeypatc
     assert LEVEL_ZERO.locator.locate(cfg) is None
 
 
-# --------------------------------------------------------------------------- #
 # ROCm reads ROCM_PATH before falling back to /opt/rocm
-# --------------------------------------------------------------------------- #
 
 def test_rocm_locator_prefers_rocm_path_over_the_default(monkeypatch):
     monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: "/custom/rocm/bin/hipcc")

@@ -18,8 +18,9 @@ if typing.TYPE_CHECKING:
 class ToolkitInstall:
     """The result of locating a vendor's GPU toolkit on the machine.
 
-    :param root: Install root of the toolkit.
-    :param version: The toolkit's version string, when known.
+    Args:
+        root: Install root of the toolkit.
+        version: The toolkit's version string, when known.
     """
 
     root: pathlib.Path
@@ -42,8 +43,9 @@ class ToolkitLocator(typing.Protocol):
 class NotProvided:
     """A locator for a backend that has no answer on the current platform.
 
-    :param backend: The backend's vendor name, for the console message.
-    :param platform: The platform name, for the console message.
+    Args:
+        backend: The backend's vendor name, for the console message.
+        platform: The platform name, for the console message.
     """
 
     def __init__(self, backend: str, platform: str) -> None:
@@ -64,10 +66,11 @@ class NotProvided:
 class PlatformLocator:
     """Dispatches to a per-platform locator, falling back to :class:`NotProvided`.
 
-    :param backend: The backend's vendor name, used to build the fallback.
-    :param locators: Platform name to locator, keyed by ``cfg.platform``'s values
-        (``"windows"``, ``"linux"``, ``"darwin"``); an absent key falls back to
-        :class:`NotProvided`.
+    Args:
+        backend: The backend's vendor name, used to build the fallback.
+        locators: Platform name to locator, keyed by ``cfg.platform``'s values
+            (``"windows"``, ``"linux"``, ``"darwin"``); an absent key falls back to
+            :class:`NotProvided`.
     """
 
     def __init__(self, backend: str, locators: dict[str, ToolkitLocator]) -> None:
@@ -96,17 +99,18 @@ class PlatformLocator:
 class GpuBackendSpec:
     """One vendor's complete answer to the GPU backend contract.
 
-    :param vendor: The backend's own name, e.g. ``"cuda"``.
-    :param probe_vendor: The vendor key ``probe.py`` reports, e.g. ``"nvidia"``.
-    :param locator: Finds and provisions the toolkit for this vendor.
-    :param adapter_option: The Unified Runtime CMake option that builds this adapter.
-    :param adapter_definitions: Builds the extra configure definitions from a
-        located toolkit, naming its root to the adapter build.
-    :param adapter_target: The CMake build target that produces the adapter.
-    :param adapter_binaries: Base names of the binaries the adapter build
-        produces, without platform prefix or suffix. The adapter builder maps
-        each name to its platform file name: ``<name>.dll`` on Windows,
-        ``lib<name>.so*`` on Linux.
+    Args:
+        vendor: The backend's own name, e.g. ``"cuda"``.
+        probe_vendor: The vendor key ``probe.py`` reports, e.g. ``"nvidia"``.
+        locator: Finds and provisions the toolkit for this vendor.
+        adapter_option: The Unified Runtime CMake option that builds this adapter.
+        adapter_definitions: Builds the extra configure definitions from a
+            located toolkit, naming its root to the adapter build.
+        adapter_target: The CMake build target that produces the adapter.
+        adapter_binaries: Base names of the binaries the adapter build
+            produces, without platform prefix or suffix. The adapter builder maps
+            each name to its platform file name: ``<name>.dll`` on Windows,
+            ``lib<name>.so*`` on Linux.
     """
 
     vendor: str
