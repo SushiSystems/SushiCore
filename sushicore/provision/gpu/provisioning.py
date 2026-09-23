@@ -33,18 +33,8 @@ def provision_gpu_adapters(
 ) -> None:
     """Build every located backend's Unified Runtime adapter for one toolchain.
 
-    Reads the intel/llvm commit the toolchain at *toolchain_root* was built
-    from, then asks each registered backend's locator whether its toolkit is
-    present. A present toolkit gets its adapter built through *builder*; an
-    absent one is reported and skipped.
-
-    :param cfg: Resolved configuration; selects the platform's compiler name.
-    :param registry: The backends to provision, in report order.
-    :param toolchain_root: Root of the installed SYCL toolchain (holds ``bin/``).
-    :param builder: Builds one backend's adapter for one compiler commit.
-    :param dry_run: Report the action without touching the filesystem.
-    :param commit_reader: Injected in place of :func:`read_intel_llvm_commit`
-        for tests.
+    Args:
+        dry_run: Report the action without touching the filesystem.
     """
     try:
         _provision(cfg, registry, toolchain_root, builder, dry_run, commit_reader)

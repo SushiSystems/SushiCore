@@ -15,8 +15,7 @@ from .backend import GpuBackendSpec, PlatformLocator, ToolkitInstall
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
-# Checked when ctypes.util.find_library misses, e.g. under a linker cache that
-# has not been refreshed since the loader was installed.
+# Fallback directories checked when ctypes.util.find_library finds nothing.
 _ZE_LOADER_LIB_DIRS = (
     "/usr/lib/x86_64-linux-gnu",
     "/usr/lib64",
@@ -26,12 +25,7 @@ _ZE_LOADER_GLOB = "libze_loader.so*"
 
 
 def _find_ze_loader() -> pathlib.Path | None:
-    """Return the directory holding libze_loader, or None when it is absent.
-
-    ``find_library`` names are always POSIX paths (this locator only ever
-    runs on Linux), so parsing goes through :class:`pathlib.PurePosixPath`
-    rather than :class:`pathlib.Path`, whose flavour follows the host OS.
-    """
+    """Return the directory holding libze_loader, or None when it is absent."""
     found = ctypes.util.find_library("ze_loader")
     if found:
         path = pathlib.PurePosixPath(found)
@@ -46,12 +40,7 @@ class LinuxLevelZeroLocator:
     """Finds and installs the Intel GPU compute stack (Level Zero + OpenCL)."""
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Return the directory holding the Level Zero loader, or None.
-
-        Level Zero names no toolkit root the way ``CUDA_PATH`` does; the loader
-        is a shared library reached through the linker, so this reports an
-        install once the loader is found, with nothing further to name.
-        """
+        """Return the directory holding the Level Zero loader, or None."""
         directory = _find_ze_loader()
         if directory is None:
             return None

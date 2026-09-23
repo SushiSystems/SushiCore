@@ -250,9 +250,7 @@ def test_the_elevated_command_maps_only_error_1223_to_declined(tmp_path):
     assert f"[Console]::Error.WriteLine($_.Exception.Message); exit {wi.LAUNCH_FAILED}" in cmd[4]
 
 
-# --------------------------------------------------------------------------- #
 # HttpDownloader
-# --------------------------------------------------------------------------- #
 
 def _download_of(payload: bytes) -> wi.InstallerDownload:
     """Describe an installer whose published MD5 is that of *payload*."""
@@ -354,9 +352,7 @@ def test_prepend_machine_path_adds_only_new_entries(monkeypatch):
     assert os.environ["PATH"].split(os.pathsep) == [r"C:\CUDA\bin", r"C:\Windows", r"C:\Tools"]
 
 
-# --------------------------------------------------------------------------- #
 # GPU detection
-# --------------------------------------------------------------------------- #
 
 @pytest.mark.parametrize("names, vendor", [
     ("nvidia geforce rtx 3080 ti\namd radeon(tm) graphics", "nvidia"),

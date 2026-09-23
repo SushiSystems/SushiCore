@@ -27,8 +27,7 @@ from .windows_installer import (
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
-# Neither the apt CUDA toolkit nor a manual install adds itself to PATH, so a
-# fresh machine needs these well-known roots checked directly.
+# Neither the apt CUDA toolkit nor a manual install adds itself to PATH.
 _NVCC_GLOBS_LINUX = [
     "/usr/local/cuda/bin/nvcc",
     "/usr/local/cuda-*/bin/nvcc",
@@ -133,7 +132,8 @@ class LinuxCudaLocator:
 class WindowsCudaLocator:
     """Finds the CUDA toolkit through CUDA_PATH and installs it with NVIDIA's network installer.
 
-    :param tools: The download, elevation and machine-environment helpers.
+    Args:
+        tools: The download, elevation and machine-environment helpers.
     """
 
     def __init__(self, tools: WindowsInstallerTools | None = None) -> None:
@@ -141,11 +141,8 @@ class WindowsCudaLocator:
         self._tools = tools or WindowsInstallerTools()
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Return the toolkit named by the process CUDA_PATH, else by the machine CUDA_PATH.
-
-        A valid machine value is copied into this process, so a build started from
-        it inherits the toolkit even when the terminal predates the CUDA install.
-        """
+        """Return the toolkit named by the process CUDA_PATH, else the machine CUDA_PATH;
+        a machine value found is copied into this process's environment."""
         found = _toolkit_at(os.environ.get("CUDA_PATH", ""))
         if found is not None:
             return found

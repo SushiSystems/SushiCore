@@ -21,12 +21,7 @@ class LinuxRocmLocator:
     """Finds and installs AMD ROCm (HIP runtime + dev) from AMD's official apt repo."""
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Return the ROCm root when hipcc or rocminfo is on PATH.
-
-        Reads ``ROCM_PATH`` first, since the HIP adapter's own CMake honours
-        that variable before its ``/opt/rocm`` default; falls back to the
-        standard install root once a ROCm binary is found on PATH.
-        """
+        """Return ROCM_PATH, else /opt/rocm, when hipcc or rocminfo is on PATH."""
         if not (shutil.which("hipcc") or shutil.which("rocminfo")):
             return None
         root = os.environ.get("ROCM_PATH") or "/opt/rocm"
