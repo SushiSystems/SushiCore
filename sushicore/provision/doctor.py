@@ -67,7 +67,8 @@ class Report:
 
     def failures(self) -> int:
         """Return how many required checks reached :attr:`State.FAIL`."""
-        return sum(1 for check, result in self.rows if check.required and result.state == State.FAIL)
+        return sum(
+            1 for check, result in self.rows if check.required and result.state == State.FAIL)
 
     def exit_code(self) -> int:
         """Return ``1`` when any required check failed, ``0`` otherwise."""
@@ -108,18 +109,13 @@ class Doctor:
                 continue
             try:
                 result = check.run()
-            except Exception as exc:  # noqa: BLE001 - a failing check must not abort the run
+            except Exception as exc:  # noqa: BLE001
                 result = CheckResult(State.FAIL, f"{type(exc).__name__}: {exc}")
             rows.append((check, result))
         return Report(tuple(rows))
 
-    def render(self, report: Report, console) -> None:
-        """Print *report* as a table followed by a result, through *console*.
-
-        Args:
-            console: A :class:`sushicore.console.Console`, passed in rather than looked up,
-                so the doctor never depends on a bound global.
-        """
+    def render(self, report: Report, console: object) -> None:
+        """Print *report* as a table followed by a result, through *console*."""
         rows = [
             [check.name, check.group, _markup(check, result), result.detail, result.fix]
             for check, result in report.rows
