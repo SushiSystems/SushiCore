@@ -1,10 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Reading which intel/llvm commit a SYCL compiler was built from.
-
-The adapter builder needs this commit to fetch a matching Unified Runtime
-checkout, so a mismatch never links against the wrong SYCL runtime.
-"""
+"""Reading which intel/llvm commit a SYCL compiler was built from."""
 
 from __future__ import annotations
 

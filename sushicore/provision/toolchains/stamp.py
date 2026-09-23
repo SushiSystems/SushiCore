@@ -1,11 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Provenance stamp recorded beside an installed SYCL toolchain tree.
-
-Without it an install is a black box — the tree carries no version anywhere a
-tool can read, so a stale bundle stays invisible until something it lacks
-fails much further downstream.
-"""
+"""Provenance stamp recorded beside an installed SYCL toolchain tree."""
 
 from __future__ import annotations
 
@@ -94,12 +89,6 @@ def toolchain_adapter_commit(root: Path, vendor: str) -> str | None:
 
 def has_sanitizer_runtime(root: Path) -> bool:
     """Report whether a SYCL bundle ships compiler-rt's sanitizer runtimes.
-
-    A bundle without them compiles fine and only fails at *link* time, with a
-    message naming a clang_rt library rather than the real cause, so this is
-    probed directly: the answer decides whether an ASan build can work at all.
-    Both compiler-rt layouts are covered — the per-target directory and the
-    older ``lib/windows`` / ``lib/linux`` one.
 
     :param root: Bundle root (the directory holding ``bin/`` and ``lib/``).
     :return: True when at least one AddressSanitizer runtime library is present.
