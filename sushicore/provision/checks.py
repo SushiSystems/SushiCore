@@ -26,7 +26,7 @@ def _first_version_line(exe: str) -> str:
     try:
         result = subprocess.run([exe, "--version"], capture_output=True, text=True,
                                  timeout=_VERSION_TIMEOUT)
-    except Exception:
+    except (OSError, ValueError, subprocess.SubprocessError):
         return ""
     lines = (result.stdout or result.stderr).strip().splitlines()
     return lines[0].strip() if lines else ""
@@ -58,10 +58,12 @@ def compiler_check(cfg: ProvisionConfig, fix: str = "") -> FunctionCheck:
     def fn() -> CheckResult:
         compilers: list[tuple[str, str]] = []
         if cfg.platform == "windows":
-            vcvars = os.environ.get("VSINSTALLDIR") or (
-                cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else "")
-            if vcvars and (os.environ.get("VSINSTALLDIR") or Path(vcvars).is_file()):
-                compilers.append(("MSVC", vcvars))
+            dev_shell = os.environ.get("VSINSTALLDIR")
+            configured = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
+            found, info = (True, dev_shell) if dev_shell else (
+                bool(configured) and Path(configured).is_file(), configured)
+            if found:
+                compilers.append(("MSVC", info))
         for label, exe in (("Clang", "clang++"), ("GCC", "g++")):
             line = _first_version_line(exe)
             if line:
@@ -106,8 +108,9 @@ def fragment_check(source: IDependencySource, platform: str, gpu: bool,
             if not dep.check_cmd:
                 continue
             try:
-                ok = subprocess.run(dep.check_cmd, capture_output=True).returncode == 0
-            except OSError:
+                ok = subprocess.run(dep.check_cmd, capture_output=True,
+                                     timeout=_VERSION_TIMEOUT).returncode == 0
+            except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
                 ok = False
             if not ok:
                 failing.append(dep.name)
@@ -125,7 +128,11 @@ def stamp_check(root: Path) -> FunctionCheck:
         toolchains = root / "toolchains"
         if not toolchains.is_dir():
             return CheckResult(State.OK, "no toolchains installed")
-        unstamped = [d.name for d in sorted(toolchains.iterdir())
+        try:
+            entries = sorted(toolchains.iterdir())
+        except OSError as exc:
+            return CheckResult(State.WARN, f"cannot read {toolchains}: {exc}")
+        unstamped = [d.name for d in entries
                      if d.is_dir() and not (d / TOOLCHAIN_STAMP).is_file()]
         if not unstamped:
             return CheckResult(State.OK, "every installed toolchain is stamped")
@@ -141,8 +148,8 @@ def standard_checks(cfg: ProvisionConfig, fix: str) -> list[Check]:
         tool_check("cmake", cfg.cmake_exe or "cmake", group="build", required=True, fix=fix),
         tool_check("ctest", cfg.ctest_exe or "ctest", group="test", required=True, fix=fix),
     ]
-    ninja_exe = cfg.ninja_exe or "ninja"
     if cfg.ninja_exe or shutil.which("ninja"):
+        ninja_exe = cfg.ninja_exe or "ninja"
         checks.append(tool_check("ninja", ninja_exe, group="build", required=True, fix=fix))
     checks.append(compiler_check(cfg, fix=fix))
     checks.append(tool_check("git", "git", group="build", required=False))
