@@ -14,8 +14,7 @@ def test_no_file_means_no_modules(tmp_path):
 
 def test_write_then_read(tmp_path):
     write_module(tmp_path, "sushidsp", tmp_path / "dsp")
-    # write_toml_document normalizes backslashes to forward slashes on write
-    # (see sushicore.config_base._emit_table), same as hub's own test_link.py.
+    # write_toml_document normalizes backslashes to forward slashes on write.
     assert registered_modules(tmp_path) == {"sushidsp": str(tmp_path / "dsp").replace("\\", "/")}
 
 
