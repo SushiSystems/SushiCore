@@ -132,9 +132,6 @@ WORKSPACE_HEADER = [
 def registered_modules(root: Path) -> dict[str, str]:
     """Return the ``[modules]`` table of *root*'s workspace.toml as name -> path.
 
-    Answers empty when *root* has no workspace.toml yet, so a caller needs no
-    workspace of its own to ask the question.
-
     @param root The workspace root, passed in explicitly; this never walks up.
     """
     mods = read_toml(workspace_file(root)).get("modules", {})
@@ -143,11 +140,6 @@ def registered_modules(root: Path) -> dict[str, str]:
 
 def write_module(root: Path, name: str, path: Path) -> Path:
     """Record (or update) a ``name -> path`` entry in *root*'s ``[modules]``.
-
-    Re-renders the whole document through
-    :func:`sushicore.config_base.write_toml_document`, the one renderer
-    ``[tool]``'s writer also goes through, so the tables sharing the file
-    survive the write.
 
     @param root The workspace root, passed in explicitly; this never walks up.
     @return     The path written.
@@ -165,7 +157,7 @@ def write_module(root: Path, name: str, path: Path) -> Path:
 
 
 def remove_module(root: Path, name: str) -> bool:
-    """Remove *name* from *root*'s ``[modules]`` table. Return whether it was present.
+    """Remove *name* from *root*'s ``[modules]`` table, and report whether it was present.
 
     @param root The workspace root, passed in explicitly; this never walks up.
     """
