@@ -296,7 +296,8 @@ class DetectStep(Step):
         )
 
         console.info(f"Vendored dependencies go in one folder: {home.root()}")
-        console.info("Remove the whole install by deleting that folder.")
+        console.info("Remove the whole install by deleting that folder "
+                     "(`hub remove --all` does it for you).")
         if ctx.cfg.platform == "windows":
             console.info("System prerequisites kept outside that folder: the C++ "
                          "host compiler (Visual Studio Build Tools + Windows SDK), "
@@ -321,6 +322,7 @@ class DetectStep(Step):
         console.warn("Needs attention")
         for component, _status_text, _owner, detail in missing:
             console.info(_literal(f"{component}  {detail}".rstrip()))
+        console.info("Run `hub install` to provision what is missing.")
 
 
 class InstallDepsStep(Step):
@@ -371,7 +373,8 @@ class InstallDepsStep(Step):
             elif not ctx.selection.install_intel_llvm:
                 console.warn("AdaptiveCpp is the only toolchain selected but it did "
                              "not install; the project will not build. Re-run "
-                             "with --customize and also pick intel-llvm as a fallback.")
+                             "`hub install --customize` and also pick intel-llvm as "
+                             "a fallback.")
 
     # -- Linux ---------------------------------------------------------------- #
 
