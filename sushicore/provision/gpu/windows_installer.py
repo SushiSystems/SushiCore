@@ -1,15 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Vendor-agnostic helpers for running a vendor's Windows installer unattended.
-
-Three small bricks, each behind a protocol so a test can swap it for a fake:
-:class:`HttpDownloader` fetches an installer into the dependencies folder and
-checks it against the vendor's published digest, :class:`PowerShellElevatedRunner`
-starts it through one UAC prompt, and :class:`RegistryMachineEnvironment` reads a
-machine environment variable. :func:`adopt_machine_variable` and
-:func:`prepend_machine_path` copy those values into this process. No vendor is
-named here.
-"""
+"""Download, elevated launch and machine-environment helpers for vendor Windows installers."""
 
 from __future__ import annotations
 
@@ -137,7 +128,7 @@ class HttpDownloader:
         console.info(f"Downloading {download.url} ...")
         try:
             request = urllib.request.Request(download.url,
-                                             headers={"User-Agent": "sushihub-installer"})
+                                             headers={"User-Agent": "sushicore-installer"})
             with urllib.request.urlopen(request, timeout=300) as resp, open(part, "wb") as fh:
                 while chunk := resp.read(1 << 16):
                     fh.write(chunk)
@@ -158,7 +149,7 @@ def _ps_quote(text: str) -> str:
 
 
 class PowerShellElevatedRunner:
-    """Starts a process through ``Start-Process -Verb RunAs``, so Windows shows one UAC prompt."""
+    """Starts a process through ``Start-Process -Verb RunAs``, showing one UAC prompt."""
 
     def command(self, exe: Path, args: typing.Sequence[str]) -> list[str]:
         """Return the PowerShell command line that runs *exe* elevated and exits with its code."""
