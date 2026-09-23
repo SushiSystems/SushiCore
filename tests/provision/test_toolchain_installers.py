@@ -1,0 +1,566 @@
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License, Version 2.0. See LICENSE.
+"""Fake-backed tests for the intel/llvm, AdaptiveCpp and oneAPI installers."""
+
+from __future__ import annotations
+
+import io
+import tarfile
+from pathlib import Path
+
+import pytest
+
+from sushicore import provision
+from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.pipeline import InstallContext, ToolchainSelection
+from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
+from sushicore.provision.toolchains.stamp import read_toolchain_stamp, toolchains_dir
+
+
+# --------------------------------------------------------------------------- #
+# Shared fakes
+# --------------------------------------------------------------------------- #
+
+class _StatusContext:
+    """A no-op stand-in for the Rich ``console.status`` context manager."""
+
+    def __enter__(self):
+        """Return this context unchanged."""
+        return self
+
+    def __exit__(self, *exc_info):
+        """Swallow nothing; let any exception propagate."""
+        return False
+
+
+class _InnerConsole:
+    """Stands in for ``Console.console``, the raw Rich console."""
+
+    def print(self, *args, **kwargs):
+        """Discard the call."""
+
+    def status(self, *args, **kwargs):
+        """Return a no-op status context."""
+        return _StatusContext()
+
+
+class FakeConsole:
+    """Records every semantic call; answers ``is_machine``/``prompt`` on demand."""
+
+    def __init__(self, machine: bool = False, answer: str = "n") -> None:
+        """Start with no recorded calls, in interactive mode by default."""
+        self.calls: list[tuple[str, tuple]] = []
+        self.console = _InnerConsole()
+        self._machine = machine
+        self._answer = answer
+
+    def __getattr__(self, name: str):
+        """Return a recorder for any semantic console method name."""
+        def record(*args, **_kwargs):
+            self.calls.append((name, args))
+        return record
+
+    def is_machine(self) -> bool:
+        """Report the fixed machine-mode flag this fake was built with."""
+        return self._machine
+
+    def prompt(self, _message: str, _default: str) -> str:
+        """Return the fixed answer this fake was built with."""
+        return self._answer
+
+    def has_call(self, name: str) -> bool:
+        """Report whether *name* was recorded at least once."""
+        return any(call[0] == name for call in self.calls)
+
+
+@pytest.fixture
+def fake_console():
+    """Bind a :class:`FakeConsole` for the test, then unbind it."""
+    fake = FakeConsole()
+    provision.bind_console(lambda: fake)
+    yield fake
+    provision.bind_console(None)
+
+
+def _linux_cfg() -> ProvisionSettings:
+    return ProvisionSettings(platform="linux")
+
+
+def _windows_cfg() -> ProvisionSettings:
+    return ProvisionSettings(platform="windows")
+
+
+# --------------------------------------------------------------------------- #
+# intel_llvm
+# --------------------------------------------------------------------------- #
+
+def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, fake_console, monkeypatch):
+    root = toolchains_dir() / "llvm-sycl"
+    (root / "bin").mkdir(parents=True)
+    (root / "bin" / "clang++").touch()
+    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no network")))
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+
+    assert result == root
+    assert fake_console.has_call("warn")  # no sanitizer runtime in the fake tree
+
+
+def test_install_intel_llvm_dry_run_reports_without_downloading(provision_home, fake_console):
+    root = toolchains_dir() / "llvm-sycl"
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=True)
+
+    assert result == root
+    assert not root.exists()
+    assert fake_console.has_call("info")
+
+
+def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, fake_console,
+                                                              monkeypatch):
+    root = toolchains_dir() / "llvm-sycl"
+    (root / "bin").mkdir(parents=True)
+    (root / "bin" / "clang++").touch()
+    from sushicore.provision.toolchains.stamp import write_toolchain_stamp
+    write_toolchain_stamp(root, "intel/llvm", "nightly-1")
+    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+                        lambda *a, **k: ("nightly-1", "http://example.invalid/a"))
+    monkeypatch.setattr(intel_llvm, "_download",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no download")))
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False, refresh=True)
+
+    assert result == root
+
+
+def test_install_intel_llvm_downloads_and_extracts_on_first_install(provision_home, fake_console,
+                                                                     monkeypatch):
+    root = toolchains_dir() / "llvm-sycl"
+    clang = root / "bin" / "clang++"
+    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+                        lambda *a, **k: ("nightly-2", "http://example.invalid/a"))
+    monkeypatch.setattr(intel_llvm, "_download", lambda *a, **k: None)
+
+    def fake_extract(archive, dest):
+        (dest / "bin").mkdir(parents=True, exist_ok=True)
+        (dest / "bin" / "clang++").touch()
+
+    monkeypatch.setattr(intel_llvm, "_extract_tar_gz", fake_extract)
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+
+    assert result == root
+    assert clang.is_file()
+    assert read_toolchain_stamp(root)["tag"] == "nightly-2"
+
+
+def test_install_intel_llvm_returns_none_when_asset_resolution_fails(provision_home, fake_console,
+                                                                      monkeypatch):
+    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no asset")))
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+
+    assert result is None
+    assert fake_console.has_call("error")
+
+
+def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
+        provision_home, fake_console, monkeypatch):
+    root = toolchains_dir() / "llvm-sycl"
+    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+                        lambda *a, **k: ("nightly-2", "http://example.invalid/a"))
+    monkeypatch.setattr(intel_llvm, "_download",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("network down")))
+    root.mkdir(parents=True)
+    (root / "stray-file").touch()
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+
+    assert result is None
+    assert not root.exists()
+
+
+def _make_tar_gz(tmp_path: Path, wrapped: bool) -> Path:
+    archive = tmp_path / "bundle.tar.gz"
+    names = (["wrap/bin/clang++"] if wrapped
+             else ["bin/clang++", "lib/libsomething.so"])
+    with tarfile.open(archive, "w:gz") as tf:
+        data = b"binary"
+        for name in names:
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return archive
+
+
+def test_extract_tar_gz_collapses_a_single_top_level_wrapper_dir(tmp_path):
+    archive = _make_tar_gz(tmp_path, wrapped=True)
+    dest = tmp_path / "dest"
+
+    intel_llvm._extract_tar_gz(archive, dest)
+
+    assert (dest / "bin" / "clang++").is_file()
+
+
+def test_extract_tar_gz_leaves_an_unwrapped_layout_alone(tmp_path):
+    archive = _make_tar_gz(tmp_path, wrapped=False)
+    dest = tmp_path / "dest"
+
+    intel_llvm._extract_tar_gz(archive, dest)
+
+    assert (dest / "bin" / "clang++").is_file()
+
+
+def test_extract_tarball_autodetects_compression(tmp_path):
+    archive = tmp_path / "bundle.tar.xz"
+    with tarfile.open(archive, "w:xz") as tf:
+        data = b"binary"
+        info = tarfile.TarInfo(name="wrap/lib/cmake/llvm/config.cmake")
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+    dest = tmp_path / "dest"
+
+    intel_llvm._extract_tarball(archive, dest)
+
+    assert (dest / "lib" / "cmake" / "llvm" / "config.cmake").is_file()
+
+
+# --------------------------------------------------------------------------- #
+# adaptivecpp
+# --------------------------------------------------------------------------- #
+
+def test_install_adaptivecpp_reuses_an_existing_binary(provision_home, fake_console):
+    prefix = toolchains_dir() / "adaptivecpp"
+    acpp = prefix / "bin" / "acpp"
+    acpp.parent.mkdir(parents=True)
+    acpp.touch()
+
+    result = adaptivecpp.install_adaptivecpp(_linux_cfg(), None, None, dry_run=False)
+
+    assert result == str(acpp)
+
+
+def test_install_adaptivecpp_skips_without_git_or_cmake(provision_home, fake_console, monkeypatch):
+    monkeypatch.setattr(adaptivecpp.shutil, "which", lambda _name: None)
+
+    result = adaptivecpp.install_adaptivecpp(_linux_cfg(), None, None, dry_run=False)
+
+    assert result is None
+    assert fake_console.has_call("warn")
+
+
+def test_install_adaptivecpp_dry_run_reports_without_building(provision_home, fake_console,
+                                                               monkeypatch):
+    monkeypatch.setattr(adaptivecpp.shutil, "which", lambda name: f"/usr/bin/{name}")
+
+    result = adaptivecpp.install_adaptivecpp(_linux_cfg(), None, None, dry_run=True)
+
+    prefix = toolchains_dir() / "adaptivecpp"
+    assert result == str(prefix / "bin" / "acpp")
+    assert fake_console.has_call("info")
+
+
+def test_find_windows_sdk_rc_dir_returns_empty_without_a_match(monkeypatch):
+    monkeypatch.setattr(adaptivecpp._glob, "glob", lambda _pat: [])
+
+    assert adaptivecpp._find_windows_sdk_rc_dir() == ""
+
+
+def test_find_windows_sdk_rc_dir_returns_the_highest_sorting_match(monkeypatch):
+    monkeypatch.setattr(
+        adaptivecpp._glob, "glob",
+        lambda pat: ([r"C:/Program Files/Windows Kits/10/bin/10.0.19041.0/x64/rc.exe",
+                      r"C:/Program Files/Windows Kits/10/bin/10.0.22000.0/x64/rc.exe"]
+                     if "Program Files/Windows" in pat else []))
+
+    result = adaptivecpp._find_windows_sdk_rc_dir()
+
+    assert Path(result) == Path(r"C:/Program Files/Windows Kits/10/bin/10.0.22000.0/x64")
+
+
+def test_find_windows_llvm_finds_a_vendored_tree(provision_home):
+    cmake_dir = provision_home / "tools" / "llvm" / "lib" / "cmake" / "llvm"
+    cmake_dir.mkdir(parents=True)
+
+    result = adaptivecpp._find_windows_llvm()
+
+    assert result == (str(cmake_dir), str(provision_home / "tools" / "llvm"))
+
+
+def test_find_windows_llvm_returns_none_when_nothing_is_installed(provision_home):
+    assert adaptivecpp._find_windows_llvm() is None
+
+
+def test_confirm_timeout_returns_the_default_when_unanswered(fake_console):
+    result = adaptivecpp._confirm_timeout("Proceed?", timeout=1, default=False)
+
+    assert result is False
+
+
+def test_confirm_timeout_machine_mode_uses_the_prompted_answer():
+    fake = FakeConsole(machine=True, answer="y")
+    provision.bind_console(lambda: fake)
+    try:
+        result = adaptivecpp._confirm_timeout("Proceed?", timeout=1, default=False)
+    finally:
+        provision.bind_console(None)
+
+    assert result is True
+
+
+def test_acpp_deps_linux_without_a_manager_returns_no_llvm_dir():
+    assert adaptivecpp._acpp_deps_linux(None) == (None, None)
+
+
+class _FakeAptManager:
+    name = "apt"
+
+    def __init__(self) -> None:
+        self.installed: list[str] = []
+
+    def install(self, pkgs, dry_run):
+        self.installed.extend(pkgs)
+        return True
+
+
+def test_acpp_deps_linux_apt_installs_the_pinned_llvm_packages(fake_console):
+    mgr = _FakeAptManager()
+
+    llvm_dir, clang_prefix = adaptivecpp._acpp_deps_linux(mgr)
+
+    assert mgr.installed == [
+        f"clang-{adaptivecpp.ACPP_LLVM}", f"llvm-{adaptivecpp.ACPP_LLVM}-dev",
+        f"libclang-{adaptivecpp.ACPP_LLVM}-dev", f"lld-{adaptivecpp.ACPP_LLVM}",
+        "libboost-context-dev", "libboost-fiber-dev",
+    ]
+    assert clang_prefix == f"/usr/lib/llvm-{adaptivecpp.ACPP_LLVM}"
+    assert llvm_dir is None  # the apt tree does not exist on the test machine
+
+
+class _FakeGenericManager:
+    name = "pacman"
+
+    def __init__(self) -> None:
+        self.installed: list[str] = []
+
+    def translate_apt(self, pkgs):
+        return [f"generic-{p}" for p in pkgs]
+
+    def install(self, pkgs, dry_run):
+        self.installed.extend(pkgs)
+        return True
+
+
+def test_acpp_deps_linux_other_manager_translates_generic_packages(fake_console):
+    mgr = _FakeGenericManager()
+
+    result = adaptivecpp._acpp_deps_linux(mgr)
+
+    assert result == ("", None)
+    assert mgr.installed == [
+        "generic-clang", "generic-llvm",
+        "generic-libboost-context-dev", "generic-libboost-fiber-dev",
+    ]
+
+
+class _FakeVcpkgManager:
+    def __init__(self) -> None:
+        self.installed: list[str] = []
+
+    def install(self, pkgs, dry_run):
+        self.installed.extend(pkgs)
+        return True
+
+
+def test_acpp_deps_windows_reuses_an_existing_llvm(monkeypatch, fake_console):
+    monkeypatch.setattr(adaptivecpp, "_find_windows_llvm", lambda: ("dir", "prefix"))
+    vcpkg = _FakeVcpkgManager()
+
+    result = adaptivecpp._acpp_deps_windows(vcpkg)
+
+    assert result == ("dir", "prefix")
+    assert vcpkg.installed == ["boost-context", "boost-fiber"]
+
+
+def test_acpp_deps_windows_without_consent_skips_the_download(monkeypatch, fake_console):
+    monkeypatch.setattr(adaptivecpp, "_find_windows_llvm", lambda: None)
+
+    result = adaptivecpp._acpp_deps_windows(None, assume_yes=False)
+
+    assert result == (None, None)
+
+
+def test_explain_acpp_skip_windows_names_the_setup_command(fake_console):
+    adaptivecpp._explain_acpp_skip(_windows_cfg())
+
+    infos = " ".join(str(args) for name, args in fake_console.calls if name == "info")
+    assert "sr setup acpp" in infos
+
+
+def test_explain_acpp_skip_linux_names_the_dev_packages(fake_console):
+    adaptivecpp._explain_acpp_skip(_linux_cfg())
+
+    infos = " ".join(str(args) for name, args in fake_console.calls if name == "info")
+    assert "llvm-17-dev" in infos
+
+
+# --------------------------------------------------------------------------- #
+# oneapi
+# --------------------------------------------------------------------------- #
+
+def _ctx(oneapi_selected: bool, dry_run: bool = False, detected: dict | None = None
+         ) -> InstallContext:
+    return InstallContext(
+        cfg=ProvisionSettings(),
+        selection=ToolchainSelection(oneapi=oneapi_selected),
+        dry_run=dry_run,
+        detected=detected or {},
+    )
+
+
+def test_install_oneapi_noop_when_not_selected(fake_console):
+    assert oneapi.install_oneapi(_ctx(oneapi_selected=False)) is True
+    assert fake_console.calls == []
+
+
+def test_install_oneapi_noop_when_a_sycl_compiler_is_already_detected(fake_console):
+    ctx = _ctx(oneapi_selected=True, detected={"sycl_compiler": True})
+
+    assert oneapi.install_oneapi(ctx) is True
+    assert fake_console.calls == []
+
+
+def test_install_oneapi_dry_run_skips_the_download(fake_console):
+    ctx = _ctx(oneapi_selected=True, dry_run=True)
+
+    assert oneapi.install_oneapi(ctx) is True
+    assert fake_console.has_call("info")
+
+
+def test_install_oneapi_fails_when_the_download_fails(monkeypatch, fake_console):
+    monkeypatch.setattr(oneapi, "download_oneapi_installer", lambda: None)
+
+    assert oneapi.install_oneapi(_ctx(oneapi_selected=True)) is False
+
+
+def test_install_oneapi_runs_the_installer_after_a_successful_download(monkeypatch, fake_console):
+    seen = {}
+    monkeypatch.setattr(oneapi, "download_oneapi_installer", lambda: Path("fake.exe"))
+
+    def fake_run(installer):
+        seen["installer"] = installer
+        return True
+
+    monkeypatch.setattr(oneapi, "run_oneapi_installer", fake_run)
+
+    assert oneapi.install_oneapi(_ctx(oneapi_selected=True)) is True
+    assert seen["installer"] == Path("fake.exe")
+
+
+def test_download_oneapi_installer_reuses_an_existing_file(tmp_path, monkeypatch, fake_console):
+    monkeypatch.setattr(oneapi.Path, "home", classmethod(lambda cls: tmp_path))
+    existing = tmp_path / "intel-oneapi-toolkit-offline.exe"
+    existing.touch()
+    monkeypatch.setattr(oneapi.subprocess, "run",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no curl")))
+
+    assert oneapi.download_oneapi_installer() == existing
+
+
+class _FakeCompletedProcess:
+    def __init__(self, returncode: int) -> None:
+        self.returncode = returncode
+
+
+def test_download_oneapi_installer_downloads_with_curl(tmp_path, monkeypatch, fake_console):
+    monkeypatch.setattr(oneapi.Path, "home", classmethod(lambda cls: tmp_path))
+    calls = []
+
+    def fake_run(cmd):
+        calls.append(cmd)
+        return _FakeCompletedProcess(0)
+
+    monkeypatch.setattr(oneapi.subprocess, "run", fake_run)
+
+    result = oneapi.download_oneapi_installer()
+
+    assert result == tmp_path / "intel-oneapi-toolkit-offline.exe"
+    assert calls[0][0] == "curl"
+
+
+def test_download_oneapi_installer_returns_none_on_curl_failure(tmp_path, monkeypatch,
+                                                                 fake_console):
+    monkeypatch.setattr(oneapi.Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(oneapi.subprocess, "run", lambda cmd: _FakeCompletedProcess(1))
+
+    result = oneapi.download_oneapi_installer()
+
+    assert result is None
+    assert fake_console.has_call("error")
+
+
+def test_run_oneapi_installer_reports_success(monkeypatch, fake_console):
+    monkeypatch.setattr(oneapi.subprocess, "run", lambda cmd: _FakeCompletedProcess(0))
+
+    assert oneapi.run_oneapi_installer(Path("installer.exe")) is True
+    assert fake_console.has_call("success")
+
+
+def test_run_oneapi_installer_reports_failure(monkeypatch, fake_console):
+    monkeypatch.setattr(oneapi.subprocess, "run", lambda cmd: _FakeCompletedProcess(1))
+
+    assert oneapi.run_oneapi_installer(Path("installer.exe")) is False
+    assert fake_console.has_call("warn")
+
+
+def test_run_oneapi_installer_elevates_on_uac_required(monkeypatch, fake_console):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        if len(calls) == 1:
+            err = OSError("needs elevation")
+            err.winerror = oneapi._ELEVATION_REQUIRED
+            raise err
+        return _FakeCompletedProcess(0)
+
+    monkeypatch.setattr(oneapi.subprocess, "run", fake_run)
+
+    result = oneapi.run_oneapi_installer(Path("installer.exe"))
+
+    assert result is True
+    assert len(calls) == 2
+    assert calls[1][0] == "powershell"
+
+
+def test_run_oneapi_installer_reports_a_non_elevation_launch_failure(monkeypatch, fake_console):
+    def fake_run(cmd, **kwargs):
+        raise OSError("no such file")
+
+    monkeypatch.setattr(oneapi.subprocess, "run", fake_run)
+
+    result = oneapi.run_oneapi_installer(Path("installer.exe"))
+
+    assert result is False
+    assert fake_console.has_call("warn")
+
+
+def test_run_oneapi_installer_reports_an_elevated_launch_exception(monkeypatch, fake_console):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        if len(calls) == 1:
+            err = OSError("needs elevation")
+            err.winerror = oneapi._ELEVATION_REQUIRED
+            raise err
+        raise RuntimeError("powershell missing")
+
+    monkeypatch.setattr(oneapi.subprocess, "run", fake_run)
+
+    result = oneapi.run_oneapi_installer(Path("installer.exe"))
+
+    assert result is False
+    assert fake_console.has_call("error")
