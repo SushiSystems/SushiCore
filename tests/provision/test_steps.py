@@ -35,6 +35,9 @@ class _Sink:
         self.calls.append("write_tool")
         self.tool.append(updates)
 
+    def clear(self):
+        self.calls.append("clear")
+
 
 def test_configure_writes_through_the_sink(monkeypatch, recording_console):
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
@@ -82,3 +85,49 @@ def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch, recording
     assert sentinel.is_file()
     errors = [args[0] for name, args in recording_console.calls if name == "error"]
     assert any(str(tmp_path) in e for e in errors)
+
+
+def test_configure_dry_run_prints_the_rendered_config(monkeypatch, recording_console):
+    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
+    sink = _Sink()
+    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), dry_run=True)
+    assert steps.ConfigureStep(sink).run(ctx) is StepResult.OK
+    printed = [args[0] for name, args in recording_console.calls if name == "console.print"]
+    assert any('ninja_exe = "n"' in text for text in printed)
+    assert sink.calls == []
+
+
+def test_windows_uninstall_refuses_before_touching_tools(tmp_path, recording_console):
+    root = tmp_path / "checkout"
+    (root / ".git").mkdir(parents=True)
+    cmake = root / "tools" / "cmake"
+    doxygen = root / "tools" / "doxygen"
+    cmake.mkdir(parents=True)
+    doxygen.mkdir(parents=True)
+    (root / "tools" / "ninja.exe").write_text("", encoding="utf-8")
+    home.bind_root(lambda: root)
+    try:
+        ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
+        sink = _Sink()
+        result = steps.UninstallStep(_EmptySource(), managers=[], sink=sink).run(ctx)
+    finally:
+        home.bind_root(None)
+
+    assert result is StepResult.FAILED
+    assert cmake.is_dir() and doxygen.is_dir() and (root / "tools" / "ninja.exe").is_file()
+    assert sink.calls == []
+
+
+def test_linux_uninstall_refuses_before_removing_anything(tmp_path, recording_console):
+    root = tmp_path / "checkout"
+    (root / ".git").mkdir(parents=True)
+    home.bind_root(lambda: root)
+    try:
+        ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
+        sink = _Sink()
+        result = steps.UninstallStep(_EmptySource(), managers=[], sink=sink).run(ctx)
+    finally:
+        home.bind_root(None)
+
+    assert result is StepResult.FAILED
+    assert sink.calls == []

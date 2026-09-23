@@ -11,7 +11,7 @@ import typing
 from pathlib import Path
 
 from .._output import console
-from ..packages import _download, _gh_latest_release_asset
+from ..packages import download, gh_latest_release_asset
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
 
@@ -57,7 +57,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
 
     try:
         # intel/llvm ships every SYCL build as a GitHub pre-release (nightly-*).
-        tag, url = _gh_latest_release_asset("intel/llvm", asset)
+        tag, url = gh_latest_release_asset("intel/llvm", asset)
     except Exception as exc:
         console.error(f"Could not resolve intel/llvm release asset: {exc}")
         return None
@@ -73,7 +73,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading intel/llvm SYCL bundle {tag} (~300-500 MB) ...")
-            _download(url, archive)
+            download(url, archive)
             _extract_tar_gz(archive, root)
         except Exception as exc:
             console.error(f"intel/llvm bundle install failed: {exc}")
@@ -108,30 +108,6 @@ def _extract_tar_gz(archive: Path, dest: Path) -> None:
                 tf.extractall(stage, filter="data")  # py3.12+: path-traversal safe
             except TypeError:
                 tf.extractall(stage)  # older Python: no filter kwarg
-        entries = list(stage.iterdir())
-        srcroot = entries[0] if len(entries) == 1 and entries[0].is_dir() else stage
-        for item in srcroot.iterdir():
-            target = dest / item.name
-            if target.exists():
-                shutil.rmtree(target) if target.is_dir() else target.unlink()
-            shutil.move(str(item), str(target))
-
-
-def _extract_tarball(archive: Path, dest: Path) -> None:
-    """Extract any tar archive into *dest*, autodetecting its compression.
-
-    Args:
-        archive: A tar archive of any compression tarfile can autodetect.
-        dest: Directory to receive the archive's contents at its root.
-    """
-    dest.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory() as staging:
-        stage = Path(staging)
-        with tarfile.open(archive, "r:*") as tf:
-            try:
-                tf.extractall(stage, filter="data")
-            except TypeError:
-                tf.extractall(stage)
         entries = list(stage.iterdir())
         srcroot = entries[0] if len(entries) == 1 and entries[0].is_dir() else stage
         for item in srcroot.iterdir():

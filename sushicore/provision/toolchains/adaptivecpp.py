@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .. import home
 from .._output import console
-from ..packages import _download, _gh_tagged_asset, _run
+from ..packages import download, gh_tagged_asset, run
 from ._process import _run_quiet
 from .stamp import toolchains_dir
 
@@ -116,7 +116,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
     tag = f"llvmorg-{LLVM_WINDOWS_VERSION}"
     asset = f"LLVM-{LLVM_WINDOWS_VERSION}-win64.exe"
     try:
-        url = _gh_tagged_asset("llvm/llvm-project", tag, asset)
+        url = gh_tagged_asset("llvm/llvm-project", tag, asset)
     except Exception as exc:
         console.error(f"Could not resolve LLVM {LLVM_WINDOWS_VERSION} asset: {exc}")
         return None
@@ -124,7 +124,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
-            _download(url, archive)
+            download(url, archive)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
             # PowerShell triggers a UAC prompt via -Verb RunAs to install silently.
@@ -190,7 +190,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "acpp"
         build = src / "build"
-        clone = _run(
+        clone = run(
             [git, "clone", "--depth", "1", "--branch", ACPP_VERSION,
              "https://github.com/AdaptiveCpp/AdaptiveCpp.git", str(src)],
             dry_run, check=True,
@@ -226,7 +226,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
             console.warn("AdaptiveCpp configure failed; skipping. "
                          "intel-llvm is installed and selected.")
             return None
-        if _run([cmake, "--build", str(build), "--target", "install"],
+        if run([cmake, "--build", str(build), "--target", "install"],
                 dry_run, check=True) != 0:
             console.warn("AdaptiveCpp build failed; skipping. "
                          "intel-llvm is installed and selected.")

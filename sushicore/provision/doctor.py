@@ -83,11 +83,16 @@ _STATE_MARKUP = {
 }
 
 
-def _markup(check: Check, result: CheckResult) -> str:
-    """Return the table markup for *result*, downgrading a non-required failure to a warning."""
+def _effective_state(check: Check, result: CheckResult) -> State:
+    """Return the state a report shows for *result*: a non-required failure is a warning."""
     if result.state == State.FAIL and not check.required:
-        return "[warn]warn[/warn]"
-    return _STATE_MARKUP[result.state]
+        return State.WARN
+    return result.state
+
+
+def _markup(check: Check, result: CheckResult) -> str:
+    """Return the table markup for the state :func:`_effective_state` gives *result*."""
+    return _STATE_MARKUP[_effective_state(check, result)]
 
 
 class Doctor:
@@ -127,7 +132,7 @@ class Doctor:
                     "name": check.name,
                     "group": check.group,
                     "required": check.required,
-                    "state": result.state.value,
+                    "state": _effective_state(check, result).value,
                     "detail": result.detail,
                     "fix": result.fix,
                 }

@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import ast
 import io
+import re
 import tarfile
 from pathlib import Path
 
@@ -98,7 +100,7 @@ def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, fake_conso
     root = toolchains_dir() / "llvm-sycl"
     (root / "bin").mkdir(parents=True)
     (root / "bin" / "clang++").touch()
-    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("no network")))
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
@@ -124,9 +126,9 @@ def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, fak
     (root / "bin" / "clang++").touch()
     from sushicore.provision.toolchains.stamp import write_toolchain_stamp
     write_toolchain_stamp(root, "intel/llvm", "nightly-1")
-    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
                         lambda *a, **k: ("nightly-1", "http://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "_download",
+    monkeypatch.setattr(intel_llvm, "download",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("no download")))
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False, refresh=True)
@@ -138,9 +140,9 @@ def test_install_intel_llvm_downloads_and_extracts_on_first_install(provision_ho
                                                                      monkeypatch):
     root = toolchains_dir() / "llvm-sycl"
     clang = root / "bin" / "clang++"
-    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
                         lambda *a, **k: ("nightly-2", "http://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "_download", lambda *a, **k: None)
+    monkeypatch.setattr(intel_llvm, "download", lambda *a, **k: None)
 
     def fake_extract(archive, dest):
         (dest / "bin").mkdir(parents=True, exist_ok=True)
@@ -157,7 +159,7 @@ def test_install_intel_llvm_downloads_and_extracts_on_first_install(provision_ho
 
 def test_install_intel_llvm_returns_none_when_asset_resolution_fails(provision_home, fake_console,
                                                                       monkeypatch):
-    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no asset")))
 
     result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
@@ -169,9 +171,9 @@ def test_install_intel_llvm_returns_none_when_asset_resolution_fails(provision_h
 def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
         provision_home, fake_console, monkeypatch):
     root = toolchains_dir() / "llvm-sycl"
-    monkeypatch.setattr(intel_llvm, "_gh_latest_release_asset",
+    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
                         lambda *a, **k: ("nightly-2", "http://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "_download",
+    monkeypatch.setattr(intel_llvm, "download",
                         lambda *a, **k: (_ for _ in ()).throw(OSError("network down")))
     root.mkdir(parents=True)
     (root / "stray-file").touch()
@@ -211,20 +213,6 @@ def test_extract_tar_gz_leaves_an_unwrapped_layout_alone(tmp_path):
     intel_llvm._extract_tar_gz(archive, dest)
 
     assert (dest / "bin" / "clang++").is_file()
-
-
-def test_extract_tarball_autodetects_compression(tmp_path):
-    archive = tmp_path / "bundle.tar.xz"
-    with tarfile.open(archive, "w:xz") as tf:
-        data = b"binary"
-        info = tarfile.TarInfo(name="wrap/lib/cmake/llvm/config.cmake")
-        info.size = len(data)
-        tf.addfile(info, io.BytesIO(data))
-    dest = tmp_path / "dest"
-
-    intel_llvm._extract_tarball(archive, dest)
-
-    assert (dest / "lib" / "cmake" / "llvm" / "config.cmake").is_file()
 
 
 # --------------------------------------------------------------------------- #
@@ -572,3 +560,12 @@ def test_run_oneapi_installer_reports_an_elevated_launch_exception(monkeypatch, 
 
     assert result is False
     assert fake_console.has_call("error")
+
+
+def test_intel_llvm_defines_no_unused_private_function():
+    source = Path(intel_llvm.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    private = [node.name for node in tree.body
+               if isinstance(node, ast.FunctionDef) and node.name.startswith("_")]
+    unused = [name for name in private if len(re.findall(rf"\b{name}\b", source)) < 2]
+    assert unused == []

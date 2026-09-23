@@ -16,19 +16,20 @@ from typing import Callable
 from .. import home
 from .._output import console
 from ..probe import binary_works
+from ..system import USER_AGENT
 from .base import IPackageManager, refresh_windows_path
-from .github_release import _gh_latest_asset
+from .github_release import gh_latest_asset
 
 
-def _tools_dir() -> Path:
+def tools_dir() -> Path:
     """Return the directory where portable tools (cmake, ninja) install."""
     return home.tools_dir()
 
 
-def _download(url: str, dest: Path) -> None:
+def download(url: str, dest: Path) -> None:
     """Fetch *url* into *dest*, streaming the response in chunks."""
     console.info(f"Downloading {dest.name} ...")
-    req = urllib.request.Request(url, headers={"User-Agent": "sushiruntime-installer"})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:
         while chunk := resp.read(1 << 16):
             fh.write(chunk)
@@ -57,7 +58,7 @@ def _add_to_user_path_windows(directory: str) -> None:
 
 def _cmake_portable_bin() -> Path:
     """Return the bin/ directory of the portable CMake the direct-download manager extracts."""
-    return _tools_dir() / "cmake" / "bin"
+    return tools_dir() / "cmake" / "bin"
 
 
 def _cmake_on_system() -> str:
@@ -83,11 +84,11 @@ def _install_cmake_direct() -> bool:
         console.info("cmake: already present, skipping.")
         return True
     try:
-        url = _gh_latest_asset("Kitware/CMake", "*windows-x86_64.zip")
+        url = gh_latest_asset("Kitware/CMake", "*windows-x86_64.zip")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
-        _download(url, zip_dest)
-        target = _tools_dir() / "cmake"
+        download(url, zip_dest)
+        target = tools_dir() / "cmake"
         console.info(f"Extracting CMake to {target} ...")
         with tempfile.TemporaryDirectory() as staging:
             stage = Path(staging)
@@ -112,11 +113,11 @@ def _install_cmake_direct() -> bool:
 def _install_ninja_direct() -> bool:
     """Extract the ninja.exe archive into the tools dir and add it to PATH."""
     try:
-        url = _gh_latest_asset("ninja-build/ninja", "ninja-win.zip")
+        url = gh_latest_asset("ninja-build/ninja", "ninja-win.zip")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             dest = Path(f.name)
-        _download(url, dest)
-        tools = _tools_dir()
+        download(url, dest)
+        tools = tools_dir()
         tools.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(dest) as zf:
             zf.extract("ninja.exe", tools)
@@ -130,16 +131,16 @@ def _install_ninja_direct() -> bool:
 
 def _install_doxygen_direct() -> bool:
     """Extract the portable Doxygen zip into the tools dir and add it to PATH."""
-    target = _tools_dir() / "doxygen"
+    target = tools_dir() / "doxygen"
     exe = target / "doxygen.exe"
     if exe.is_file():
         console.info("doxygen: already present in deps/tools, skipping.")
         return True
     try:
-        url = _gh_latest_asset("doxygen/doxygen", "doxygen-*.windows.x64.bin.zip")
+        url = gh_latest_asset("doxygen/doxygen", "doxygen-*.windows.x64.bin.zip")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
-        _download(url, zip_dest)
+        download(url, zip_dest)
         console.info(f"Extracting Doxygen to {target} ...")
         with tempfile.TemporaryDirectory() as staging:
             stage = Path(staging)
@@ -164,10 +165,10 @@ def _install_doxygen_direct() -> bool:
 def _install_git_direct() -> bool:
     """Download and silently run the Git for Windows installer."""
     try:
-        url = _gh_latest_asset("git-for-windows/git", "*64-bit.exe")
+        url = gh_latest_asset("git-for-windows/git", "*64-bit.exe")
         with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
             dest = Path(f.name)
-        _download(url, dest)
+        download(url, dest)
         console.info("Installing Git silently ...")
         rc = subprocess.run(
             [str(dest), "/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-",

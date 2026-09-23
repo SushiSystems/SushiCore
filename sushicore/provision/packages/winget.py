@@ -7,7 +7,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 
-from .base import IPackageManager, _run
+from .base import IPackageManager, run
 
 
 class WingetManager(IPackageManager):
@@ -34,7 +34,7 @@ class WingetManager(IPackageManager):
         """Install each of *pkgs* through ``winget install``."""
         ok = True
         for pkg in pkgs:
-            rc = _run(
+            rc = run(
                 ["winget", "install", "--id", pkg, "-e",
                  "--accept-package-agreements", "--accept-source-agreements",
                  "--silent"],
@@ -47,7 +47,7 @@ class WingetManager(IPackageManager):
         """Uninstall each of *pkgs* through ``winget uninstall``."""
         ok = True
         for pkg in pkgs:
-            rc = _run(
+            rc = run(
                 ["winget", "uninstall", "--id", pkg, "-e", "--silent"],
                 dry_run,
             )

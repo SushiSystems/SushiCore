@@ -14,7 +14,7 @@ from .._output import console
 from ..system import is_root
 
 
-def _run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
+def run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
     """Run *cmd*, streaming its output through the console; return its exit code."""
     console.command(subprocess.list2cmdline(cmd))
     if dry_run:

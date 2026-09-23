@@ -19,9 +19,9 @@ from ..workspace import (
 )
 from . import home
 from ._output import bind_console
-from .checks import standard_checks
+from .checks import fragment_check, stamp_check, standard_checks
 from .config import ProvisionConfig
-from .doctor import Check, Doctor
+from .doctor import GROUPS, Check, Doctor
 from .fragments import TomlDependencySource
 from .lock import LockTimeout, ProvisionLock
 from .packages import (
@@ -45,12 +45,10 @@ _MODULE_SINK_HEADER = [
     "# Safe to edit; re-running `setup` backs this up first.",
 ]
 
-#: Seconds ``setup`` waits for another process's ``ProvisionLock`` before giving up. A
-#: private module constant so a test can shrink it instead of waiting the real timeout.
+#: Seconds ``setup`` waits for another process's ``ProvisionLock`` before giving up.
 _LOCK_TIMEOUT = 600.0
 
-#: Whether ``setup`` draws a progress bar around the pipeline. A private module constant so
-#: a test can turn it off, since a fake console has no underlying Rich console to draw through.
+#: Whether ``setup`` draws a progress bar around the pipeline.
 _SHOW_PROGRESS = True
 
 
@@ -70,17 +68,32 @@ def _managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
     """Return the package managers this platform provisions dependencies through."""
     if cfg.is_windows:
         return [WingetManager(), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
-    # VcpkgManager also serves Linux: it is the only route for ports with no apt
-    # package at all.
     return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
             VcpkgManager(cfg)]
+
+
+def _module_source(module: ModuleProvision, root: Path) -> TomlDependencySource:
+    """Return the dependency source reading this module's own fragment under *root*."""
+    return TomlDependencySource([(root / module.fragment, module.profile.name)])
+
+
+def _warn_unread_depends_on(source: TomlDependencySource, owner: str, console: object) -> None:
+    """Warn once for every module *owner*'s fragment depends on, whose fragment is not read."""
+    source.all()
+    for dependency in source.depends_on(owner):
+        console.warn(
+            f"{owner} depends on {dependency}; setup cannot read {dependency}'s fragment "
+            f"and does not install its dependencies.")
 
 
 def _run_doctor(module: ModuleProvision, groups: Optional[set[str]]) -> int:
     """Run this module's checks, render the report, and return its process exit code."""
     cfg = module.load_config()
     fix = f"{module.profile.program} setup"
-    checks = standard_checks(cfg, fix=fix) + module.extra_checks()
+    source = _module_source(module, module.project_root())
+    checks = (standard_checks(cfg, fix=fix)
+              + [fragment_check(source, cfg.platform, False, fix), stamp_check(home.root())]
+              + module.extra_checks())
     doctor = Doctor(checks)
     report = doctor.run(groups)
     doctor.render(report, module.console())
@@ -120,11 +133,13 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         console = module.console()
         root = module.project_root()
         cfg = module.load_config()
-        source = TomlDependencySource([(root / module.fragment, module.profile.name)])
+        source = _module_source(module, root)
+        _warn_unread_depends_on(source, module.profile.name, console)
         sink = ModuleSink(root / "cli", _MODULE_SINK_HEADER)
+        managers = _managers_for(cfg)
         pipeline = InstallPipeline([
-            DetectStep(source, _managers_for(cfg)),
-            InstallDepsStep(source, _managers_for(cfg)),
+            DetectStep(source, managers),
+            InstallDepsStep(source, managers),
             ConfigureStep(sink),
         ])
         ctx = InstallContext(
@@ -151,6 +166,10 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
     ) -> None:
         """Report on this machine's readiness to build the module."""
         bind_console(module.console)
+        if for_group is not None and for_group not in GROUPS:
+            module.console().error(
+                f"Unknown check group '{for_group}'; choose one of: {', '.join(GROUPS)}.")
+            raise typer.Exit(2)
         groups = {for_group} if for_group else None
         raise typer.Exit(_run_doctor(module, groups))
 

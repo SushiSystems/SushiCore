@@ -5,18 +5,18 @@
 from __future__ import annotations
 
 from ..system import ensure_intel_oneapi_repo
-from .base import IPackageManager, _run, prime_sudo, refresh_windows_path
+from .base import IPackageManager, run, prime_sudo, refresh_windows_path
 from .direct_download import (
     WINGET_ID_TO_CMD,
     DirectDownloadWindowsManager,
-    _download,
-    _tools_dir,
+    download,
+    tools_dir,
 )
 from .github_release import (
-    _gh_latest_asset,
-    _gh_latest_asset_including_prerelease,
-    _gh_latest_release_asset,
-    _gh_tagged_asset,
+    gh_latest_asset,
+    gh_latest_asset_including_prerelease,
+    gh_latest_release_asset,
+    gh_tagged_asset,
 )
 from .gpu_stack import install_gpu_stack
 from .linux import (
@@ -46,11 +46,11 @@ __all__ = [
     "install_gpu_stack",
     "prime_sudo",
     "refresh_windows_path",
-    "_download",
-    "_gh_latest_asset",
-    "_gh_latest_asset_including_prerelease",
-    "_gh_latest_release_asset",
-    "_gh_tagged_asset",
-    "_run",
-    "_tools_dir",
+    "download",
+    "gh_latest_asset",
+    "gh_latest_asset_including_prerelease",
+    "gh_latest_release_asset",
+    "gh_tagged_asset",
+    "run",
+    "tools_dir",
 ]

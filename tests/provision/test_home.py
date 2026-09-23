@@ -102,3 +102,12 @@ def test_a_directory_holding_a_workspace_marker_is_refused(tmp_path):
     target = tmp_path / "workspace"
     (target / ".sushistack").mkdir(parents=True)
     assert home.is_removable_root(target) is False
+
+
+def test_env_var_with_tilde_is_expanded(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv(home.ENV_HOME, "~/x")
+    home.bind_root(None)
+    assert home.root() == (Path.home() / "x").resolve()
+    assert home.root() == (tmp_path / "x").resolve()

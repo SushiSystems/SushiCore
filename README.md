@@ -45,7 +45,10 @@ module = ModuleProvision(
 register_provision_commands(app, module)
 ```
 
-`setup` takes `--dry-run` and `--yes`; `doctor` takes `--for` to restrict the report to one
-check group; `link` and `unlink` take `--workspace` to name the workspace registry explicitly.
+`setup` takes `--dry-run` and `--yes`, installs the module's own fragment and warns for each
+`depends_on` module whose fragment it does not read. `doctor` checks the toolchain, the module's
+fragment and the toolchain stamps; `--for` restricts the report to one group (`build`, `test`,
+`infer`, `eval`) and exits 2 on any other. `link` and `unlink` take `--workspace` to name the
+workspace registry explicitly.
 
 The manual is in `docs/README.md`. Licensed under the terms in `LICENSE`.

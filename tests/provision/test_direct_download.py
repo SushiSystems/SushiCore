@@ -36,12 +36,12 @@ def _recording_rmtree(target: Path, monkeypatch, removed: list[Path]) -> None:
 def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
         tmp_path, monkeypatch, provision_home, recording_console):
     monkeypatch.setattr(dd, "_cmake_on_system", lambda: "")
-    monkeypatch.setattr(dd, "_gh_latest_asset", lambda repo, glob: "https://example.invalid/c.zip")
-    monkeypatch.setattr(dd, "_download",
+    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/c.zip")
+    monkeypatch.setattr(dd, "download",
                          lambda url, dest: _write_zip(dest, "cmake-1.0/bin/cmake.exe"))
     monkeypatch.setattr(dd, "_add_to_user_path_windows", lambda directory: None)
 
-    target = dd._tools_dir() / "cmake"
+    target = dd.tools_dir() / "cmake"
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
 
@@ -51,17 +51,17 @@ def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
     assert dd._install_cmake_direct() is True
     assert removed == [target]
     assert target.is_relative_to(tmp_path)
-    assert (dd._tools_dir() / "cmake" / "bin" / "cmake.exe").is_file()
+    assert (dd.tools_dir() / "cmake" / "bin" / "cmake.exe").is_file()
 
 
 def test_doxygen_direct_install_only_removes_paths_under_the_bound_root(
         tmp_path, monkeypatch, provision_home, recording_console):
-    monkeypatch.setattr(dd, "_gh_latest_asset", lambda repo, glob: "https://example.invalid/d.zip")
-    monkeypatch.setattr(dd, "_download",
+    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/d.zip")
+    monkeypatch.setattr(dd, "download",
                          lambda url, dest: _write_zip(dest, "doxygen-1.0/doxygen.exe"))
     monkeypatch.setattr(dd, "_add_to_user_path_windows", lambda directory: None)
 
-    target = dd._tools_dir() / "doxygen"
+    target = dd.tools_dir() / "doxygen"
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
 
@@ -71,4 +71,4 @@ def test_doxygen_direct_install_only_removes_paths_under_the_bound_root(
     assert dd._install_doxygen_direct() is True
     assert removed == [target]
     assert target.is_relative_to(tmp_path)
-    assert (dd._tools_dir() / "doxygen" / "doxygen.exe").is_file()
+    assert (dd.tools_dir() / "doxygen" / "doxygen.exe").is_file()
