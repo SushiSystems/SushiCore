@@ -9,16 +9,19 @@ from sushicore.workspace import (
 
 
 def test_no_file_means_no_modules(tmp_path):
+    """Check that no file means no modules."""
     assert registered_modules(tmp_path) == {}
 
 
 def test_write_then_read(tmp_path):
+    """Check that write then read."""
     write_module(tmp_path, "sushidsp", tmp_path / "dsp")
     # write_toml_document normalizes backslashes to forward slashes on write.
     assert registered_modules(tmp_path) == {"sushidsp": str(tmp_path / "dsp").replace("\\", "/")}
 
 
 def test_write_keeps_the_tool_table(tmp_path):
+    """Check that write keeps the tool table."""
     target = workspace_file(tmp_path)
     target.parent.mkdir(parents=True)
     target.write_text('[tool.windows]\ncmake_exe = "C:/cmake.exe"\n', encoding="utf-8")
@@ -29,6 +32,7 @@ def test_write_keeps_the_tool_table(tmp_path):
 
 
 def test_remove_reports_whether_it_removed(tmp_path):
+    """Check that remove reports whether it removed."""
     write_module(tmp_path, "a", tmp_path)
     assert remove_module(tmp_path, "a") is True
     assert remove_module(tmp_path, "a") is False

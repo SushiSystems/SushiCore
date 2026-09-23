@@ -45,6 +45,7 @@ def dep(name: str, owner: str = SHARED_OWNER, *, provides: str = "",
 
 
 def test_shared_comes_first_then_dependency_order():
+    """Check that shared comes first then dependency order."""
     src = MemorySource(
         [dep("a", "sushiai"), dep("b", "sushiblas"), dep("r", "sushiruntime")],
         depends_on={"sushiai": ["sushiruntime", "sushiblas"], "sushiblas": ["sushiruntime"]})
@@ -53,11 +54,13 @@ def test_shared_comes_first_then_dependency_order():
 
 
 def test_ties_keep_input_order():
+    """Check that ties keep input order."""
     src = MemorySource([], depends_on={})
     assert owner_order(src, ["sushidsp", "sushiengine"]) == ["sushidsp", "sushiengine"]
 
 
 def test_a_cycle_is_refused():
+    """Check that a cycle is refused."""
     src = MemorySource([], depends_on={"x": ["y"], "y": ["x"]})
     with pytest.raises(ValueError):
         owner_order(src, ["x", "y"])

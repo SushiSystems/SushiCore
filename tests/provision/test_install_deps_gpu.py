@@ -45,6 +45,7 @@ class _FakeAptManager(LinuxPackageManager):
 
 def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root(
         monkeypatch, recording_console):
+    """Check that provision adapters for run skips without a resolved llvm root."""
     calls = []
     monkeypatch.setattr(
         steps_mod, "provision_gpu_adapters",
@@ -60,6 +61,7 @@ def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root(
 
 def test_provision_adapters_for_run_uses_the_resolved_llvm_root(
         monkeypatch, tmp_path, recording_console):
+    """Check that provision adapters for run uses the resolved llvm root."""
     calls = []
     monkeypatch.setattr(
         steps_mod, "provision_gpu_adapters",
@@ -92,6 +94,7 @@ def _patch_heavy_windows_steps(monkeypatch, llvm_root: str) -> None:
 
 def test_run_windows_reaches_provision_adapters_for_run_when_gpu_is_selected(
         monkeypatch, tmp_path):
+    """Check that run windows reaches provision adapters for run when gpu is selected."""
     _patch_heavy_windows_steps(monkeypatch, str(tmp_path))
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
@@ -107,6 +110,7 @@ def test_run_windows_reaches_provision_adapters_for_run_when_gpu_is_selected(
 
 
 def test_run_windows_skips_provision_adapters_for_run_without_gpu(monkeypatch, tmp_path):
+    """Check that run windows skips provision adapters for run without gpu."""
     _patch_heavy_windows_steps(monkeypatch, str(tmp_path))
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
@@ -131,6 +135,7 @@ def _patch_heavy_linux_steps(monkeypatch, llvm_root: str) -> None:
 
 def test_run_linux_reaches_provision_adapters_for_run_when_gpu_is_selected(
         monkeypatch, tmp_path, recording_console):
+    """Check that run linux reaches provision adapters for run when gpu is selected."""
     _patch_heavy_linux_steps(monkeypatch, str(tmp_path))
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
@@ -147,6 +152,7 @@ def test_run_linux_reaches_provision_adapters_for_run_when_gpu_is_selected(
 
 def test_run_linux_skips_provision_adapters_for_run_without_gpu(
         monkeypatch, tmp_path, recording_console):
+    """Check that run linux skips provision adapters for run without gpu."""
     _patch_heavy_linux_steps(monkeypatch, str(tmp_path))
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
@@ -161,6 +167,7 @@ def test_run_linux_skips_provision_adapters_for_run_without_gpu(
 
 
 def test_run_windows_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recording_console):
+    """Check that run windows with no gpu provisions nothing."""
     _patch_heavy_windows_steps(monkeypatch, str(tmp_path))
     monkeypatch.setattr(steps_mod, "install_gpu_stack", _real_install_gpu_stack)
     calls = []
@@ -178,6 +185,7 @@ def test_run_windows_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recor
 
 
 def test_run_linux_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recording_console):
+    """Check that run linux with no gpu provisions nothing."""
     _patch_heavy_linux_steps(monkeypatch, str(tmp_path))
     monkeypatch.setattr(steps_mod, "install_gpu_stack", _real_install_gpu_stack)
     calls = []

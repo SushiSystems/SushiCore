@@ -16,10 +16,12 @@ from sushicore.provision.gpu.windows_installer import (
 
 
 def test_ps_quote_escapes_a_single_quote_and_keeps_spaces_and_backslashes():
+    """Check that ps quote escapes a single quote and keeps spaces and backslashes."""
     assert _ps_quote(r"C:\Program Files\App's Name") == r"'C:\Program Files\App''s Name'"
 
 
 def test_powershell_elevated_runner_command_builds_the_expected_argv():
+    """Check that powershell elevated runner command builds the expected argv."""
     exe = "C:/installers/setup.exe"
     args = ["/quiet", "/norestart"]
 
@@ -50,6 +52,7 @@ class _FakeEnvironment:
 
 
 def test_prepend_machine_path_adds_only_the_entries_not_already_on_path(monkeypatch):
+    """Check that prepend machine path adds only the entries not already on path."""
     monkeypatch.setenv("PATH", r"C:\Existing")
     fake = _FakeEnvironment({"Path": r"C:\New" + os.pathsep + r"C:\Existing"})
 
@@ -59,6 +62,7 @@ def test_prepend_machine_path_adds_only_the_entries_not_already_on_path(monkeypa
 
 
 def test_prepend_machine_path_dedupes_case_insensitively(monkeypatch):
+    """Check that prepend machine path dedupes case insensitively."""
     monkeypatch.setenv("PATH", r"C:\existing")
     fake = _FakeEnvironment({"Path": r"C:\Existing" + os.pathsep + r"C:\New"})
 
@@ -68,6 +72,7 @@ def test_prepend_machine_path_dedupes_case_insensitively(monkeypatch):
 
 
 def test_prepend_machine_path_leaves_path_untouched_when_nothing_is_fresh(monkeypatch):
+    """Check that prepend machine path leaves path untouched when nothing is fresh."""
     monkeypatch.setenv("PATH", r"C:\Existing")
     fake = _FakeEnvironment({"Path": r"C:\Existing"})
 
@@ -77,6 +82,7 @@ def test_prepend_machine_path_leaves_path_untouched_when_nothing_is_fresh(monkey
 
 
 def test_prepend_machine_path_handles_an_empty_process_path(monkeypatch):
+    """Check that prepend machine path handles an empty process path."""
     monkeypatch.setenv("PATH", "")
     fake = _FakeEnvironment({"Path": r"C:\New"})
 

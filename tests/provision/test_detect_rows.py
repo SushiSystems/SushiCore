@@ -64,6 +64,7 @@ def _ctx():
 
 
 def test_undeclared_toolchains_are_not_needed():
+    """Check that undeclared toolchains are not needed."""
     src = MemorySource([dep("cmake")])
     rows = _step(src).inventory_rows(_ctx(), src.all())
     status = {name: s for name, s, _o, _d in rows}
@@ -71,12 +72,14 @@ def test_undeclared_toolchains_are_not_needed():
 
 
 def test_declared_toolchains_are_missing_when_absent():
+    """Check that declared toolchains are missing when absent."""
     src = MemorySource([dep("intel-llvm", "sushiruntime")])
     rows = _step(src).inventory_rows(_ctx(), src.all())
     assert dict((n, s) for n, s, _o, _d in rows)["intel-llvm"] == "MISSING"
 
 
 def test_rows_are_grouped_by_owner_in_dependency_order():
+    """Check that rows are grouped by owner in dependency order."""
     src = MemorySource([dep("a", "sushiai"), dep("r", "sushiruntime"), dep("cmake")],
                        depends_on={"sushiai": ["sushiruntime"]})
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))

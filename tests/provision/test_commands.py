@@ -66,6 +66,7 @@ def _quiet_setup(monkeypatch, provision_home, managers):
 
 
 def _app(tmp_path, recording_console):
+    """Check that app."""
     profile = ModuleProfile(name="sushidsp", program="sd", env_prefix="SD",
                             root_marker="sushidsp.marker")
     app = typer.Typer()
@@ -82,6 +83,7 @@ def _app(tmp_path, recording_console):
 
 
 def test_link_and_unlink_without_hub(tmp_path, recording_console):
+    """Check that link and unlink without hub."""
     ws = tmp_path / "ws"
     (ws / ".sushistack").mkdir(parents=True)
     app = _app(tmp_path, recording_console)
@@ -93,6 +95,7 @@ def test_link_and_unlink_without_hub(tmp_path, recording_console):
 
 
 def test_link_outside_a_workspace_exits_two(tmp_path, recording_console, monkeypatch):
+    """Check that link outside a workspace exits two."""
     monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(_app(tmp_path, recording_console), ["link"])
@@ -100,11 +103,13 @@ def test_link_outside_a_workspace_exits_two(tmp_path, recording_console, monkeyp
 
 
 def test_doctor_filters_by_group(tmp_path, recording_console):
+    """Check that doctor filters by group."""
     result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor", "--for", "infer"])
     assert result.exit_code == 0
 
 
 def test_doctor_rejects_an_unknown_group(tmp_path, recording_console):
+    """Check that doctor rejects an unknown group."""
     result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor", "--for", "typo"])
     assert result.exit_code == 2
     errors = [args[0] for name, args in recording_console.calls if name == "error"]
@@ -113,6 +118,7 @@ def test_doctor_rejects_an_unknown_group(tmp_path, recording_console):
 
 def test_doctor_reports_the_module_fragment_and_toolchain_stamps(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that doctor reports the module fragment and toolchain stamps."""
     monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
@@ -132,6 +138,7 @@ def test_doctor_reports_the_module_fragment_and_toolchain_stamps(
 
 def test_setup_warns_for_each_depends_on_module_it_cannot_read(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup warns for each depends on module it cannot read."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     fragment = _write_fragment(tmp_path / "dsp")
     fragment.write_text(
@@ -148,6 +155,7 @@ def test_setup_warns_for_each_depends_on_module_it_cannot_read(
 
 def test_setup_dry_run_detects_the_module_fragment_and_writes_nothing(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup dry run detects the module fragment and writes nothing."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     root = tmp_path / "dsp"
     _write_fragment(root)
@@ -165,6 +173,7 @@ def test_setup_dry_run_detects_the_module_fragment_and_writes_nothing(
 
 def test_setup_writes_the_module_sink_without_dry_run(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup writes the module sink without dry run."""
     _quiet_setup(monkeypatch, provision_home, managers=[_FakeAptManager()])
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu: {"cmake_exe": "/x/cmake"})
     root = tmp_path / "dsp"
@@ -180,6 +189,7 @@ def test_setup_writes_the_module_sink_without_dry_run(
 
 def test_setup_dry_run_prints_the_probed_config_and_writes_nothing(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup dry run prints the probed config and writes nothing."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu: {"cmake_exe": "/x/cmake"})
     root = tmp_path / "dsp"
@@ -195,6 +205,7 @@ def test_setup_dry_run_prints_the_probed_config_and_writes_nothing(
 
 def test_setup_creates_a_missing_dependency_root(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup creates a missing dependency root."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     root = tmp_path / "dsp"
     _write_fragment(root)
@@ -208,6 +219,7 @@ def test_setup_creates_a_missing_dependency_root(
 
 def test_setup_exits_one_when_the_lock_is_held(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup exits one when the lock is held."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     monkeypatch.setattr(commands, "_LOCK_TIMEOUT", 0.2)
     root = tmp_path / "dsp"
@@ -224,6 +236,7 @@ def test_setup_exits_one_when_the_lock_is_held(
 
 def test_setup_exits_one_when_a_step_fails(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup exits one when a step fails."""
     # No linux package manager is available, so InstallDepsStep reports StepResult.FAILED.
     _quiet_setup(monkeypatch, provision_home, managers=[])
     root = tmp_path / "dsp"
@@ -236,6 +249,7 @@ def test_setup_exits_one_when_a_step_fails(
 
 def test_setup_builds_the_package_managers_once(
         tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup builds the package managers once."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     built = []
     monkeypatch.setattr(commands, "_managers_for", lambda cfg: built.append(cfg) or [])

@@ -26,6 +26,7 @@ def _recording_rmtree(target: Path, monkeypatch, removed: list[Path]) -> None:
     real_rmtree = dd.shutil.rmtree
 
     def recording(path, *args, **kwargs):
+        """Check that recording."""
         if Path(path) == target:
             removed.append(Path(path))
         return real_rmtree(path, *args, **kwargs)
@@ -35,6 +36,7 @@ def _recording_rmtree(target: Path, monkeypatch, removed: list[Path]) -> None:
 
 def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
         tmp_path, monkeypatch, provision_home, recording_console):
+    """Check that cmake direct install only removes paths under the bound root."""
     monkeypatch.setattr(dd, "_cmake_on_system", lambda: "")
     monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/c.zip")
     monkeypatch.setattr(dd, "download",
@@ -56,6 +58,7 @@ def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
 
 def test_doxygen_direct_install_only_removes_paths_under_the_bound_root(
         tmp_path, monkeypatch, provision_home, recording_console):
+    """Check that doxygen direct install only removes paths under the bound root."""
     monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/d.zip")
     monkeypatch.setattr(dd, "download",
                          lambda url, dest: _write_zip(dest, "doxygen-1.0/doxygen.exe"))

@@ -31,6 +31,7 @@ class _RecordingLocator:
 
 
 def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
+    """Check that install gpu stack dispatches through the registry."""
     from sushicore.provision.gpu.backend import GpuBackendSpec
 
     locator = _RecordingLocator()
@@ -55,6 +56,7 @@ def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
 
 def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(
         monkeypatch, recording_console):
+    """Check that install gpu stack reports no gpu for an unregistered vendor."""
     fake_registry = Registry(())
     monkeypatch.setattr(packages.gpu_stack, "DEFAULT_REGISTRY", fake_registry)
 
@@ -71,6 +73,7 @@ def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(
 ])
 def test_no_discrete_gpu_prints_only_without_a_known_vendor(
         monkeypatch, recording_console, adapters, printed):
+    """Check that no discrete gpu prints only without a known vendor."""
     monkeypatch.setattr(probe.shutil, "which", lambda name: None)
     monkeypatch.setattr(probe.sys, "platform", "win32")
     monkeypatch.setattr(probe, "_windows_display_adapters", lambda: adapters)

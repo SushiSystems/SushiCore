@@ -13,6 +13,7 @@ from sushicore.provision.lock import LockTimeout, ProvisionLock
 
 
 def test_lock_is_released_on_exit(tmp_path):
+    """Check that lock is released on exit."""
     path = tmp_path / ".lock"
     with ProvisionLock(path):
         pass
@@ -21,6 +22,7 @@ def test_lock_is_released_on_exit(tmp_path):
 
 
 def test_second_holder_times_out_naming_the_pid(tmp_path):
+    """Check that second holder times out naming the pid."""
     path = tmp_path / ".lock"
     with ProvisionLock(path):
         with pytest.raises(LockTimeout, match=str(os.getpid())):
@@ -29,6 +31,7 @@ def test_second_holder_times_out_naming_the_pid(tmp_path):
 
 
 def test_lock_with_garbage_content_does_not_block(tmp_path):
+    """Check that lock with garbage content does not block."""
     path = tmp_path / ".lock"
     path.write_text("garbage not a pid", encoding="utf-8")
     with ProvisionLock(path, timeout=0.5):
@@ -36,6 +39,7 @@ def test_lock_with_garbage_content_does_not_block(tmp_path):
 
 
 def test_lock_creates_its_parent_directory(tmp_path):
+    """Check that lock creates its parent directory."""
     path = tmp_path / "missing" / "root" / ".lock"
     with ProvisionLock(path, timeout=0.5):
         assert path.is_file()
@@ -47,6 +51,7 @@ def _track_closes(monkeypatch):
     real_close = os.close
 
     def close(fd):
+        """Check that close."""
         closed.append(fd)
         real_close(fd)
 
@@ -55,9 +60,11 @@ def _track_closes(monkeypatch):
 
 
 def test_a_failing_pid_write_closes_the_descriptor(tmp_path, monkeypatch):
+    """Check that a failing pid write closes the descriptor."""
     closed = _track_closes(monkeypatch)
 
     def failing_write(fd, data):
+        """Check that failing write."""
         raise OSError("disk full")
 
     monkeypatch.setattr(lock.os, "write", failing_write)
@@ -71,11 +78,13 @@ def test_a_failing_pid_write_closes_the_descriptor(tmp_path, monkeypatch):
 
 
 def test_an_interrupt_while_polling_closes_the_descriptor(tmp_path, monkeypatch):
+    """Check that an interrupt while polling closes the descriptor."""
     path = tmp_path / ".lock"
     with ProvisionLock(path):
         closed = _track_closes(monkeypatch)
 
         def interrupt(_seconds):
+            """Check that interrupt."""
             raise KeyboardInterrupt
 
         monkeypatch.setattr(lock.time, "sleep", interrupt)
@@ -86,11 +95,13 @@ def test_an_interrupt_while_polling_closes_the_descriptor(tmp_path, monkeypatch)
 
 
 def test_a_failing_unlock_still_closes_the_descriptor(tmp_path, monkeypatch):
+    """Check that a failing unlock still closes the descriptor."""
     held = ProvisionLock(tmp_path / ".lock", timeout=0.5)
     held.__enter__()
     closed = _track_closes(monkeypatch)
 
     def failing_unlock(fd):
+        """Check that failing unlock."""
         raise OSError("unlock failed")
 
     monkeypatch.setattr(lock, "_unlock", failing_unlock)

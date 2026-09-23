@@ -113,6 +113,7 @@ def _build_dir_for(work_root: Path, vendor: str = "fake") -> Path:
 
 def test_a_full_build_records_the_expected_argv_and_installs_binaries(
         tmp_path, short_work_root, recording_console):
+    """Check that a full build records the expected argv and installs binaries."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -158,6 +159,7 @@ def test_a_full_build_records_the_expected_argv_and_installs_binaries(
 
 def test_a_second_call_with_the_same_commit_is_skipped(
         tmp_path, short_work_root, recording_console):
+    """Check that a second call with the same commit is skipped."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -179,6 +181,7 @@ def test_a_second_call_with_the_same_commit_is_skipped(
 
 def test_a_matching_stamp_with_a_missing_binary_rebuilds(
         tmp_path, short_work_root, recording_console):
+    """Check that a matching stamp with a missing binary rebuilds."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -203,6 +206,7 @@ def test_a_matching_stamp_with_a_missing_binary_rebuilds(
 
 
 def test_a_dry_run_reports_and_runs_no_commands(tmp_path, short_work_root, recording_console):
+    """Check that a dry run reports and runs no commands."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -223,6 +227,7 @@ def test_a_dry_run_reports_and_runs_no_commands(tmp_path, short_work_root, recor
 
 def test_a_failing_configure_returns_false_and_leaves_bin_untouched(
         tmp_path, short_work_root, recording_console):
+    """Check that a failing configure returns false and leaves bin untouched."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -243,6 +248,7 @@ def test_a_failing_configure_returns_false_and_leaves_bin_untouched(
 
 def test_a_missing_git_or_cmake_returns_false_without_raising(
         tmp_path, short_work_root, recording_console):
+    """Check that a missing git or cmake returns false without raising."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -260,6 +266,7 @@ def test_a_missing_git_or_cmake_returns_false_without_raising(
 
 def test_a_failing_install_rolls_back_every_binary_already_placed(
         tmp_path, short_work_root, monkeypatch, recording_console):
+    """Check that a failing install rolls back every binary already placed."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -276,6 +283,7 @@ def test_a_failing_install_rolls_back_every_binary_already_placed(
     calls = {"n": 0}
 
     def flaky_replace(src, dst):
+        """Check that flaky replace."""
         calls["n"] += 1
         if calls["n"] == 2:
             raise OSError("disk full")
@@ -294,6 +302,7 @@ def test_a_failing_install_rolls_back_every_binary_already_placed(
 
 def test_a_failing_install_restores_a_pre_existing_binary(
         tmp_path, short_work_root, monkeypatch, recording_console):
+    """Check that a failing install restores a pre existing binary."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -314,6 +323,7 @@ def test_a_failing_install_restores_a_pre_existing_binary(
     calls = {"n": 0}
 
     def flaky_replace(src, dst):
+        """Check that flaky replace."""
         calls["n"] += 1
         # Let both "move existing aside" calls through, fail the second install.
         if calls["n"] == 3:
@@ -332,6 +342,7 @@ def test_a_failing_install_restores_a_pre_existing_binary(
 
 def test_an_existing_stamp_keeps_its_source_and_tag_across_a_build(
         tmp_path, short_work_root, recording_console):
+    """Check that an existing stamp keeps its source and tag across a build."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -353,6 +364,7 @@ def test_an_existing_stamp_keeps_its_source_and_tag_across_a_build(
 
 
 def test_windows_maps_a_base_name_to_a_dll(tmp_path, short_work_root, recording_console):
+    """Check that windows maps a base name to a dll."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -371,6 +383,7 @@ def test_windows_maps_a_base_name_to_a_dll(tmp_path, short_work_root, recording_
 
 def test_linux_maps_a_base_name_to_a_versioned_shared_object(
         tmp_path, short_work_root, recording_console):
+    """Check that linux maps a base name to a versioned shared object."""
     cfg = _linux_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -390,6 +403,7 @@ def test_linux_maps_a_base_name_to_a_versioned_shared_object(
 
 def test_linux_configure_does_not_force_the_msvc_compiler(
         tmp_path, short_work_root, recording_console):
+    """Check that linux configure does not force the msvc compiler."""
     cfg = _linux_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -409,6 +423,7 @@ def test_linux_configure_does_not_force_the_msvc_compiler(
 
 def test_configure_passes_ninja_from_config_when_set(
         tmp_path, short_work_root, recording_console):
+    """Check that configure passes ninja from config when set."""
     cfg = _windows_cfg(ninja_exe="ninja.exe")
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -427,6 +442,7 @@ def test_configure_passes_ninja_from_config_when_set(
 
 def test_configure_omits_ninja_program_when_not_configured(
         tmp_path, short_work_root, recording_console):
+    """Check that configure omits ninja program when not configured."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -445,6 +461,7 @@ def test_configure_omits_ninja_program_when_not_configured(
 
 def test_the_environment_provider_is_called_at_most_once_per_builder(
         tmp_path, short_work_root, recording_console):
+    """Check that the environment provider is called at most once per builder."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -454,6 +471,7 @@ def test_the_environment_provider_is_called_at_most_once_per_builder(
     calls = {"n": 0}
 
     def counting_environment(cfg):
+        """Check that counting environment."""
         calls["n"] += 1
         return {}
 
@@ -473,6 +491,7 @@ def test_the_environment_provider_is_called_at_most_once_per_builder(
 
 
 def test_a_long_work_root_is_refused_on_windows(tmp_path, recording_console):
+    """Check that a long work root is refused on windows."""
     cfg = _windows_cfg()
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     toolchain_root = tmp_path / "llvm-sycl"
@@ -490,6 +509,7 @@ def test_a_long_work_root_is_refused_on_windows(tmp_path, recording_console):
 
 
 def test_default_work_root_follows_the_dependency_root(provision_home, recording_console):
+    """Check that default work root follows the dependency root."""
     cfg = _linux_cfg()
     builder = AdapterBuilder(cfg=cfg, runner=_MissingExecutableRunner())
 

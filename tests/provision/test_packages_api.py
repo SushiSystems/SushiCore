@@ -8,6 +8,7 @@ from sushicore.provision import packages
 
 
 def test_every_manager_is_exported():
+    """Check that every manager is exported."""
     for name in ("IPackageManager", "AptManager", "DnfManager", "YumManager",
                  "PacmanManager", "ZypperManager", "WingetManager",
                  "DirectDownloadWindowsManager", "VcpkgManager"):
@@ -15,12 +16,14 @@ def test_every_manager_is_exported():
 
 
 def test_the_exported_names_are_public_and_resolve():
+    """Check that the exported names are public and resolve."""
     assert [name for name in packages.__all__ if name.startswith("_")] == []
     for name in packages.__all__:
         assert hasattr(packages, name), name
 
 
 def test_the_shared_helpers_are_exported_under_public_names():
+    """Check that the shared helpers are exported under public names."""
     for name in ("download", "gh_latest_asset", "gh_latest_asset_including_prerelease",
                  "gh_latest_release_asset", "gh_tagged_asset", "run", "tools_dir"):
         assert name in packages.__all__, name

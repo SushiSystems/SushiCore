@@ -10,17 +10,20 @@ from sushicore.provision.registry import Component, Registry, RegistryError
 
 
 def _llvm(consumer):
+    """Check that llvm."""
     return Component("intel-llvm", "nightly-1", "/x", "intel/llvm", "2026-09-23T00:00:00Z",
                      (consumer,))
 
 
 def test_empty_registry_has_no_components(tmp_path):
+    """Check that empty registry has no components."""
     reg = Registry(tmp_path / "registry.toml")
     reg.load()
     assert reg.components() == []
 
 
 def test_add_save_load_round_trips(tmp_path):
+    """Check that add save load round trips."""
     path = tmp_path / "registry.toml"
     reg = Registry(path)
     reg.load()
@@ -32,6 +35,7 @@ def test_add_save_load_round_trips(tmp_path):
 
 
 def test_second_consumer_merges_instead_of_duplicating(tmp_path):
+    """Check that second consumer merges instead of duplicating."""
     reg = Registry(tmp_path / "r.toml")
     reg.load()
     reg.add(_llvm("sushidsp"))
@@ -41,6 +45,7 @@ def test_second_consumer_merges_instead_of_duplicating(tmp_path):
 
 
 def test_release_keeps_a_component_another_consumer_uses(tmp_path):
+    """Check that release keeps a component another consumer uses."""
     reg = Registry(tmp_path / "r.toml")
     reg.load()
     reg.add(_llvm("sushidsp"))
@@ -50,6 +55,7 @@ def test_release_keeps_a_component_another_consumer_uses(tmp_path):
 
 
 def test_corrupt_registry_raises_instead_of_emptying(tmp_path):
+    """Check that corrupt registry raises instead of emptying."""
     path = tmp_path / "registry.toml"
     path.write_text("[[component]\nname = ", encoding="utf-8")
     with pytest.raises(RegistryError, match="registry.toml"):
@@ -57,6 +63,7 @@ def test_corrupt_registry_raises_instead_of_emptying(tmp_path):
 
 
 def test_save_leaves_no_temp_file(tmp_path):
+    """Check that save leaves no temp file."""
     reg = Registry(tmp_path / "r.toml")
     reg.load()
     reg.add(_llvm("a"))
@@ -65,6 +72,7 @@ def test_save_leaves_no_temp_file(tmp_path):
 
 
 def test_round_trip_preserves_unicode_and_special_characters(tmp_path):
+    """Check that round trip preserves unicode and special characters."""
     path = tmp_path / "r.toml"
     reg = Registry(path)
     reg.load()
@@ -79,6 +87,7 @@ def test_round_trip_preserves_unicode_and_special_characters(tmp_path):
 
 
 def test_find_without_version_raises_when_ambiguous(tmp_path):
+    """Check that find without version raises when ambiguous."""
     reg = Registry(tmp_path / "r.toml")
     reg.load()
     reg.add(Component("intel-llvm", "nightly-1", "/x", "intel/llvm",
@@ -90,6 +99,7 @@ def test_find_without_version_raises_when_ambiguous(tmp_path):
 
 
 def test_entry_missing_a_field_raises_naming_the_file(tmp_path):
+    """Check that entry missing a field raises naming the file."""
     path = tmp_path / "registry.toml"
     path.write_text(
         '[[component]]\nname = "intel-llvm"\nversion = "nightly-1"\n', encoding="utf-8")

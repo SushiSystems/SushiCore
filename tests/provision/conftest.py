@@ -33,6 +33,7 @@ class RecordingConsole:
     def __getattr__(self, name: str):
         """Return a recorder for any console method name."""
         def record(*args, **_kwargs):
+            """Check that record."""
             self.calls.append((name, args))
         return record
 
