@@ -61,6 +61,24 @@ def search_roots() -> list[Path]:
     return [root(), *legacy_roots()]
 
 
+def is_removable_root(path: Path) -> bool:
+    """Report whether *path* is safe to recursively delete as a dependency root.
+
+    Refuses the user's home directory, a filesystem anchor, the current
+    working directory, any ancestor of it, and any directory holding a
+    ``.git`` or :data:`WORKSPACE_MARKER` entry.
+    """
+    resolved = Path(path).resolve()
+    if resolved in (Path.home().resolve(), Path(resolved.anchor)):
+        return False
+    cwd = Path.cwd().resolve()
+    if resolved == cwd or resolved in cwd.parents:
+        return False
+    if (resolved / ".git").exists() or (resolved / WORKSPACE_MARKER).exists():
+        return False
+    return True
+
+
 def toolchains_dir() -> Path:
     """Return ``<root>/toolchains``."""
     return root() / "toolchains"

@@ -282,9 +282,6 @@ class DetectStep(Step):
     def run(self, ctx: InstallContext) -> StepResult:
         """Probe the machine, print the inventory table, and report it upward."""
         refresh_windows_path()
-
-        # Building the list here also populates the source's depends_on map, which
-        # the row ordering below reads.
         all_deps = self._source.all()
 
         rows = self.inventory_rows(ctx, all_deps)
@@ -349,8 +346,6 @@ class InstallDepsStep(Step):
             return self._run_windows(ctx)
         return self._run_linux(ctx)
 
-    # -- SYCL toolchains (shared) --------------------------------------------- #
-
     def _install_toolchains(self, ctx: InstallContext,
                             mgr: IPackageManager | None,
                             vcpkg: IPackageManager | None) -> None:
@@ -375,8 +370,6 @@ class InstallDepsStep(Step):
                              "not install; the project will not build. Re-run "
                              "`hub install --customize` and also pick intel-llvm as "
                              "a fallback.")
-
-    # -- Linux ---------------------------------------------------------------- #
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Linux."""
@@ -438,8 +431,6 @@ class InstallDepsStep(Step):
 
         self._install_toolchains(ctx, mgr=mgr, vcpkg=None)
 
-        # oneAPI's compiler package lives only in Intel's apt repo; the repo is
-        # configured first and `mgr.install` then runs `apt-get update`.
         if ctx.selection.oneapi and mgr.name == "apt":
             console.info("oneAPI: configuring the Intel apt repository and installing "
                          "intel-oneapi-compiler-dpcpp-cpp.")
@@ -468,8 +459,6 @@ class InstallDepsStep(Step):
         if vendor != "none":
             provision_adapters_for_run(ctx)
         return StepResult.OK if ok else StepResult.FAILED
-
-    # -- Windows -------------------------------------------------------------- #
 
     def _run_windows(self, ctx: InstallContext) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Windows."""
@@ -612,6 +601,9 @@ class ConfigureStep(Step):
             return StepResult.SKIPPED
 
         if values:
+            backup = self._sink.backup()
+            if backup is not None:
+                console.info(f"Backed up existing config to {backup.name}")
             written = self._sink.write_paths(ctx.cfg.platform, values)
             console.success(f"Wrote {written}")
 
@@ -673,7 +665,8 @@ class UninstallStep(Step):
             vcpkg.remove(vcpkg_ports, ctx.dry_run)
 
         if ctx.everything:
-            self._remove_installed_toolchains(ctx)
+            if not self._remove_installed_toolchains(ctx):
+                return StepResult.FAILED
         self._remove_config(ctx)
         return StepResult.OK
 
@@ -716,21 +709,31 @@ class UninstallStep(Step):
             tools.rmdir()
 
         if ctx.everything:
-            self._remove_installed_toolchains(ctx)
+            if not self._remove_installed_toolchains(ctx):
+                return StepResult.FAILED
 
         self._remove_config(ctx)
         return StepResult.OK
 
-    def _remove_installed_toolchains(self, ctx: InstallContext) -> None:
-        """Delete the whole vendored dependency tree."""
+    def _remove_installed_toolchains(self, ctx: InstallContext) -> bool:
+        """Delete the whole vendored dependency tree, refusing an unsafe root.
+
+        Returns:
+            False when *ctx*'s dependency root fails the removability guard;
+            True otherwise, whether or not anything was actually removed.
+        """
         dep_dir = home.root()
         if not dep_dir.is_dir():
-            return
+            return True
+        if not home.is_removable_root(dep_dir):
+            console.error(f"Refusing to remove {dep_dir}: not a safe dependency root.")
+            return False
         if ctx.dry_run:
             console.info(f"(dry-run) would remove the whole deps folder at {dep_dir}")
-            return
+            return True
         shutil.rmtree(dep_dir, ignore_errors=True)
         console.success(f"Removed the vendored deps folder at {dep_dir}")
+        return True
 
     def _remove_config(self, ctx: InstallContext) -> None:
         """Clear the sink's ``[tool]`` table, leaving the rest of its file intact."""
@@ -740,10 +743,6 @@ class UninstallStep(Step):
         self._sink.clear()
         console.success(f"Cleared the `tool` section of {self._sink.target}")
 
-
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
 
 def _dedup(items: list[str]) -> list[str]:
     """Return *items* with duplicates removed, keeping first-seen order."""

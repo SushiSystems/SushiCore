@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Protocol
 
@@ -16,6 +17,9 @@ class ConfigSink(Protocol):
 
     target: Path
 
+    def backup(self) -> Path | None:
+        """Copy this sink's file to a ``.bak`` file beside it, when it exists."""
+
     def write_paths(self, platform: str, values: dict[str, str]) -> Path:
         """Merge *values* into this sink's ``[tool.<platform>]`` table."""
 
@@ -24,6 +28,15 @@ class ConfigSink(Protocol):
 
     def clear(self) -> None:
         """Remove this sink's ``[tool]`` table, leaving any other data intact."""
+
+
+def _backup(target: Path) -> Path | None:
+    """Copy *target* to a sibling ``.bak`` file when it exists; return the backup path."""
+    if not target.is_file():
+        return None
+    backup = target.with_suffix(".toml.bak")
+    shutil.copyfile(target, backup)
+    return backup
 
 
 def write_platform_paths(
@@ -80,6 +93,10 @@ class WorkspaceSink:
         self.target = workspace_file(root)
         self._header = WORKSPACE_HEADER
 
+    def backup(self) -> Path | None:
+        """Copy the workspace file to a ``.bak`` file beside it, when it exists."""
+        return _backup(self.target)
+
     def write_paths(self, platform: str, values: dict[str, str]) -> Path:
         """Merge *values* into this workspace's ``[tool.<platform>]`` table."""
         return write_platform_paths(self.target, platform, values, self._header)
@@ -100,6 +117,10 @@ class ModuleSink:
         """Bind this sink to *config_dir*'s local config file, rendered with *header*."""
         self.target = config_dir / "config.local.toml"
         self._header = header
+
+    def backup(self) -> Path | None:
+        """Copy the module's config file to a ``.bak`` file beside it, when it exists."""
+        return _backup(self.target)
 
     def write_paths(self, platform: str, values: dict[str, str]) -> Path:
         """Merge *values* into this module's ``[tool.<platform>]`` table."""
