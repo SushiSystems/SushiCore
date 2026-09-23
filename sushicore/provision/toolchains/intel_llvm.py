@@ -22,11 +22,8 @@ __all__ = ["install_intel_llvm"]
 
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
-                       refresh: bool = False) -> Path | None:
+                       refresh: bool = False) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
-
-    An already-present install is reused unless *refresh* is set, in which case
-    it is replaced in place only when a newer release is available.
 
     Args:
         cfg: Resolved configuration; selects the platform's asset.
@@ -51,17 +48,15 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                 "them — run [cmd]hub install --refresh-toolchains[/cmd] "
                 "to replace it. (A newer bundle is the fix; a separate LLVM "
                 "install is not.)")
-        return root
+        return str(root)
 
     if dry_run:
         verb = "would refresh" if clang.is_file() else "would download"
         console.info(f"(dry-run) {verb} intel/llvm '{asset}' at {root}")
-        return root
+        return str(root)
 
     try:
-        # intel/llvm ships every SYCL build as a GitHub pre-release (nightly-*),
-        # so the plain "latest" lookup must be skipped in favor of one that
-        # includes prereleases.
+        # intel/llvm ships every SYCL build as a GitHub pre-release (nightly-*).
         tag, url = _gh_latest_release_asset("intel/llvm", asset)
     except Exception as exc:
         console.error(f"Could not resolve intel/llvm release asset: {exc}")
@@ -71,7 +66,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         current = read_toolchain_stamp(root).get("tag")
         if current == tag:
             console.info(f"intel/llvm bundle is already {tag}; nothing to refresh.")
-            return root
+            return str(root)
         console.info(f"Refreshing intel/llvm bundle: {current or 'unrecorded'} -> {tag}")
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -82,9 +77,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
             _extract_tar_gz(archive, root)
         except Exception as exc:
             console.error(f"intel/llvm bundle install failed: {exc}")
-            # Only wipe a tree we were creating: a failed refresh must leave the
-            # working install it was replacing intact rather than removing the
-            # only compiler on the machine.
+            # Only wipe a tree this call was creating; a refresh leaves the prior install intact.
             if not refresh:
                 shutil.rmtree(root, ignore_errors=True)
             return None
@@ -95,7 +88,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         if not has_sanitizer_runtime(root):
             console.warn("This bundle ships no compiler-rt sanitizer runtimes; "
                          "`sr build --type asan` will not link against it.")
-        return root
+        return str(root)
     console.error(f"intel/llvm bundle extracted but {clang.name} is missing.")
     return None
 
