@@ -76,14 +76,18 @@ class Registry:
         except tomllib.TOMLDecodeError as exc:
             raise RegistryError(f"{self._path}: {exc}") from exc
         for entry in doc.get("component", []):
-            component = Component(
-                name=entry["name"],
-                version=entry["version"],
-                path=entry["path"],
-                source=entry["source"],
-                installed_at=entry["installed_at"],
-                consumers=tuple(entry.get("consumers", ())),
-            )
+            try:
+                component = Component(
+                    name=entry["name"],
+                    version=entry["version"],
+                    path=entry["path"],
+                    source=entry["source"],
+                    installed_at=entry["installed_at"],
+                    consumers=tuple(entry.get("consumers", ())),
+                )
+            except (KeyError, TypeError) as exc:
+                raise RegistryError(
+                    f"{self._path}: malformed component entry: {exc}") from exc
             self._components[(component.name, component.version)] = component
 
     def components(self) -> list[Component]:
@@ -95,15 +99,20 @@ class Registry:
 
         Args:
             name: The component name to look up.
-            version: When given, only a component at this exact version matches;
-                otherwise the first registered version for *name* matches.
+            version: When given, only a component at this exact version matches.
+
+        Raises:
+            RegistryError: *version* is omitted and more than one version of
+                *name* is registered.
         """
         if version is not None:
             return self._components.get((name, version))
-        for component in self._components.values():
-            if component.name == name:
-                return component
-        return None
+        matches = [c for c in self._components.values() if c.name == name]
+        if len(matches) > 1:
+            raise RegistryError(
+                f"{self._path}: {name} has {len(matches)} versions registered; "
+                "pass a version")
+        return matches[0] if matches else None
 
     def add(self, component: Component) -> None:
         """Register *component*, merging its consumers into an existing entry.
@@ -161,12 +170,14 @@ class Registry:
         lines = [_HEADER]
         for component in self._components.values():
             lines.append("\n[[component]]\n")
-            lines.append(f"name = {json.dumps(component.name)}\n")
-            lines.append(f"version = {json.dumps(component.version)}\n")
-            lines.append(f"path = {json.dumps(component.path)}\n")
-            lines.append(f"source = {json.dumps(component.source)}\n")
-            lines.append(f"installed_at = {json.dumps(component.installed_at)}\n")
-            consumers = "[" + ", ".join(json.dumps(c) for c in component.consumers) + "]"
+            lines.append(f"name = {json.dumps(component.name, ensure_ascii=False)}\n")
+            lines.append(f"version = {json.dumps(component.version, ensure_ascii=False)}\n")
+            lines.append(f"path = {json.dumps(component.path, ensure_ascii=False)}\n")
+            lines.append(f"source = {json.dumps(component.source, ensure_ascii=False)}\n")
+            lines.append(
+                f"installed_at = {json.dumps(component.installed_at, ensure_ascii=False)}\n")
+            consumers = "[" + ", ".join(
+                json.dumps(c, ensure_ascii=False) for c in component.consumers) + "]"
             lines.append(f"consumers = {consumers}\n")
         tmp_path = self._path.with_suffix(".toml.tmp")
         tmp_path.write_text("".join(lines), encoding="utf-8")

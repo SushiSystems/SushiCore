@@ -25,3 +25,10 @@ def test_second_holder_times_out_naming_the_pid(tmp_path):
         with pytest.raises(LockTimeout, match=str(os.getpid())):
             with ProvisionLock(path, timeout=0.3):
                 pass
+
+
+def test_lock_with_garbage_content_does_not_block(tmp_path):
+    path = tmp_path / ".lock"
+    path.write_text("garbage not a pid", encoding="utf-8")
+    with ProvisionLock(path, timeout=0.5):
+        pass

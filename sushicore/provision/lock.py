@@ -9,95 +9,90 @@ import sys
 import time
 from pathlib import Path
 
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
+
 _POLL_INTERVAL = 0.1
+_UNKNOWN_HOLDER = "unknown"
+
+#: Byte offset `msvcrt.locking` locks, separate from the PID text at offset 0.
+_LOCK_BYTE = 1 << 20
 
 
 class LockTimeout(Exception):
     """Raised when a lock is not acquired before its timeout elapses."""
 
 
-def _pid_alive(pid: int) -> bool:
-    """Return whether a process with *pid* is currently running.
-
-    Args:
-        pid: The process id read from a lock file.
-    """
-    if sys.platform == "win32":
-        import ctypes
-
-        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
-        if handle:
-            ctypes.windll.kernel32.CloseHandle(handle)
-            return True
-        return False
+def _try_lock(fd: int) -> bool:
+    """Attempt a non-blocking exclusive OS lock on *fd*; return whether it succeeded."""
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        if sys.platform == "win32":
+            os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
         return False
-    except PermissionError:
-        return True
     return True
 
 
-class ProvisionLock:
-    """A context manager guarding *path* against concurrent provisioning.
+def _unlock(fd: int) -> None:
+    """Release the OS lock previously acquired on *fd* with :func:`_try_lock`."""
+    if sys.platform == "win32":
+        os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
 
-    Acquiring the lock creates *path* exclusively, holding the acquiring
-    process's PID; a stale lock file, whose PID is no longer running, is
-    removed and retried.
-    """
+
+class ProvisionLock:
+    """A context manager guarding *path* against concurrent provisioning."""
 
     def __init__(self, path: Path, timeout: float = 600.0) -> None:
         """Bind the lock to *path*, acquired for at most *timeout* seconds.
 
         Args:
-            path: The lock file to create and delete.
+            path: The lock file to open and lock.
             timeout: Seconds to keep retrying before raising :class:`LockTimeout`.
         """
         self._path = path
         self._timeout = timeout
+        self._fd: int | None = None
 
     def __enter__(self) -> "ProvisionLock":
-        """Acquire the lock, polling until *timeout* elapses.
+        """Acquire the OS lock on the lock file, polling until *timeout* elapses.
 
         Raises:
-            LockTimeout: The lock is still held by a live process at timeout.
+            LockTimeout: The lock is still held by another process at timeout.
         """
         deadline = time.monotonic() + self._timeout
-        while True:
-            try:
-                fd = os.open(self._path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            except FileExistsError:
-                holder = self._read_holder()
-                if holder is not None and not _pid_alive(holder):
-                    self._remove_stale()
-                    continue
-                if time.monotonic() >= deadline:
-                    raise LockTimeout(
-                        f"{self._path}: still held by process {holder}")
-                time.sleep(_POLL_INTERVAL)
-                continue
-            with os.fdopen(fd, "w") as fh:
-                fh.write(str(os.getpid()))
-            return self
+        fd = os.open(self._path, os.O_CREAT | os.O_RDWR)
+        while not _try_lock(fd):
+            if time.monotonic() >= deadline:
+                holder = self._read_holder(fd)
+                os.close(fd)
+                raise LockTimeout(f"{self._path}: still held by process {holder}")
+            time.sleep(_POLL_INTERVAL)
+        os.ftruncate(fd, 0)
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.write(fd, str(os.getpid()).encode("utf-8"))
+        self._fd = fd
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        """Release the lock by deleting its file."""
-        try:
-            self._path.unlink()
-        except FileNotFoundError:
-            pass
+        """Release the OS lock and close the lock file, without deleting it."""
+        if self._fd is not None:
+            _unlock(self._fd)
+            os.close(self._fd)
+            self._fd = None
 
-    def _read_holder(self) -> int | None:
-        """Return the PID recorded in the lock file, or ``None`` when unreadable."""
+    def _read_holder(self, fd: int) -> str:
+        """Return the PID recorded in the lock file, or a placeholder when unreadable."""
         try:
-            return int(self._path.read_text(encoding="utf-8").strip())
-        except (FileNotFoundError, ValueError):
-            return None
-
-    def _remove_stale(self) -> None:
-        """Delete a lock file whose recorded holder is no longer running."""
-        try:
-            self._path.unlink()
-        except FileNotFoundError:
-            pass
+            os.lseek(fd, 0, os.SEEK_SET)
+            data = os.read(fd, 64).decode("utf-8").strip()
+        except (OSError, UnicodeDecodeError):
+            return _UNKNOWN_HOLDER
+        return data if data else _UNKNOWN_HOLDER
