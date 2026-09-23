@@ -1,13 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Pipeline core: the ``Step`` contract, shared context, and the runner.
-
-These are the abstractions the rest of the installer depends on. Concrete steps
-live with each consumer; concrete package managers and dependency sources live
-in their own modules. Nothing here imports a concrete implementation, which
-keeps the dependency direction pointing at the abstractions (Dependency
-Inversion).
-"""
+"""Pipeline core: the ``Step`` contract, shared context, and the runner."""
 
 from __future__ import annotations
 
@@ -15,16 +8,13 @@ import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, fields
 
-from ._output import console
+from sushicore.provision._output import console
+
 from .config import ProvisionConfig
 
 
 class StepResult(enum.Enum):
-    """Outcome of a single pipeline step.
-
-    ``SKIPPED`` is distinct from ``OK`` so the summary can say "nothing to do"
-    versus "did work"; both let the pipeline continue. ``FAILED`` stops it.
-    """
+    """Outcome of a single pipeline step."""
 
     OK = "ok"
     SKIPPED = "skipped"
@@ -53,13 +43,7 @@ class ToolchainSelection:
 
 @dataclass
 class InstallContext:
-    """State shared across steps for one installer run.
-
-    Earlier steps populate fields that later steps read (e.g. ``DetectStep``
-    fills ``detected``; ``ConfigureStep`` fills ``resolved_paths``). Keeping the
-    shared state in one object means steps stay decoupled from one another —
-    they talk through the context, never directly.
-    """
+    """State shared across steps for one installer run."""
 
     cfg: ProvisionConfig
     selection: ToolchainSelection = field(default_factory=ToolchainSelection)
@@ -67,24 +51,15 @@ class InstallContext:
     consumer: str = ""
     dry_run: bool = False
     everything: bool = False
-    # Which SYCL toolchain ConfigureStep pins as the default for subsequent
-    # builds (None => leave the existing choice alone).
+    #: The toolchain ConfigureStep pins as the default, or None to leave it.
     active_toolchain: str | None = None
-    # Re-download a toolchain that is already present. Off by default — a
-    # present toolchain is the whole point of an idempotent install.
+    #: Whether to re-download a toolchain that is already present.
     refresh_toolchains: bool = False
-    # Consent for the heavy Windows LLVM download acpp needs. Gathered up front
-    # (before the progress spinner) so the prompt is actually answerable; the
-    # toolchain installer never prompts mid-pipeline.
+    #: Whether the user has consented to the heavy Windows LLVM download.
     assume_acpp_llvm: bool = False
-    # Populated by DetectStep: the discrete-GPU vendor (nvidia|amd|intel|none),
-    # which selects the compute SDK InstallDepsStep provisions and the build
-    # backend the module CLIs default to.
+    #: The discrete-GPU vendor: nvidia, amd, intel, or none.
     gpu_vendor: str = ""
-    # Non-fatal problems surfaced by any step. Collected here rather than only
-    # logged inline so the pipeline can re-print them after the progress bar —
-    # an inline warn scrolls off above the "Setup Complete!" line and gets
-    # missed. Empty means a fully clean run.
+    #: Non-fatal problems surfaced by any step.
     warnings: list[str] = field(default_factory=list)
     #: Populated by DetectStep: tool/dependency name -> present?
     detected: dict[str, bool] = field(default_factory=dict)
@@ -100,12 +75,7 @@ class InstallContext:
 
 
 class Step(ABC):
-    """One unit of installer work.
-
-    Every step honors the same contract — ``run(ctx) -> StepResult`` — so the
-    pipeline can drive any sequence of steps without knowing what each does
-    (Liskov / Open-Closed).
-    """
+    """One unit of installer work."""
 
     #: Human-readable name, shown in the pipeline log.
     name: str = "step"
@@ -133,9 +103,7 @@ class InstallPipeline:
 
         Args:
             ctx: The shared context steps read and populate.
-            show_progress: Draw the setup progress bar. Read-only flows (a bare
-                ``detect``, i.e. ``hub doctor``) pass False: a "Setup Complete!"
-                bar there is misleading — nothing is being installed.
+            show_progress: Whether to draw the setup progress bar.
         """
         total = len(self._steps)
         if not show_progress:
@@ -185,12 +153,7 @@ class InstallPipeline:
 
     @staticmethod
     def _report_warnings(ctx: InstallContext) -> None:
-        """Re-print any non-fatal problems after the progress bar clears.
-
-        Warnings logged mid-pipeline scroll off above the final summary;
-        echoing them here makes sure a partial install (e.g. a GPU SDK that
-        failed to download) is impossible to miss.
-        """
+        """Re-print any non-fatal problems after the progress bar clears."""
         if not ctx.warnings:
             return
         console.warn(f"Completed with {len(ctx.warnings)} warning(s):")
