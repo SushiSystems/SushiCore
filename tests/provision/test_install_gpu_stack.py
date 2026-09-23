@@ -44,7 +44,7 @@ def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
         adapter_binaries=("ur_adapter_fake",),
     )
     fake_registry = Registry((fake_spec,))
-    monkeypatch.setattr(packages.base, "DEFAULT_REGISTRY", fake_registry)
+    monkeypatch.setattr(packages.gpu_stack, "DEFAULT_REGISTRY", fake_registry)
 
     cfg = SimpleNamespace(platform="linux")
     result = packages.install_gpu_stack(cfg, "fakevendor", dry_run=True)
@@ -56,7 +56,7 @@ def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
 def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(
         monkeypatch, recording_console):
     fake_registry = Registry(())
-    monkeypatch.setattr(packages.base, "DEFAULT_REGISTRY", fake_registry)
+    monkeypatch.setattr(packages.gpu_stack, "DEFAULT_REGISTRY", fake_registry)
 
     cfg = SimpleNamespace(platform="linux")
     assert packages.install_gpu_stack(cfg, "none", dry_run=True) is True

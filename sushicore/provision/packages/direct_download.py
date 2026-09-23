@@ -16,11 +16,12 @@ from typing import Callable
 from .. import home
 from .._output import console
 from ..probe import binary_works
-from .base import IPackageManager, _gh_latest_asset, refresh_windows_path
+from .base import IPackageManager, refresh_windows_path
+from .github_release import _gh_latest_asset
 
 
 def _tools_dir() -> Path:
-    """Directory for portable tools (cmake, ninja) under the dependency root."""
+    """Return the directory where portable tools (cmake, ninja) install."""
     return home.tools_dir()
 
 
@@ -51,11 +52,11 @@ def _add_to_user_path_windows(directory: str) -> None:
         winreg.CloseKey(key)
         os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + directory
     except Exception:
-        pass  # Non-fatal; session PATH is updated by the calling process anyway.
+        pass
 
 
 def _cmake_portable_bin() -> Path:
-    """bin/ of the portable CMake the direct-download manager extracts."""
+    """Return the bin/ directory of the portable CMake the direct-download manager extracts."""
     return _tools_dir() / "cmake" / "bin"
 
 
@@ -199,7 +200,7 @@ _DIRECT_RECIPES: dict[str, Callable[[], bool]] = {
 
 
 class DirectDownloadWindowsManager(IPackageManager):
-    """Installs cmake, ninja, and git via direct downloads when winget is absent."""
+    """Installs cmake, ninja, git and doxygen via direct downloads when winget is absent."""
 
     name = "direct-download"
 
@@ -214,8 +215,8 @@ class DirectDownloadWindowsManager(IPackageManager):
         return binary_works(path) if path else False
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Download and install each winget ID in *pkgs* that has no recipe skip."""
-        refresh_windows_path()  # see a tool installed earlier this run
+        """Download and install each winget ID in *pkgs* that is not already on PATH."""
+        refresh_windows_path()
         ok = True
         for pkg in pkgs:
             cmd = WINGET_ID_TO_CMD.get(pkg)

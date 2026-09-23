@@ -1,25 +1,17 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""The package-manager contract, its process helpers, and GPU stack dispatch."""
+"""The package-manager contract and the process helpers its implementations share."""
 
 from __future__ import annotations
 
-import fnmatch
-import json
 import os
 import shutil
 import subprocess
 import sys
-import typing
-import urllib.request
 from abc import ABC, abstractmethod
 
 from .._output import console
-from ..gpu.registry import DEFAULT_REGISTRY
 from ..system import is_root
-
-if typing.TYPE_CHECKING:
-    from ..config import ProvisionConfig
 
 
 def _run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
@@ -42,10 +34,7 @@ def _run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
 
 
 def prime_sudo() -> None:
-    """Prompt for the sudo password once, before any progress display starts.
-
-    No-op when already root, on Windows, or when sudo is absent.
-    """
+    """Prompt for the sudo password once, before any progress display starts."""
     if os.name == "nt" or is_root() or shutil.which("sudo") is None:
         return
 
@@ -92,7 +81,7 @@ def refresh_windows_path() -> None:
                     winreg.CloseKey(key)
             except FileNotFoundError:
                 pass
-        parts.append(os.environ.get("PATH", ""))  # keep this process's own additions
+        parts.append(os.environ.get("PATH", ""))
         seen: set[str] = set()
         out: list[str] = []
         for entry in os.pathsep.join(parts).split(os.pathsep):
@@ -105,67 +94,6 @@ def refresh_windows_path() -> None:
         pass
 
 
-def install_gpu_stack(cfg: "ProvisionConfig", vendor: str, dry_run: bool) -> bool:
-    """Provision the compute SDK for the detected GPU *vendor* through its backend spec.
-
-    Looks *vendor* up in the GPU backend registry and delegates to its locator's
-    ``provision``. Always best-effort: a failure here never raises.
-    """
-    spec = DEFAULT_REGISTRY.for_probe_vendor(vendor)
-    if spec is None:
-        console.info("No discrete GPU detected; using the CPU (SPIR/OpenCL) path only.")
-        return True
-    return spec.locator.provision(cfg, dry_run)
-
-
-def _gh_latest_asset(repo: str, asset_glob: str) -> str:
-    """Return the download URL for the first release asset matching *asset_glob*."""
-    url = f"https://api.github.com/repos/{repo}/releases/latest"
-    req = urllib.request.Request(url, headers={"User-Agent": "sushiruntime-installer"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read())
-    for asset in data.get("assets", []):
-        if fnmatch.fnmatch(asset["name"], asset_glob):
-            return asset["browser_download_url"]
-    raise RuntimeError(f"No asset matching '{asset_glob}' in {repo} latest release.")
-
-
-def _gh_latest_asset_including_prerelease(repo: str, asset_glob: str) -> str:
-    """Return the download URL for the newest matching asset, prereleases included."""
-    return _gh_latest_release_asset(repo, asset_glob)[1]
-
-
-def _gh_latest_release_asset(repo: str, asset_glob: str) -> tuple[str, str]:
-    """Return ``(tag, url)`` for the newest matching asset, prereleases included.
-
-    :param repo: ``owner/name`` of the GitHub repository.
-    :param asset_glob: Shell-style pattern the asset filename must match.
-    :return: The release tag and the asset's download URL.
-    :raises RuntimeError: If no release in the recent window carries a match.
-    """
-    url = f"https://api.github.com/repos/{repo}/releases?per_page=20"
-    req = urllib.request.Request(url, headers={"User-Agent": "sushiruntime-installer"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        releases = json.loads(resp.read())
-    for release in releases:
-        for asset in release.get("assets", []):
-            if fnmatch.fnmatch(asset["name"], asset_glob):
-                return release.get("tag_name", ""), asset["browser_download_url"]
-    raise RuntimeError(f"No asset matching '{asset_glob}' in {repo} releases.")
-
-
-def _gh_tagged_asset(repo: str, tag: str, asset_glob: str) -> str:
-    """Return the download URL for an asset of a specific release *tag*."""
-    url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
-    req = urllib.request.Request(url, headers={"User-Agent": "sushiruntime-installer"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read())
-    for asset in data.get("assets", []):
-        if fnmatch.fnmatch(asset["name"], asset_glob):
-            return asset["browser_download_url"]
-    raise RuntimeError(f"No asset matching '{asset_glob}' in {repo} {tag}.")
-
-
 class IPackageManager(ABC):
     """Installs packages of one kind and reports availability."""
 
@@ -173,17 +101,25 @@ class IPackageManager(ABC):
 
     @abstractmethod
     def available(self) -> bool:
-        """Is the underlying tool present on this machine?"""
+        """Report whether the underlying tool is present on this machine."""
 
     @abstractmethod
     def is_installed(self, pkg: str) -> bool:
-        """Best-effort check whether *pkg* is already installed."""
+        """Report whether *pkg* is already installed, on a best-effort basis."""
 
     @abstractmethod
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Install the given packages. Return True on success."""
+        """Install the given packages.
+
+        Returns:
+            True on success.
+        """
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Remove the given packages. Return True on success (best-effort)."""
+        """Remove the given packages, on a best-effort basis.
+
+        Returns:
+            True on success.
+        """
         console.warn(f"{self.name}: remove not implemented, skipping.")
         return True

@@ -5,23 +5,20 @@
 from __future__ import annotations
 
 from ..system import ensure_intel_oneapi_repo
-from .base import (
-    IPackageManager,
-    _gh_latest_asset,
-    _gh_latest_asset_including_prerelease,
-    _gh_latest_release_asset,
-    _gh_tagged_asset,
-    _run,
-    install_gpu_stack,
-    prime_sudo,
-    refresh_windows_path,
-)
+from .base import IPackageManager, _run, prime_sudo, refresh_windows_path
 from .direct_download import (
     WINGET_ID_TO_CMD,
     DirectDownloadWindowsManager,
     _download,
     _tools_dir,
 )
+from .github_release import (
+    _gh_latest_asset,
+    _gh_latest_asset_including_prerelease,
+    _gh_latest_release_asset,
+    _gh_tagged_asset,
+)
+from .gpu_stack import install_gpu_stack
 from .linux import (
     AptManager,
     DnfManager,

@@ -51,7 +51,7 @@ def _translate(apt_pkgs: list[str], table: dict[str, list[str]]) -> list[str]:
 
 
 class LinuxPackageManager(IPackageManager):
-    """A package manager that speaks apt-format names as its lingua franca."""
+    """Speaks apt-format package names as its lingua franca."""
 
     def translate_apt(self, apt_pkgs: list[str]) -> list[str]:
         """Convert apt-format package names to this manager's native names."""
@@ -59,7 +59,7 @@ class LinuxPackageManager(IPackageManager):
 
 
 class AptManager(LinuxPackageManager):
-    """Debian/Ubuntu apt."""
+    """Installs Debian/Ubuntu packages through apt-get."""
 
     name = "apt"
 
@@ -98,7 +98,7 @@ class AptManager(LinuxPackageManager):
 
 
 class DnfManager(LinuxPackageManager):
-    """Fedora / RHEL dnf."""
+    """Installs Fedora/RHEL packages through dnf."""
 
     name = "dnf"
 
@@ -138,7 +138,7 @@ class DnfManager(LinuxPackageManager):
 
 
 class YumManager(LinuxPackageManager):
-    """Legacy RHEL/CentOS yum."""
+    """Installs legacy RHEL/CentOS packages through yum."""
 
     name = "yum"
 
@@ -178,7 +178,7 @@ class YumManager(LinuxPackageManager):
 
 
 class PacmanManager(LinuxPackageManager):
-    """Arch Linux pacman."""
+    """Installs Arch Linux packages through pacman."""
 
     name = "pacman"
 
@@ -218,7 +218,7 @@ class PacmanManager(LinuxPackageManager):
 
 
 class ZypperManager(LinuxPackageManager):
-    """openSUSE zypper."""
+    """Installs openSUSE packages through zypper."""
 
     name = "zypper"
 
