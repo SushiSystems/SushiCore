@@ -9,7 +9,7 @@ import subprocess
 
 from .._output import console
 from ..system import is_root
-from .base import IPackageManager, _run
+from .base import IPackageManager, run
 
 _APT_TO_DNF: dict[str, list[str]] = {
     "build-essential":     ["gcc", "gcc-c++", "make"],
@@ -83,9 +83,9 @@ class AptManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        if _run([*sudo, "apt-get", "update"], dry_run) != 0 and not dry_run:
+        if run([*sudo, "apt-get", "update"], dry_run) != 0 and not dry_run:
             console.warn("apt-get update failed; continuing anyway.")
-        rc = _run([*sudo, "apt-get", "install", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "apt-get", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -93,7 +93,7 @@ class AptManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "apt-get", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "apt-get", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -125,7 +125,7 @@ class DnfManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "dnf", "install", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "dnf", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -133,7 +133,7 @@ class DnfManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "dnf", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "dnf", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -165,7 +165,7 @@ class YumManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "yum", "install", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "yum", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -173,7 +173,7 @@ class YumManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "yum", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "yum", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -205,7 +205,7 @@ class PacmanManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "pacman", "-Sy", "--noconfirm", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "pacman", "-Sy", "--noconfirm", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -213,7 +213,7 @@ class PacmanManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "pacman", "-R", "--noconfirm", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "pacman", "-R", "--noconfirm", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -245,7 +245,7 @@ class ZypperManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "zypper", "install", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "zypper", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -253,5 +253,5 @@ class ZypperManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = _run([*sudo, "zypper", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = run([*sudo, "zypper", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0

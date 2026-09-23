@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .. import home
 from .._output import console
+from ..system import USER_AGENT
 
 #: Exit code reported when the user declines the UAC prompt (Win32 ERROR_CANCELLED).
 ELEVATION_DECLINED = 1223
@@ -128,7 +129,7 @@ class HttpDownloader:
         console.info(f"Downloading {download.url} ...")
         try:
             request = urllib.request.Request(download.url,
-                                             headers={"User-Agent": "sushicore-installer"})
+                                             headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(request, timeout=300) as resp, open(part, "wb") as fh:
                 while chunk := resp.read(1 << 16):
                     fh.write(chunk)

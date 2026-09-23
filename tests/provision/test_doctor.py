@@ -44,3 +44,12 @@ def test_render_prints_a_table_and_a_result(recording_console):
     doctor.render(doctor.run(), recording_console)
     methods = [m for m, _ in recording_console.calls]
     assert methods == ["table", "result"]
+
+
+def test_json_state_matches_the_table_for_a_non_required_failure(recording_console):
+    doctor = Doctor([_check("docker", "build", False, State.FAIL)])
+    doctor.render(doctor.run(), recording_console)
+    table_rows = next(args[1] for name, args in recording_console.calls if name == "table")
+    payload = next(args[1] for name, args in recording_console.calls if name == "result")
+    assert "warn" in table_rows[0][2]
+    assert payload["checks"][0]["state"] == "warn"

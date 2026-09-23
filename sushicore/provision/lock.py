@@ -67,26 +67,45 @@ class ProvisionLock:
         Raises:
             LockTimeout: The lock is still held by another process at timeout.
         """
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         deadline = time.monotonic() + self._timeout
         fd = os.open(self._path, os.O_CREAT | os.O_RDWR)
-        while not _try_lock(fd):
-            if time.monotonic() >= deadline:
-                holder = self._read_holder(fd)
-                os.close(fd)
-                raise LockTimeout(f"{self._path}: still held by process {holder}")
-            time.sleep(_POLL_INTERVAL)
-        os.ftruncate(fd, 0)
-        os.lseek(fd, 0, os.SEEK_SET)
-        os.write(fd, str(os.getpid()).encode("utf-8"))
+        try:
+            self._acquire(fd, deadline)
+        except BaseException:
+            os.close(fd)
+            raise
         self._fd = fd
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         """Release the OS lock and close the lock file, without deleting it."""
-        if self._fd is not None:
-            _unlock(self._fd)
-            os.close(self._fd)
-            self._fd = None
+        if self._fd is None:
+            return
+        fd, self._fd = self._fd, None
+        try:
+            _unlock(fd)
+        finally:
+            os.close(fd)
+
+    def _acquire(self, fd: int, deadline: float) -> None:
+        """Poll the OS lock on *fd* until *deadline*, then record this process's PID in it.
+
+        Raises:
+            LockTimeout: The lock is still held by another process at *deadline*.
+        """
+        while not _try_lock(fd):
+            if time.monotonic() >= deadline:
+                holder = self._read_holder(fd)
+                raise LockTimeout(f"{self._path}: still held by process {holder}")
+            time.sleep(_POLL_INTERVAL)
+        try:
+            os.ftruncate(fd, 0)
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.write(fd, str(os.getpid()).encode("utf-8"))
+        except BaseException:
+            _unlock(fd)
+            raise
 
     def _read_holder(self, fd: int) -> str:
         """Return the PID recorded in the lock file, or a placeholder when unreadable."""

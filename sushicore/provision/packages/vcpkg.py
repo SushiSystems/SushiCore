@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .. import home
 from .._output import console
-from .base import IPackageManager, _run
+from .base import IPackageManager, run
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
@@ -60,18 +60,18 @@ class VcpkgManager(IPackageManager):
                 console.info(f"Removing stale directory {root} before cloning ...")
                 if not dry_run:
                     shutil.rmtree(root)
-            rc = _run(["git", "clone", "https://github.com/microsoft/vcpkg.git",
+            rc = run(["git", "clone", "https://github.com/microsoft/vcpkg.git",
                        str(root)], dry_run, check=True)
             if rc != 0 and not dry_run:
                 return False
         if self._cfg.platform == "windows":
             bootstrap = root / "bootstrap-vcpkg.bat"
-            rc = _run(["cmd", "/c", str(bootstrap), "-disableMetrics"], dry_run, check=True)
+            rc = run(["cmd", "/c", str(bootstrap), "-disableMetrics"], dry_run, check=True)
         else:
             bootstrap = root / "bootstrap-vcpkg.sh"
             if not dry_run:
                 bootstrap.chmod(bootstrap.stat().st_mode | 0o111)
-            rc = _run([str(bootstrap), "-disableMetrics"], dry_run, check=True)
+            rc = run([str(bootstrap), "-disableMetrics"], dry_run, check=True)
         return rc == 0 or dry_run
 
     def is_installed(self, pkg: str) -> bool:
@@ -97,7 +97,7 @@ class VcpkgManager(IPackageManager):
             return False
         exe = self._exe()
         ports = [f"{p}:{self._triplet}" for p in pkgs]
-        rc = _run([str(exe), "install", *ports], dry_run, check=True)
+        rc = run([str(exe), "install", *ports], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -109,5 +109,5 @@ class VcpkgManager(IPackageManager):
             console.warn("vcpkg not found; skipping port removal.")
             return True
         ports = [f"{p}:{self._triplet}" for p in pkgs]
-        rc = _run([str(exe), "remove", *ports], dry_run, check=True)
+        rc = run([str(exe), "remove", *ports], dry_run, check=True)
         return rc == 0

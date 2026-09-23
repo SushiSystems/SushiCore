@@ -22,13 +22,13 @@ from .packages import (
     IPackageManager,
     LinuxPackageManager,
     WINGET_ID_TO_CMD,
-    _tools_dir,
+    tools_dir,
     ensure_intel_oneapi_repo,
     install_gpu_stack,
     refresh_windows_path,
 )
 from .pipeline import InstallContext, Step, StepResult
-from .sinks import ConfigSink
+from .sinks import ConfigSink, render_local_config
 from .toolchains import adaptivecpp, intel_llvm, oneapi
 
 #: System toolchain installed through the toolchain manager, not the manifest.
@@ -593,7 +593,7 @@ class ConfigureStep(Step):
             if values:
                 console.info(f"(dry-run) would write {self._sink.target}:")
                 console.console.print(
-                    probe.render_local_config(ctx.cfg.platform, values), markup=False)
+                    render_local_config(ctx.cfg.platform, values), markup=False)
             return StepResult.OK
 
         if not values and not ctx.active_toolchain:
@@ -640,6 +640,8 @@ class UninstallStep(Step):
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Remove Linux packages and vcpkg ports, and toolchains too with ``ctx.everything``."""
+        if not _root_is_safe():
+            return StepResult.FAILED
         linux_names = ["apt", "dnf", "yum", "pacman", "zypper"]
         mgr = next(
             (self._manager(n) for n in linux_names
@@ -672,6 +674,8 @@ class UninstallStep(Step):
 
     def _run_windows(self, ctx: InstallContext) -> StepResult:
         """Remove Windows vcpkg ports, portable tools, and toolchains with ``ctx.everything``."""
+        if not _root_is_safe():
+            return StepResult.FAILED
         vcpkg = self._manager("vcpkg")
 
         ports: list[str] = []
@@ -683,7 +687,7 @@ class UninstallStep(Step):
             console.info(f"Removing vcpkg ports: {', '.join(ports)}")
             vcpkg.remove(ports, ctx.dry_run)
 
-        tools = _tools_dir()
+        tools = tools_dir()
         ninja_exe = tools / "ninja.exe"
         if ninja_exe.is_file():
             if ctx.dry_run:
@@ -725,8 +729,7 @@ class UninstallStep(Step):
         dep_dir = home.root()
         if not dep_dir.is_dir():
             return True
-        if not home.is_removable_root(dep_dir):
-            console.error(f"Refusing to remove {dep_dir}: not a safe dependency root.")
+        if not _root_is_safe():
             return False
         if ctx.dry_run:
             console.info(f"(dry-run) would remove the whole deps folder at {dep_dir}")
@@ -742,6 +745,15 @@ class UninstallStep(Step):
             return
         self._sink.clear()
         console.success(f"Cleared the `tool` section of {self._sink.target}")
+
+
+def _root_is_safe() -> bool:
+    """Return whether the dependency root is absent or passes the removability guard."""
+    dep_dir = home.root()
+    if not dep_dir.is_dir() or home.is_removable_root(dep_dir):
+        return True
+    console.error(f"Refusing to remove {dep_dir}: not a safe dependency root.")
+    return False
 
 
 def _dedup(items: list[str]) -> list[str]:

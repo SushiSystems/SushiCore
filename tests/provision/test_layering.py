@@ -23,6 +23,7 @@ _LAYER = {
 
 
 def _module_name(path: Path) -> str:
+    """Return the ``_LAYER`` key of the provision module at *path*, "" for the package root."""
     rel = path.relative_to(_ROOT).with_suffix("")
     parts = [p for p in rel.parts if p != "__init__"]
     if parts and parts[0] == "packages":
@@ -31,11 +32,20 @@ def _module_name(path: Path) -> str:
 
 
 def _imports(path: Path) -> set[str]:
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    """Return every module name *path* imports, relative names keeping their leading dots."""
+    return _imports_of(path.read_text(encoding="utf-8"))
+
+
+def _imports_of(source: str) -> set[str]:
+    """Return every module name *source* imports, naming ``from X import y`` as ``X.y`` too."""
     names = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            names.add(("." * node.level) + node.module)
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom):
+            prefix = "." * node.level + (node.module or "")
+            if node.module:
+                names.add(prefix)
+            sep = "" if not node.module else "."
+            names.update(f"{prefix}{sep}{a.name}" for a in node.names if a.name != "*")
         elif isinstance(node, ast.Import):
             names.update(a.name for a in node.names)
     return names
@@ -54,26 +64,45 @@ def test_every_module_has_a_layer():
 
 
 def _resolve(path: Path, imported: str) -> str | None:
-    """Return the provision module a relative import names, or None for other imports."""
+    """Return the provision module an import names, or None for other imports."""
     level = len(imported) - len(imported.lstrip("."))
     if level == 0:
         prefix = "sushicore.provision."
-        return imported[len(prefix):] if imported.startswith(prefix) else None
-    base = list(path.relative_to(_ROOT).with_suffix("").parts[:-1])
-    base = base[:len(base) - (level - 1)] if level > 1 else base
-    target = [*base, *[p for p in imported.lstrip(".").split(".") if p]]
+        if not imported.startswith(prefix):
+            return None
+        target = imported[len(prefix):].split(".")
+    else:
+        base = list(path.relative_to(_ROOT).with_suffix("").parts[:-1])
+        base = base[:len(base) - (level - 1)] if level > 1 else base
+        target = [*base, *[p for p in imported.lstrip(".").split(".") if p]]
     if target and target[0] == "packages":
         return "packages"
     name = ".".join(target)
     return name if name in _LAYER else None
 
 
+def _upward_edges(path: Path, imported_names: set[str]) -> list[str]:
+    """Return the ``own imports target`` edges from *path* that point to a higher layer."""
+    own = _module_name(path)
+    edges = []
+    for imported in imported_names:
+        target = _resolve(path, imported)
+        if own and target and target != own and _LAYER[target] > _LAYER[own]:
+            edges.append(f"{own} imports {target}")
+    return edges
+
+
 def test_imports_point_down_or_sideways():
     for path in _ROOT.rglob("*.py"):
-        own = _module_name(path)
-        if not own:
-            continue
-        for imported in _imports(path):
-            target = _resolve(path, imported)
-            if target and target != own:
-                assert _LAYER[target] <= _LAYER[own], f"{own} imports {target}"
+        assert not _upward_edges(path, _imports(path)), path
+
+
+def test_a_bare_relative_import_upward_is_caught():
+    home_py = _ROOT / "home.py"
+    assert _upward_edges(home_py, _imports_of("from . import steps")) == [
+        "home imports steps"]
+    assert _upward_edges(home_py, _imports_of("from sushicore.provision import commands")) == [
+        "home imports commands"]
+    nested = _ROOT / "gpu" / "cuda.py"
+    assert _upward_edges(nested, _imports_of("from .. import steps")) == [
+        "gpu.cuda imports steps"]

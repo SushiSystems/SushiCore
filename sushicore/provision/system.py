@@ -10,6 +10,9 @@ from pathlib import Path
 
 from sushicore.provision._output import console
 
+#: The User-Agent header every installer download and release lookup sends.
+USER_AGENT = "sushicore-installer"
+
 #: Where the Intel oneAPI apt repo keyring and source list are written.
 _ONEAPI_KEYRING = Path("/usr/share/keyrings/oneapi-archive-keyring.gpg")
 _ONEAPI_LIST = Path("/etc/apt/sources.list.d/oneAPI.list")
@@ -49,7 +52,7 @@ def sudo_bash(cmd: str, dry_run: bool) -> bool:
 
 
 def ensure_intel_oneapi_repo(dry_run: bool) -> bool:
-    """Configure the Intel oneAPI apt repository (Debian/Ubuntu only); skips when already configured."""
+    """Configure the Intel oneAPI apt repository on Debian/Ubuntu, skipping a configured one."""
     if _ONEAPI_KEYRING.is_file() and _ONEAPI_LIST.is_file():
         console.info("Intel oneAPI apt repository already configured.")
         return True

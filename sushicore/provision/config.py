@@ -15,6 +15,7 @@ class ProvisionConfig(Protocol):
 
     platform: str
     cmake_exe: str
+    ctest_exe: str
     ninja_exe: str
     vs_vcvars: str
     vcpkg_root: str

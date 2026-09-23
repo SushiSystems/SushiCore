@@ -57,14 +57,12 @@ def _quiet_setup(monkeypatch, provision_home, managers):
     """Silence the pieces of ``setup`` a unit test must not depend on.
 
     Fakes the package managers, skips the standard doctor checks (which read this
-    machine's real toolchain), turns off the progress bar (which needs a real Rich
-    console, not the recording fake), and creates the dependency root the lock file
-    is written under.
+    machine's real toolchain) and turns off the progress bar (which needs a real Rich
+    console, not the recording fake).
     """
     monkeypatch.setattr(commands, "_managers_for", lambda cfg: managers)
     monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
     monkeypatch.setattr(commands, "_SHOW_PROGRESS", False)
-    provision_home.mkdir(parents=True, exist_ok=True)
 
 
 def _app(tmp_path, recording_console):
@@ -106,6 +104,48 @@ def test_doctor_filters_by_group(tmp_path, recording_console):
     assert result.exit_code == 0
 
 
+def test_doctor_rejects_an_unknown_group(tmp_path, recording_console):
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor", "--for", "typo"])
+    assert result.exit_code == 2
+    errors = [args[0] for name, args in recording_console.calls if name == "error"]
+    assert any("build" in e and "eval" in e and "typo" in e for e in errors)
+
+
+def test_doctor_reports_the_module_fragment_and_toolchain_stamps(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
+    fragment.parent.mkdir(parents=True)
+    fragment.write_text(
+        '[widget]\nlinux_apt = ["widget-dev"]\ncheck_cmd = ["sushi-no-such-tool-xyz"]\n',
+        encoding="utf-8")
+    (provision_home / "toolchains" / "llvm-sycl").mkdir(parents=True)
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
+
+    assert result.exit_code == 1
+    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
+    by_name = {row[0]: row for row in rows}
+    assert "widget" in by_name["dependencies"][3]
+    assert "llvm-sycl" in by_name["toolchain stamps"][3]
+
+
+def test_setup_warns_for_each_depends_on_module_it_cannot_read(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    _quiet_setup(monkeypatch, provision_home, managers=[])
+    fragment = _write_fragment(tmp_path / "dsp")
+    fragment.write_text(
+        '[module]\ndepends_on = ["sushirender", "sushiengine"]\n'
+        + fragment.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    assert result.exit_code == 0, result.exception
+    warnings = [args[0] for name, args in recording_console.calls if name == "warn"]
+    assert any("sushirender" in w for w in warnings)
+    assert any("sushiengine" in w for w in warnings)
+
+
 def test_setup_dry_run_detects_the_module_fragment_and_writes_nothing(
         tmp_path, recording_console, provision_home, monkeypatch):
     _quiet_setup(monkeypatch, provision_home, managers=[])
@@ -138,6 +178,34 @@ def test_setup_writes_the_module_sink_without_dry_run(
     assert 'cmake_exe = "/x/cmake"' in written.read_text(encoding="utf-8")
 
 
+def test_setup_dry_run_prints_the_probed_config_and_writes_nothing(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    _quiet_setup(monkeypatch, provision_home, managers=[])
+    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu: {"cmake_exe": "/x/cmake"})
+    root = tmp_path / "dsp"
+    _write_fragment(root)
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    assert result.exit_code == 0, result.exception
+    printed = [args[0] for name, args in recording_console.calls if name == "console.print"]
+    assert any('cmake_exe = "/x/cmake"' in text for text in printed)
+    assert not (root / "cli" / "config.local.toml").exists()
+
+
+def test_setup_creates_a_missing_dependency_root(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    _quiet_setup(monkeypatch, provision_home, managers=[])
+    root = tmp_path / "dsp"
+    _write_fragment(root)
+    assert not provision_home.exists()
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    assert result.exit_code == 0, result.exception
+    assert (provision_home / ".lock").is_file()
+
+
 def test_setup_exits_one_when_the_lock_is_held(
         tmp_path, recording_console, provision_home, monkeypatch):
     _quiet_setup(monkeypatch, provision_home, managers=[])
@@ -164,3 +232,15 @@ def test_setup_exits_one_when_a_step_fails(
     result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup"])
 
     assert result.exit_code == 1
+
+
+def test_setup_builds_the_package_managers_once(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    _quiet_setup(monkeypatch, provision_home, managers=[])
+    built = []
+    monkeypatch.setattr(commands, "_managers_for", lambda cfg: built.append(cfg) or [])
+    _write_fragment(tmp_path / "dsp")
+
+    CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    assert len(built) == 1
