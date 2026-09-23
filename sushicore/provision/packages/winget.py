@@ -11,7 +11,7 @@ from .base import IPackageManager, _run
 
 
 class WingetManager(IPackageManager):
-    """Windows winget for system toolchain packages."""
+    """Installs Windows system toolchain packages through winget."""
 
     name = "winget"
 

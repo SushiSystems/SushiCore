@@ -23,7 +23,7 @@ def _port_name(pkg: str) -> str:
 
 
 class VcpkgManager(IPackageManager):
-    """Vcpkg for C++ library ports (hwloc, gtest, pkgconf, …)."""
+    """Installs C++ library ports (hwloc, gtest, pkgconf, …) through vcpkg."""
 
     name = "vcpkg"
 
