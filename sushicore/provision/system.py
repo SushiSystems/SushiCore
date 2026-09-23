@@ -1,11 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Apt-specific helpers shared by the package managers and the GPU backends.
-
-Kept in one module, importing only :mod:`sushicore.provision._output`, so the
-three vendor locators and the package managers share one root-check, one shell
-runner and one ``/etc/os-release`` reader instead of each keeping its own copy.
-"""
+"""Operating-system helpers shared by the package managers and the GPU backends."""
 
 from __future__ import annotations
 
@@ -15,8 +10,7 @@ from pathlib import Path
 
 from sushicore.provision._output import console
 
-#: Where the Intel oneAPI apt repo keyring and source list are written. Mirrors
-#: the sushiruntime Dockerfile so `hub install` and the container agree.
+#: Where the Intel oneAPI apt repo keyring and source list are written.
 _ONEAPI_KEYRING = Path("/usr/share/keyrings/oneapi-archive-keyring.gpg")
 _ONEAPI_LIST = Path("/etc/apt/sources.list.d/oneAPI.list")
 _ONEAPI_KEY_URL = (
@@ -46,7 +40,7 @@ def os_release() -> dict[str, str]:
 
 
 def sudo_bash(cmd: str, dry_run: bool) -> bool:
-    """Run a shell one-liner (as root via sudo when needed). Return True on success."""
+    """Run *cmd* through bash and return whether it exited zero; a dry run always returns True."""
     console.command(cmd)
     if dry_run:
         console.info("(dry-run) not executed")
@@ -55,14 +49,7 @@ def sudo_bash(cmd: str, dry_run: bool) -> bool:
 
 
 def ensure_intel_oneapi_repo(dry_run: bool) -> bool:
-    """Configure the Intel oneAPI apt repository (Debian/Ubuntu only).
-
-    ``intel-oneapi-compiler-dpcpp-cpp`` lives only in Intel's own apt repo, not in
-    the stock Ubuntu archive, so a plain ``apt-get install`` cannot find it. This
-    adds the keyring + source list exactly as the sushiruntime Dockerfile does,
-    making the default `hub install` provision oneAPI on Linux without any manual
-    steps. Idempotent: skips when both files already exist.
-    """
+    """Configure the Intel oneAPI apt repository (Debian/Ubuntu only); skips when already configured."""
     if _ONEAPI_KEYRING.is_file() and _ONEAPI_LIST.is_file():
         console.info("Intel oneAPI apt repository already configured.")
         return True
