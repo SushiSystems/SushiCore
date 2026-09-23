@@ -45,6 +45,14 @@ _MODULE_SINK_HEADER = [
     "# Safe to edit; re-running `setup` backs this up first.",
 ]
 
+#: Seconds ``setup`` waits for another process's ``ProvisionLock`` before giving up. A
+#: private module constant so a test can shrink it instead of waiting the real timeout.
+_LOCK_TIMEOUT = 600.0
+
+#: Whether ``setup`` draws a progress bar around the pipeline. A private module constant so
+#: a test can turn it off, since a fake console has no underlying Rich console to draw through.
+_SHOW_PROGRESS = True
+
 
 @dataclass(frozen=True)
 class ModuleProvision:
@@ -127,8 +135,8 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             assume_acpp_llvm=yes,
         )
         try:
-            with ProvisionLock(home.root() / ".lock"):
-                ok = pipeline.run(ctx)
+            with ProvisionLock(home.root() / ".lock", timeout=_LOCK_TIMEOUT):
+                ok = pipeline.run(ctx, show_progress=_SHOW_PROGRESS)
         except LockTimeout as exc:
             console.error(str(exc))
             raise typer.Exit(1)
