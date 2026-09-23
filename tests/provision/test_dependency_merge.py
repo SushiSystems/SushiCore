@@ -1,12 +1,6 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License, Version 2.0. See LICENSE.
-"""Two modules declaring one dependency, and what the installer does with both.
-
-A module declares what it needs, not what the workspace installs, so two modules
-naming one dependency differently are both right. Until 2026-09-22 the first one
-read won and the rest was dropped, which cost `sushiengine` the Vulkan feature of
-its SDL2 the moment `sushidsp`'s fragment became readable.
-"""
+"""Tests two modules declaring one dependency and what the merge does with both."""
 
 from __future__ import annotations
 
@@ -80,11 +74,7 @@ def test_features_from_both_sides_are_collected():
 
 
 def test_the_aggregation_keeps_the_feature_across_two_fragments(tmp_path, recording_console):
-    """The case that prompted this, through the reader rather than the machine.
-
-    The fragments are written here rather than read from linked checkouts, so
-    the test says the same thing on a machine that has none.
-    """
+    """Merges two fragment files declaring the same dependency with different features."""
     dsp = tmp_path / "dsp.deps.toml"
     dsp.write_text('[sdl2]\nrequired = true\nwindows_vcpkg = ["sdl2"]\n', encoding="utf-8")
     engine = tmp_path / "engine.deps.toml"
