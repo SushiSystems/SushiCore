@@ -45,8 +45,9 @@ def dep(name: str, owner: str = SHARED_OWNER, *, provides: str = "",
 
 
 def test_shared_comes_first_then_dependency_order():
-    src = MemorySource([dep("a", "sushiai"), dep("b", "sushiblas"), dep("r", "sushiruntime")],
-                       depends_on={"sushiai": ["sushiruntime", "sushiblas"], "sushiblas": ["sushiruntime"]})
+    src = MemorySource(
+        [dep("a", "sushiai"), dep("b", "sushiblas"), dep("r", "sushiruntime")],
+        depends_on={"sushiai": ["sushiruntime", "sushiblas"], "sushiblas": ["sushiruntime"]})
     assert owner_order(src, ["sushiai", "shared", "sushiblas", "sushiruntime"]) == \
         ["shared", "sushiruntime", "sushiblas", "sushiai"]
 

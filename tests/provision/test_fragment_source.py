@@ -8,6 +8,7 @@ from sushicore.provision.fragments import SHARED_OWNER, TomlDependencySource
 
 
 def _write(path, body):
+    """Write *body* to *path* and return it."""
     path.write_text(body, encoding="utf-8")
     return path
 
