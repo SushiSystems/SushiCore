@@ -29,37 +29,44 @@ class _FixedSource(IDependencySource):
 
 
 def test_python_check_passes_on_this_interpreter():
+    """Check that python check passes on this interpreter."""
     result = checks.python_check((3, 10)).run()
     assert result.state is State.OK
     assert sys.executable in result.detail
 
 
 def test_tool_check_fails_with_the_fix_for_a_missing_tool():
+    """Check that tool check fails with the fix for a missing tool."""
     result = checks.tool_check("x", "sushi-no-such-tool", fix="st setup").run()
     assert result.state is State.FAIL
     assert result.fix == "st setup"
 
 
 def test_python_module_check_finds_the_stdlib():
+    """Check that python module check finds the stdlib."""
     assert checks.python_module_check("json", "eval", True, "").run().state is State.OK
 
 
 def test_missing_python_module_fails():
+    """Check that missing python module fails."""
     result = checks.python_module_check("sushi_no_such_mod", "infer", True, "pip install x").run()
     assert result.state is State.FAIL
 
 
 def test_path_check_reports_the_missing_path(tmp_path):
+    """Check that path check reports the missing path."""
     result = checks.path_check("yolox", tmp_path / "nope", "infer", True, "git submodule update").run()
     assert result.state is State.FAIL and "nope" in result.detail
 
 
 def test_stamp_check_warns_on_an_unstamped_toolchain(tmp_path):
+    """Check that stamp check warns on an unstamped toolchain."""
     (tmp_path / "toolchains" / "llvm-sycl").mkdir(parents=True)
     assert checks.stamp_check(tmp_path).run().state is State.WARN
 
 
 def test_fragment_check_fails_a_dependency_whose_check_cmd_hangs(monkeypatch):
+    """Check that fragment check fails a dependency whose check cmd hangs."""
     monkeypatch.setattr(checks, "_VERSION_TIMEOUT", 0.1)
     dep = Dependency(name="slow", check_cmd=[sys.executable, "-c", "import time; time.sleep(5)"])
     result = checks.fragment_check(_FixedSource([dep]), "linux", False, "").run()
@@ -68,6 +75,7 @@ def test_fragment_check_fails_a_dependency_whose_check_cmd_hangs(monkeypatch):
 
 
 def test_fragment_check_fails_a_malformed_check_cmd():
+    """Check that fragment check fails a malformed check cmd."""
     dep = Dependency(name="broken", check_cmd=42)
     result = checks.fragment_check(_FixedSource([dep]), "linux", False, "").run()
     assert result.state is State.FAIL

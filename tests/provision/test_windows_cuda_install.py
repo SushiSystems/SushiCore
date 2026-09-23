@@ -113,6 +113,7 @@ def _installer(tmp_path) -> pathlib.Path:
 
 
 def test_absent_toolkit_downloads_and_runs_the_silent_install(tmp_path, recording_console):
+    """Check that absent toolkit downloads and runs the silent install."""
     exe = _installer(tmp_path)
     downloader, runner = _FakeDownloader(exe), _FakeRunner(0)
 
@@ -128,6 +129,7 @@ def test_absent_toolkit_downloads_and_runs_the_silent_install(tmp_path, recordin
 
 def test_registry_toolkit_with_an_empty_process_variable_downloads_nothing(
         tmp_path, recording_console):
+    """Check that registry toolkit with an empty process variable downloads nothing."""
     root = _toolkit(tmp_path / "CUDA" / "v12.6")
     downloader, runner = _FakeDownloader(None), _FakeRunner(0)
     environment = _FakeEnvironment({"CUDA_PATH": str(root)})
@@ -140,6 +142,7 @@ def test_registry_toolkit_with_an_empty_process_variable_downloads_nothing(
 
 
 def test_both_variables_empty_downloads(tmp_path, recording_console):
+    """Check that both variables empty downloads."""
     downloader = _FakeDownloader(None)
 
     WindowsCudaLocator(_tools(tmp_path, downloader, _FakeRunner(0))).provision(_CFG, False)
@@ -148,6 +151,7 @@ def test_both_variables_empty_downloads(tmp_path, recording_console):
 
 
 def test_declined_elevation_warns_and_is_non_fatal(tmp_path, recording_console):
+    """Check that declined elevation warns and is non fatal."""
     runner = _FakeRunner(wi.ELEVATION_DECLINED)
     locator = WindowsCudaLocator(_tools(tmp_path, _FakeDownloader(_installer(tmp_path)), runner))
 
@@ -157,6 +161,7 @@ def test_declined_elevation_warns_and_is_non_fatal(tmp_path, recording_console):
 
 
 def test_a_launch_failure_reports_its_own_message(tmp_path, recording_console):
+    """Check that a launch failure reports its own message."""
     runner = _FakeRunner(wi.LAUNCH_FAILED, "This command cannot be run: blocked by policy")
     locator = WindowsCudaLocator(_tools(tmp_path, _FakeDownloader(_installer(tmp_path)), runner))
 
@@ -167,6 +172,7 @@ def test_a_launch_failure_reports_its_own_message(tmp_path, recording_console):
 
 
 def test_failed_install_warns_with_its_exit_code(tmp_path, recording_console):
+    """Check that failed install warns with its exit code."""
     locator = WindowsCudaLocator(
         _tools(tmp_path, _FakeDownloader(_installer(tmp_path)), _FakeRunner(-1)))
 
@@ -175,6 +181,7 @@ def test_failed_install_warns_with_its_exit_code(tmp_path, recording_console):
 
 
 def test_a_non_zero_exit_that_installed_the_toolkit_reports_success(tmp_path, recording_console):
+    """Check that a non zero exit that installed the toolkit reports success."""
     root = tmp_path / "CUDA" / "v12.6"
     environment = _FakeEnvironment({"CUDA_PATH": str(root)})
     runner = _FakeRunner(3010, on_run=lambda: _toolkit(root))
@@ -187,6 +194,7 @@ def test_a_non_zero_exit_that_installed_the_toolkit_reports_success(tmp_path, re
 
 
 def test_failed_download_runs_nothing_and_is_non_fatal(tmp_path, recording_console):
+    """Check that failed download runs nothing and is non fatal."""
     runner = _FakeRunner(0)
 
     assert WindowsCudaLocator(_tools(tmp_path, _FakeDownloader(None), runner)).provision(
@@ -199,11 +207,13 @@ def test_failed_download_runs_nothing_and_is_non_fatal(tmp_path, recording_conso
                     reason="asserts on a PATH split by os.pathsep, which is ';' only on Windows")
 def test_success_refreshes_cuda_path_and_path_and_deletes_the_installer(
         tmp_path, recording_console):
+    """Check that success refreshes cuda path and path and deletes the installer."""
     root = tmp_path / "CUDA" / "v12.6"
     exe = _installer(tmp_path)
     environment = _FakeEnvironment({})
 
     def install():
+        """Check that install."""
         _toolkit(root)
         environment.values["CUDA_PATH"] = str(root)
         environment.values["Path"] = os.pathsep.join([str(root / "bin"), r"c:\windows"])
@@ -220,6 +230,7 @@ def test_success_refreshes_cuda_path_and_path_and_deletes_the_installer(
 
 
 def test_dry_run_prints_the_command_and_runs_nothing(tmp_path, recording_console):
+    """Check that dry run prints the command and runs nothing."""
     downloader, runner = _FakeDownloader(None), _FakeRunner(0)
 
     assert WindowsCudaLocator(_tools(tmp_path, downloader, runner)).provision(_CFG, True)
@@ -231,6 +242,7 @@ def test_dry_run_prints_the_command_and_runs_nothing(tmp_path, recording_console
 
 
 def test_present_toolkit_downloads_nothing(tmp_path, monkeypatch, recording_console):
+    """Check that present toolkit downloads nothing."""
     monkeypatch.setenv("CUDA_PATH", str(_toolkit(tmp_path / "cuda")))
     downloader, runner = _FakeDownloader(None), _FakeRunner(0)
 
@@ -239,6 +251,7 @@ def test_present_toolkit_downloads_nothing(tmp_path, monkeypatch, recording_cons
 
 
 def test_the_elevated_command_maps_only_error_1223_to_declined(tmp_path):
+    """Check that the elevated command maps only error 1223 to declined."""
     cmd = wi.PowerShellElevatedRunner().command(tmp_path / "it's.exe", _ARGS)
 
     assert cmd[:4] == ["powershell", "-NoProfile", "-NonInteractive", "-Command"]
@@ -283,6 +296,7 @@ class _Response:
 
 
 def test_the_downloader_reuses_a_file_whose_md5_matches(tmp_path, monkeypatch, recording_console):
+    """Check that the downloader reuses a file whose md5 matches."""
     (tmp_path / "a.exe").write_bytes(b"abc")
     monkeypatch.setattr(wi.urllib.request, "urlopen",
                         lambda *a, **k: pytest.fail("must not download"))
@@ -292,10 +306,12 @@ def test_the_downloader_reuses_a_file_whose_md5_matches(tmp_path, monkeypatch, r
 
 def test_a_mismatching_reused_file_is_deleted_and_downloaded_once(tmp_path, monkeypatch,
                                                                   recording_console):
+    """Check that a mismatching reused file is deleted and downloaded once."""
     (tmp_path / "a.exe").write_bytes(b"stale")
     calls: list[str] = []
 
     def urlopen(request, timeout):
+        """Check that urlopen."""
         calls.append(request.full_url)
         return _Response(b"good")
 
@@ -308,6 +324,7 @@ def test_a_mismatching_reused_file_is_deleted_and_downloaded_once(tmp_path, monk
 
 
 def test_a_digest_mismatch_leaves_no_file(tmp_path, monkeypatch, recording_console):
+    """Check that a digest mismatch leaves no file."""
     monkeypatch.setattr(wi.urllib.request, "urlopen", lambda *a, **k: _Response(b"evil"))
 
     assert wi.HttpDownloader().fetch(_download_of(b"good"), tmp_path) is None
@@ -321,6 +338,7 @@ def test_a_digest_mismatch_leaves_no_file(tmp_path, monkeypatch, recording_conso
 ])
 def test_a_download_error_is_caught_and_leaves_no_part_file(tmp_path, monkeypatch,
                                                             recording_console, error):
+    """Check that a download error is caught and leaves no part file."""
     monkeypatch.setattr(wi.urllib.request, "urlopen",
                         lambda *a, **k: _Response(b"half", error))
 
@@ -330,9 +348,11 @@ def test_a_download_error_is_caught_and_leaves_no_part_file(tmp_path, monkeypatc
 
 
 def test_an_unreadable_reused_file_is_caught(tmp_path, monkeypatch, recording_console):
+    """Check that an unreadable reused file is caught."""
     (tmp_path / "a.exe").write_bytes(b"abc")
 
     def locked(path):
+        """Check that locked."""
         raise PermissionError("locked")
 
     monkeypatch.setattr(wi, "_md5_of", locked)
@@ -344,6 +364,7 @@ def test_an_unreadable_reused_file_is_caught(tmp_path, monkeypatch, recording_co
 @pytest.mark.skipif(os.name != "nt",
                     reason="asserts on a PATH split by os.pathsep, which is ';' only on Windows")
 def test_prepend_machine_path_adds_only_new_entries(monkeypatch):
+    """Check that prepend machine path adds only new entries."""
     monkeypatch.setenv("PATH", os.pathsep.join([r"C:\Windows", r"C:\Tools"]))
     environment = _FakeEnvironment({"Path": os.pathsep.join([r"c:\windows", r"C:\CUDA\bin"])})
 
@@ -368,6 +389,7 @@ def test_prepend_machine_path_adds_only_new_entries(monkeypatch):
 ])
 def test_display_adapters_prefer_a_discrete_vendor_and_fall_back_to_an_integrated_one(
         names, vendor):
+    """Check that display adapters prefer a discrete vendor and fall back to an integrated one."""
     assert probe.classify_display_adapters(names) == vendor
 
 
@@ -380,10 +402,12 @@ def test_display_adapters_prefer_a_discrete_vendor_and_fall_back_to_an_integrate
     ("nvidia geforce rtx 3080 ti", False),
 ])
 def test_integrated_matching_ignores_spaces_and_hyphens(line, integrated):
+    """Check that integrated matching ignores spaces and hyphens."""
     assert probe.is_integrated_adapter(line) is integrated
 
 
 def test_windows_detection_reads_the_video_controllers(monkeypatch):
+    """Check that windows detection reads the video controllers."""
     monkeypatch.setattr(probe.shutil, "which", lambda name: None)
     monkeypatch.setattr(probe.sys, "platform", "win32")
     monkeypatch.setattr(probe, "_windows_display_adapters", lambda: "nvidia geforce gtx 1080")
@@ -392,6 +416,7 @@ def test_windows_detection_reads_the_video_controllers(monkeypatch):
 
 
 def test_linux_detection_reads_lspci(monkeypatch):
+    """Check that linux detection reads lspci."""
     monkeypatch.setattr(probe.shutil, "which", lambda name: None)
     monkeypatch.setattr(probe.sys, "platform", "linux")
     monkeypatch.setattr(probe, "_linux_display_adapters",

@@ -23,6 +23,7 @@ from sushicore.provision.gpu.rocm import ROCM
 # CUDA
 
 def test_cuda_spec_declares_the_adapter_build_inputs():
+    """Check that cuda spec declares the adapter build inputs."""
     assert CUDA.vendor == "cuda"
     assert CUDA.probe_vendor == "nvidia"
     assert CUDA.adapter_option == "UR_BUILD_ADAPTER_CUDA"
@@ -34,6 +35,7 @@ def test_cuda_spec_declares_the_adapter_build_inputs():
 
 
 def test_windows_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeypatch):
+    """Check that windows cuda locator finds the toolkit from cuda path."""
     (tmp_path / "bin").mkdir()
     (tmp_path / "bin" / "nvcc.exe").write_text("")
     monkeypatch.setenv("CUDA_PATH", str(tmp_path))
@@ -45,6 +47,7 @@ def test_windows_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeyp
 
 
 def test_windows_cuda_locator_reports_nothing_without_nvcc_exe(tmp_path, monkeypatch):
+    """Check that windows cuda locator reports nothing without nvcc exe."""
     monkeypatch.setattr(windows_installer.RegistryMachineEnvironment, "read",
                         lambda self, name: None)
     monkeypatch.setenv("CUDA_PATH", str(tmp_path))
@@ -54,6 +57,7 @@ def test_windows_cuda_locator_reports_nothing_without_nvcc_exe(tmp_path, monkeyp
 
 
 def test_windows_cuda_locator_reports_nothing_without_cuda_path(monkeypatch):
+    """Check that windows cuda locator reports nothing without cuda path."""
     monkeypatch.setattr(windows_installer.RegistryMachineEnvironment, "read",
                         lambda self, name: None)
     monkeypatch.delenv("CUDA_PATH", raising=False)
@@ -64,6 +68,7 @@ def test_windows_cuda_locator_reports_nothing_without_cuda_path(monkeypatch):
 
 def test_windows_cuda_provision_reports_an_existing_install(
         tmp_path, monkeypatch, recording_console):
+    """Check that windows cuda provision reports an existing install."""
     (tmp_path / "bin").mkdir()
     (tmp_path / "bin" / "nvcc.exe").write_text("")
     monkeypatch.setenv("CUDA_PATH", str(tmp_path))
@@ -103,6 +108,7 @@ def test_linux_cuda_provision_installs_when_nvcc_does_not_run(monkeypatch, recor
 # ROCm
 
 def test_rocm_spec_declares_the_adapter_build_inputs():
+    """Check that rocm spec declares the adapter build inputs."""
     assert ROCM.vendor == "rocm"
     assert ROCM.probe_vendor == "amd"
     assert ROCM.adapter_option == "UR_BUILD_ADAPTER_HIP"
@@ -116,6 +122,7 @@ def test_rocm_spec_declares_the_adapter_build_inputs():
 # Level Zero
 
 def test_level_zero_spec_declares_the_adapter_build_inputs():
+    """Check that level zero spec declares the adapter build inputs."""
     assert LEVEL_ZERO.vendor == "level_zero"
     assert LEVEL_ZERO.probe_vendor == "intel"
     assert LEVEL_ZERO.adapter_option == "UR_BUILD_ADAPTER_L0"
@@ -129,6 +136,7 @@ def test_level_zero_spec_declares_the_adapter_build_inputs():
 
 @pytest.mark.parametrize("spec", [CUDA, ROCM, LEVEL_ZERO])
 def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
+    """Check that every backend reports not provided on darwin."""
     cfg = SimpleNamespace(platform="darwin")
 
     assert spec.locator.locate(cfg) is None
@@ -139,6 +147,7 @@ def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
 # Linux dry-run commands pinned to a fixed text
 
 def test_cuda_linux_provision_command_matches_the_pinned_text(monkeypatch, recording_console):
+    """Check that cuda linux provision command matches the pinned text."""
     monkeypatch.setattr(cuda_mod.probe, "binary_works", lambda cmd: False)
     monkeypatch.setattr(cuda_mod, "os_release", lambda: {"ID": "ubuntu", "VERSION_ID": "24.04"})
     monkeypatch.setattr(cuda_mod, "is_root", lambda: False)
@@ -158,6 +167,7 @@ def test_cuda_linux_provision_command_matches_the_pinned_text(monkeypatch, recor
 
 
 def test_rocm_linux_provision_command_matches_the_pinned_text(monkeypatch, recording_console):
+    """Check that rocm linux provision command matches the pinned text."""
     monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: None)
     monkeypatch.setattr(rocm_mod, "os_release",
                          lambda: {"ID": "ubuntu", "VERSION_CODENAME": "noble"})
@@ -181,6 +191,7 @@ def test_rocm_linux_provision_command_matches_the_pinned_text(monkeypatch, recor
 
 def test_level_zero_linux_provision_command_matches_the_pinned_text(
         monkeypatch, recording_console):
+    """Check that level zero linux provision command matches the pinned text."""
     monkeypatch.setattr(level_zero_mod, "ensure_intel_oneapi_repo", lambda dry_run: True)
     monkeypatch.setattr(level_zero_mod, "is_root", lambda: False)
 
@@ -198,6 +209,7 @@ def test_level_zero_linux_provision_command_matches_the_pinned_text(
 # The Level Zero locator finds a real shared library, not an executable
 
 def test_level_zero_locator_finds_the_loader_via_find_library(monkeypatch):
+    """Check that level zero locator finds the loader via find library."""
     monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library",
                          lambda name: "/usr/lib/x86_64-linux-gnu/libze_loader.so.1")
     cfg = SimpleNamespace(platform="linux")
@@ -210,6 +222,7 @@ def test_level_zero_locator_finds_the_loader_via_find_library(monkeypatch):
 
 
 def test_level_zero_locator_falls_back_to_the_known_lib_dirs(monkeypatch, tmp_path):
+    """Check that level zero locator falls back to the known lib dirs."""
     monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library", lambda name: None)
     fake_dir = tmp_path / "lib"
     fake_dir.mkdir()
@@ -223,6 +236,7 @@ def test_level_zero_locator_falls_back_to_the_known_lib_dirs(monkeypatch, tmp_pa
 
 
 def test_level_zero_locator_reports_nothing_when_the_loader_is_absent(monkeypatch, tmp_path):
+    """Check that level zero locator reports nothing when the loader is absent."""
     monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library", lambda name: None)
     monkeypatch.setattr(level_zero_mod, "_ZE_LOADER_LIB_DIRS", (str(tmp_path),))
     cfg = SimpleNamespace(platform="linux")
@@ -233,6 +247,7 @@ def test_level_zero_locator_reports_nothing_when_the_loader_is_absent(monkeypatc
 # ROCm reads ROCM_PATH before falling back to /opt/rocm
 
 def test_rocm_locator_prefers_rocm_path_over_the_default(monkeypatch):
+    """Check that rocm locator prefers rocm path over the default."""
     monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: "/custom/rocm/bin/hipcc")
     monkeypatch.setenv("ROCM_PATH", "/custom/rocm")
     cfg = SimpleNamespace(platform="linux")
@@ -243,6 +258,7 @@ def test_rocm_locator_prefers_rocm_path_over_the_default(monkeypatch):
 
 
 def test_rocm_locator_falls_back_to_opt_rocm_without_rocm_path(monkeypatch):
+    """Check that rocm locator falls back to opt rocm without rocm path."""
     monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: "/usr/bin/hipcc")
     monkeypatch.delenv("ROCM_PATH", raising=False)
     cfg = SimpleNamespace(platform="linux")

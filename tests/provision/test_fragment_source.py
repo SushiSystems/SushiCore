@@ -14,6 +14,7 @@ def _write(path, body):
 
 
 def test_source_reads_only_the_files_it_is_given(tmp_path, recording_console):
+    """Check that source reads only the files it is given."""
     mine = _write(tmp_path / "mine.deps.toml", '[gtest]\ndescription = "t"\nrequired = false\n'
                   'linux_apt = ["libgtest-dev"]\nwindows_vcpkg = ["gtest"]\n')
     source = TomlDependencySource([(mine, "sushitrack")])
@@ -23,6 +24,7 @@ def test_source_reads_only_the_files_it_is_given(tmp_path, recording_console):
 
 
 def test_same_named_deps_merge_across_files(tmp_path, recording_console):
+    """Check that same named deps merge across files."""
     a = _write(tmp_path / "a.deps.toml", '[x]\ndescription = "a"\nrequired = false\n'
                'linux_apt = ["p1"]\nwindows_vcpkg = []\n')
     b = _write(tmp_path / "b.deps.toml", '[x]\ndescription = "b"\nrequired = true\n'

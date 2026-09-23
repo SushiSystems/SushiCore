@@ -21,6 +21,7 @@ def _declared() -> set[str]:
 
 
 def test_every_config_attribute_provision_reads_is_declared():
+    """Check that every config attribute provision reads is declared."""
     read = set()
     for path in _ROOT.rglob("*.py"):
         read.update(_CFG_ATTRIBUTE.findall(path.read_text(encoding="utf-8")))

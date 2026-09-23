@@ -25,6 +25,7 @@ def sent_agents(monkeypatch):
     agents = []
 
     def urlopen(request, timeout=None):
+        """Check that urlopen."""
         agents.append(request.get_header("User-agent"))
         raise _Sent
 
@@ -40,12 +41,14 @@ def sent_agents(monkeypatch):
 ])
 def test_every_package_request_sends_the_sushicore_agent(
         call, sent_agents, tmp_path, recording_console):
+    """Check that every package request sends the sushicore agent."""
     with pytest.raises(_Sent):
         call(tmp_path)
     assert sent_agents == ["sushicore-installer"]
 
 
 def test_no_module_spells_its_own_agent():
+    """Check that no module spells its own agent."""
     for path in _ROOT.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "-installer\"" not in text or path.name == "system.py", path

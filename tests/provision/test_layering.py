@@ -52,11 +52,13 @@ def _imports_of(source: str) -> set[str]:
 
 
 def test_no_module_imports_hub():
+    """Check that no module imports hub."""
     for path in _ROOT.rglob("*.py"):
         assert not any("sushihub" in n for n in _imports(path)), path
 
 
 def test_every_module_has_a_layer():
+    """Check that every module has a layer."""
     for path in _ROOT.rglob("*.py"):
         name = _module_name(path)
         if name:
@@ -93,11 +95,13 @@ def _upward_edges(path: Path, imported_names: set[str]) -> list[str]:
 
 
 def test_imports_point_down_or_sideways():
+    """Check that imports point down or sideways."""
     for path in _ROOT.rglob("*.py"):
         assert not _upward_edges(path, _imports(path)), path
 
 
 def test_a_bare_relative_import_upward_is_caught():
+    """Check that a bare relative import upward is caught."""
     home_py = _ROOT / "home.py"
     assert _upward_edges(home_py, _imports_of("from . import steps")) == [
         "home imports steps"]

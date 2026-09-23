@@ -28,12 +28,15 @@ def manager(monkeypatch):
 
 
 def test_a_port_with_features_is_seen_as_installed(manager):
+    """Check that a port with features is seen as installed."""
     assert manager.is_installed("imgui[glfw-binding,opengl3-binding]")
 
 
 def test_a_bare_port_name_still_matches(manager):
+    """Check that a bare port name still matches."""
     assert manager.is_installed("imgui")
 
 
 def test_a_port_that_is_not_listed_is_not_installed(manager):
+    """Check that a port that is not listed is not installed."""
     assert not manager.is_installed("glfw3[wayland]")

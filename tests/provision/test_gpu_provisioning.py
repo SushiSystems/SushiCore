@@ -62,6 +62,7 @@ def _cfg() -> SimpleNamespace:
 
 
 def test_a_missing_commit_builds_nothing(tmp_path, recording_console):
+    """Check that a missing commit builds nothing."""
     registry = Registry((_spec("cuda", ToolkitInstall(root=tmp_path, version=None)),))
     builder = _FakeBuilder({})
 
@@ -74,6 +75,7 @@ def test_a_missing_commit_builds_nothing(tmp_path, recording_console):
 
 
 def test_a_backend_with_no_located_toolkit_is_skipped(tmp_path, recording_console):
+    """Check that a backend with no located toolkit is skipped."""
     registry = Registry((
         _spec("cuda", None),
         _spec("rocm", ToolkitInstall(root=tmp_path, version=None)),
@@ -90,6 +92,7 @@ def test_a_backend_with_no_located_toolkit_is_skipped(tmp_path, recording_consol
 
 def test_one_built_and_one_failed_are_both_called_and_neither_raises(
         tmp_path, recording_console):
+    """Check that one built and one failed are both called and neither raises."""
     registry = Registry((
         _spec("cuda", ToolkitInstall(root=tmp_path, version=None)),
         _spec("rocm", ToolkitInstall(root=tmp_path, version=None)),
@@ -106,8 +109,11 @@ def test_one_built_and_one_failed_are_both_called_and_neither_raises(
 
 
 def test_a_locator_that_raises_is_swallowed_and_warned(tmp_path, recording_console):
+    """Check that a locator that raises is swallowed and warned."""
     class _BrokenLocator:
+        """Fake BrokenLocator for testing."""
         def locate(self, cfg):
+            """Check that locate."""
             raise OSError("disk unreadable")
 
     spec = GpuBackendSpec(
@@ -130,6 +136,7 @@ def test_a_locator_that_raises_is_swallowed_and_warned(tmp_path, recording_conso
 
 
 def test_a_missing_commit_warns(tmp_path, recording_console):
+    """Check that a missing commit warns."""
     registry = Registry((_spec("cuda", ToolkitInstall(root=tmp_path, version=None)),))
     builder = _FakeBuilder({})
 
@@ -145,6 +152,7 @@ def test_a_missing_commit_warns(tmp_path, recording_console):
 
 def test_a_missing_commit_in_dry_run_prints_the_dry_run_line_instead_of_a_warning(
         tmp_path, recording_console):
+    """Check that a missing commit in dry run prints the dry run line instead of a warning."""
     registry = Registry((_spec("cuda", ToolkitInstall(root=tmp_path, version=None)),))
     builder = _FakeBuilder({})
 

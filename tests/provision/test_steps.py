@@ -13,33 +13,42 @@ from sushicore.provision.pipeline import InstallContext, StepResult
 
 
 class _EmptySource(IDependencySource):
+    """Fake EmptySource for testing."""
     def all(self):
+        """Check that all."""
         return []
 
 
 class _Sink:
+    """Fake Sink for testing."""
     def __init__(self, backup_path=None):
+        """Perform  init  ."""
         self.target = Path("stub")
         self.paths, self.tool, self.calls = [], [], []
         self._backup_path = backup_path
 
     def backup(self):
+        """Check that backup."""
         self.calls.append("backup")
         return self._backup_path
 
     def write_paths(self, platform, values):
+        """Check that write paths."""
         self.calls.append("write_paths")
         self.paths.append((platform, values))
 
     def write_tool(self, updates):
+        """Check that write tool."""
         self.calls.append("write_tool")
         self.tool.append(updates)
 
     def clear(self):
+        """Check that clear."""
         self.calls.append("clear")
 
 
 def test_configure_writes_through_the_sink(monkeypatch, recording_console):
+    """Check that configure writes through the sink."""
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
     sink = _Sink()
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), active_toolchain="intel-llvm")
@@ -49,6 +58,7 @@ def test_configure_writes_through_the_sink(monkeypatch, recording_console):
 
 
 def test_configure_backs_up_before_writing(monkeypatch, recording_console):
+    """Check that configure backs up before writing."""
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
     sink = _Sink(backup_path=Path("stub.toml.bak"))
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
@@ -60,6 +70,7 @@ def test_configure_backs_up_before_writing(monkeypatch, recording_console):
 
 def test_configure_skips_the_backup_line_when_there_is_nothing_to_back_up(
         monkeypatch, recording_console):
+    """Check that configure skips the backup line when there is nothing to back up."""
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
     sink = _Sink(backup_path=None)
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
@@ -70,6 +81,7 @@ def test_configure_skips_the_backup_line_when_there_is_nothing_to_back_up(
 
 
 def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch, recording_console):
+    """Check that uninstall leaves a refused root intact."""
     monkeypatch.chdir(tmp_path)
     home.bind_root(lambda: tmp_path)
     sentinel = tmp_path / "marker.txt"
@@ -88,6 +100,7 @@ def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch, recording
 
 
 def test_configure_dry_run_prints_the_rendered_config(monkeypatch, recording_console):
+    """Check that configure dry run prints the rendered config."""
     monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
     sink = _Sink()
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), dry_run=True)
@@ -98,6 +111,7 @@ def test_configure_dry_run_prints_the_rendered_config(monkeypatch, recording_con
 
 
 def test_windows_uninstall_refuses_before_touching_tools(tmp_path, recording_console):
+    """Check that windows uninstall refuses before touching tools."""
     root = tmp_path / "checkout"
     (root / ".git").mkdir(parents=True)
     cmake = root / "tools" / "cmake"
@@ -119,6 +133,7 @@ def test_windows_uninstall_refuses_before_touching_tools(tmp_path, recording_con
 
 
 def test_linux_uninstall_refuses_before_removing_anything(tmp_path, recording_console):
+    """Check that linux uninstall refuses before removing anything."""
     root = tmp_path / "checkout"
     (root / ".git").mkdir(parents=True)
     home.bind_root(lambda: root)
