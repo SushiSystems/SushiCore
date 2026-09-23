@@ -36,3 +36,19 @@ def test_clear_removes_only_the_tool_table(tmp_path):
     sink.clear()
     doc = read_toml(workspace_file(tmp_path))
     assert not doc.get("tool") and "a" in doc["modules"]
+
+
+def test_backup_copies_the_existing_file_before_it_changes(tmp_path):
+    sink = ModuleSink(tmp_path, ["# test"])
+    sink.write_paths("linux", {"ninja_exe": "old"})
+    before = sink.target.read_bytes()
+    backup = sink.backup()
+    sink.write_paths("linux", {"ninja_exe": "new"})
+    assert backup == sink.target.with_suffix(".toml.bak")
+    assert backup.read_bytes() == before
+
+
+def test_backup_returns_none_when_the_target_is_absent(tmp_path):
+    sink = ModuleSink(tmp_path, ["# test"])
+    assert sink.backup() is None
+    assert not sink.target.with_suffix(".toml.bak").is_file()

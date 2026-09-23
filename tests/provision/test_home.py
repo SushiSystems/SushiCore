@@ -64,3 +64,41 @@ def test_the_bound_root_is_never_its_own_legacy_root(provision_home, tmp_path, m
     monkeypatch.chdir(ws)
     home.bind_root(lambda: ws / "dependencies")
     assert home.legacy_roots() == []
+
+
+def test_an_ordinary_directory_is_removable(tmp_path):
+    target = tmp_path / "deps"
+    target.mkdir()
+    assert home.is_removable_root(target) is True
+
+
+def test_the_users_home_directory_is_refused():
+    assert home.is_removable_root(Path.home()) is False
+
+
+def test_a_filesystem_anchor_is_refused(tmp_path):
+    assert home.is_removable_root(Path(tmp_path.anchor)) is False
+
+
+def test_the_current_directory_is_refused(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert home.is_removable_root(tmp_path) is False
+
+
+def test_an_ancestor_of_the_current_directory_is_refused(tmp_path, monkeypatch):
+    child = tmp_path / "a" / "b"
+    child.mkdir(parents=True)
+    monkeypatch.chdir(child)
+    assert home.is_removable_root(tmp_path) is False
+
+
+def test_a_directory_holding_a_git_marker_is_refused(tmp_path):
+    target = tmp_path / "repo"
+    (target / ".git").mkdir(parents=True)
+    assert home.is_removable_root(target) is False
+
+
+def test_a_directory_holding_a_workspace_marker_is_refused(tmp_path):
+    target = tmp_path / "workspace"
+    (target / ".sushistack").mkdir(parents=True)
+    assert home.is_removable_root(target) is False
