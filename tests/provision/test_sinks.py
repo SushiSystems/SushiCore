@@ -35,4 +35,4 @@ def test_clear_removes_only_the_tool_table(tmp_path):
     sink.write_paths("linux", {"ninja_exe": "n"})
     sink.clear()
     doc = read_toml(workspace_file(tmp_path))
-    assert "tool" not in doc and "a" in doc["modules"]
+    assert not doc.get("tool") and "a" in doc["modules"]

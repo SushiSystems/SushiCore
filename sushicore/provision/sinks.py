@@ -66,13 +66,10 @@ def _clear_tool_table(target: Path, header: list[str]) -> None:
     if "tool" not in document:
         return
     del document["tool"]
-    if not document:
+    if document:
+        write_toml_document(target, document, header)
+    else:
         target.unlink(missing_ok=True)
-        return
-    write_toml_document(target, document, header)
-    # write_toml_document always renders an empty `[tool]` header; strip it so it parses away.
-    text = target.read_text(encoding="utf-8")
-    target.write_text(text.replace("\n[tool]\n\n", "\n", 1), encoding="utf-8")
 
 
 class WorkspaceSink:
