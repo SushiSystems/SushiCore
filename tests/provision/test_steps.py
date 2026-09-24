@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from sushicore.provision import home, probe, steps
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import IDependencySource
@@ -146,3 +148,37 @@ def test_linux_uninstall_refuses_before_removing_anything(tmp_path, recording_co
 
     assert result is StepResult.FAILED
     assert sink.calls == []
+
+
+@pytest.fixture
+def capsys_console(recording_console):
+    """Expose the recording console with a ``text`` view of every recorded argument."""
+    recording_console.text = lambda: "\n".join(
+        str(arg) for _name, args in recording_console.calls for arg in args)
+    return recording_console
+
+
+def _context(**overrides):
+    """Build an install context for a Linux run with *overrides* applied."""
+    return InstallContext(cfg=ProvisionSettings(platform="linux"), **overrides)
+
+
+def _run_detect_with_one_missing(ctx):
+    """Report an inventory with one missing required dependency through *ctx*."""
+    rows = [("ninja", steps._MISSING, "shared", "not found")]
+    steps.DetectStep(_EmptySource())._report_inventory(ctx, rows)
+
+
+def test_missing_dependency_hint_names_the_calling_program(capsys_console):
+    """Assert the re-run hint names the program in the context, not hub."""
+    ctx = _context(program="st")
+    _run_detect_with_one_missing(ctx)
+    assert "`st setup`" in capsys_console.text()
+    assert "hub install" not in capsys_console.text()
+
+
+def test_missing_dependency_hint_defaults_to_hub(capsys_console):
+    """Assert a context built without a program keeps hub's wording."""
+    ctx = _context()
+    _run_detect_with_one_missing(ctx)
+    assert "`hub install`" in capsys_console.text()
