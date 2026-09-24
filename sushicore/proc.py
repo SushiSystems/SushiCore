@@ -30,19 +30,26 @@ class ConsoleLike(Protocol):
 
     def error(self, text: str) -> None: ...
 
+    def warn(self, text: str) -> None: ...
+
 
 class Runner:
     """Runs external commands and says what it ran.
 
     @param console A CLI's console module.
     @param program The CLI's command name ("sr", "se", ...), used in guidance.
+    @param missing_exit_code Code `run` and `run_drained` return for a missing executable.
+    @param catch_interrupt Whether `run` and `run_drained` turn Ctrl+C into a warning and 130.
     """
 
-    __slots__ = ("_console", "_program")
+    __slots__ = ("_console", "_program", "_missing_exit_code", "_catch_interrupt")
 
-    def __init__(self, console: ConsoleLike, program: str) -> None:
+    def __init__(self, console: ConsoleLike, program: str, *,
+                 missing_exit_code: int = 1, catch_interrupt: bool = False) -> None:
         self._console = console
         self._program = program
+        self._missing_exit_code = missing_exit_code
+        self._catch_interrupt = catch_interrupt
 
     def resolve_exe(self, name: str, env: Mapping[str, str] | None = None) -> str:
         """The full path to *name* from *env*'s PATH, or *name* itself.
@@ -74,6 +81,11 @@ class Runner:
             f"(e.g. cmake_exe / ctest_exe / ninja_exe), or\n"
             f"  - run `{self._program} config` to see what the CLI resolved.")
 
+    def _interrupted(self) -> int:
+        """Warn that the child was interrupted and return 130."""
+        self._console.warn("Interrupted.")
+        return 130
+
     def run(self, cmd: list[str], cwd: Path,
             env: dict[str, str] | None = None) -> int:
         """Run *cmd*, letting the child inherit this process's stdout."""
@@ -84,7 +96,11 @@ class Runner:
             return subprocess.run(resolved, cwd=str(cwd), env=env).returncode
         except FileNotFoundError:
             self._not_found(cmd[0])
-            return 1
+            return self._missing_exit_code
+        except KeyboardInterrupt:
+            if not self._catch_interrupt:
+                raise
+            return self._interrupted()
 
     def run_drained(self, cmd: list[str], cwd: Path,
                     env: dict[str, str] | None = None) -> int:
@@ -106,12 +122,32 @@ class Runner:
             proc = subprocess.Popen(
                 resolved, cwd=str(cwd), env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1)
+                text=True, errors="replace", bufsize=1)
         except FileNotFoundError:
             self._not_found(cmd[0])
-            return 1
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            self._console.console.print(line.rstrip("\n"), markup=False,
-                                        highlight=False, soft_wrap=True)
-        return proc.wait()
+            return self._missing_exit_code
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                self._console.console.print(line.rstrip("\n"), markup=False,
+                                            highlight=False, soft_wrap=True)
+            return proc.wait()
+        except KeyboardInterrupt:
+            if not self._catch_interrupt:
+                raise
+            proc.terminate()
+            return self._interrupted()
+
+    def capture(self, cmd: list[str], cwd: Path | None = None,
+                env: dict[str, str] | None = None) -> tuple[int, str, str]:
+        """Run *cmd* quietly and return its exit code, stdout and stderr."""
+        resolved = list(cmd)
+        resolved[0] = self.resolve_exe(cmd[0], env)
+        try:
+            result = subprocess.run(resolved, cwd=str(cwd) if cwd else None, env=env,
+                                    capture_output=True, text=True, errors="replace")
+        except FileNotFoundError:
+            return 127, "", f"Executable not found: '{cmd[0]}'"
+        except KeyboardInterrupt:
+            return self._interrupted(), "", ""
+        return result.returncode, result.stdout, result.stderr

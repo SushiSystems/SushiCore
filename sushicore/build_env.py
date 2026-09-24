@@ -112,6 +112,18 @@ def snapshot_windows(cfg, console) -> dict[str, str] | None:
     return without_device_selection(parse_windows_set(result.stdout))
 
 
+def snapshot_vcvars(vcvars: Path, console) -> dict[str, str] | None:
+    """Run *vcvars* in a child shell and return the environment it produced, or None."""
+    console.info(f"Loading Visual Studio environment from {vcvars}")
+    # One string, not a list, keeps the quotes around the vcvars path intact.
+    result = subprocess.run(f'cmd /c call "{vcvars}" >nul && set',
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        console.warn("vcvars64.bat returned non-zero; using the current env.")
+        return None
+    return without_device_selection(parse_windows_set(result.stdout))
+
+
 def read_cache(cache_file: Path, key: str) -> dict[str, str] | None:
     """The cached snapshot when it was produced by *key*, else None."""
     if not cache_file.is_file():

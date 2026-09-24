@@ -224,3 +224,26 @@ def test_doxygen_not_found_names_the_absolute_path():
 
     assert driver.doxygen(_cfg(), missing, Path("/project"), None, install_hint="") == 1
     assert any(str(missing) in line for line in console.lines)
+
+
+def test_compile_places_parallel_before_targets(tmp_path):
+    driver, runner = _driver()
+    driver.compile(_cfg(), tmp_path, tmp_path, None, config="Release",
+                   targets=["a"], jobs=8)
+    assert runner.calls[-1][1] == ["cmake", "--build", str(tmp_path), "--config",
+                                   "Release", "--parallel", "8", "--target", "a"]
+
+
+def test_ctest_run_appends_parallel_and_config_in_order(tmp_path):
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), tmp_path, None, filter="S.*", repeat=2, jobs=4,
+                     config="Debug")
+    assert runner.calls[-1][1] == [
+        "ctest", "--test-dir", str(tmp_path), "--output-on-failure", "-R", "S.*",
+        "--repeat", "until-fail:2", "--parallel", "4", "-C", "Debug"]
+
+
+def test_ctest_run_skips_parallel_for_a_single_job(tmp_path):
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), tmp_path, None, jobs=1)
+    assert "--parallel" not in runner.calls[-1][1]
