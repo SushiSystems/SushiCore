@@ -98,28 +98,27 @@ def snapshot_windows(cfg, console) -> dict[str, str] | None:
     vcvars = cfg.expand(cfg.vs_vcvars)
     if not (vcvars and Path(vcvars).is_file()):
         return None
-    console.info("Loading Visual Studio environment (vcvars64)...")
-    # Pass the whole command as a single string, NOT as ["cmd", "/c", script]:
-    # with a list, subprocess re-quotes each element and mangles the inner quotes
-    # around the (space-containing) vcvars path, so cmd.exe sees the quoted path
-    # as one unknown token and returns non-zero -- silently dropping the VS
-    # environment.
-    script = 'cmd /c call "' + vcvars + '" && set'
-    result = subprocess.run(script, capture_output=True, text=True)
-    if result.returncode != 0:
-        console.warn("vcvars64 returned non-zero; using current env.")
-        return None
-    return without_device_selection(parse_windows_set(result.stdout))
+    return _snapshot(vcvars, console, redirect="",
+                     loading="Loading Visual Studio environment (vcvars64)...",
+                     failed="vcvars64 returned non-zero; using current env.")
 
 
 def snapshot_vcvars(vcvars: Path, console) -> dict[str, str] | None:
     """Run *vcvars* in a child shell and return the environment it produced, or None."""
-    console.info(f"Loading Visual Studio environment from {vcvars}")
+    return _snapshot(str(vcvars), console, redirect=" >nul",
+                     loading=f"Loading Visual Studio environment from {vcvars}",
+                     failed="vcvars64.bat returned non-zero; using the current env.")
+
+
+def _snapshot(vcvars: str, console, *, redirect: str, loading: str,
+              failed: str) -> dict[str, str] | None:
+    """Run `call "<vcvars>"<redirect> && set` in cmd and return the parsed environment, or None."""
+    console.info(loading)
     # One string, not a list, keeps the quotes around the vcvars path intact.
-    result = subprocess.run(f'cmd /c call "{vcvars}" >nul && set',
-                            capture_output=True, text=True)
+    script = 'cmd /c call "' + vcvars + '"' + redirect + ' && set'
+    result = subprocess.run(script, capture_output=True, text=True)
     if result.returncode != 0:
-        console.warn("vcvars64.bat returned non-zero; using the current env.")
+        console.warn(failed)
         return None
     return without_device_selection(parse_windows_set(result.stdout))
 
