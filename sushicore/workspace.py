@@ -13,6 +13,7 @@ locates directories and merges TOML the caller hands it — each CLI keeps its o
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -182,12 +183,18 @@ LINK_SECTION = "link"
 #: File in a module's config directory that carries the link pointer.
 _LOCAL_CONFIG = "config.local.toml"
 
+#: A ``[link]`` header line, with optional inner spaces and a trailing comment.
+_LINK_HEADER_RE = re.compile(r"^\s*\[\s*" + LINK_SECTION + r"\s*\]\s*(#.*)?$")
+
+
+class LinkEditError(ValueError):
+    """Raised when the link pointer cannot be edited without corrupting the file."""
+
 
 def _link_block_span(lines: list[str]) -> tuple[int, int] | None:
     """Return the ``[start, end)`` line span of the ``[link]`` table in *lines*, or None."""
-    header = f"[{LINK_SECTION}]"
     for start, line in enumerate(lines):
-        if line.strip() == header:
+        if _LINK_HEADER_RE.match(line):
             end = start + 1
             while end < len(lines) and not lines[end].lstrip().startswith("["):
                 end += 1
@@ -201,6 +208,56 @@ def _link_block_span(lines: list[str]) -> tuple[int, int] | None:
 def _toml_string(value: str) -> str:
     """Return *value* as a quoted TOML basic string."""
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _splice_link(text: str, block: list[str]) -> str:
+    """Return *text* with its ``[link]`` block replaced by *block*, keeping its line endings.
+
+    An empty *block* removes the table; a missing table is appended.
+    """
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines()
+    span = _link_block_span(lines)
+    if span is not None:
+        lines[span[0]:span[1]] = block
+    elif block:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.extend(block)
+    body = newline.join(lines).strip("\r\n")
+    return body + newline if body.strip() else ""
+
+
+def _parse(path: Path, text: str) -> dict:
+    """Parse *text*, the content of *path*, as TOML.
+
+    @throws LinkEditError When *text* is not valid TOML.
+    """
+    try:
+        return tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise LinkEditError(f"{path}: cannot edit [{LINK_SECTION}] safely ({exc}); "
+                            "edit it by hand.") from exc
+
+
+def _verified_link(path: Path, before: str, after: str) -> object:
+    """Return the ``link`` value of *after* once every other key matches *before*.
+
+    @throws LinkEditError When either text is invalid or they differ outside ``link``.
+    """
+    old = _parse(path, before)
+    new = _parse(path, after)
+    link = new.pop(LINK_SECTION, None)
+    old.pop(LINK_SECTION, None)
+    if old != new:
+        raise LinkEditError(f"{path}: cannot edit [{LINK_SECTION}] without changing other "
+                            "settings; edit it by hand.")
+    return link
+
+
+def _read_local(path: Path) -> str:
+    """Return *path*'s text with its line endings intact, or "" when it does not exist."""
+    return path.read_bytes().decode("utf-8") if path.is_file() else ""
 
 
 def read_link(config_dir: Path) -> Path | None:
@@ -217,21 +274,19 @@ def write_link(config_dir: Path, workspace: Path) -> Path:
     """Set the ``[link]`` table in *config_dir*'s local config, leaving other text untouched.
 
     @pre *config_dir* exists.
+    @throws LinkEditError When the edit cannot be verified; the file is then left unchanged.
     @return The file written.
     """
     path = config_dir / _LOCAL_CONFIG
-    text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    lines = text.splitlines()
-    block = [f"[{LINK_SECTION}]",
-             f"workspace = {_toml_string(workspace.resolve().as_posix())}"]
-    span = _link_block_span(lines)
-    if span is not None:
-        lines[span[0]:span[1]] = block
-    else:
-        if lines and lines[-1].strip():
-            lines.append("")
-        lines.extend(block)
-    path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    value = workspace.resolve().as_posix()
+    block = [f"[{LINK_SECTION}]", f"workspace = {_toml_string(value)}"]
+    original = _read_local(path)
+    text = _splice_link(original, block)
+    link = _verified_link(path, original, text)
+    if not isinstance(link, dict) or link.get("workspace") != value:
+        raise LinkEditError(f"{path}: could not set [{LINK_SECTION}] workspace safely; "
+                            "edit it by hand.")
+    path.write_bytes(text.encode("utf-8"))
     return path
 
 
@@ -239,18 +294,19 @@ def clear_link(config_dir: Path) -> bool:
     """Remove the ``[link]`` table from *config_dir*'s local config; report whether it existed.
 
     The file is deleted when only blank lines remain.
+
+    @throws LinkEditError When the edit cannot be verified; the file is then left unchanged.
     """
     path = config_dir / _LOCAL_CONFIG
-    if not path.is_file():
+    original = _read_local(path)
+    if LINK_SECTION not in _parse(path, original):
         return False
-    lines = path.read_text(encoding="utf-8").splitlines()
-    span = _link_block_span(lines)
-    if span is None:
-        return False
-    del lines[span[0]:span[1]]
-    rest = "\n".join(lines).rstrip().lstrip("\n")
-    if rest:
-        path.write_text(rest + "\n", encoding="utf-8")
+    text = _splice_link(original, [])
+    if _verified_link(path, original, text) is not None:
+        raise LinkEditError(f"{path}: could not remove [{LINK_SECTION}] safely; "
+                            "edit it by hand.")
+    if text:
+        path.write_bytes(text.encode("utf-8"))
     else:
         path.unlink()
     return True

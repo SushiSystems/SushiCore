@@ -4,7 +4,16 @@
 
 from __future__ import annotations
 
-from sushicore.workspace import WORKSPACE_MARKER, clear_link, read_link, read_toml, write_link
+import pytest
+
+from sushicore.workspace import (
+    WORKSPACE_MARKER,
+    LinkEditError,
+    clear_link,
+    read_link,
+    read_toml,
+    write_link,
+)
 
 
 def _workspace(tmp_path):
@@ -106,3 +115,57 @@ def test_a_relative_pointer_resolves_against_the_config_dir(tmp_path):
     cfg.mkdir(parents=True)
     (cfg / "config.local.toml").write_text('[link]\nworkspace = "../../ws"\n', encoding="utf-8")
     assert read_link(cfg) == ws.resolve()
+
+
+def _local(tmp_path, text):
+    """Create a config dir whose local config holds *text* as bytes and return both."""
+    cfg = tmp_path / "cli"
+    cfg.mkdir()
+    local = cfg / "config.local.toml"
+    local.write_bytes(text.encode("utf-8"))
+    return cfg, local
+
+
+@pytest.mark.parametrize("header", ["[link] # mine", "  [ link ]  "])
+def test_a_decorated_header_is_replaced_not_duplicated(tmp_path, header):
+    ws = _workspace(tmp_path)
+    cfg, local = _local(tmp_path, f'{header}\nworkspace = "x"\n\n{_USER_TEXT}')
+    write_link(cfg, ws)
+    assert read_link(cfg) == ws.resolve()
+    assert local.read_text(encoding="utf-8").endswith(_USER_TEXT)
+    assert clear_link(cfg) is True
+    assert local.read_text(encoding="utf-8") == _USER_TEXT
+
+
+def test_a_root_inline_table_is_refused_and_left_unchanged(tmp_path):
+    ws = _workspace(tmp_path)
+    text = 'link = { workspace = "x" }\n' + _USER_TEXT
+    cfg, local = _local(tmp_path, text)
+    with pytest.raises(LinkEditError):
+        write_link(cfg, ws)
+    with pytest.raises(LinkEditError):
+        clear_link(cfg)
+    assert local.read_text(encoding="utf-8") == text
+
+
+def test_a_header_inside_a_multiline_string_never_corrupts_the_file(tmp_path):
+    ws = _workspace(tmp_path)
+    text = '[tool]\nnote = """\n[link]\nworkspace = "x"\n"""\n'
+    cfg, local = _local(tmp_path, text)
+    with pytest.raises(LinkEditError):
+        write_link(cfg, ws)
+    assert local.read_text(encoding="utf-8") == text
+    assert clear_link(cfg) is False
+    assert local.read_text(encoding="utf-8") == text
+
+
+def test_crlf_line_endings_are_preserved(tmp_path):
+    ws = _workspace(tmp_path)
+    text = _USER_TEXT.replace("\n", "\r\n")
+    cfg, local = _local(tmp_path, text)
+    write_link(cfg, ws)
+    written = local.read_bytes().decode("utf-8")
+    assert written.startswith(text)
+    assert "\n" not in written.replace("\r\n", "")
+    assert clear_link(cfg) is True
+    assert local.read_bytes().decode("utf-8") == text
