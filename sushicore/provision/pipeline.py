@@ -49,6 +49,8 @@ class InstallContext:
     selection: ToolchainSelection = field(default_factory=ToolchainSelection)
     #: The module name recorded in the registry.
     consumer: str = ""
+    #: The command a user types to re-run provisioning.
+    program: str = "hub"
     dry_run: bool = False
     everything: bool = False
     #: The toolchain ConfigureStep pins as the default, or None to leave it.

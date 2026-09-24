@@ -119,6 +119,11 @@ def _literal(text: str) -> str:
     return text if console.is_machine() else escape(text)
 
 
+def _rerun_command(ctx: InstallContext) -> str:
+    """Return the command that re-runs provisioning for the program in *ctx*."""
+    return "hub install" if ctx.program == "hub" else f"{ctx.program} setup"
+
+
 class DetectStep(Step):
     """Inventory tools and dependencies; fill ``ctx.detected``."""
 
@@ -293,8 +298,11 @@ class DetectStep(Step):
         )
 
         console.info(f"Vendored dependencies go in one folder: {home.root()}")
-        console.info("Remove the whole install by deleting that folder "
-                     "(`hub remove --all` does it for you).")
+        if ctx.program == "hub":
+            console.info("Remove the whole install by deleting that folder "
+                         "(`hub remove --all` does it for you).")
+        else:
+            console.info("Remove the whole install by deleting that folder.")
         if ctx.cfg.platform == "windows":
             console.info("System prerequisites kept outside that folder: the C++ "
                          "host compiler (Visual Studio Build Tools + Windows SDK), "
@@ -304,12 +312,12 @@ class DetectStep(Step):
                          "compiler (gcc) plus the -dev packages (hwloc, gtest, "
                          "opencl), git, and the toolkit for the detected GPU.")
 
-        self._report_inventory(rows)
+        self._report_inventory(ctx, rows)
         if self._after_inventory is not None:
             self._after_inventory(ctx, all_deps)
         return StepResult.OK
 
-    def _report_inventory(self, rows: list[_Row]) -> None:
+    def _report_inventory(self, ctx: InstallContext, rows: list[_Row]) -> None:
         """Print the one-line summary of *rows* and, when any is missing, what to do about it."""
         counts, missing = self.summarize_inventory(rows)
         console.info(" | ".join(f"{count} {_SUMMARY_LABELS.get(status, status)}"
@@ -319,7 +327,7 @@ class DetectStep(Step):
         console.warn("Needs attention")
         for component, _status_text, _owner, detail in missing:
             console.info(_literal(f"{component}  {detail}".rstrip()))
-        console.info("Run `hub install` to provision what is missing.")
+        console.info(f"Run `{_rerun_command(ctx)}` to provision what is missing.")
 
 
 class InstallDepsStep(Step):
@@ -366,10 +374,12 @@ class InstallDepsStep(Step):
             if acpp:
                 ctx.resolved_paths["acpp_exe"] = acpp
             elif not ctx.selection.install_intel_llvm:
-                console.warn("AdaptiveCpp is the only toolchain selected but it did "
-                             "not install; the project will not build. Re-run "
-                             "`hub install --customize` and also pick intel-llvm as "
-                             "a fallback.")
+                message = ("AdaptiveCpp is the only toolchain selected but it did "
+                           "not install; the project will not build.")
+                if ctx.program == "hub":
+                    message += (" Re-run `hub install --customize` and also pick "
+                                "intel-llvm as a fallback.")
+                console.warn(message)
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Linux."""
