@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import pytest
 
+from sushicore.workspace import tomllib
+
 from sushicore.workspace import (
     WORKSPACE_MARKER,
     LinkEditError,
@@ -29,6 +31,14 @@ def test_write_then_read_returns_the_workspace(tmp_path):
     cfg.mkdir(parents=True)
     write_link(cfg, ws)
     assert read_link(cfg) == ws.resolve()
+
+
+def test_read_raises_on_a_malformed_local_config_as_config_loading_does(tmp_path):
+    cfg = tmp_path / "cli"
+    cfg.mkdir()
+    (cfg / "config.local.toml").write_text("[link", encoding="utf-8")
+    with pytest.raises(tomllib.TOMLDecodeError):
+        read_link(cfg)
 
 
 def test_write_keeps_other_tables(tmp_path):
