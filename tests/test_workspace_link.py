@@ -60,3 +60,49 @@ def test_clear_keeps_the_file_when_other_tables_remain(tmp_path):
     write_link(cfg, ws)
     assert clear_link(cfg) is True
     assert read_toml(cfg / "config.local.toml") == {"tool": {"cmake_exe": "C:/cmake.exe"}}
+
+
+_USER_TEXT = (
+    "# my settings\n"
+    "[tool]\n"
+    "jobs = 8  # parallel\n"
+    'cmake_exe = "C:/cmake.exe"\n'
+)
+
+
+def test_write_and_clear_keep_comments_and_non_string_values(tmp_path):
+    ws = _workspace(tmp_path)
+    cfg = tmp_path / "cli"
+    cfg.mkdir()
+    local = cfg / "config.local.toml"
+    local.write_text(_USER_TEXT, encoding="utf-8")
+    write_link(cfg, ws)
+    text = local.read_text(encoding="utf-8")
+    assert text.startswith(_USER_TEXT)
+    assert read_toml(local)["tool"]["jobs"] == 8
+    assert read_link(cfg) == ws.resolve()
+    assert clear_link(cfg) is True
+    assert local.read_text(encoding="utf-8") == _USER_TEXT
+
+
+def test_rewriting_the_link_replaces_only_its_table(tmp_path):
+    first = _workspace(tmp_path)
+    second = tmp_path / "ws2"
+    (second / WORKSPACE_MARKER).mkdir(parents=True)
+    cfg = tmp_path / "cli"
+    cfg.mkdir()
+    local = cfg / "config.local.toml"
+    local.write_text('[link]\nworkspace = "x"\n\n' + _USER_TEXT, encoding="utf-8")
+    write_link(cfg, first)
+    write_link(cfg, second)
+    assert read_link(cfg) == second.resolve()
+    assert local.read_text(encoding="utf-8").endswith(_USER_TEXT)
+    assert local.read_text(encoding="utf-8").count("[link]") == 1
+
+
+def test_a_relative_pointer_resolves_against_the_config_dir(tmp_path):
+    ws = _workspace(tmp_path)
+    cfg = tmp_path / "mod" / "cli"
+    cfg.mkdir(parents=True)
+    (cfg / "config.local.toml").write_text('[link]\nworkspace = "../../ws"\n', encoding="utf-8")
+    assert read_link(cfg) == ws.resolve()
