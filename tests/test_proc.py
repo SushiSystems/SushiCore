@@ -128,6 +128,7 @@ def test_run_drained_terminates_the_child_on_interrupt(monkeypatch):
 
     class _Proc:
         terminated = False
+        waited = False
 
         @property
         def stdout(self):
@@ -136,10 +137,14 @@ def test_run_drained_terminates_the_child_on_interrupt(monkeypatch):
         def terminate(self):
             _Proc.terminated = True
 
+        def wait(self):
+            _Proc.waited = _Proc.terminated
+
     monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: _Proc())
     runner = Runner(console, "st", catch_interrupt=True)
     assert runner.run_drained(["ctest"], Path(".")) == 130
     assert _Proc.terminated
+    assert _Proc.waited
     assert ("warn", "Interrupted.") in console.lines
 
 
@@ -172,7 +177,7 @@ def test_capture_returns_code_stdout_and_stderr_without_echo():
 
 def test_capture_reports_a_missing_executable_quietly():
     console = _Recorder()
-    result = Runner(console, "st").capture(["no-such-binary-anywhere"])
+    result = Runner(console, "st", missing_exit_code=127).capture(["no-such-binary-anywhere"])
     assert result == (127, "", "Executable not found: 'no-such-binary-anywhere'")
     assert console.lines == []
 
@@ -180,5 +185,16 @@ def test_capture_reports_a_missing_executable_quietly():
 def test_capture_catches_interrupt(monkeypatch):
     console = _WarnRecorder()
     monkeypatch.setattr(subprocess, "run", _raise(KeyboardInterrupt()))
-    assert Runner(console, "st").capture(["x"]) == (130, "", "")
+    assert Runner(console, "st", catch_interrupt=True).capture(["x"]) == (130, "", "")
     assert ("warn", "Interrupted.") in console.lines
+
+
+def test_capture_returns_the_default_missing_exit_code():
+    assert Runner(_Recorder(), "sb").capture(["no-such-binary-anywhere"])[0] == 1
+
+
+def test_capture_propagates_interrupt_by_default(monkeypatch):
+    import pytest
+    monkeypatch.setattr(subprocess, "run", _raise(KeyboardInterrupt()))
+    with pytest.raises(KeyboardInterrupt):
+        Runner(_Recorder(), "sb").capture(["x"])

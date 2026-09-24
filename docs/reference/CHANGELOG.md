@@ -3,9 +3,14 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
-- 2026-09-24 — Made `doctor --for GROUP` count that group's optional checks as required, so their failures show FAIL and exit 1 (`sushicore/provision/doctor.py`).
-- 2026-09-24 — workspace: Added a module-side link pointer that config loading follows to the linked workspace (`workspace.py`, `module_config.py`, `provision/commands.py`).
-- 2026-09-23 — Renamed the shared package helpers to public names and made `setup` create a missing dependency root (`sushicore/provision/packages/`, `lock.py`).
+- 2026-09-24 — Added `Runner.capture` and the `catch_interrupt` and `missing_exit_code` options to `Runner` (`sushicore/proc.py`).
+- 2026-09-24 — Added `warn` to the `ConsoleLike` protocol (`sushicore/proc.py`).
+- 2026-09-24 — Added the `jobs` and `config` options to `CMakeDriver` (`sushicore/cmake_driver.py`).
+- 2026-09-24 — Added `build_env.snapshot_vcvars` and `provision.probe.find_vcvars` (`sushicore/build_env.py`, `sushicore/provision/probe.py`).
+- 2026-09-24 — Added `InstallContext.program` and named the calling program in install hints (`sushicore/provision/pipeline.py`).
+- 2026-09-24 — Made `doctor --for GROUP` count that group's optional checks as required (`sushicore/provision/doctor.py`).
+- 2026-09-24 — workspace: Added a module-side link pointer that config loading follows to the linked workspace (`sushicore/workspace.py`, `sushicore/module_config.py`, `sushicore/provision/commands.py`).
+- 2026-09-23 — Renamed the shared package helpers to public names and made `setup` create a missing dependency root (`sushicore/provision/packages/`, `sushicore/provision/lock.py`).
 - 2026-09-23 — Added `sushicore.provision`: dependency root, registry, doctor and module commands, moved from hub (`sushicore/provision/`).
 - 2026-09-21 — Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).
 - 2026-09-22 — Stopped `typer_help` importing `click` at run time, since Typer 0.27 no longer installs it, and added `click` to the `test` extra (`sushicore/typer_help.py`, `pyproject.toml`).

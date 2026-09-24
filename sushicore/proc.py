@@ -136,6 +136,7 @@ class Runner:
             if not self._catch_interrupt:
                 raise
             proc.terminate()
+            proc.wait()
             return self._interrupted()
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
@@ -147,7 +148,9 @@ class Runner:
             result = subprocess.run(resolved, cwd=str(cwd) if cwd else None, env=env,
                                     capture_output=True, text=True, errors="replace")
         except FileNotFoundError:
-            return 127, "", f"Executable not found: '{cmd[0]}'"
+            return self._missing_exit_code, "", f"Executable not found: '{cmd[0]}'"
         except KeyboardInterrupt:
+            if not self._catch_interrupt:
+                raise
             return self._interrupted(), "", ""
         return result.returncode, result.stdout, result.stderr
