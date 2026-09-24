@@ -11,6 +11,7 @@ from typing import Callable, Optional
 from ..profile import ModuleProfile
 from ..workspace import (
     WORKSPACE_MARKER,
+    LinkEditError,
     clear_link,
     has_marker,
     remove_module,
@@ -189,7 +190,11 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         if target is None:
             console.error(_no_workspace_message())
             raise typer.Exit(2)
-        write_link(root / "cli", target)
+        try:
+            write_link(root / "cli", target)
+        except LinkEditError as exc:
+            console.error(str(exc))
+            raise typer.Exit(1)
         write_module(target, module.profile.name, root)
         console.success(f"Linked {module.profile.name} into {target}.")
 
@@ -206,8 +211,12 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         if target is None:
             console.error(_no_workspace_message())
             raise typer.Exit(2)
+        try:
+            clear_link(root / "cli")
+        except LinkEditError as exc:
+            console.error(str(exc))
+            raise typer.Exit(1)
         removed = remove_module(target, module.profile.name)
-        clear_link(root / "cli")
         if removed:
             console.success(f"Unlinked {module.profile.name} from {target}.")
         else:
