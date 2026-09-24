@@ -11,10 +11,12 @@ from typing import Callable, Optional
 from ..profile import ModuleProfile
 from ..workspace import (
     WORKSPACE_MARKER,
+    clear_link,
     has_marker,
     remove_module,
     resolve_env_path,
     walk_up,
+    write_link,
     write_module,
 )
 from . import home
@@ -146,6 +148,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             cfg=cfg,
             selection=ToolchainSelection(),
             consumer=module.profile.name,
+            program=module.profile.program,
             dry_run=dry_run,
             assume_acpp_llvm=yes,
         )
@@ -187,6 +190,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             console.error(_no_workspace_message())
             raise typer.Exit(2)
         write_module(target, module.profile.name, root)
+        write_link(root / "cli", target)
         console.success(f"Linked {module.profile.name} into {target}.")
 
     @app.command()
@@ -203,6 +207,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             console.error(_no_workspace_message())
             raise typer.Exit(2)
         removed = remove_module(target, module.profile.name)
+        clear_link(root / "cli")
         if removed:
             console.success(f"Unlinked {module.profile.name} from {target}.")
         else:

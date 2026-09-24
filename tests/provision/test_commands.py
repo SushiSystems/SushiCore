@@ -15,7 +15,7 @@ from sushicore.provision.commands import ModuleProvision, register_provision_com
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.packages import LinuxPackageManager
-from sushicore.workspace import registered_modules
+from sushicore.workspace import read_link, registered_modules
 
 
 class _FakeAptManager(LinuxPackageManager):
@@ -90,8 +90,10 @@ def test_link_and_unlink_without_hub(tmp_path, recording_console):
     runner = CliRunner()
     assert runner.invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
     assert registered_modules(ws) == {"sushidsp": str(tmp_path / "dsp").replace("\\", "/")}
+    assert read_link(tmp_path / "dsp" / "cli") == ws.resolve()
     assert runner.invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
     assert registered_modules(ws) == {}
+    assert read_link(tmp_path / "dsp" / "cli") is None
 
 
 def test_link_outside_a_workspace_exits_two(tmp_path, recording_console, monkeypatch):
@@ -100,6 +102,7 @@ def test_link_outside_a_workspace_exits_two(tmp_path, recording_console, monkeyp
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(_app(tmp_path, recording_console), ["link"])
     assert result.exit_code == 2
+    assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
 
 
 def test_doctor_filters_by_group(tmp_path, recording_console):
