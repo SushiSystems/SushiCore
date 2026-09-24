@@ -86,6 +86,7 @@ def test_link_and_unlink_without_hub(tmp_path, recording_console):
     """Check that link and unlink without hub."""
     ws = tmp_path / "ws"
     (ws / ".sushistack").mkdir(parents=True)
+    (tmp_path / "dsp" / "cli").mkdir(parents=True)
     app = _app(tmp_path, recording_console)
     runner = CliRunner()
     assert runner.invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0

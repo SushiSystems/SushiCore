@@ -182,11 +182,25 @@ LINK_SECTION = "link"
 #: File in a module's config directory that carries the link pointer.
 _LOCAL_CONFIG = "config.local.toml"
 
-#: The comment block written at the top of a module's ``config.local.toml`` by ``link``.
-_LINK_HEADER = [
-    "# Machine-local settings for this module. `link` writes [link] workspace, the workspace",
-    "# whose [tool] table config loading layers under this file.",
-]
+
+def _link_block_span(lines: list[str]) -> tuple[int, int] | None:
+    """Return the ``[start, end)`` line span of the ``[link]`` table in *lines*, or None."""
+    header = f"[{LINK_SECTION}]"
+    for start, line in enumerate(lines):
+        if line.strip() == header:
+            end = start + 1
+            while end < len(lines) and not lines[end].lstrip().startswith("["):
+                end += 1
+            # Blank and comment lines just above the next header belong to that table.
+            while end > start + 1 and lines[end - 1].strip()[:1] in ("", "#"):
+                end -= 1
+            return start, end
+    return None
+
+
+def _toml_string(value: str) -> str:
+    """Return *value* as a quoted TOML basic string."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def read_link(config_dir: Path) -> Path | None:
@@ -195,33 +209,48 @@ def read_link(config_dir: Path) -> Path | None:
     raw = table.get("workspace")
     if not raw:
         return None
-    target = Path(raw)
+    target = (config_dir / raw).resolve()
     return target if (target / WORKSPACE_MARKER).exists() else None
 
 
 def write_link(config_dir: Path, workspace: Path) -> Path:
-    """Record *workspace* as this module's linked workspace and return the file written."""
-    from .config_base import write_toml_document
+    """Set the ``[link]`` table in *config_dir*'s local config, leaving other text untouched.
 
+    @pre *config_dir* exists.
+    @return The file written.
+    """
     path = config_dir / _LOCAL_CONFIG
-    doc = dict(read_toml(path))
-    doc[LINK_SECTION] = {"workspace": workspace.resolve().as_posix()}
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return write_toml_document(path, doc, _LINK_HEADER)
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    lines = text.splitlines()
+    block = [f"[{LINK_SECTION}]",
+             f"workspace = {_toml_string(workspace.resolve().as_posix())}"]
+    span = _link_block_span(lines)
+    if span is not None:
+        lines[span[0]:span[1]] = block
+    else:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.extend(block)
+    path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return path
 
 
 def clear_link(config_dir: Path) -> bool:
-    """Remove this module's link pointer and report whether one existed."""
-    from .config_base import write_toml_document
+    """Remove the ``[link]`` table from *config_dir*'s local config; report whether it existed.
 
+    The file is deleted when only blank lines remain.
+    """
     path = config_dir / _LOCAL_CONFIG
-    doc = dict(read_toml(path))
-    if LINK_SECTION not in doc:
+    if not path.is_file():
         return False
-    del doc[LINK_SECTION]
-    # An empty table left behind by the writer counts as nothing remaining.
-    if any(doc.values()):
-        write_toml_document(path, doc, _LINK_HEADER)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    span = _link_block_span(lines)
+    if span is None:
+        return False
+    del lines[span[0]:span[1]]
+    rest = "\n".join(lines).rstrip().lstrip("\n")
+    if rest:
+        path.write_text(rest + "\n", encoding="utf-8")
     else:
         path.unlink()
     return True

@@ -189,8 +189,8 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         if target is None:
             console.error(_no_workspace_message())
             raise typer.Exit(2)
-        write_module(target, module.profile.name, root)
         write_link(root / "cli", target)
+        write_module(target, module.profile.name, root)
         console.success(f"Linked {module.profile.name} into {target}.")
 
     @app.command()
