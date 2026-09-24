@@ -80,16 +80,20 @@ class CMakeDriver:
     # -- build ----------------------------------------------------------
 
     def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
-                config: str | None = None, targets: Sequence[str] = ()) -> int:
+                config: str | None = None, targets: Sequence[str] = (),
+                jobs: int | None = None) -> int:
         """Bring an already-configured tree up to date.
 
         @param config The configuration to build. When None it is read from the
             tree's own cache, because a caller that did not configure this tree
             has no business choosing one.
+        @param jobs When set, passed as --parallel before the targets.
         """
         if config is None:
             config = cached_value(build_dir, "CMAKE_BUILD_TYPE") or "Release"
         cmd = [self.cmake(cfg), "--build", str(build_dir), "--config", config]
+        if jobs:
+            cmd += ["--parallel", str(jobs)]
         for target in targets:
             cmd += ["--target", target]
         return self._runner.run(cmd, cwd, env)
@@ -98,7 +102,8 @@ class CMakeDriver:
 
     def ctest_run(self, cfg, build_dir: Path, env, *,
                   label_regex: str | None = None, filter: str | None = None,
-                  repeat: int = 0) -> int:
+                  repeat: int = 0, jobs: int | None = None,
+                  config: str | None = None) -> int:
         """Run ctest over *build_dir*, draining its output.
 
         @param filter A ctest -R pattern. gtest_discover_tests registers cases
@@ -106,6 +111,8 @@ class CMakeDriver:
             alternative to --gtest_filter.
         @param repeat Re-run each selected test until it fails or this many runs
             pass, the native ctest way to flush out flakiness.
+        @param jobs Passed as --parallel only when greater than one.
+        @param config When set, passed as -C.
         """
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
         if label_regex:
@@ -116,6 +123,10 @@ class CMakeDriver:
             cmd += ["--repeat", f"until-fail:{repeat}"]
             self._console.info(
                 f"Repeating each test up to {repeat}x (stop on first failure).")
+        if jobs and jobs > 1:
+            cmd += ["--parallel", str(jobs)]
+        if config:
+            cmd += ["-C", config]
         return self._runner.run_drained(cmd, build_dir, env)
 
     # -- clean ----------------------------------------------------------

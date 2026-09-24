@@ -58,3 +58,58 @@ def test_the_current_environment_still_reaches_a_subprocess(tmp_path):
     cached = read_cache(_cache(tmp_path, {"PATH": "C:/msvc/bin"}), "k")
     merged = merge_env({"ONEAPI_DEVICE_SELECTOR": "cuda:gpu", "PATH": "C:/system"}, cached)
     assert merged["ONEAPI_DEVICE_SELECTOR"] == "cuda:gpu"
+
+
+class _Console:
+    def __init__(self):
+        self.lines = []
+
+    def info(self, text):
+        self.lines.append(("info", text))
+
+    def warn(self, text):
+        self.lines.append(("warn", text))
+
+
+def _fake_run(monkeypatch, code, stdout):
+    import subprocess
+    from types import SimpleNamespace
+    seen = []
+
+    def _run(script, **kw):
+        seen.append(script)
+        return SimpleNamespace(returncode=code, stdout=stdout)
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    return seen
+
+
+def test_snapshot_vcvars_names_the_path_and_drops_device_selection(monkeypatch):
+    from sushicore.build_env import snapshot_vcvars
+    seen = _fake_run(monkeypatch, 0, "PATH=C:/msvc\nCUDA_VISIBLE_DEVICES=0\n")
+    console = _Console()
+    vcvars = Path("C:/VS/vcvars64.bat")
+    assert snapshot_vcvars(vcvars, console) == {"PATH": "C:/msvc"}
+    assert seen == [f'cmd /c call "{vcvars}" >nul && set']
+    assert console.lines == [("info", f"Loading Visual Studio environment from {vcvars}")]
+
+
+def test_snapshot_vcvars_warns_and_returns_none_on_failure(monkeypatch):
+    from sushicore.build_env import snapshot_vcvars
+    _fake_run(monkeypatch, 1, "")
+    console = _Console()
+    assert snapshot_vcvars(Path("C:/VS/vcvars64.bat"), console) is None
+    assert console.lines[-1] == ("warn", "vcvars64.bat returned non-zero; using the current env.")
+
+
+def test_snapshot_windows_keeps_its_own_command_and_messages(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from sushicore.build_env import snapshot_windows
+    vcvars = tmp_path / "vcvars64.bat"
+    vcvars.write_text("")
+    seen = _fake_run(monkeypatch, 0, "PATH=C:/msvc\n")
+    console = _Console()
+    cfg = SimpleNamespace(vs_vcvars=str(vcvars), expand=lambda s: s)
+    assert snapshot_windows(cfg, console) == {"PATH": "C:/msvc"}
+    assert seen == ['cmd /c call "' + str(vcvars) + '" && set']
+    assert console.lines == [("info", "Loading Visual Studio environment (vcvars64)...")]

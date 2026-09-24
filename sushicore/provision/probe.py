@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import glob
+import os
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,8 @@ _VS_VCVARS_GLOBS = [
     r"C:/Program Files/Microsoft Visual Studio/2022/*/VC/Auxiliary/Build/vcvars64.bat",
     r"C:/Program Files (x86)/Microsoft Visual Studio/2022/*/VC/Auxiliary/Build/vcvars64.bat",
 ]
+_VS_EDITIONS = ("BuildTools", "Community", "Professional", "Enterprise")
+_VCVARS_REL = Path("VC") / "Auxiliary" / "Build" / "vcvars64.bat"
 _ONEAPI_ROOTS = [
     r"C:/Program Files (x86)/Intel/oneAPI",
     r"C:/Program Files/Intel/oneAPI",
@@ -56,6 +59,54 @@ def _first_existing(paths: list[str]) -> str:
         if Path(p).exists():
             return p
     return ""
+
+
+def _vcvars_from_vswhere() -> Path | None:
+    """Return the vcvars64.bat of the latest VS install vswhere reports, or None."""
+    program_files = os.environ.get("ProgramFiles(x86)") or os.environ.get(
+        "ProgramFiles", r"C:\Program Files")
+    vswhere = Path(program_files) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+    if not vswhere.is_file():
+        return None
+    cmd = [str(vswhere), "-latest", "-prerelease", "-products", "*",
+           "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+           "-property", "installationPath"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, errors="replace",
+                                timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        candidate = Path(line.strip()) / _VCVARS_REL
+        if line.strip() and candidate.is_file():
+            return candidate
+    return None
+
+
+def _vcvars_from_disk_scan() -> Path | None:
+    """Return the first vcvars64.bat under the Program Files VS roots, newest year first."""
+    roots = [Path(os.environ[var]) / "Microsoft Visual Studio"
+             for var in ("ProgramFiles", "ProgramFiles(x86)") if os.environ.get(var)]
+    for root in roots:
+        if not root.is_dir():
+            continue
+        years = sorted((d for d in root.iterdir() if d.is_dir()),
+                       key=lambda d: d.name, reverse=True)
+        for year in years:
+            for edition in _VS_EDITIONS:
+                candidate = year / edition / _VCVARS_REL
+                if candidate.is_file():
+                    return candidate
+    return None
+
+
+def find_vcvars() -> Path | None:
+    """Return the vcvars64.bat of an installed Visual Studio, or None off Windows."""
+    if sys.platform != "win32":
+        return None
+    return _vcvars_from_vswhere() or _vcvars_from_disk_scan()
 
 
 def _tools_dir() -> Path:
@@ -306,7 +357,7 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
 
     vcvars = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
     if not (vcvars and Path(vcvars).is_file()):
-        vcvars = _first_glob(_VS_VCVARS_GLOBS)
+        vcvars = _first_glob(_VS_VCVARS_GLOBS) or str(find_vcvars() or "")
     if vcvars:
         values["vs_vcvars"] = vcvars
 
