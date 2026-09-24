@@ -61,3 +61,34 @@ def test_json_state_matches_the_table_for_a_non_required_failure(recording_conso
     payload = next(args[1] for name, args in recording_console.calls if name == "result")
     assert "warn" in table_rows[0][2]
     assert payload["checks"][0]["state"] == "warn"
+
+
+def test_optional_failure_in_a_plain_run_warns_and_exits_zero(recording_console):
+    doctor = Doctor([_check("torch", "infer", False, State.FAIL)])
+    report = doctor.run()
+    doctor.render(report, recording_console)
+    payload = next(args[1] for name, args in recording_console.calls if name == "result")
+    assert report.exit_code() == 0
+    assert payload["checks"][0]["state"] == "warn"
+    assert payload["checks"][0]["required"] is False
+
+
+def test_optional_failure_in_a_named_group_fails_and_exits_one(recording_console):
+    doctor = Doctor([_check("torch", "infer", False, State.FAIL),
+                     _check("cmake", "build", True, State.FAIL)])
+    report = doctor.run({"infer"})
+    doctor.render(report, recording_console)
+    table_rows = next(args[1] for name, args in recording_console.calls if name == "table")
+    payload = next(args[1] for name, args in recording_console.calls if name == "result")
+    assert [c.name for c, _ in report.rows] == ["torch"]
+    assert report.failures() == 1
+    assert report.exit_code() == 1
+    assert "FAIL" in table_rows[0][2]
+    assert payload["checks"][0]["state"] == "fail"
+    assert payload["checks"][0]["required"] is True
+
+
+def test_required_failure_is_unaffected_by_the_group_filter():
+    doctor = Doctor([_check("torch", "infer", True, State.FAIL)])
+    assert doctor.run().exit_code() == 1
+    assert doctor.run({"infer"}).exit_code() == 1
