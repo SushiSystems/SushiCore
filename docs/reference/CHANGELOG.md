@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-09-24 — workspace: Added a module-side link pointer that config loading follows to the linked workspace (`workspace.py`, `module_config.py`, `provision/commands.py`).
 - 2026-09-23 — Renamed the shared package helpers to public names and made `setup` create a missing dependency root (`sushicore/provision/packages/`, `lock.py`).
 - 2026-09-23 — Added `sushicore.provision`: dependency root, registry, doctor and module commands, moved from hub (`sushicore/provision/`).
 - 2026-09-21 — Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).

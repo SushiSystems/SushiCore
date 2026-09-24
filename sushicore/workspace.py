@@ -174,3 +174,54 @@ def remove_module(root: Path, name: str) -> bool:
     target.parent.mkdir(parents=True, exist_ok=True)
     write_toml_document(target, document, WORKSPACE_HEADER)
     return True
+
+
+#: Table in a module's ``config.local.toml`` naming the workspace it is linked to.
+LINK_SECTION = "link"
+
+#: File in a module's config directory that carries the link pointer.
+_LOCAL_CONFIG = "config.local.toml"
+
+#: The comment block written at the top of a module's ``config.local.toml`` by ``link``.
+_LINK_HEADER = [
+    "# Machine-local settings for this module. `link` writes [link] workspace, the workspace",
+    "# whose [tool] table config loading layers under this file.",
+]
+
+
+def read_link(config_dir: Path) -> Path | None:
+    """Return the workspace this module is linked to, or None when unlinked or stale."""
+    table = read_toml(config_dir / _LOCAL_CONFIG).get(LINK_SECTION) or {}
+    raw = table.get("workspace")
+    if not raw:
+        return None
+    target = Path(raw)
+    return target if (target / WORKSPACE_MARKER).exists() else None
+
+
+def write_link(config_dir: Path, workspace: Path) -> Path:
+    """Record *workspace* as this module's linked workspace and return the file written."""
+    from .config_base import write_toml_document
+
+    path = config_dir / _LOCAL_CONFIG
+    doc = dict(read_toml(path))
+    doc[LINK_SECTION] = {"workspace": workspace.resolve().as_posix()}
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return write_toml_document(path, doc, _LINK_HEADER)
+
+
+def clear_link(config_dir: Path) -> bool:
+    """Remove this module's link pointer and report whether one existed."""
+    from .config_base import write_toml_document
+
+    path = config_dir / _LOCAL_CONFIG
+    doc = dict(read_toml(path))
+    if LINK_SECTION not in doc:
+        return False
+    del doc[LINK_SECTION]
+    # An empty table left behind by the writer counts as nothing remaining.
+    if any(doc.values()):
+        write_toml_document(path, doc, _LINK_HEADER)
+    else:
+        path.unlink()
+    return True

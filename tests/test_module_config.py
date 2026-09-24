@@ -4,7 +4,12 @@ import pytest
 
 from sushicore.module_config import ModuleConfig
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile
-from sushicore.workspace import LEGACY_SHARED_CONFIG, WORKSPACE_MARKER, workspace_file
+from sushicore.workspace import (
+    LEGACY_SHARED_CONFIG,
+    WORKSPACE_MARKER,
+    workspace_file,
+    write_link,
+)
 
 PROFILE = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE")
 
@@ -86,3 +91,40 @@ def test_a_workspace_with_neither_file_shares_nothing(tmp_path, monkeypatch):
     monkeypatch.setenv("SUSHISTACK_HOME", str(tmp_path))
     module = ModuleConfig(PROFILE)
     assert module._shared_config_local() is None
+
+
+def test_workspace_home_follows_the_link_pointer(tmp_path, monkeypatch):
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    ws = tmp_path / "ws"
+    (ws / WORKSPACE_MARKER).mkdir(parents=True)
+    mod = tmp_path / "elsewhere" / "mod"
+    (mod / "cli").mkdir(parents=True)
+    (mod / "CMakeLists.txt").write_text("")
+    write_link(mod / "cli", ws)
+    assert ModuleConfig(PROFILE).workspace_home(mod) == ws.resolve()
+
+
+def test_a_stale_link_pointer_falls_back_to_the_walk_up(tmp_path, monkeypatch):
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    gone = tmp_path / "gone"
+    (gone / WORKSPACE_MARKER).mkdir(parents=True)
+    outer = tmp_path / "outer"
+    (outer / WORKSPACE_MARKER).mkdir(parents=True)
+    mod = outer / "mod"
+    (mod / "cli").mkdir(parents=True)
+    write_link(mod / "cli", gone)
+    (gone / WORKSPACE_MARKER).rmdir()
+    assert ModuleConfig(PROFILE).workspace_home(mod) == outer.resolve()
+
+
+def test_environment_beats_the_link_pointer(tmp_path, monkeypatch):
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setenv("SUSHISTACK_HOME", str(other))
+    ws = tmp_path / "ws"
+    (ws / WORKSPACE_MARKER).mkdir(parents=True)
+    mod = tmp_path / "mod"
+    (mod / "cli").mkdir(parents=True)
+    (mod / "CMakeLists.txt").write_text("")
+    write_link(mod / "cli", ws)
+    assert ModuleConfig(PROFILE).workspace_home(mod) == other.resolve()

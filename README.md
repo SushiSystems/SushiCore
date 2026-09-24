@@ -51,4 +51,9 @@ fragment and the toolchain stamps; `--for` restricts the report to one group (`b
 `infer`, `eval`) and exits 2 on any other. `link` and `unlink` take `--workspace` to name the
 workspace registry explicitly.
 
+`link` records the module in the workspace's `[modules]` table and writes a `[link] workspace`
+pointer into the module's `cli/config.local.toml`; `unlink` removes both. Linking copies nothing:
+config loading follows the pointer and layers the linked workspace's `[tool]` table at read time.
+`SUSHISTACK_HOME` still wins over the pointer, and a pointer to a deleted workspace is ignored.
+
 The manual is in `docs/README.md`. Licensed under the terms in `LICENSE`.

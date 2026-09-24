@@ -26,6 +26,7 @@ from .workspace import (
     LEGACY_SHARED_CONFIG,
     WORKSPACE_MARKER,
     has_marker,
+    read_link,
     resolve_env_path,
     walk_up,
     workspace_file,
@@ -88,8 +89,8 @@ class ModuleConfig:
     def workspace_home(self, root: Path | None = None) -> Path | None:
         """The SushiStack workspace root, or None when the module is standalone.
 
-        ``SUSHISTACK_HOME`` wins; otherwise walk up from the project root for the
-        ``.sushistack`` marker.
+        ``SUSHISTACK_HOME`` wins; then the module's ``[link]`` pointer; otherwise
+        walk up from the project root for the ``.sushistack`` marker.
         """
         home = resolve_env_path("SUSHISTACK_HOME")
         if home:
@@ -98,6 +99,9 @@ class ModuleConfig:
             start = root or self.find_project_root()
         except SystemExit:
             return None
+        linked = read_link(self.config_dir(start))
+        if linked is not None:
+            return linked
         return walk_up(start, has_marker(WORKSPACE_MARKER))
 
     def _shared_config_local(self) -> Path | None:
