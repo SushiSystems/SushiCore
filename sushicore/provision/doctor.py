@@ -64,11 +64,23 @@ class Report:
     """The outcome of a :class:`Doctor` run: every check paired with its result."""
 
     rows: tuple[tuple[Check, CheckResult], ...] = field(default_factory=tuple)
+    groups: frozenset[str] | None = None
+
+    def is_required(self, check: Check) -> bool:
+        """Return whether *check* counts as required: registered so, or in a requested group."""
+        return check.required or (self.groups is not None and check.group in self.groups)
+
+    def shown_state(self, check: Check, result: CheckResult) -> State:
+        """Return the state this report shows for *result*: a non-required failure warns."""
+        if result.state == State.FAIL and not self.is_required(check):
+            return State.WARN
+        return result.state
 
     def failures(self) -> int:
         """Return how many required checks reached :attr:`State.FAIL`."""
         return sum(
-            1 for check, result in self.rows if check.required and result.state == State.FAIL)
+            1 for check, result in self.rows
+            if self.is_required(check) and result.state == State.FAIL)
 
     def exit_code(self) -> int:
         """Return ``1`` when any required check failed, ``0`` otherwise."""
@@ -83,16 +95,9 @@ _STATE_MARKUP = {
 }
 
 
-def _effective_state(check: Check, result: CheckResult) -> State:
-    """Return the state a report shows for *result*: a non-required failure is a warning."""
-    if result.state == State.FAIL and not check.required:
-        return State.WARN
-    return result.state
-
-
-def _markup(check: Check, result: CheckResult) -> str:
-    """Return the table markup for the state :func:`_effective_state` gives *result*."""
-    return _STATE_MARKUP[_effective_state(check, result)]
+def _markup(report: Report, check: Check, result: CheckResult) -> str:
+    """Return the table markup for the state *report* shows for *result*."""
+    return _STATE_MARKUP[report.shown_state(check, result)]
 
 
 class Doctor:
@@ -117,12 +122,12 @@ class Doctor:
             except Exception as exc:  # noqa: BLE001
                 result = CheckResult(State.FAIL, f"{type(exc).__name__}: {exc}")
             rows.append((check, result))
-        return Report(tuple(rows))
+        return Report(tuple(rows), None if groups is None else frozenset(groups))
 
     def render(self, report: Report, console: object) -> None:
         """Print *report* as a table followed by a result, through *console*."""
         rows = [
-            [check.name, check.group, _markup(check, result), result.detail, result.fix]
+            [check.name, check.group, _markup(report, check, result), result.detail, result.fix]
             for check, result in report.rows
         ]
         console.table(["Check", "Group", "Result", "Detail", "Fix"], rows, title="Doctor")
@@ -131,8 +136,8 @@ class Doctor:
                 {
                     "name": check.name,
                     "group": check.group,
-                    "required": check.required,
-                    "state": _effective_state(check, result).value,
+                    "required": report.is_required(check),
+                    "state": report.shown_state(check, result).value,
                     "detail": result.detail,
                     "fix": result.fix,
                 }
