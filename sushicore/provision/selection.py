@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
-from .fragments import IDependencySource
+from .fragments import SHARED_OWNER, IDependencySource
 from .pipeline import ToolchainSelection
 
 
@@ -39,11 +39,16 @@ def toolchain_keys() -> tuple[str, ...]:
     return tuple(component.key for component in COMPONENTS if component.key != GPU_KEY)
 
 
+def enabled_keys(chosen: ToolchainSelection) -> list[str]:
+    """Return the key of every component *chosen* turns on, in table order."""
+    return [component.key for component in COMPONENTS if getattr(chosen, component.field)]
+
+
 def groups(source: IDependencySource) -> dict[str, list[str]]:
-    """Return the declared toolchain keys by capability, both in declaration order."""
+    """Return the toolchain keys modules declare, by capability, in declaration order."""
     found: dict[str, list[str]] = {}
     for dep in source.all():
-        if dep.name in toolchain_keys():
+        if dep.name in toolchain_keys() and dep.owner != SHARED_OWNER:
             found.setdefault(dep.provides or dep.name, []).append(dep.name)
     return found
 
