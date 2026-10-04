@@ -34,11 +34,11 @@ class VcpkgManager(IPackageManager):
             "x64-windows" if cfg.platform == "windows" else "x64-linux")
 
     def _root(self) -> Path:
-        """Return the configured vcpkg root, or the dependency root's default."""
+        """Return the configured vcpkg root, else the tree a dependency root already holds."""
         root = self._cfg.expand(self._cfg.vcpkg_root) if self._cfg.vcpkg_root else ""
         if root:
             return Path(root)
-        return home.vcpkg_dir()
+        return home.found_vcpkg_dir()
 
     def _exe(self) -> Path:
         """Return the path of the vcpkg executable under this manager's root."""

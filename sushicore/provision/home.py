@@ -94,6 +94,14 @@ def vcpkg_dir() -> Path:
     return root() / "vcpkg"
 
 
+def found_vcpkg_dir() -> Path:
+    """Return the first vcpkg tree across the search roots, else ``<root>/vcpkg``."""
+    for candidate in search_roots():
+        if (candidate / "vcpkg").is_dir():
+            return candidate / "vcpkg"
+    return vcpkg_dir()
+
+
 def ur_dir() -> Path:
     """Return ``<root>/ur``."""
     return root() / "ur"
