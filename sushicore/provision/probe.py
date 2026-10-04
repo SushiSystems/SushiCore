@@ -420,9 +420,7 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
         vcpkg_root = ""
     if not (vcpkg_root and Path(vcpkg_root).is_dir()):
         # Default to the first dependency root holding a vcpkg tree, else the current root's.
-        vcpkg_root = str(next(
-            (root / "vcpkg" for root in home.search_roots() if (root / "vcpkg").is_dir()),
-            home.root() / "vcpkg"))
+        vcpkg_root = str(home.found_vcpkg_dir())
     if vcpkg_root:
         values["vcpkg_root"] = vcpkg_root
         # pkgconf shipped by vcpkg is the one CMakeLists expects.

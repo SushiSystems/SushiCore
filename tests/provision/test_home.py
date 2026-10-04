@@ -127,3 +127,16 @@ def test_env_var_with_tilde_is_expanded(monkeypatch, tmp_path):
     home.bind_root(None)
     assert home.root() == (Path.home() / "x").resolve()
     assert home.root() == (tmp_path / "x").resolve()
+
+
+def test_found_vcpkg_dir_prefers_an_existing_legacy_tree(provision_home, tmp_path, monkeypatch):
+    """Check that found vcpkg dir prefers an existing legacy tree."""
+    legacy = tmp_path / "legacy"
+    (legacy / "vcpkg").mkdir(parents=True)
+    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
+    assert home.found_vcpkg_dir() == (legacy / "vcpkg").resolve()
+
+
+def test_found_vcpkg_dir_defaults_to_the_current_root(provision_home):
+    """Check that found vcpkg dir defaults to the current root."""
+    assert home.found_vcpkg_dir() == home.vcpkg_dir()
