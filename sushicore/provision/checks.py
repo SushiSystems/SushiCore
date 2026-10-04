@@ -16,7 +16,7 @@ from sushicore.provision import probe
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
 from sushicore.provision.fragments import IDependencySource
-from sushicore.provision.selection import groups
+from sushicore.provision.selection import required_groups
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
 #: Timeout, in seconds, for every ``--version`` probe a check runs.
@@ -136,11 +136,11 @@ def modules_check(missing: Sequence[tuple[str, str]], fix: str) -> FunctionCheck
 
 def capability_check(source: IDependencySource, present: Mapping[str, bool],
                      fix: str) -> FunctionCheck:
-    """Return a check failing for each toolchain capability no present member provides."""
+    """Return a check failing for each required toolchain capability nothing present provides."""
     def fn() -> CheckResult:
-        declared = groups(source)
+        declared = required_groups(source)
         if not declared:
-            return CheckResult(State.OK, "no toolchain declared")
+            return CheckResult(State.OK, "no toolchain required")
         satisfied: list[str] = []
         unsatisfied: list[str] = []
         for capability, members in declared.items():
