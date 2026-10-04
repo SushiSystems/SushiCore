@@ -10,12 +10,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
-from sushicore.provision.fragments import IDependencySource
+from sushicore.provision.fragments import Dependency, IDependencySource
 from sushicore.provision.selection import required_groups
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
@@ -100,9 +100,14 @@ def path_check(name: str, path: Path, group: str, required: bool, fix: str) -> F
     return FunctionCheck(name, group, required, fn)
 
 
-def fragment_check(source: IDependencySource, platform: str, gpu: bool,
-                    fix: str) -> FunctionCheck:
-    """Return a check reporting every selected dependency whose ``check_cmd`` fails."""
+def fragment_check(source: IDependencySource, platform: str, gpu: bool, fix: str,
+                   installed: Callable[[Dependency], bool] | None = None) -> FunctionCheck:
+    """Return a check reporting every selected dependency whose ``check_cmd`` fails.
+
+    Args:
+        installed: Asked about a dependency whose ``check_cmd`` failed; a true
+            answer passes it, as the install inventory does.
+    """
     def fn() -> CheckResult:
         failing: list[str] = []
         required_failed = False
@@ -114,6 +119,8 @@ def fragment_check(source: IDependencySource, platform: str, gpu: bool,
                                      timeout=_VERSION_TIMEOUT).returncode == 0
             except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
                 ok = False
+            if not ok and installed is not None:
+                ok = installed(dep)
             if not ok:
                 failing.append(dep.name)
                 required_failed = required_failed or dep.required

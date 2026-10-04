@@ -136,3 +136,20 @@ def test_capability_check_ignores_an_optional_toolchain():
     source = _FixedSource([Dependency(name="intel-llvm", required=False, owner="sushidsp")])
     result = checks.capability_check(source, {}, "sd setup").run()
     assert (result.state, result.detail) == (State.OK, "no toolchain required")
+
+
+def test_fragment_check_passes_a_dependency_the_package_manager_reports():
+    """Check that a failing check cmd is overruled by a package manager holding the package."""
+    dep = Dependency(name="hwloc", check_cmd=["sushi-no-such-tool-xyz"])
+    result = checks.fragment_check(_FixedSource([dep]), "linux", False, "",
+                                   installed=lambda dep: True).run()
+    assert result.state is State.OK
+
+
+def test_fragment_check_fails_a_dependency_no_package_manager_reports():
+    """Check that a failing check cmd stands when no package manager holds the package."""
+    dep = Dependency(name="hwloc", check_cmd=["sushi-no-such-tool-xyz"])
+    result = checks.fragment_check(_FixedSource([dep]), "linux", False, "",
+                                   installed=lambda dep: False).run()
+    assert result.state is State.FAIL
+    assert "hwloc" in result.detail

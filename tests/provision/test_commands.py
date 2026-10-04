@@ -439,3 +439,29 @@ def test_the_panel_is_set_on_every_command(tmp_path, recording_console):
     """Check that the panel is set on every command."""
     app = _app(tmp_path, recording_console, panel="Environment")
     assert {command.rich_help_panel for command in app.registered_commands} == {"Environment"}
+
+
+def test_doctor_agrees_with_the_inventory_on_a_package_the_manager_holds(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that doctor passes a dependency whose check cmd fails but whose package is held."""
+    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    monkeypatch.setattr(commands, "_managers_for", lambda cfg: [_FakeAptManager()])
+    fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
+    fragment.parent.mkdir(parents=True)
+    fragment.write_text(
+        '[widget]\nlinux_apt = ["widget-dev"]\ncheck_cmd = ["sushi-no-such-tool-xyz"]\n',
+        encoding="utf-8")
+
+    CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
+
+    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
+    by_name = {row[0]: row for row in rows}
+    assert "widget" not in by_name["dependencies"][3]
+
+
+def test_every_command_help_carries_examples(tmp_path, recording_console):
+    """Check that each command's help ends with examples naming the module's program."""
+    app = _app(tmp_path, recording_console)
+    for command in app.registered_commands:
+        name = command.callback.__name__
+        assert f"sd {name}" in command.epilog

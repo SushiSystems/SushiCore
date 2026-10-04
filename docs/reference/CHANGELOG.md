@@ -3,6 +3,9 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-10-04 — provision: Added examples to the help of setup, doctor, link and unlink (`sushicore/provision/commands.py`).
+- 2026-10-04 — provision: Built the GPU adapters against a toolchain already on the machine when the run installed none (`provision_adapters_for_run`).
+- 2026-10-04 — provision: Made doctor pass a dependency a package manager holds when its check_cmd fails (`fragment_check`, `held_by_managers`).
 - 2026-10-04 — provision: Reported a toolchain as not needed when another one provides its capability (`sushicore/provision/steps.py`).
 - 2026-10-04 — config: Made StackConfig resolve the compiler and vcpkg across every dependency root and locate sibling checkouts (`sushicore/stack_config.py`, `sushicore/build_env.py`).
 - 2026-10-04 — provision: Made setup follow depends_on, choose toolchains by the selection rule and take --toolchain and --no-gpu (`sushicore/provision/commands.py`).

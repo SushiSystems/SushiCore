@@ -50,7 +50,7 @@ from .packages import (
 )
 from .pipeline import InstallContext, InstallPipeline, ToolchainSelection
 from .sinks import ModuleSink
-from .steps import ConfigureStep, DetectStep, InstallDepsStep
+from .steps import ConfigureStep, DetectStep, InstallDepsStep, held_by_managers
 
 #: Header written atop a module's ``config.local.toml``.
 _MODULE_SINK_HEADER = [
@@ -135,14 +135,15 @@ def _missing_module_message(module: str, wanted_by: str) -> str:
 
 
 def _checks(module: ModuleProvision, cfg: ProvisionConfig, source: IDependencySource,
-            found: Closure) -> list[Check]:
+            found: Closure, managers: list[IPackageManager]) -> list[Check]:
     """Return every check ``doctor`` runs for a source checkout of *module*."""
     fix = f"{module.profile.program} setup"
     clone = "clone it beside this repository"
     return (standard_checks(cfg, fix=fix)
             + [modules_check(found.missing, clone),
                capability_check(source, _present_toolchains(cfg), fix),
-               fragment_check(source, cfg.platform, False, fix),
+               fragment_check(source, cfg.platform, False, fix,
+                              held_by_managers(managers, cfg.platform)),
                stamp_check(home.root())]
             + module.extra_checks())
 
@@ -155,8 +156,13 @@ def _report(checks: Sequence[Check], groups: Optional[set[str]], console: object
     return report.exit_code()
 
 
-def _run_doctor(module: ModuleProvision, groups: Optional[set[str]]) -> int:
-    """Run this module's checks, render the report, and return its process exit code."""
+def _run_doctor(module: ModuleProvision, groups: Optional[set[str]],
+                managers: list[IPackageManager] | None = None) -> int:
+    """Run this module's checks, render the report, and return its process exit code.
+
+    Args:
+        managers: The package managers a ``setup`` run already built; built here when None.
+    """
     console = module.console()
     if module.is_binary():
         return _report([python_check()] + module.extra_checks(), groups, console)
@@ -167,7 +173,10 @@ def _run_doctor(module: ModuleProvision, groups: Optional[set[str]]) -> int:
     except ValueError as exc:
         console.error(str(exc))
         return 1
-    return _report(_checks(module, cfg, _source(module, root, found), found), groups, console)
+    if managers is None:
+        managers = _managers_for(cfg)
+    return _report(_checks(module, cfg, _source(module, root, found), found, managers),
+                   groups, console)
 
 
 def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
@@ -214,7 +223,7 @@ def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return 1
     if not ok:
         return 1
-    return _run_doctor(module, None)
+    return _run_doctor(module, None, managers)
 
 
 def _resolve_workspace(explicit: Optional[Path], project_root: Path) -> Optional[Path]:
@@ -239,14 +248,18 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
     """Add the four provision commands to *app*, or ``doctor`` alone to a binary install."""
     import typer
 
-    def command():
-        """Return the decorator that registers a command under the module's panel."""
-        return app.command(rich_help_panel=module.panel)
+    program = module.profile.program
+
+    def command(*examples: str):
+        """Return the decorator registering a command under the module's panel with *examples*."""
+        epilog = "\n".join(f"{program} {example}" for example in examples)
+        return app.command(rich_help_panel=module.panel, epilog=epilog)
 
     binary = module.is_binary()
 
     if not binary:
-        @command()
+        @command("setup", "setup --dry-run  # Show what would be installed",
+                 "setup --toolchain adaptivecpp  # Also install a second SYCL toolchain")
         def setup(
             dry_run: bool = typer.Option(False, "--dry-run", help="Show, don't change."),
             yes: bool = typer.Option(
@@ -263,7 +276,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             raise typer.Exit(_run_setup(module, dry_run=dry_run, yes=yes,
                                         toolchains=toolchain or (), gpu=not no_gpu))
 
-    @command()
+    @command("doctor", "doctor --for build  # Only the checks a build needs")
     def doctor(
         for_group: Optional[str] = typer.Option(
             None, "--for", help="Restrict the report to one check group."),
@@ -280,7 +293,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
     if binary:
         return
 
-    @command()
+    @command("link", "link --workspace ~/sushi  # Name the workspace instead of finding it")
     def link(
         workspace: Optional[Path] = typer.Option(
             None, "--workspace", help="Workspace root to register this module in."),
@@ -301,7 +314,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         write_module(target, module.profile.key, root)
         console.success(f"Linked {module.profile.name} into {target}.")
 
-    @command()
+    @command("unlink")
     def unlink(
         workspace: Optional[Path] = typer.Option(
             None, "--workspace", help="Workspace root to remove this module from."),
