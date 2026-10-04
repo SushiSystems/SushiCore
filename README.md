@@ -25,9 +25,9 @@ it knows nothing about SYCL, a renderer, or any one module's schema.
 
 `sushicore.provision` is the dependency root, registry and doctor every module CLI shares.
 The root is `SUSHISYSTEMS_HOME`, else `~/.sushisystems`; a consumer overrides it with
-`home.bind_root(provider)`. `register_provision_commands(app, module)` adds four commands —
-`setup`, `doctor`, `link` and `unlink` — to a Typer app from one `ModuleProvision`, and binds
-the module's console through `bind_console` on each call.
+`home.bind_root(provider)`. `register_provision_commands(app, module)` adds four commands
+(`setup`, `doctor`, `link` and `unlink`) to a Typer app from one `ModuleProvision`, and binds
+the module's console through `bind_console` on each call. No module needs hub installed.
 
 ```python
 import typer
@@ -45,11 +45,36 @@ module = ModuleProvision(
 register_provision_commands(app, module)
 ```
 
-`setup` takes `--dry-run` and `--yes`, installs the module's own fragment and warns for each
-`depends_on` module whose fragment it does not read. `doctor` checks the toolchain, the module's
-fragment and the toolchain stamps; `--for` restricts the report to one group (`build`, `test`,
-`infer`, `eval`) and exits 2 on any other. `link` and `unlink` take `--workspace` to name the
-workspace registry explicitly.
+`setup` installs what the module needs to build and then runs `doctor`. It reads the module's
+fragment and, through `[module] depends_on`, the fragment of every module it builds on, found by
+the `locate` callable the module passes. A module named there with no checkout stops `setup`
+with exit code 2 and one line saying where the checkout belongs; `setup` never clones.
+
+A bare `setup` installs one member of each toolchain capability. When something on the machine
+already provides `sycl-toolchain`, nothing downloads; otherwise the first toolchain the fragment
+declares for it installs. `--toolchain NAME` adds another and may be repeated. The GPU toolkit
+installs when a declared dependency is `gpu_only` and a card is detected; `--no-gpu` skips it.
+`--dry-run` shows the run without changing anything, and `--yes` answers the LLVM download
+prompt.
+
+`ModuleProvision` takes four optional fields beside the four above:
+
+| Field | Meaning |
+| --- | --- |
+| `locate` | Finds the checkout of a module `depends_on` names. A `StackConfig` module passes `locate_sibling`. |
+| `uses_base` | Adds the shared base fragment (`provision/manifests/base.deps.toml`: gtest, opencl, pkgconf) before the module's own. |
+| `panel` | The help panel the commands are listed under. |
+| `is_binary` | Reports a binary install, which gets `doctor` alone. |
+
+Toolchains and vcpkg are looked up across `home.search_roots()`: the dependency root first, then
+a legacy `<workspace>/dependencies` tree or the one `SUSHISTACK_DEPS_DIR` names. New installs go
+to the dependency root. `StackConfig.dependency_roots(root)` puts the tree of the workspace a
+module sits in, or is linked to, before those.
+
+`doctor` checks the build tools, the checkouts of the modules this one builds on, the toolchain
+capabilities, the fragments and the toolchain stamps; `--for` restricts the report to one group
+(`build`, `test`, `infer`, `eval`) and exits 2 on any other. `link` and `unlink` take
+`--workspace` to name the workspace registry explicitly.
 
 `link` records the module in the workspace's `[modules]` table and writes a `[link] workspace`
 pointer into the module's `cli/config.local.toml`; `unlink` removes both. Linking copies nothing:

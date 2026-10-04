@@ -1373,3 +1373,17 @@ Acceptance: every build passes. The dependency-root migration (`2026-09-25-hub-r
 - A binary command set for `se`; this plan only makes the registration ready for it.
 - Reading a dependency module's `fragment` key from its `sushi-module.toml`. Every module uses the default path today.
 - `st setup` creating the conda environment, still deferred in the SushiStack backlog.
+
+## Deviations recorded while executing wave 1
+
+- Task 2 also changed `VcpkgManager` and added `home.found_vcpkg_dir()`: without it an unlinked
+  module on a machine holding a legacy tree would have bootstrapped a second vcpkg.
+- Tasks 3 to 5 were written test and code together; their tests were never seen failing.
+- Task 4: the GPU component turns on only when a declared dependency is `gpu_only`. Passing it
+  through would have made `sd setup` install CUDA.
+- Task 6: `selection.groups` returns a mapping from capability to members, so the check can name
+  the capability. No layer moved.
+- Task 8: `StackConfig.workspace_home` follows the module's `[link]` pointer, as
+  `ModuleConfig.workspace_home` already did.
+- `sushiai`'s `tests/test_demo.py` fails 9 tests on this machine before and after: it runs the
+  installed `sa`, which holds sushicore 0.4.0, against a built demo whose SYCL kernel is not found.
