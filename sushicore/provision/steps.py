@@ -27,6 +27,7 @@ from .packages import (
     install_gpu_stack,
     refresh_windows_path,
 )
+from . import selection
 from .pipeline import InstallContext, Step, StepResult
 from .sinks import ConfigSink, render_local_config
 from .toolchains import adaptivecpp, intel_llvm, oneapi
@@ -191,15 +192,31 @@ class DetectStep(Step):
 
     def _toolchain_rows(self, ctx: InstallContext, declared: set[str],
                         owner_of) -> list[tuple[str, str, str, str]]:
-        """Return a row per SYCL toolchain (and CUDA), recording what is present."""
+        """Return a row per SYCL toolchain (and CUDA), recording what is present.
+
+        A declared toolchain that is absent while another member of its
+        capability is present is not needed, and its row says what provides it.
+        """
+        status = list(self._toolchain_status(ctx.cfg, ctx.gpu))
+        present = {name for name, found, _detail in status if found}
+        provided_by = {
+            member: (capability, next(m for m in members if m in present))
+            for capability, members in selection.groups(self._source).items()
+            if present.intersection(members)
+            for member in members if member not in present
+        }
         rows: list[tuple[str, str, str, str]] = []
-        for name, present, detail in self._toolchain_status(ctx.cfg, ctx.gpu):
-            ctx.detected[name] = present
-            if name in declared:
-                rows.append((name, _status(present), owner_of(name), detail))
-            else:
+        for name, found, detail in status:
+            ctx.detected[name] = found
+            if name not in declared:
                 rows.append((name, _NOT_NEEDED, owner_of(name),
                              detail or "no present module declares it"))
+            elif name in provided_by:
+                capability, provider = provided_by[name]
+                rows.append((name, _NOT_NEEDED, owner_of(name),
+                             f"{detail} ({provider} provides {capability})"))
+            else:
+                rows.append((name, _status(found), owner_of(name), detail))
         return rows
 
     def _dependency_rows(self, ctx: InstallContext,

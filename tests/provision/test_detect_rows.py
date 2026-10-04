@@ -86,3 +86,27 @@ def test_rows_are_grouped_by_owner_in_dependency_order():
     owners = [o for _n, _s, o, _d in _step(src).inventory_rows(ctx, src.all())]
     first_index = {o: owners.index(o) for o in dict.fromkeys(owners)}
     assert first_index["shared"] < first_index["sushiruntime"] < first_index["sushiai"]
+
+
+def test_a_toolchain_whose_capability_another_provides_is_not_needed():
+    """Check that a toolchain whose capability another provides is not needed."""
+    src = MemorySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
+                        dep("adaptivecpp", "sushiruntime", provides="sycl-toolchain")])
+    step = DetectStep(src, managers=[], gpu_vendor=lambda: "none",
+                      toolchain_status=lambda cfg, gpu: [
+                          ("intel-llvm", True, "intel/llvm"), ("adaptivecpp", False, "acpp")])
+    rows = {name: (state, detail) for name, state, _o, detail in
+            step.inventory_rows(_ctx(), src.all())}
+    assert rows["intel-llvm"][0] == "OK"
+    assert rows["adaptivecpp"] == ("NOT NEEDED", "acpp (intel-llvm provides sycl-toolchain)")
+
+
+def test_every_member_of_an_unsatisfied_capability_is_missing():
+    """Check that every member of an unsatisfied capability is missing."""
+    src = MemorySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
+                        dep("adaptivecpp", "sushiruntime", provides="sycl-toolchain")])
+    step = DetectStep(src, managers=[], gpu_vendor=lambda: "none",
+                      toolchain_status=lambda cfg, gpu: [
+                          ("intel-llvm", False, ""), ("adaptivecpp", False, "")])
+    states = {name: state for name, state, _o, _d in step.inventory_rows(_ctx(), src.all())}
+    assert (states["intel-llvm"], states["adaptivecpp"]) == ("MISSING", "MISSING")
