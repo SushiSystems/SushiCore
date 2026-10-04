@@ -37,4 +37,4 @@ where = ["."]
 include = ["sushicore*"]
 
 [tool.setuptools.package-data]
-sushicore = ["py.typed"]
+sushicore = ["py.typed", "provision/manifests/*.deps.toml"]
