@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from sushicore.provision import probe
+from sushicore.provision.config import ProvisionSettings
 
 
 def test_classify_prefers_a_discrete_adapter():
@@ -87,3 +90,46 @@ def test_resolve_windows_falls_back_to_find_vcvars(monkeypatch, tmp_path):
                           llvm_root="", acpp_exe="", platform="windows",
                           expand=lambda s: s)
     assert probe._resolve_windows(cfg)["vs_vcvars"] == str(hit)
+
+
+_CLANG = Path("bin") / "clang++"
+
+
+def _bundle(root):
+    """Create an llvm-sycl bundle holding a clang++ under *root* and return the file."""
+    exe = root / "toolchains" / "llvm-sycl" / _CLANG
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")
+    return exe
+
+
+def test_installed_toolchain_prefers_the_current_root(provision_home, tmp_path, monkeypatch):
+    """Check that installed toolchain prefers the current root."""
+    legacy = tmp_path / "legacy"
+    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
+    _bundle(legacy)
+    current = _bundle(provision_home)
+    assert probe.installed_toolchain("llvm-sycl", _CLANG) == current.resolve()
+
+
+def test_installed_toolchain_falls_back_to_a_legacy_root(provision_home, tmp_path, monkeypatch):
+    """Check that installed toolchain falls back to a legacy root."""
+    legacy = tmp_path / "legacy"
+    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
+    exe = _bundle(legacy)
+    assert probe.installed_toolchain("llvm-sycl", _CLANG) == exe.resolve()
+
+
+def test_installed_toolchain_is_none_when_no_root_holds_it(provision_home):
+    """Check that installed toolchain is none when no root holds it."""
+    assert probe.installed_toolchain("llvm-sycl", _CLANG) is None
+
+
+def test_discovery_records_a_legacy_bundle(provision_home, tmp_path, monkeypatch):
+    """Check that discovery records a legacy bundle."""
+    legacy = tmp_path / "legacy"
+    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
+    _bundle(legacy)
+    values: dict[str, str] = {}
+    probe._discover_installed_toolchains(ProvisionSettings(platform="linux"), values)
+    assert values["llvm_root"] == str((legacy / "toolchains" / "llvm-sycl").resolve())

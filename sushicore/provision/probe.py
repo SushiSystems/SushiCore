@@ -119,33 +119,51 @@ def _toolchains_dir() -> Path:
     return home.toolchains_dir()
 
 
+def installed_toolchain(name: str, relative: Path) -> Path | None:
+    """Return the first ``toolchains/<name>/<relative>`` file across the dependency roots."""
+    for root in home.search_roots():
+        candidate = root / "toolchains" / name / relative
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _installed_clang(cfg: ProvisionConfig) -> Path | None:
+    """Return the intel/llvm bundle's clang++ in any dependency root, or None."""
+    exe = "clang++.exe" if cfg.platform == "windows" else "clang++"
+    return installed_toolchain("llvm-sycl", Path("bin") / exe)
+
+
+def _installed_acpp() -> Path | None:
+    """Return the AdaptiveCpp launcher in any dependency root, or None."""
+    for name in ("acpp.bat", "acpp"):
+        found = installed_toolchain("adaptivecpp", Path("bin") / name)
+        if found is not None:
+            return found
+    return None
+
+
 def _discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str]) -> None:
     """Record the paths of toolchains installed by the provisioning CLI, if present."""
-    base = _toolchains_dir()
-    clang = base / "llvm-sycl" / "bin" / ("clang++.exe" if cfg.platform == "windows" else "clang++")
-    if clang.is_file():
-        values["llvm_root"] = str(base / "llvm-sycl")
-    for name in ("acpp.bat", "acpp"):
-        acpp = base / "adaptivecpp" / "bin" / name
-        if acpp.is_file():
-            values["acpp_exe"] = str(acpp)
-            break
+    clang = _installed_clang(cfg)
+    if clang is not None:
+        values["llvm_root"] = str(clang.parents[1])
+    acpp = _installed_acpp()
+    if acpp is not None:
+        values["acpp_exe"] = str(acpp)
 
 
 def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, str]]:
     """Return one ``(name, present, detail)`` row per SYCL toolchain (and CUDA if *gpu*)."""
     win = cfg.platform == "windows"
-    base = _toolchains_dir()
 
-    clang = base / "llvm-sycl" / "bin" / ("clang++.exe" if win else "clang++")
-    intel_ok = clang.is_file() and binary_works(str(clang))
+    found_clang = _installed_clang(cfg)
+    clang = found_clang or _toolchains_dir() / "llvm-sycl" / "bin" / (
+        "clang++.exe" if win else "clang++")
+    intel_ok = found_clang is not None and binary_works(str(clang))
 
-    acpp_path = ""
-    for name in ("acpp.bat", "acpp"):
-        cand = base / "adaptivecpp" / "bin" / name
-        if cand.is_file():
-            acpp_path = str(cand)
-            break
+    found_acpp = _installed_acpp()
+    acpp_path = str(found_acpp) if found_acpp is not None else ""
     acpp_ok = bool(acpp_path) and binary_works(acpp_path)
 
     # oneAPI installs system-wide (off the deps tree). Trust the same probe
@@ -401,8 +419,10 @@ def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
     if vcpkg_root and (".conda" in vcpkg_root or "envs" in vcpkg_root):
         vcpkg_root = ""
     if not (vcpkg_root and Path(vcpkg_root).is_dir()):
-        # Default to the dependency root's vcpkg tree when none is configured.
-        vcpkg_root = str(home.root() / "vcpkg")
+        # Default to the first dependency root holding a vcpkg tree, else the current root's.
+        vcpkg_root = str(next(
+            (root / "vcpkg" for root in home.search_roots() if (root / "vcpkg").is_dir()),
+            home.root() / "vcpkg"))
     if vcpkg_root:
         values["vcpkg_root"] = vcpkg_root
         # pkgconf shipped by vcpkg is the one CMakeLists expects.
