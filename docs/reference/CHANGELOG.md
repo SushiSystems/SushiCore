@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-10-04 — provision: Recorded a module under its lower-cased key in fragments, the registry and a workspace's module list (`sushicore/profile.py`, `sushicore/provision/commands.py`).
 - 2026-09-24 — Added `Runner.capture` and the `catch_interrupt` and `missing_exit_code` options to `Runner` (`sushicore/proc.py`).
 - 2026-09-24 — Added `warn` to the `ConsoleLike` protocol (`sushicore/proc.py`).
 - 2026-09-24 — Added the `jobs` and `config` options to `CMakeDriver` (`sushicore/cmake_driver.py`).

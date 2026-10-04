@@ -112,6 +112,11 @@ class ModuleProfile:
         """
         return _COMMON_ENV_TOKENS + tuple(self.env_of_interest)
 
+    @property
+    def key(self) -> str:
+        """Return the lower-cased name this module is recorded under."""
+        return self.name.lower()
+
     def markers(self) -> tuple[str, ...]:
         """Return every file whose presence marks this module's root.
 

@@ -15,7 +15,7 @@ from sushicore.provision.commands import ModuleProvision, register_provision_com
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.packages import LinuxPackageManager
-from sushicore.workspace import read_link, registered_modules
+from sushicore.workspace import read_link, registered_modules, write_module
 
 
 class _FakeAptManager(LinuxPackageManager):
@@ -262,3 +262,41 @@ def test_setup_builds_the_package_managers_once(
     CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
 
     assert len(built) == 1
+
+
+def _mixed_case_app(tmp_path, recording_console):
+    """Return an app whose profile carries a display name in mixed case."""
+    profile = ModuleProfile(name="SushiDSP", program="sd", env_prefix="SD",
+                            root_marker="sushidsp.marker")
+    app = typer.Typer()
+
+    @app.callback()
+    def _root():
+        """Test app."""
+
+    register_provision_commands(app, ModuleProvision(
+        profile=profile, project_root=lambda: tmp_path / "dsp",
+        load_config=lambda: ProvisionSettings(platform="linux"),
+        console=lambda: recording_console))
+    return app
+
+
+def test_link_records_the_lower_cased_key(tmp_path, recording_console):
+    """Check that link records the lower cased key."""
+    ws = tmp_path / "ws"
+    (ws / ".sushistack").mkdir(parents=True)
+    (tmp_path / "dsp" / "cli").mkdir(parents=True)
+    app = _mixed_case_app(tmp_path, recording_console)
+    assert CliRunner().invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
+    assert list(registered_modules(ws)) == ["sushidsp"]
+
+
+def test_unlink_removes_an_entry_written_under_the_display_name(tmp_path, recording_console):
+    """Check that unlink removes an entry written under the display name."""
+    ws = tmp_path / "ws"
+    (ws / ".sushistack").mkdir(parents=True)
+    (tmp_path / "dsp" / "cli").mkdir(parents=True)
+    write_module(ws, "SushiDSP", tmp_path / "dsp")
+    app = _mixed_case_app(tmp_path, recording_console)
+    assert CliRunner().invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
+    assert registered_modules(ws) == {}
