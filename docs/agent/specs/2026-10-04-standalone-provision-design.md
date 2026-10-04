@@ -60,8 +60,9 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
 For every `provides` group among the declared dependencies: when a member is present on the
 machine, the group turns nothing on; otherwise its first declared member turns on. Declaration
 order in the fragment decides the default, so the rule names no toolchain. Each key in
-`requested` turns its component on regardless. `gpu` is passed through; the install step already
-does nothing when no vendor is detected.
+`requested` turns its component on regardless. The GPU component turns on when `gpu` is true
+and some declared dependency is `gpu_only`, so a module that declares none, such as `sd`, never
+installs a GPU toolkit.
 
 `present` is a plain mapping, so the rule is a pure function. The caller fills it from
 `probe.toolchain_status`, the probe `DetectStep` already uses.
