@@ -38,12 +38,12 @@ _LINUX_TOOLCHAIN_APT = ["build-essential", "cmake", "ninja-build", "git"]
 
 def provision_adapters_for_run(ctx: InstallContext) -> None:
     """Build every located GPU backend's Unified Runtime adapter for this run."""
-    llvm_root = ctx.resolved_paths.get("llvm_root")
+    refresh_windows_path()
+    probed = probe.resolve_local_config(ctx.cfg, gpu=ctx.gpu)
+    llvm_root = ctx.resolved_paths.get("llvm_root") or probed.get("llvm_root")
     if not llvm_root:
         console.info("No intel/llvm toolchain installed; GPU adapter build skipped.")
         return
-    refresh_windows_path()
-    probed = probe.resolve_local_config(ctx.cfg, gpu=ctx.gpu)
     cfg = dataclasses.replace(ctx.cfg, **probed) if probed else ctx.cfg
     builder = AdapterBuilder(cfg=cfg, runner=SubprocessCommandRunner())
     provision_gpu_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), builder, ctx.dry_run)
@@ -68,6 +68,12 @@ def _dep_installed(dep: Dependency, mgr: IPackageManager | None, platform: str,
     """Return whether *dep* is already installed on this platform."""
     if dep.check_cmd and _check_cmd_ok(dep.check_cmd):
         return True
+    return _manager_holds(dep, mgr, platform, vcpkg)
+
+
+def _manager_holds(dep: Dependency, mgr: IPackageManager | None, platform: str,
+                   vcpkg: IPackageManager | None = None) -> bool:
+    """Return whether a package manager reports every package of *dep* installed."""
     pkgs = dep.packages_for(platform)
     if pkgs:
         return mgr is not None and all(mgr.is_installed(p) for p in pkgs)
@@ -75,6 +81,30 @@ def _dep_installed(dep: Dependency, mgr: IPackageManager | None, platform: str,
     if fallback:
         return vcpkg is not None and all(vcpkg.is_installed(p) for p in fallback)
     return False
+
+
+#: The Linux managers that can answer whether a manifest package is installed.
+_LINUX_MANAGERS = ("apt", "dnf", "yum", "pacman", "zypper")
+
+
+def _vcpkg_manager(managers: list[IPackageManager]) -> IPackageManager | None:
+    """Return the vcpkg manager among *managers*, if wired in."""
+    return next((m for m in managers if m.name == "vcpkg"), None)
+
+
+def _dep_manager(managers: list[IPackageManager], platform: str) -> IPackageManager | None:
+    """Return the manager that knows whether a manifest dependency is installed."""
+    if platform == "windows":
+        return _vcpkg_manager(managers)
+    return next((m for m in managers if m.name in _LINUX_MANAGERS and m.available()), None)
+
+
+def held_by_managers(managers: list[IPackageManager],
+                     platform: str) -> Callable[[Dependency], bool]:
+    """Return the predicate telling whether *managers* report a dependency installed."""
+    mgr = _dep_manager(managers, platform)
+    vcpkg = _vcpkg_manager(managers)
+    return lambda dep: _manager_holds(dep, mgr, platform, vcpkg)
 
 
 def _first_available(managers: list[IPackageManager]) -> IPackageManager | None:
@@ -151,15 +181,11 @@ class DetectStep(Step):
 
     def _dep_manager(self, plat: str) -> IPackageManager | None:
         """Return the manager that knows whether a manifest dep is installed."""
-        if plat == "windows":
-            return next((m for m in self._managers if m.name == "vcpkg"), None)
-        linux = ("apt", "dnf", "yum", "pacman", "zypper")
-        return next((m for m in self._managers
-                     if m.name in linux and m.available()), None)
+        return _dep_manager(self._managers, plat)
 
     def _vcpkg_manager(self) -> IPackageManager | None:
         """Return the vcpkg manager, if wired in."""
-        return next((m for m in self._managers if m.name == "vcpkg"), None)
+        return _vcpkg_manager(self._managers)
 
     def _base_tool_rows(self, ctx: InstallContext,
                         owner_of) -> list[tuple[str, str, str, str]]:

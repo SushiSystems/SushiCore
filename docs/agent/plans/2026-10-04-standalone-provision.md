@@ -1396,5 +1396,17 @@ Acceptance: every build passes. The dependency-root migration (`2026-09-25-hub-r
 - Task 16: hub keeps the GPU component on for every workspace by merging `{"gpu": True}` over
   sushicore's rule (`factory.derived_selection`), as `GPU_BACKEND_PROVISIONING.md` §3 decided.
   `selection.enabled_keys` and the shared-owner guard were added to sushicore for it.
-- Tasks 10 to 13 are not started. The pipx environments of `sr`, `sb`, `sa` and `se` hold
-  sushicore 0.4.0 from PyPI, so editing their `cli.py` before Task 0 would break the live commands.
+- Tasks 10 to 13 ran as four parallel subagents after the owner installed the editable sushicore
+  into the four pipx environments. The controller reviewed the diffs; no separate reviewer ran.
+- Wave 2 found three defects in sushicore, fixed there with tests: `doctor` failed a dependency
+  whose `check_cmd` needs a tool off `PATH` although the package manager held it; a run that
+  installed no toolchain skipped the GPU adapter build; the four commands carried no examples.
+- Task 10 also changed `sr toolchain`'s install hint to `sr setup --toolchain <name>`.
+- Task 13 also updated `docs/guides/COMMAND_LINE_INTERFACE.md` and
+  `docs/design/COMMAND_LINE_TAXONOMY.md` in sushiengine, outside `cli/`: both described the old
+  `se doctor`. `is_binary` reads `PROFILE.presence(root)`; the binary fix is `hub add sushiengine`.
+- `sb`'s fragment declares no dependency of its own, so the inventory prints no `sushiblas`
+  heading; the acceptance lines of Tasks 11 and 12 that name that owner describe the closure.
+- The tests of Tasks 3 to 5 were mutation-checked afterwards: five mutations in `selection.py`,
+  `manifests/__init__.py` and `closure.py`, each failing two to five tests.
+- `sushiai`'s nine failing tests are seven in `test_demo.py` and two in `test_train.py`.

@@ -50,6 +50,7 @@ def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root(
     monkeypatch.setattr(
         steps_mod, "provision_gpu_adapters",
         lambda cfg, registry, root, builder, dry_run: calls.append(root))
+    monkeypatch.setattr(steps_mod.probe, "resolve_local_config", lambda cfg, gpu=False: {})
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
 
     provision_adapters_for_run(ctx)
@@ -200,3 +201,19 @@ def test_run_linux_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recordi
     assert calls == []
     infos = [args[0] for name, args in recording_console.calls if name == "info"]
     assert any("No discrete GPU detected" in i for i in infos)
+
+
+def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine(
+        monkeypatch, tmp_path, recording_console):
+    """Check that a run which installed no toolchain builds against the probed llvm root."""
+    calls = []
+    monkeypatch.setattr(
+        steps_mod, "provision_gpu_adapters",
+        lambda cfg, registry, root, builder, dry_run: calls.append(root))
+    monkeypatch.setattr(steps_mod.probe, "resolve_local_config",
+                        lambda cfg, gpu=False: {"llvm_root": str(tmp_path)})
+    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
+
+    provision_adapters_for_run(ctx)
+
+    assert calls == [tmp_path]
