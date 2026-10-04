@@ -1387,3 +1387,14 @@ Acceptance: every build passes. The dependency-root migration (`2026-09-25-hub-r
   `ModuleConfig.workspace_home` already did.
 - `sushiai`'s `tests/test_demo.py` fails 9 tests on this machine before and after: it runs the
   installed `sa`, which holds sushicore 0.4.0, against a built demo whose SYCL kernel is not found.
+- An optional toolchain (`required = false`, as `sd` declares intel/llvm) installs only under
+  `--toolchain`, and the capability check ignores it. `selection.required_groups` holds the rule.
+- `DetectStep` reports a declared toolchain as NOT NEEDED when another member of its capability
+  is present, so `hub doctor` no longer lists AdaptiveCpp as missing beside a working intel/llvm.
+- Tasks 14 and 15 were done by the controller, not by subagents: `sd` needed the `panel=` field
+  and a corrected compiler hint, `st` needed its floor raised and nothing else.
+- Task 16: hub keeps the GPU component on for every workspace by merging `{"gpu": True}` over
+  sushicore's rule (`factory.derived_selection`), as `GPU_BACKEND_PROVISIONING.md` §3 decided.
+  `selection.enabled_keys` and the shared-owner guard were added to sushicore for it.
+- Tasks 10 to 13 are not started. The pipx environments of `sr`, `sb`, `sa` and `se` hold
+  sushicore 0.4.0 from PyPI, so editing their `cli.py` before Task 0 would break the live commands.
