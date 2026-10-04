@@ -77,7 +77,7 @@ def _managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
 
 def _module_source(module: ModuleProvision, root: Path) -> TomlDependencySource:
     """Return the dependency source reading this module's own fragment under *root*."""
-    return TomlDependencySource([(root / module.fragment, module.profile.name)])
+    return TomlDependencySource([(root / module.fragment, module.profile.key)])
 
 
 def _warn_unread_depends_on(source: TomlDependencySource, owner: str, console: object) -> None:
@@ -137,7 +137,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         root = module.project_root()
         cfg = module.load_config()
         source = _module_source(module, root)
-        _warn_unread_depends_on(source, module.profile.name, console)
+        _warn_unread_depends_on(source, module.profile.key, console)
         sink = ModuleSink(root / "cli", _MODULE_SINK_HEADER)
         managers = _managers_for(cfg)
         pipeline = InstallPipeline([
@@ -148,7 +148,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         ctx = InstallContext(
             cfg=cfg,
             selection=ToolchainSelection(),
-            consumer=module.profile.name,
+            consumer=module.profile.key,
             program=module.profile.program,
             dry_run=dry_run,
             assume_acpp_llvm=yes,
@@ -195,7 +195,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         except LinkEditError as exc:
             console.error(str(exc))
             raise typer.Exit(1)
-        write_module(target, module.profile.name, root)
+        write_module(target, module.profile.key, root)
         console.success(f"Linked {module.profile.name} into {target}.")
 
     @app.command()
@@ -216,8 +216,9 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         except LinkEditError as exc:
             console.error(str(exc))
             raise typer.Exit(1)
-        removed = remove_module(target, module.profile.name)
-        if removed:
+        removed = [remove_module(target, name)
+                   for name in dict.fromkeys((module.profile.key, module.profile.name))]
+        if any(removed):
             console.success(f"Unlinked {module.profile.name} from {target}.")
         else:
             console.info(f"{module.profile.name} was not linked into {target}.")

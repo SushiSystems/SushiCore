@@ -67,3 +67,8 @@ def test_not_a_project_message_names_both_markers():
     message = profile.not_a_project_message()
     assert ".sushiengine-root" in message
     assert RELEASE_MANIFEST in message
+
+
+def test_key_is_the_lower_cased_name():
+    """Check that key is the lower cased name."""
+    assert ModuleProfile(name="SushiDSP", program="sd", env_prefix="SD").key == "sushidsp"
