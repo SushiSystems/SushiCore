@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-10-04 — provision: Added doctor checks for missing module checkouts and unsatisfied toolchain capabilities (`sushicore/provision/checks.py`).
 - 2026-10-04 — provision: Added the dependency closure that follows a fragment's depends_on to each module's checkout (`sushicore/provision/closure.py`).
 - 2026-10-04 — provision: Added the toolchain selection rule and its component table, moved from hub (`sushicore/provision/selection.py`).
 - 2026-10-04 — provision: Added the shared base dependency fragment, moved from hub (`sushicore/provision/manifests/`).

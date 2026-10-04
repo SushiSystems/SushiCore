@@ -39,13 +39,13 @@ def toolchain_keys() -> tuple[str, ...]:
     return tuple(component.key for component in COMPONENTS if component.key != GPU_KEY)
 
 
-def groups(source: IDependencySource) -> list[list[str]]:
-    """Return the declared toolchain keys grouped by capability, in declaration order."""
-    groups: dict[str, list[str]] = {}
+def groups(source: IDependencySource) -> dict[str, list[str]]:
+    """Return the declared toolchain keys by capability, both in declaration order."""
+    found: dict[str, list[str]] = {}
     for dep in source.all():
         if dep.name in toolchain_keys():
-            groups.setdefault(dep.provides or dep.name, []).append(dep.name)
-    return list(groups.values())
+            found.setdefault(dep.provides or dep.name, []).append(dep.name)
+    return found
 
 
 def derive(source: IDependencySource, present: Mapping[str, bool], *,
@@ -65,7 +65,7 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
     if unknown:
         raise ValueError(
             f"Unknown toolchain '{unknown[0]}'; choose one of: {', '.join(toolchain_keys())}.")
-    chosen = {members[0] for members in groups(source)
+    chosen = {members[0] for members in groups(source).values()
               if not any(present.get(member) for member in members)}
     chosen.update(requested)
     values = {_FIELD[key]: True for key in chosen}
