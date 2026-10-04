@@ -7,7 +7,8 @@ from __future__ import annotations
 import pytest
 
 from sushicore.provision.fragments import Dependency, IDependencySource
-from sushicore.provision.selection import COMPONENTS, derive, toolchain_keys
+from sushicore.provision.pipeline import ToolchainSelection
+from sushicore.provision.selection import COMPONENTS, derive, enabled_keys, toolchain_keys
 
 
 class _Source(IDependencySource):
@@ -106,3 +107,15 @@ def test_the_component_table_names_every_selection_field():
     """Check that the component table names every selection field."""
     assert [c.field for c in COMPONENTS] == [
         "install_intel_llvm", "install_acpp", "oneapi", "gpu"]
+
+
+def test_a_shared_fragment_cannot_select_a_toolchain():
+    """Check that a shared fragment cannot select a toolchain."""
+    source = _Source([Dependency(name="intel-llvm", owner="shared")])
+    assert derive(source, present={}).install_intel_llvm is False
+
+
+def test_enabled_keys_follow_the_table_order():
+    """Check that enabled keys follow the table order."""
+    chosen = ToolchainSelection(install_intel_llvm=True, oneapi=True, gpu=True)
+    assert enabled_keys(chosen) == ["intel-llvm", "oneapi", "gpu"]
