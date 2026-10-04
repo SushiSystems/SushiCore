@@ -57,7 +57,7 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
            requested: Sequence[str] = (), gpu: bool = True) -> ToolchainSelection
 ```
 
-For every `provides` group among the declared dependencies: when a member is present on the
+For every `provides` group holding a `required` dependency: when a member is present on the
 machine, the group turns nothing on; otherwise its first declared member turns on. Declaration
 order in the fragment decides the default, so the rule names no toolchain. Each key in
 `requested` turns its component on regardless. The GPU component turns on when `gpu` is true
