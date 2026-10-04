@@ -116,10 +116,10 @@ def test_capability_check_passes_when_one_member_is_present():
     assert "adaptivecpp" in result.detail
 
 
-def test_capability_check_passes_when_nothing_is_declared():
-    """Check that capability check passes when nothing is declared."""
+def test_capability_check_passes_when_nothing_is_required():
+    """Check that capability check passes when nothing is required."""
     result = checks.capability_check(_FixedSource([]), {}, "sd setup").run()
-    assert (result.state, result.detail) == (State.OK, "no toolchain declared")
+    assert (result.state, result.detail) == (State.OK, "no toolchain required")
 
 
 def test_capability_check_names_a_lone_toolchain_once():
@@ -129,3 +129,10 @@ def test_capability_check_names_a_lone_toolchain_once():
         "intel-llvm")
     assert checks.capability_check(source, {}, "sd setup").run().detail == (
         "intel-llvm is not installed")
+
+
+def test_capability_check_ignores_an_optional_toolchain():
+    """Check that capability check ignores an optional toolchain."""
+    source = _FixedSource([Dependency(name="intel-llvm", required=False, owner="sushidsp")])
+    result = checks.capability_check(source, {}, "sd setup").run()
+    assert (result.state, result.detail) == (State.OK, "no toolchain required")

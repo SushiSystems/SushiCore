@@ -48,6 +48,13 @@ def groups(source: IDependencySource) -> dict[str, list[str]]:
     return found
 
 
+def required_groups(source: IDependencySource) -> dict[str, list[str]]:
+    """Return the capabilities of :func:`groups` that hold a required dependency."""
+    required = {dep.name for dep in source.all() if dep.required}
+    return {capability: members for capability, members in groups(source).items()
+            if required.intersection(members)}
+
+
 def derive(source: IDependencySource, present: Mapping[str, bool], *,
            requested: Sequence[str] = (), gpu: bool = True) -> ToolchainSelection:
     """Return the components to install for *source* on a machine holding *present*.
@@ -67,10 +74,8 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
     if unknown:
         raise ValueError(
             f"Unknown toolchain '{unknown[0]}'; choose one of: {', '.join(toolchain_keys())}.")
-    required = {dep.name for dep in source.all() if dep.required}
-    chosen = {members[0] for members in groups(source).values()
-              if required.intersection(members)
-              and not any(present.get(member) for member in members)}
+    chosen = {members[0] for members in required_groups(source).values()
+              if not any(present.get(member) for member in members)}
     chosen.update(requested)
     values = {_FIELD[key]: True for key in chosen}
     values[_FIELD[GPU_KEY]] = gpu and any(dep.gpu_only for dep in source.all())
