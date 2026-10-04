@@ -4,6 +4,8 @@ import pytest
 from rich.color import Color
 from rich.style import Style
 
+from sushicore.provision import home
+
 
 def _clear_caches(owner: type) -> None:
     """Clear every functools cache on ``owner``."""
@@ -27,3 +29,16 @@ def _clear_shared_style_cache():
     yield
     _clear_caches(Style)
     _clear_caches(Color)
+
+
+@pytest.fixture
+def provision_home(tmp_path, monkeypatch):
+    """Point the dependency root at a temporary directory."""
+    root = tmp_path / "sushisystems"
+    monkeypatch.setenv(home.ENV_HOME, str(root))
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    monkeypatch.delenv("SUSHISTACK_DEPS_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    home.bind_root(None)
+    yield root
+    home.bind_root(None)
