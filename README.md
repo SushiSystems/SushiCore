@@ -50,7 +50,7 @@ fragment and, through `[module] depends_on`, the fragment of every module it bui
 the `locate` callable the module passes. A module named there with no checkout stops `setup`
 with exit code 2 and one line saying where the checkout belongs; `setup` never clones.
 
-A bare `setup` installs one member of each toolchain capability. When something on the machine
+A bare `setup` installs one member of each toolchain capability a fragment marks `required`. When something on the machine
 already provides `sycl-toolchain`, nothing downloads; otherwise the first toolchain the fragment
 declares for it installs. `--toolchain NAME` adds another and may be repeated. The GPU toolkit
 installs when a declared dependency is `gpu_only` and a card is detected; `--no-gpu` skips it.

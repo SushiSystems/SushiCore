@@ -55,7 +55,8 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
     Args:
         source: The declared dependencies.
         present: Toolchain key to whether the machine already has it.
-        requested: Keys to install whatever the machine has.
+        requested: Keys to install whatever the machine has. An optional
+            toolchain installs only this way.
         gpu: Whether the run may provision the detected GPU's toolkit; it does only
             when some declared dependency is ``gpu_only``.
 
@@ -66,8 +67,10 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
     if unknown:
         raise ValueError(
             f"Unknown toolchain '{unknown[0]}'; choose one of: {', '.join(toolchain_keys())}.")
+    required = {dep.name for dep in source.all() if dep.required}
     chosen = {members[0] for members in groups(source).values()
-              if not any(present.get(member) for member in members)}
+              if required.intersection(members)
+              and not any(present.get(member) for member in members)}
     chosen.update(requested)
     values = {_FIELD[key]: True for key in chosen}
     values[_FIELD[GPU_KEY]] = gpu and any(dep.gpu_only for dep in source.all())

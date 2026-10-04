@@ -69,6 +69,13 @@ def test_an_unknown_requested_key_raises_and_names_the_valid_ones():
     assert all(key in str(error.value) for key in toolchain_keys())
 
 
+def test_an_optional_toolchain_is_not_installed_unasked():
+    """Check that an optional toolchain is not installed unasked."""
+    source = _Source([Dependency(name="intel-llvm", required=False, owner="sushidsp")])
+    assert derive(source, present={}).install_intel_llvm is False
+    assert derive(source, present={}, requested=["intel-llvm"]).install_intel_llvm is True
+
+
 def test_a_source_declaring_no_toolchain_selects_none():
     """Check that a source declaring no toolchain selects none."""
     selection = derive(_Source([Dependency(name="sdl2", owner="sushidsp")]), present={})
