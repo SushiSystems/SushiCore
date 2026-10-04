@@ -1,6 +1,6 @@
 # Standalone provisioning: every module sets itself up, hub is optional
 
-**Status:** Draft, awaiting owner review.
+**Status:** Design approved 2026-10-04. Plan: `../plans/2026-10-04-standalone-provision.md`.
 
 A person who clones one open-source Sushi module must be able to build it after one command,
 without installing hub. Today that holds for `sd` and `st`. `sr`, `sb` and `sa` have no `setup`
@@ -53,18 +53,18 @@ Owns which toolchain components a run installs. It holds the component table (ke
 `ToolchainSelection` field) that hub's `config.py` holds today, and one function:
 
 ```python
-def derive(source: IDependencySource, cfg: ProvisionConfig, *,
+def derive(source: IDependencySource, present: Mapping[str, bool], *,
            requested: Sequence[str] = (), gpu: bool = True) -> ToolchainSelection
 ```
 
 For every `provides` group among the declared dependencies: when a member is present on the
 machine, the group turns nothing on; otherwise its first declared member turns on. Declaration
-order in the fragment decides the default, so the code names no toolchain. Each key in
-`requested` turns its component on regardless. `gpu` turns the GPU component on when a vendor is
-detected and off when the caller passes `False`.
+order in the fragment decides the default, so the rule names no toolchain. Each key in
+`requested` turns its component on regardless. `gpu` is passed through; the install step already
+does nothing when no vendor is detected.
 
-Presence is the question `DetectStep` already answers through `probe`; `derive` asks the same
-probe and does not grow a second one.
+`present` is a plain mapping, so the rule is a pure function. The caller fills it from
+`probe.toolchain_status`, the probe `DetectStep` already uses.
 
 ### `provision/closure.py`
 
@@ -73,20 +73,20 @@ Owns the fragment list for one module.
 ```python
 @dataclass(frozen=True)
 class Closure:
-    sources: list[tuple[Path, str]]   # (fragment path, owner), dependencies first
-    missing: list[str]                # modules named in depends_on with no checkout
+    sources: tuple[tuple[Path, str], ...]    # (fragment path, owner), dependencies first
+    missing: tuple[tuple[str, str], ...]     # (module with no checkout, module that wants it)
 
-def resolve(name: str, root: Path, fragment: str,
-            locate: Callable[[str], Path | None]) -> Closure
+def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRAGMENT,
+            shared: Sequence[tuple[Path, str]] = ()) -> Closure
 ```
 
 It reads the module's fragment, follows `[module] depends_on` transitively, and asks `locate`
-for each module's checkout. The base fragment comes first in `sources`. A cycle raises
+for each module's checkout. `shared` fragments come first in `sources`. A cycle raises
 `ValueError`, as `fragments.owner_order` does.
 
-`locate` belongs to the caller. A module passes the sibling resolution it already has
-(`ModuleConfig.sibling_dir`: the configured `*_dir`, the linked workspace's `[modules]`, then
-the sibling directory). Hub passes its workspace lookup. The brick knows neither.
+`locate` belongs to the caller. A module passes `StackConfig.locate_sibling`: the configured
+`*_dir`, then the sibling directory, which is the same place its CMake build looks. Hub passes
+its workspace lookup. The brick knows neither.
 
 ### `provision/manifests/base.deps.toml`
 
@@ -94,15 +94,22 @@ The shared fragment moves here from hub's package, unchanged, with a reader func
 that returns its path. Hub's `dependency_source` reads it from sushicore. `gui.deps.toml` is
 hub's own and stays there.
 
+The install step already installs cmake, ninja, git and the host compiler whatever the
+fragments say (`steps._LINUX_TOOLCHAIN_APT`, `InstallDepsStep._install_portable_tools`), which
+is why `sd` and `st` work without this file. What it adds is gtest, opencl and pkgconf, which
+the SYCL modules need and `sd` and `st` do not. A module therefore asks for it:
+`ModuleProvision.uses_base`.
+
 ### `provision/commands.py`
 
-`ModuleProvision` gains three fields.
+`ModuleProvision` gains four fields.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `locate` | `Callable[[str], Path \| None]` | Finds a `depends_on` module's checkout. Default: finds nothing. |
 | `panel` | `str \| None` | The help panel the commands are listed under. |
 | `is_binary` | `Callable[[], bool]` | Reports a binary install. Default: `False`. When true, only `doctor` is registered. |
+| `uses_base` | `bool` | Whether the base fragment joins the closure. Default: `False`. |
 
 `setup` gains `--toolchain NAME` (repeatable) and `--no-gpu`. It resolves the closure, stops
 with exit code 2 and one line per missing module when `missing` is not empty, derives the
@@ -120,9 +127,23 @@ Two stock checks join `standard_checks`' siblings:
 
 ### `stack_config.py`
 
-`StackConfig` resolves the bundled compiler and the vcpkg tree through
-`provision.home.search_roots()`: `~/.sushisystems` first, then a legacy workspace tree. The
-`standalone_deps_dir` hook and its two implementations go.
+`StackConfig` derives from `ProvisionSettings` and resolves the bundled compiler and the vcpkg
+tree across `dependency_roots(root)`: the workspace's tree when the module sits in one, then
+`provision.home.search_roots()`. It gains `locate_sibling(root, name)`. The overrides of
+`standalone_deps_dir` go; the method itself stays one release, deprecated.
+
+### `provision/probe.py`
+
+The probe finds toolchains and vcpkg across `home.search_roots()`. Today it looks under
+`home.root()` alone, so on a machine whose tree still sits in `<workspace>/dependencies` a
+module `setup` would see nothing and download everything again. The 2026-09-23 spec promised
+this read and the code never did it.
+
+### `profile.py`
+
+`ModuleProfile.key` is the lower-cased name. It is the fragment owner, the registry consumer and
+the name in a workspace's `[modules]`. Today `commands.py` uses the display name, so `sd link`
+writes `SushiDSP` where `hub link` writes `sushidsp`.
 
 ## Module adoption
 
@@ -166,9 +187,10 @@ machine, as it does now.
   keeps them; nothing is removed.
 - `se doctor` prints a table and its exit code follows the shared rule: 1 when a required check
   fails.
-- `StackConfig.standalone_deps_dir` and `sushiruntime.config.deps_dir` are removed. Both are
-  internal to the CLIs; nothing outside them calls either. The plan confirms this with a search
-  before deleting.
+- `sushiruntime.config.deps_dir` is removed, and `sr` stops falling back to a repo-local
+  `dependencies/` folder. `StackConfig.standalone_deps_dir` is deprecated and its overrides are
+  deleted.
+- `sd link` and `st link` write the lower-cased module name. `unlink` removes either spelling.
 
 ## Testing
 
@@ -189,11 +211,10 @@ No task runs a build. The evidence for each module is its pytest run, `setup --d
 - The 372 uncommitted files in sushiengine outside `cli/`.
 - sushicore's missing documentation skeleton, still an open item from the earlier spec.
 
-## Not yet verified
+## Verified while planning
 
-- Whether `DetectStep` and `InstallDepsStep` already install cmake and ninja for a module that
-  passes no base fragment. `sd setup --dry-run` on a machine without them settles it; the plan's
-  first task runs it.
-- How a binary engine install is told from a source checkout at the point `cli.py` registers
-  commands. `ModuleProfile` carries a binary-root marker from the hub programme's wave 2; the
-  plan reads it before fixing `is_binary`'s body.
+- `InstallDepsStep` installs cmake, ninja and git for a module that passes no base fragment.
+  The base fragment is therefore opt-in.
+- `se` has no binary command set yet. `ModuleProfile.presence(root)` tells a binary install from
+  a checkout by `sushi-release.json`; `se`'s `is_binary` reads it, and returns `False` outside
+  any project so `se --help` lists all four commands.
