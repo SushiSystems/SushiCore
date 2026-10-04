@@ -10,11 +10,13 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Mapping, Sequence
 
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
 from sushicore.provision.fragments import IDependencySource
+from sushicore.provision.selection import groups
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
 #: Timeout, in seconds, for every ``--version`` probe a check runs.
@@ -120,6 +122,37 @@ def fragment_check(source: IDependencySource, platform: str, gpu: bool,
         detail = "not satisfied: " + ", ".join(failing)
         return CheckResult(State.FAIL if required_failed else State.WARN, detail, fix)
     return FunctionCheck("dependencies", "build", True, fn)
+
+
+def modules_check(missing: Sequence[tuple[str, str]], fix: str) -> FunctionCheck:
+    """Return a check failing for each ``(module, wanted by)`` pair with no checkout."""
+    def fn() -> CheckResult:
+        if not missing:
+            return CheckResult(State.OK, "every module this one builds on is checked out")
+        named = ", ".join(f"{module} (wanted by {owner})" for module, owner in missing)
+        return CheckResult(State.FAIL, f"no checkout of: {named}", fix)
+    return FunctionCheck("modules", "build", True, fn)
+
+
+def capability_check(source: IDependencySource, present: Mapping[str, bool],
+                     fix: str) -> FunctionCheck:
+    """Return a check failing for each toolchain capability no present member provides."""
+    def fn() -> CheckResult:
+        declared = groups(source)
+        if not declared:
+            return CheckResult(State.OK, "no toolchain declared")
+        satisfied: list[str] = []
+        unsatisfied: list[str] = []
+        for capability, members in declared.items():
+            found = [member for member in members if present.get(member)]
+            if found:
+                satisfied.append(f"{capability}: {', '.join(found)}")
+            else:
+                unsatisfied.append(f"{capability}: none of {', '.join(members)}")
+        if unsatisfied:
+            return CheckResult(State.FAIL, "; ".join(unsatisfied), fix)
+        return CheckResult(State.OK, "; ".join(satisfied))
+    return FunctionCheck("toolchains", "build", True, fn)
 
 
 def stamp_check(root: Path) -> FunctionCheck:

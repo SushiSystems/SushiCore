@@ -80,3 +80,43 @@ def test_fragment_check_fails_a_malformed_check_cmd():
     result = checks.fragment_check(_FixedSource([dep]), "linux", False, "").run()
     assert result.state is State.FAIL
     assert "broken" in result.detail
+
+
+def _sycl(name: str) -> Dependency:
+    """Return a toolchain dependency providing the SYCL capability."""
+    return Dependency(name=name, provides="sycl-toolchain", owner="sushiruntime")
+
+
+def test_modules_check_passes_with_nothing_missing():
+    """Check that modules check passes with nothing missing."""
+    assert checks.modules_check((), "sb setup").run().state is State.OK
+
+
+def test_modules_check_fails_and_names_each_missing_module():
+    """Check that modules check fails and names each missing module."""
+    result = checks.modules_check((("sushiruntime", "sushiblas"),), "clone it").run()
+    assert result.state is State.FAIL
+    assert "sushiruntime (wanted by sushiblas)" in result.detail
+    assert result.fix == "clone it"
+
+
+def test_capability_check_fails_for_an_unsatisfied_group():
+    """Check that capability check fails for an unsatisfied group."""
+    source = _FixedSource([_sycl("intel-llvm"), _sycl("adaptivecpp")])
+    result = checks.capability_check(source, {}, "sr setup").run()
+    assert result.state is State.FAIL
+    assert "sycl-toolchain: none of intel-llvm, adaptivecpp" in result.detail
+
+
+def test_capability_check_passes_when_one_member_is_present():
+    """Check that capability check passes when one member is present."""
+    source = _FixedSource([_sycl("intel-llvm"), _sycl("adaptivecpp")])
+    result = checks.capability_check(source, {"adaptivecpp": True}, "sr setup").run()
+    assert result.state is State.OK
+    assert "adaptivecpp" in result.detail
+
+
+def test_capability_check_passes_when_nothing_is_declared():
+    """Check that capability check passes when nothing is declared."""
+    result = checks.capability_check(_FixedSource([]), {}, "sd setup").run()
+    assert (result.state, result.detail) == (State.OK, "no toolchain declared")

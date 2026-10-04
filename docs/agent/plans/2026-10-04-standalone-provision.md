@@ -309,7 +309,7 @@ Acceptance: suite green, and `python -c "from sushicore.provision.manifests impo
   - `COMPONENTS: tuple[Component, ...]`, the four rows hub's `CUSTOMIZABLE_COMPONENTS` holds today, same order and labels.
   - `GPU_KEY = "gpu"`.
   - `toolchain_keys() -> tuple[str, ...]`: every key but `GPU_KEY`.
-  - `groups(source: IDependencySource) -> list[list[str]]`: the declared toolchain keys grouped by capability, in declaration order.
+  - `groups(source: IDependencySource) -> dict[str, list[str]]`: the declared toolchain keys by capability, both in declaration order.
   - `derive(source: IDependencySource, present: Mapping[str, bool], *, requested: Sequence[str] = (), gpu: bool = True) -> ToolchainSelection`. Raises `ValueError` naming the valid keys when `requested` holds an unknown one.
 
 The rule: declared toolchain components are grouped by their `provides` tag, a component with none forming a group of its own. A group with a present member turns nothing on. Otherwise its first declared member turns on. Each requested key turns on. `gpu` is passed through.
@@ -706,7 +706,7 @@ Acceptance: suite green.
   - `modules_check(missing: Sequence[tuple[str, str]], fix: str) -> FunctionCheck`, name `"modules"`, group `"build"`, required. OK with detail `"every module this one builds on is checked out"`; FAIL with detail `"no checkout of: sushiruntime (wanted by sushiblas)"`, comma-joined.
   - `capability_check(source: IDependencySource, present: Mapping[str, bool], fix: str) -> FunctionCheck`, name `"toolchains"`, group `"build"`, required. One FAIL detail per capability with no present member: `"sycl-toolchain: none of intel-llvm, adaptivecpp, oneapi"`. OK detail lists the present member of each group, or `"no toolchain declared"`.
 
-`checks` and `selection` are both layer 2 and `capability_check` calls `selection.groups(source)`, so raise `"checks": 3` in `test_layering.py`, with `"packages": 4`, `"toolchains*": 5`, `"steps": 6`, `"commands": 7` shifted up by one. Check that `test_layering.py` still passes; if a module's imports forbid the shift, stop and report.
+`checks` and `selection` are both layer 2 and `capability_check` calls `selection.groups(source)`; the layering guard allows a sideways import, so no layer moves.
 
 - [ ] **Step 1: Failing tests** appended to `tests/provision/test_checks.py`, reusing `_Source` and `_sycl` copied from `test_selection.py` into this file:
 
