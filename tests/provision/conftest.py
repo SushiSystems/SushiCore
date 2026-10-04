@@ -7,7 +7,6 @@ from __future__ import annotations
 import pytest
 
 from sushicore import provision
-from sushicore.provision import home
 
 
 class _RecordingRichConsole:
@@ -45,16 +44,3 @@ def recording_console():
     provision.bind_console(lambda: fake)
     yield fake
     provision.bind_console(None)
-
-
-@pytest.fixture
-def provision_home(tmp_path, monkeypatch):
-    """Point the dependency root at a temporary directory."""
-    root = tmp_path / "sushisystems"
-    monkeypatch.setenv(home.ENV_HOME, str(root))
-    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
-    monkeypatch.delenv("SUSHISTACK_DEPS_DIR", raising=False)
-    monkeypatch.chdir(tmp_path)
-    home.bind_root(None)
-    yield root
-    home.bind_root(None)

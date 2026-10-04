@@ -195,11 +195,11 @@ class StackBuildEnv:
             root = self._find_root()
         except SystemExit:
             return
-        bundle = cfg.deps_dir(root) / "toolchains" / "llvm-sycl"
-        if (bundle / "bin").is_dir():
+        bundle = cfg.bundled_llvm_root(root)
+        if bundle is not None:
             prepend_path(env, "PATH", [str(bundle / "bin")])
-        if not cfg.is_windows and (bundle / "lib").is_dir():
-            prepend_path(env, "LD_LIBRARY_PATH", [str(bundle / "lib")])
+            if not cfg.is_windows and (bundle / "lib").is_dir():
+                prepend_path(env, "LD_LIBRARY_PATH", [str(bundle / "lib")])
 
         # On Windows the runtime DLL pulls in vcpkg-installed dependencies
         # (hwloc), so the vcpkg installed bin must be on PATH for the runtime
