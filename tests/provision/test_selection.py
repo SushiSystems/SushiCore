@@ -75,10 +75,24 @@ def test_a_source_declaring_no_toolchain_selects_none():
     assert not (selection.install_intel_llvm or selection.install_acpp or selection.oneapi)
 
 
-def test_gpu_is_passed_through():
-    """Check that gpu is passed through."""
-    assert derive(_RUNTIME, present={}).gpu is True
-    assert derive(_RUNTIME, present={}, gpu=False).gpu is False
+def _with_gpu_dependency() -> _Source:
+    """Return the runtime's toolchains plus one GPU-only dependency."""
+    return _Source([*_RUNTIME.all(), Dependency(name="cuda", gpu_only=True, owner="sushiruntime")])
+
+
+def test_gpu_turns_on_when_a_gpu_only_dependency_is_declared():
+    """Check that gpu turns on when a gpu only dependency is declared."""
+    assert derive(_with_gpu_dependency(), present={}).gpu is True
+
+
+def test_gpu_stays_off_when_the_caller_refuses_it():
+    """Check that gpu stays off when the caller refuses it."""
+    assert derive(_with_gpu_dependency(), present={}, gpu=False).gpu is False
+
+
+def test_gpu_stays_off_when_nothing_declared_needs_one():
+    """Check that gpu stays off when nothing declared needs one."""
+    assert derive(_RUNTIME, present={}).gpu is False
 
 
 def test_the_component_table_names_every_selection_field():

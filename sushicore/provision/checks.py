@@ -145,8 +145,11 @@ def capability_check(source: IDependencySource, present: Mapping[str, bool],
         unsatisfied: list[str] = []
         for capability, members in declared.items():
             found = [member for member in members if present.get(member)]
+            alone = members == [capability]
             if found:
-                satisfied.append(f"{capability}: {', '.join(found)}")
+                satisfied.append(capability if alone else f"{capability}: {', '.join(found)}")
+            elif alone:
+                unsatisfied.append(f"{capability} is not installed")
             else:
                 unsatisfied.append(f"{capability}: none of {', '.join(members)}")
         if unsatisfied:

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from ..profile import ModuleProfile
 from ..workspace import (
@@ -20,11 +20,21 @@ from ..workspace import (
     write_link,
     write_module,
 )
-from . import home
+from . import closure as closure_module
+from . import home, manifests, probe, selection
 from ._output import bind_console
-from .checks import fragment_check, stamp_check, standard_checks
+from .checks import (
+    capability_check,
+    fragment_check,
+    modules_check,
+    python_check,
+    stamp_check,
+    standard_checks,
+)
+from .closure import Closure, Locate
 from .config import ProvisionConfig
 from .doctor import GROUPS, Check, Doctor
+from .fragments import IDependencySource
 from .fragments import TomlDependencySource
 from .lock import LockTimeout, ProvisionLock
 from .packages import (
@@ -55,9 +65,22 @@ _LOCK_TIMEOUT = 600.0
 _SHOW_PROGRESS = True
 
 
+def _locate_nothing(name: str) -> Optional[Path]:
+    """Report that the module *name* has no checkout."""
+    del name
+    return None
+
+
 @dataclass(frozen=True)
 class ModuleProvision:
-    """What one module CLI hands the shared commands."""
+    """What one module CLI hands the shared commands.
+
+    Args:
+        locate: Finds the checkout of a module the fragment's ``depends_on`` names.
+        panel: The help panel the commands are listed under, or None for the default.
+        is_binary: Reports a binary install, which registers ``doctor`` alone.
+        uses_base: Whether the shared base fragment joins the module's own.
+    """
 
     profile: ModuleProfile
     project_root: Callable[[], Path]
@@ -65,6 +88,14 @@ class ModuleProvision:
     console: Callable[[], object]
     extra_checks: Callable[[], list[Check]] = lambda: []
     fragment: str = "cli/sushistack.deps.toml"
+    locate: Locate = _locate_nothing
+    panel: Optional[str] = None
+    is_binary: Callable[[], bool] = lambda: False
+    uses_base: bool = False
+
+
+#: Exit code for a request ``setup`` cannot act on: an unknown toolchain, a missing module.
+_EXIT_USAGE = 2
 
 
 def _managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
@@ -75,32 +106,115 @@ def _managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
             VcpkgManager(cfg)]
 
 
-def _module_source(module: ModuleProvision, root: Path) -> TomlDependencySource:
-    """Return the dependency source reading this module's own fragment under *root*."""
-    return TomlDependencySource([(root / module.fragment, module.profile.key)])
+def _closure(module: ModuleProvision, root: Path) -> Closure:
+    """Return the fragments *module* needs: the base when asked for, its modules', its own.
+
+    Raises:
+        ValueError: The modules depend on one another in a cycle.
+    """
+    shared = [(manifests.base_fragment(), manifests.BASE_OWNER)] if module.uses_base else []
+    return closure_module.resolve(module.profile.key, root, module.locate,
+                                  fragment=module.fragment, shared=shared)
 
 
-def _warn_unread_depends_on(source: TomlDependencySource, owner: str, console: object) -> None:
-    """Warn once for every module *owner*'s fragment depends on, whose fragment is not read."""
-    source.all()
-    for dependency in source.depends_on(owner):
-        console.warn(
-            f"{owner} depends on {dependency}; setup cannot read {dependency}'s fragment "
-            f"and does not install its dependencies.")
+def _source(module: ModuleProvision, root: Path, found: Closure) -> TomlDependencySource:
+    """Return the dependency source over *found*, or over the module's own fragment path."""
+    sources = list(found.sources) or [(root / module.fragment, module.profile.key)]
+    return TomlDependencySource(sources)
+
+
+def _present_toolchains(cfg: ProvisionConfig) -> dict[str, bool]:
+    """Return each SYCL toolchain's key mapped to whether this machine holds it."""
+    return {name: present for name, present, _detail in probe.toolchain_status(cfg, False)}
+
+
+def _missing_module_message(module: str, wanted_by: str) -> str:
+    """Return the line that tells a user where the checkout of *module* belongs."""
+    return (f"{wanted_by} builds on {module}, and no checkout of it was found. "
+            f"Clone it beside this repository or set {module.upper()}_DIR.")
+
+
+def _checks(module: ModuleProvision, cfg: ProvisionConfig, source: IDependencySource,
+            found: Closure) -> list[Check]:
+    """Return every check ``doctor`` runs for a source checkout of *module*."""
+    fix = f"{module.profile.program} setup"
+    clone = "clone it beside this repository"
+    return (standard_checks(cfg, fix=fix)
+            + [modules_check(found.missing, clone),
+               capability_check(source, _present_toolchains(cfg), fix),
+               fragment_check(source, cfg.platform, False, fix),
+               stamp_check(home.root())]
+            + module.extra_checks())
+
+
+def _report(checks: Sequence[Check], groups: Optional[set[str]], console: object) -> int:
+    """Run *checks*, render the report on *console*, and return the process exit code."""
+    doctor = Doctor(checks)
+    report = doctor.run(groups)
+    doctor.render(report, console)
+    return report.exit_code()
 
 
 def _run_doctor(module: ModuleProvision, groups: Optional[set[str]]) -> int:
     """Run this module's checks, render the report, and return its process exit code."""
+    console = module.console()
+    if module.is_binary():
+        return _report([python_check()] + module.extra_checks(), groups, console)
     cfg = module.load_config()
-    fix = f"{module.profile.program} setup"
-    source = _module_source(module, module.project_root())
-    checks = (standard_checks(cfg, fix=fix)
-              + [fragment_check(source, cfg.platform, False, fix), stamp_check(home.root())]
-              + module.extra_checks())
-    doctor = Doctor(checks)
-    report = doctor.run(groups)
-    doctor.render(report, module.console())
-    return report.exit_code()
+    root = module.project_root()
+    try:
+        found = _closure(module, root)
+    except ValueError as exc:
+        console.error(str(exc))
+        return 1
+    return _report(_checks(module, cfg, _source(module, root, found), found), groups, console)
+
+
+def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
+               toolchains: Sequence[str], gpu: bool) -> int:
+    """Provision *module*'s closure, then report readiness, and return the exit code."""
+    console = module.console()
+    root = module.project_root()
+    cfg = module.load_config()
+    try:
+        found = _closure(module, root)
+    except ValueError as exc:
+        console.error(str(exc))
+        return 1
+    if found.missing:
+        for name, wanted_by in found.missing:
+            console.error(_missing_module_message(name, wanted_by))
+        return _EXIT_USAGE
+    source = _source(module, root, found)
+    try:
+        chosen = selection.derive(source, _present_toolchains(cfg),
+                                  requested=toolchains, gpu=gpu)
+    except ValueError as exc:
+        console.error(str(exc))
+        return _EXIT_USAGE
+    managers = _managers_for(cfg)
+    pipeline = InstallPipeline([
+        DetectStep(source, managers),
+        InstallDepsStep(source, managers),
+        ConfigureStep(ModuleSink(root / "cli", _MODULE_SINK_HEADER)),
+    ])
+    ctx = InstallContext(
+        cfg=cfg,
+        selection=chosen,
+        consumer=module.profile.key,
+        program=module.profile.program,
+        dry_run=dry_run,
+        assume_acpp_llvm=yes,
+    )
+    try:
+        with ProvisionLock(home.root() / ".lock", timeout=_LOCK_TIMEOUT):
+            ok = pipeline.run(ctx, show_progress=_SHOW_PROGRESS)
+    except LockTimeout as exc:
+        console.error(str(exc))
+        return 1
+    if not ok:
+        return 1
+    return _run_doctor(module, None)
 
 
 def _resolve_workspace(explicit: Optional[Path], project_root: Path) -> Optional[Path]:
@@ -122,48 +236,34 @@ def _no_workspace_message() -> str:
 
 
 def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> None:
-    """Add ``setup``, ``doctor``, ``link`` and ``unlink`` to *app*."""
+    """Add the four provision commands to *app*, or ``doctor`` alone to a binary install."""
     import typer
 
-    @app.command()
-    def setup(
-        dry_run: bool = typer.Option(False, "--dry-run", help="Show, don't change."),
-        yes: bool = typer.Option(
-            False, "--yes", help="Assume yes on the LLVM-download prompt, for unattended runs."),
-    ) -> None:
-        """Provision this module's dependencies, then report readiness."""
-        bind_console(module.console)
-        console = module.console()
-        root = module.project_root()
-        cfg = module.load_config()
-        source = _module_source(module, root)
-        _warn_unread_depends_on(source, module.profile.key, console)
-        sink = ModuleSink(root / "cli", _MODULE_SINK_HEADER)
-        managers = _managers_for(cfg)
-        pipeline = InstallPipeline([
-            DetectStep(source, managers),
-            InstallDepsStep(source, managers),
-            ConfigureStep(sink),
-        ])
-        ctx = InstallContext(
-            cfg=cfg,
-            selection=ToolchainSelection(),
-            consumer=module.profile.key,
-            program=module.profile.program,
-            dry_run=dry_run,
-            assume_acpp_llvm=yes,
-        )
-        try:
-            with ProvisionLock(home.root() / ".lock", timeout=_LOCK_TIMEOUT):
-                ok = pipeline.run(ctx, show_progress=_SHOW_PROGRESS)
-        except LockTimeout as exc:
-            console.error(str(exc))
-            raise typer.Exit(1)
-        if not ok:
-            raise typer.Exit(1)
-        raise typer.Exit(_run_doctor(module, None))
+    def command():
+        """Return the decorator that registers a command under the module's panel."""
+        return app.command(rich_help_panel=module.panel)
 
-    @app.command()
+    binary = module.is_binary()
+
+    if not binary:
+        @command()
+        def setup(
+            dry_run: bool = typer.Option(False, "--dry-run", help="Show, don't change."),
+            yes: bool = typer.Option(
+                False, "--yes", help="Assume yes on the LLVM-download prompt, for unattended runs."),
+            toolchain: Optional[list[str]] = typer.Option(
+                None, "--toolchain",
+                help="Also install this toolchain: "
+                     + " | ".join(selection.toolchain_keys()) + ". Repeatable."),
+            no_gpu: bool = typer.Option(
+                False, "--no-gpu", help="Skip the toolkit for this machine's GPU."),
+        ) -> None:
+            """Provision what this module needs to build, then report readiness."""
+            bind_console(module.console)
+            raise typer.Exit(_run_setup(module, dry_run=dry_run, yes=yes,
+                                        toolchains=toolchain or (), gpu=not no_gpu))
+
+    @command()
     def doctor(
         for_group: Optional[str] = typer.Option(
             None, "--for", help="Restrict the report to one check group."),
@@ -177,7 +277,10 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         groups = {for_group} if for_group else None
         raise typer.Exit(_run_doctor(module, groups))
 
-    @app.command()
+    if binary:
+        return
+
+    @command()
     def link(
         workspace: Optional[Path] = typer.Option(
             None, "--workspace", help="Workspace root to register this module in."),
@@ -198,7 +301,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         write_module(target, module.profile.key, root)
         console.success(f"Linked {module.profile.name} into {target}.")
 
-    @app.command()
+    @command()
     def unlink(
         workspace: Optional[Path] = typer.Option(
             None, "--workspace", help="Workspace root to remove this module from."),

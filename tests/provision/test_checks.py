@@ -120,3 +120,12 @@ def test_capability_check_passes_when_nothing_is_declared():
     """Check that capability check passes when nothing is declared."""
     result = checks.capability_check(_FixedSource([]), {}, "sd setup").run()
     assert (result.state, result.detail) == (State.OK, "no toolchain declared")
+
+
+def test_capability_check_names_a_lone_toolchain_once():
+    """Check that capability check names a lone toolchain once."""
+    source = _FixedSource([Dependency(name="intel-llvm", owner="sushidsp")])
+    assert checks.capability_check(source, {"intel-llvm": True}, "sd setup").run().detail == (
+        "intel-llvm")
+    assert checks.capability_check(source, {}, "sd setup").run().detail == (
+        "intel-llvm is not installed")

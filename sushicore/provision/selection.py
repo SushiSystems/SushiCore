@@ -56,7 +56,8 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
         source: The declared dependencies.
         present: Toolchain key to whether the machine already has it.
         requested: Keys to install whatever the machine has.
-        gpu: Whether the run provisions the detected GPU's toolkit.
+        gpu: Whether the run may provision the detected GPU's toolkit; it does only
+            when some declared dependency is ``gpu_only``.
 
     Raises:
         ValueError: *requested* holds a key no component carries.
@@ -69,5 +70,5 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
               if not any(present.get(member) for member in members)}
     chosen.update(requested)
     values = {_FIELD[key]: True for key in chosen}
-    values[_FIELD[GPU_KEY]] = gpu
+    values[_FIELD[GPU_KEY]] = gpu and any(dep.gpu_only for dep in source.all())
     return ToolchainSelection(**values)

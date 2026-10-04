@@ -312,7 +312,7 @@ Acceptance: suite green, and `python -c "from sushicore.provision.manifests impo
   - `groups(source: IDependencySource) -> dict[str, list[str]]`: the declared toolchain keys by capability, both in declaration order.
   - `derive(source: IDependencySource, present: Mapping[str, bool], *, requested: Sequence[str] = (), gpu: bool = True) -> ToolchainSelection`. Raises `ValueError` naming the valid keys when `requested` holds an unknown one.
 
-The rule: declared toolchain components are grouped by their `provides` tag, a component with none forming a group of its own. A group with a present member turns nothing on. Otherwise its first declared member turns on. Each requested key turns on. `gpu` is passed through.
+The rule: declared toolchain components are grouped by their `provides` tag, a component with none forming a group of its own. A group with a present member turns nothing on. Otherwise its first declared member turns on. Each requested key turns on. The GPU component turns on when `gpu` is true and some declared dependency is `gpu_only`.
 
 - [ ] **Step 1: Failing tests:**
 
