@@ -15,6 +15,10 @@ the "Command line" section of each repository's `docs/agent/2026_10_05_ESTATE_AU
 | D2 | The container command is `container` on every CLI |
 | D3 | A renamed command or flag keeps its old spelling as a hidden alias that names the new one |
 | D4 | Every CLI gets `--version` and `--describe`; the `--json` event stream stays with `hub` |
+| D5 | `run` means "run a built executable by name" on every CLI; an application is launched by a command named after it (`se editor`, `se player`, `sd host`) |
+| D6 | `build`, `test`, `run` and `clean` stay in each CLI; sushicore does not take them |
+| D7 | `hub install`, `doctor`, `link` and `remove` keep their names; they are not the module CLIs' commands |
+| D8 | `se` is not deferred; the owner's uncommitted files are left uncommitted |
 
 `se` already has D1 to D3 with a dated alias table (`sushiengine/cli/sushiengine/aliases.py`).
 Its mechanism and its date, 2027-03-25, are taken over for the other CLIs, so the hidden
@@ -59,15 +63,15 @@ Specific to one CLI:
 | `sd` | Gains `clean` and `test --filter/-f`; `build -D` reaches an already configured tree |
 | `st` | `-D` stops meaning `--deploy`; it stays as a hidden flag that announces `--deploy` |
 | `hub` | Takes the catalogue from sushicore and adds `--version`; account and keyring failures derive from `SushiCoreError`; "not inside a workspace" is an error class, not `SystemExit(message)`; the `verify` step's broken import is fixed; under `--json` a failure still ends in one `result` event |
-| `se` | Deferred: its working tree holds the owner's uncommitted work. It already has D1 to D3 and `--version`; it adopts the sushicore bricks and `--describe` afterwards |
+| `sd` | `sd host` builds and launches the host GUI with `--type`, `--no-run` and arguments after `--`; `sd run [TARGET]` runs any built executable as its siblings do; `sd run` with no target keeps launching the host GUI until 2027-03-25 and announces `sd host` |
+| `se` | Already has D1 to D3 and `--version`. It drops its own alias mechanism for sushicore's, gains `--describe`, takes `config` and `env` from the brick and gets the entry point. Paths the owner had modified before this work are not edited |
 
 ## Not in this programme
 
-- Renaming `hub install`, `hub doctor`, `hub link` and `hub remove` to match the module CLIs'
-  `setup`, `doctor`, `link`, `unlink`. They do different work at workspace level; whether they
-  share names is the owner's decision.
-- Moving `build`, `test`, `run` and `clean` into sushicore. Their options differ per module for
-  real reasons (`--distributed`, `--backend`, `--asan`); only the names are held equal.
+- Renaming `hub install`, `hub doctor`, `hub link` and `hub remove` (D7).
+- Moving `build`, `test`, `run` and `clean` into sushicore (D6). Their options differ per
+  module for real reasons (`--distributed`, `--backend`, `--asan`); the names and what `run`
+  means are held equal.
 - The `--json` event stream on module CLIs, and wrapping child process output into it.
 - Any version number, tag or release.
 
