@@ -10,8 +10,7 @@ and hygiene, Code for Code shape. Work that is not a defect is in
 
 | Issue | Where | Finding |
 | --- | --- | --- |
-| Versions 0.5.0, 0.6.0 and 0.7.0 were never tagged or published; PyPI carries 0.4.0 while seven CLIs require `sushicore>=0.7.0` | `pyproject.toml`, git tags | Lay L1 |
-| Commits landed after the 0.7.0 release commit `c6d5f55` without a version change, so 0.7.0 names more than one tree | `pyproject.toml`, git history | Lay L4 |
+| Versions 0.5.0 and 0.6.0 were never tagged or published; PyPI goes from 0.4.0 to 0.7.0 | `pyproject.toml`, git tags | Lay L1 |
 | `release.yml` publishes on a tag without running the tests or the checkers | `.github/workflows/release.yml` | Lay L7 |
 | `ci.yml` runs no checker | `.github/workflows/ci.yml` | Lay L6 |
 
