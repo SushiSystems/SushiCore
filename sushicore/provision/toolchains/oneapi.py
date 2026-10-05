@@ -12,6 +12,7 @@ import typing
 from pathlib import Path
 
 from .._output import console
+from ..download_verifier import verify_download
 
 if typing.TYPE_CHECKING:
     from ..pipeline import InstallContext
@@ -58,15 +59,20 @@ def download_oneapi_installer() -> Path | None:
 
     Returns:
         The downloaded (or already-present) installer path, or None on failure.
+
+    Raises:
+        DigestMismatchError: The installer's SHA-256 is not the one its manifest entry
+            pins, whether it was downloaded now or left by an earlier run.
     """
     installer = Path.home() / "intel-oneapi-toolkit-offline.exe"
-    if installer.is_file():
-        return installer
-    console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
-    dl_rc = subprocess.run(["curl", "-L", "-o", str(installer), _ONEAPI_URL]).returncode
-    if dl_rc != 0:
-        console.error("Failed to download Intel oneAPI installer.")
-        return None
+    if not installer.is_file():
+        console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
+        dl_rc = subprocess.run(
+            ["curl", "-L", "-o", str(installer), _ONEAPI_URL]).returncode
+        if dl_rc != 0:
+            console.error("Failed to download Intel oneAPI installer.")
+            return None
+    verify_download("oneapi", installer)
     return installer
 
 

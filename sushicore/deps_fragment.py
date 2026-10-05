@@ -10,6 +10,7 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `deps_fragment`.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
@@ -26,6 +27,12 @@ MODULE_TABLE = "module"
 
 #: The platform string that selects the vcpkg column; anything else selects apt.
 WINDOWS = "windows"
+
+#: The platforms a ``sha256`` table may pin a download for.
+K_DIGEST_PLATFORMS = (WINDOWS, "linux")
+
+#: The shape of a SHA-256 written as hex.
+K_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
 class Status(str, Enum):
@@ -51,10 +58,16 @@ class Dependency:
     windows_vcpkg: list[str] = field(default_factory=list)
     check_cmd: list[str] = field(default_factory=list)
     provides: str = ""
+    #: Platform to the lower-case hex SHA-256 of the file downloaded for it there.
+    sha256: dict[str, str] = field(default_factory=dict)
 
     def packages_for(self, platform: str) -> list[str]:
         """Package names for *platform*: the vcpkg ports on Windows, apt elsewhere."""
         return self.windows_vcpkg if platform == WINDOWS else self.linux_apt
+
+    def digest_for(self, platform: str) -> str:
+        """Return the SHA-256 pinned for the *platform* download, or '' when none is."""
+        return self.sha256.get(platform, "")
 
 
 @dataclass(frozen=True)
@@ -79,6 +92,7 @@ def read(path: Path) -> Fragment:
         ValueError: A top-level key holds something other than a table. An array
             of ``[[dependency]]`` tables reads as a list here, and skipping it is
             how a fragment goes unread; the shape is named rather than ignored.
+            Or an entry's ``sha256`` is not a table of platform to hex digest.
     """
     with path.open("rb") as handle:
         document = tomllib.load(handle)
@@ -103,8 +117,34 @@ def read(path: Path) -> Fragment:
             windows_vcpkg=[str(p) for p in table.get("windows_vcpkg", [])],
             check_cmd=[str(part) for part in table.get("check_cmd", [])],
             provides=str(table.get("provides", "")),
+            sha256=_read_digests(path, name, table.get("sha256", {})),
         ))
     return Fragment(dependencies, depends_on)
+
+
+def _read_digests(path: Path, name: str, value: object) -> dict[str, str]:
+    """Return the ``sha256`` table of the entry *name* with each digest in lower case.
+
+    Raises:
+        ValueError: *value* is not a table, names a platform outside
+            :data:`K_DIGEST_PLATFORMS`, or holds something other than 64 hex digits.
+    """
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"{path}: sha256 of '{name}' is a {type(value).__name__}, and it is a table "
+            f"of platform to digest, such as {{ windows = \"<64 hex digits>\" }}.")
+    digests: dict[str, str] = {}
+    for platform, digest in value.items():
+        if platform not in K_DIGEST_PLATFORMS:
+            raise ValueError(
+                f"{path}: sha256 of '{name}' names the platform '{platform}'; "
+                f"the platforms are {', '.join(K_DIGEST_PLATFORMS)}.")
+        if not isinstance(digest, str) or not K_SHA256_HEX.fullmatch(digest.lower()):
+            raise ValueError(
+                f"{path}: sha256 of '{name}' for {platform} is {digest!r}, "
+                f"and a SHA-256 is 64 hex digits.")
+        digests[platform] = digest.lower()
+    return digests
 
 
 def status(dep: Dependency, platform: str) -> Status:

@@ -35,3 +35,15 @@ def test_same_named_deps_merge_across_files(tmp_path, recording_console):
     (dep,) = TomlDependencySource([(a, SHARED_OWNER), (b, "m")]).all()
     assert dep.required is True
     assert dep.linux_apt == ["p1", "p2"]
+
+
+def test_digests_returns_the_pins_for_one_platform(tmp_path, recording_console):
+    """Check that digests names each pinned dependency of a platform and leaves out the rest."""
+    digest = "3f" * 32
+    mine = _write(tmp_path / "mine.deps.toml",
+                  f'[cmake]\nsha256 = {{ windows = "{digest}" }}\n'
+                  '[ninja]\ndescription = "unpinned"\n')
+    source = TomlDependencySource([(mine, SHARED_OWNER)])
+
+    assert source.digests("windows") == {"cmake": digest}
+    assert source.digests("linux") == {}

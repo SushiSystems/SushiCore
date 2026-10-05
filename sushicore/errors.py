@@ -11,6 +11,8 @@ that derives from it reaches the user as a message and anything else stays a tra
 
 from __future__ import annotations
 
+from pathlib import Path
+
 
 class SushiCoreError(Exception):
     """Reports a failure the user can act on, as opposed to a defect in the CLI."""
@@ -18,3 +20,16 @@ class SushiCoreError(Exception):
 
 class ConfigError(SushiCoreError, ValueError):
     """Reports a configuration file or value that cannot be used."""
+
+
+class DigestMismatchError(SushiCoreError):
+    """Reports a downloaded file whose SHA-256 is not the one its manifest entry pins."""
+
+    def __init__(self, path: Path, expected: str, actual: str) -> None:
+        """Store the file and both digests, and name all three in the message."""
+        super().__init__(
+            f"{path} has SHA-256 {actual}, and the dependency manifest pins {expected}. "
+            f"The file was not opened or run, and the install stopped.")
+        self.path = path
+        self.expected = expected
+        self.actual = actual

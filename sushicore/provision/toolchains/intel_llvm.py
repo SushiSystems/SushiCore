@@ -13,7 +13,10 @@ import tempfile
 import typing
 from pathlib import Path
 
+from sushicore.errors import DigestMismatchError
+
 from .._output import console
+from ..download_verifier import verify_download
 from ..packages import download, gh_latest_release_asset
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
@@ -35,6 +38,9 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
 
     Returns:
         The bundle root on success, None when it could not be installed.
+
+    Raises:
+        DigestMismatchError: The bundle's SHA-256 is not the one its manifest entry pins.
     """
     root = toolchains_dir() / "llvm-sycl"
     clang = root / "bin" / ("clang++.exe" if cfg.is_windows else "clang++")
@@ -77,7 +83,10 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         try:
             console.info(f"Downloading intel/llvm SYCL bundle {tag} (~300-500 MB) ...")
             download(url, archive)
+            verify_download("intel-llvm", archive)
             _extract_tar_gz(archive, root)
+        except DigestMismatchError:
+            raise
         except Exception as exc:
             console.error(f"intel/llvm bundle install failed: {exc}")
             # Only wipe a tree this call was creating; a refresh leaves the prior install intact.

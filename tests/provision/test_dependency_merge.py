@@ -90,3 +90,34 @@ def test_the_aggregation_keeps_the_feature_across_two_fragments(tmp_path, record
     assert by_name["sdl2"].windows_vcpkg == ["sdl2[vulkan]"]
     assert by_name["sdl2"].required is True
     assert by_name["sdl2"].owner == "sushidsp"
+
+
+K_DIGEST = "3f" * 32
+K_OTHER_DIGEST = "a0" * 32
+
+
+def test_a_digest_declared_by_one_module_survives():
+    """A module that pins nothing does not unpin what another module pinned."""
+    merged, warning = _merge(_dep("a"), _dep("b", sha256={"windows": K_DIGEST}))
+
+    assert merged.sha256 == {"windows": K_DIGEST}
+    assert warning == ""
+
+
+def test_digests_for_different_platforms_are_both_kept():
+    """Two modules pinning one platform each leave both platforms pinned."""
+    merged, warning = _merge(_dep("a", sha256={"windows": K_DIGEST}),
+                             _dep("b", sha256={"linux": K_OTHER_DIGEST}))
+
+    assert merged.sha256 == {"windows": K_DIGEST, "linux": K_OTHER_DIGEST}
+    assert warning == ""
+
+
+def test_two_different_digests_for_one_platform_are_reported():
+    """Two pins for one file cannot both hold, so the one used is named."""
+    merged, warning = _merge(_dep("a", sha256={"windows": K_DIGEST}),
+                             _dep("b", sha256={"windows": K_OTHER_DIGEST}))
+
+    assert merged.sha256 == {"windows": K_DIGEST}
+    assert "sha256" in warning
+    assert "a" in warning and "b" in warning

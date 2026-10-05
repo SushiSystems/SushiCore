@@ -28,6 +28,7 @@ from . import home, manifests, probe, selection
 from ._output import bind_console
 from .checks import (
     capability_check,
+    digest_check,
     fragment_check,
     modules_check,
     python_check,
@@ -147,7 +148,8 @@ def _checks(module: ModuleProvision, cfg: ProvisionConfig, source: IDependencySo
                capability_check(source, _present_toolchains(cfg), fix),
                fragment_check(source, cfg.platform, False, fix,
                               held_by_managers(managers, cfg.platform)),
-               stamp_check(home.root())]
+               stamp_check(home.root()),
+               digest_check(source, cfg.platform)]
             + module.extra_checks())
 
 

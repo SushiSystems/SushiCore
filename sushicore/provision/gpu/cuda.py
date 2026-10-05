@@ -17,6 +17,7 @@ import typing
 
 from .. import probe
 from .._output import console
+from ..download_verifier import verify_download
 from ..system import is_root, os_release, sudo_bash
 from .backend import GpuBackendSpec, PlatformLocator, ToolkitInstall
 from .windows_installer import (
@@ -163,6 +164,10 @@ class WindowsCudaLocator:
 
         Always returns True: a failed download, a declined UAC prompt or a failed
         install leaves the CPU path working.
+
+        Raises:
+            DigestMismatchError: The installer's SHA-256 is not the one its manifest
+                entry pins.
         """
         found = self.locate(cfg)
         if found is not None:
@@ -180,6 +185,7 @@ class WindowsCudaLocator:
             console.warn(f"CUDA toolkit not installed: {_WINDOWS_INSTALLER.file_name} "
                          "could not be downloaded and verified. " + _MANUAL_HINT)
             return True
+        verify_download("cuda", downloaded)
         console.info("Installing the CUDA 12.6 compiler, runtime and libraries. Windows "
                      "will ask once for administrator rights.")
         console.command(subprocess.list2cmdline(command))

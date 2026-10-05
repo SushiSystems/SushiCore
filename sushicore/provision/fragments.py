@@ -65,6 +65,9 @@ def _merge(existing: Dependency, incoming: Dependency) -> tuple[Dependency, str]
         one, two = getattr(existing, field), getattr(incoming, field)
         if one and two and one != two:
             lost.append(field)
+    if any(existing.sha256.get(platform, digest) != digest
+           for platform, digest in incoming.sha256.items()):
+        lost.append("sha256")
     owner = existing.owner
     if incoming.required and not existing.required:
         owner = incoming.owner
@@ -78,6 +81,7 @@ def _merge(existing: Dependency, incoming: Dependency) -> tuple[Dependency, str]
         windows_vcpkg=_merge_ports(existing.windows_vcpkg, incoming.windows_vcpkg),
         check_cmd=existing.check_cmd or incoming.check_cmd,
         provides=existing.provides or incoming.provides,
+        sha256={**incoming.sha256, **existing.sha256},
     )
     if not lost:
         return merged, ""
@@ -97,6 +101,11 @@ class IDependencySource(ABC):
     def depends_on(self, owner: str) -> list[str]:
         """Return the owners the given owner directly builds on; empty unless overridden."""
         return []
+
+    def digests(self, platform: str) -> dict[str, str]:
+        """Return each dependency's name mapped to the SHA-256 it pins for *platform*."""
+        return {dep.name: dep.digest_for(platform) for dep in self.all()
+                if dep.digest_for(platform)}
 
     def selected(self, platform: str, gpu: bool) -> list[Dependency]:
         """Return the dependencies relevant to this platform/GPU choice with packages."""

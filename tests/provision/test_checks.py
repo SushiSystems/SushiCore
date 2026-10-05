@@ -156,3 +156,33 @@ def test_fragment_check_fails_a_dependency_no_package_manager_reports():
                                    installed=lambda dep: False).run()
     assert result.state is State.FAIL
     assert "hwloc" in result.detail
+
+
+def test_digest_check_warns_and_lists_every_unpinned_download():
+    """Check that doctor names each download this platform would fetch unverified."""
+    source = _FixedSource([Dependency(name="intel-llvm")])
+    check = checks.digest_check(source, "windows")
+    result = check.run()
+
+    assert result.state is State.WARN
+    for name in ("cmake", "ninja", "doxygen", "git", "intel-llvm"):
+        assert name in result.detail
+    assert "oneapi" not in result.detail
+    assert "sha256" in result.fix
+    assert check.required is False
+
+
+def test_digest_check_passes_when_every_download_is_pinned():
+    """Check that doctor reports nothing to pin once each download carries a digest."""
+    pin = {"windows": "3f" * 32}
+    names = ("cmake", "ninja", "doxygen", "git", "intel-llvm")
+    source = _FixedSource([Dependency(name=name, sha256=pin) for name in names])
+
+    assert checks.digest_check(source, "windows").run().state is State.OK
+
+
+def test_digest_check_passes_where_nothing_is_downloaded():
+    """Check that a platform fetching nothing directly has nothing unpinned."""
+    source = _FixedSource([Dependency(name="hwloc")])
+
+    assert checks.digest_check(source, "linux").run().state is State.OK

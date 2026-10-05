@@ -16,6 +16,8 @@ them. The designs are [`docs/design/PROVISION.md`](../../docs/design/PROVISION.m
 | `closure.py` | Follows a fragment's `depends_on` to each module's checkout |
 | `selection.py` | Decides which toolchain components a run installs |
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
+| `integrity.py` | Compares a file's SHA-256 with an expected digest |
+| `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
@@ -84,6 +86,54 @@ oneAPI installs system-wide, outside the dependency tree. `probe.py` therefore t
 probe the active-compiler row uses, `find_sycl_compiler`, so an `icx-cl` or `icpx` that a glob
 discovered counts as installed.
 
+## Verifying downloads
+
+A fragment entry pins the SHA-256 of the file an installer downloads for it, per platform, in
+its `sha256` key. The key, and the table of which entry pins which file, are in
+[`docs/reference/DEPENDENCY_FRAGMENT.md`](../../docs/reference/DEPENDENCY_FRAGMENT.md).
+
+`integrity.verify_sha256(path, expected)` is the comparison. It raises
+`sushicore.errors.DigestMismatchError`, which names the file, the expected digest and the one
+found.
+
+Three kinds of download are covered: an archive or installer fetched by
+`direct_download.download`, the oneAPI installer that curl writes to a file on Windows, and the
+Windows CUDA installer fetched by the GPU installer downloader. Each of those sites calls
+`download_verifier.verify_download(name, path)` after the download and before it extracts or
+runs the file. `name` is the fragment entry: `cmake`, `ninja`, `doxygen`, `git`, `intel-llvm`,
+`adaptivecpp`, `oneapi` or `cuda`.
+
+A download that happens inside a shell pipeline, and a git clone, are not verified. On Linux
+that includes the CUDA keyring package, which `gpu/cuda.py` fetches with curl and installs with
+`dpkg` as root. The full list is in
+[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md), under "Installing
+third-party software".
+
+The call
+goes to the `DownloadVerifier` bound for the run. `InstallDepsStep.run` binds one built from
+`IDependencySource.digests(platform)` and unbinds it when the step ends, so `hub install` and a
+module's `setup` verify against the fragments they read without passing anything down. An
+installer called outside that step meets a verifier that pins nothing.
+
+The verifier is bound at module level, the way `bind_console` and `home.bind_root` are. The
+download sites sit under `IPackageManager.install`, `install_gpu_stack` and the toolchain
+functions, and none of those carries the run's fragments.
+
+A file whose digest differs is deleted, and nothing between the installer and
+`InstallPipeline.run` catches the error, so the install stops there. `sushicore.entry.run`
+prints the message and exits 1. The installers catch `Exception` around their downloads and
+re-raise this one error first.
+
+A download whose entry pins no digest for the platform is used as before. The verifier logs one
+warning per entry on the `sushicore.provision` logger and keeps the names in `unverified()`.
+`doctor` has a `download digests` row from `checks.digest_check`: it warns and lists the entries
+a run on this platform would download with no pin. `K_TOOL_DOWNLOADS` holds the entries Windows
+fetches whatever the fragments say, and `K_DECLARED_DOWNLOADS` those fetched only when a
+fragment declares them.
+
+`gpu/windows_installer.py` also compares the Windows CUDA installer with the MD5 NVIDIA
+publishes.
+
 ## The commands
 
 ### `setup`
@@ -107,14 +157,14 @@ declared dependency is `gpu_only` and a card is detected.
 | Exit code | When |
 | --- | --- |
 | 0 | Everything installed and no required check failed |
-| 1 | `depends_on` forms a cycle, the lock timed out, a step failed, or a required check failed |
+| 1 | `depends_on` forms a cycle, the lock timed out, a step failed, a download did not match its pinned SHA-256, or a required check failed |
 | 2 | A module named in `depends_on` has no checkout, or `--toolchain` names an unknown toolchain |
 
 ### `doctor`
 
 Checks the build tools, the checkouts of the modules this one builds on, the toolchain
-capabilities, the fragments and the toolchain stamps, then the module's own checks. `--for GROUP`
-restricts the report to one group: `build`, `test`, `infer` or `eval`.
+capabilities, the fragments, the toolchain stamps and the download digests, then the module's
+own checks. `--for GROUP` restricts the report to one group: `build`, `test`, `infer` or `eval`.
 
 | Exit code | When |
 | --- | --- |

@@ -17,6 +17,7 @@ from rich.markup import escape
 
 from . import home, probe
 from ._output import console
+from .download_verifier import DownloadVerifier, bind_verifier
 from .fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
 from .gpu.adapter_builder import AdapterBuilder, SubprocessCommandRunner
 from .gpu.provisioning import provision_gpu_adapters
@@ -395,10 +396,18 @@ class InstallDepsStep(Step):
         return None
 
     def run(self, ctx: InstallContext) -> StepResult:
-        """Dispatch to the Linux or Windows install routine for this platform."""
-        if ctx.cfg.platform == "windows":
-            return self._run_windows(ctx)
-        return self._run_linux(ctx)
+        """Run the install routine of this platform with the fragments' digests bound.
+
+        Raises:
+            DigestMismatchError: A download's SHA-256 is not the one its entry pins.
+        """
+        bind_verifier(DownloadVerifier(self._source.digests(ctx.cfg.platform)))
+        try:
+            if ctx.cfg.platform == "windows":
+                return self._run_windows(ctx)
+            return self._run_linux(ctx)
+        finally:
+            bind_verifier(None)
 
     def _install_toolchains(self, ctx: InstallContext,
                             mgr: IPackageManager | None,

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-05 — provision: Verified the archives and installers fetched by `download`, curl to a file or the GPU installer downloader against their pinned SHA-256 and stopped on a mismatch (`integrity.py`, `download_verifier.py`).
+- 2026-10-05 — provision: Added the optional `sha256` key to a fragment entry (`sushicore/deps_fragment.py`, `sushicore/provision/fragments.py`, `docs/reference/DEPENDENCY_FRAGMENT.md`).
+- 2026-10-05 — provision: Warned once per download with no pinned digest and listed them in doctor's `download digests` row (`DownloadVerifier`, `digest_check`).
 - 2026-10-05 — sushicore: Logged the registry, cache, probe, os-release, cleanup and stream failures that were dropped and stopped catching defects with them (`sushicore/provision/`, `build_env.py`, `renderer.py`).
 - 2026-10-05 — docs: Moved the design reasoning out of source comments and module docstrings into the manual (`docs/architecture/OVERVIEW.md`, `sushicore/provision/README.md`, `sushicore/`, `tests/`).
 - 2026-10-05 — docs: Built the documentation tree, split the manual out of the two front doors, archived finished agent work and added the checkers (`docs/`, `tools/`, `README.md`, `sushicore/provision/README.md`).
