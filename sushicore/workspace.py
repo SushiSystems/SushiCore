@@ -22,6 +22,8 @@ import re
 from pathlib import Path
 from typing import Callable, Iterable
 
+from .errors import ConfigError, SushiCoreError
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:  # Python 3.10 fallback
@@ -45,11 +47,17 @@ def workspace_file(root: Path) -> Path:
 
 
 def read_toml(path: Path) -> dict:
-    """Parse a TOML file, or return ``{}`` when it does not exist."""
+    """Parse a TOML file, or return ``{}`` when it does not exist.
+
+    @throws ConfigError When the file is not valid TOML.
+    """
     if not path.is_file():
         return {}
-    with path.open("rb") as fh:
-        return tomllib.load(fh)
+    try:
+        with path.open("rb") as fh:
+            return tomllib.load(fh)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{path}: {exc}") from exc
 
 
 def walk_up(start: Path, predicate: Callable[[Path], bool]) -> Path | None:
@@ -192,7 +200,7 @@ _LOCAL_CONFIG = "config.local.toml"
 _LINK_HEADER_RE = re.compile(r"^\s*\[\s*" + LINK_SECTION + r"\s*\]\s*(#.*)?$")
 
 
-class LinkEditError(ValueError):
+class LinkEditError(SushiCoreError, ValueError):
     """Raised when the link pointer cannot be edited without corrupting the file."""
 
 

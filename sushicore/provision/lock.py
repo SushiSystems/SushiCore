@@ -12,6 +12,8 @@ import sys
 import time
 from pathlib import Path
 
+from ..errors import SushiCoreError
+
 if sys.platform == "win32":
     import msvcrt
 else:
@@ -24,7 +26,7 @@ _UNKNOWN_HOLDER = "unknown"
 _LOCK_BYTE = 1 << 20
 
 
-class LockTimeout(Exception):
+class LockTimeout(SushiCoreError):
     """Raised when a lock is not acquired before its timeout elapses."""
 
 

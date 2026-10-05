@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
 
+from .errors import ConfigError
+
 
 @dataclass(frozen=True)
 class Theme:
@@ -111,7 +113,7 @@ def get_theme(name: str) -> Theme:
         return _THEME_PRESETS[name]
     except KeyError:
         known = ", ".join(sorted(_THEME_PRESETS))
-        raise ValueError(f"Unknown CLI theme '{name}'. Known themes: {known}") from None
+        raise ConfigError(f"Unknown CLI theme '{name}'. Known themes: {known}") from None
 
 
 def known_themes() -> tuple[str, ...]:
