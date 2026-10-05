@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-05 — provision: Fixed the adapter build stopping with a TypeError when the probe found clang (`provision_adapters_for_run`, `sushicore/provision/steps.py`).
 - 2026-10-05 — provision: Verified the archives and installers fetched by `download`, curl to a file or the GPU installer downloader against their pinned SHA-256 and stopped on a mismatch (`integrity.py`, `download_verifier.py`).
 - 2026-10-05 — provision: Added the optional `sha256` key to a fragment entry (`sushicore/deps_fragment.py`, `sushicore/provision/fragments.py`, `docs/reference/DEPENDENCY_FRAGMENT.md`).
 - 2026-10-05 — provision: Warned once per download with no pinned digest and listed them in doctor's `download digests` row (`DownloadVerifier`, `digest_check`).
