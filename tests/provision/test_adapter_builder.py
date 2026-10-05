@@ -517,3 +517,37 @@ def test_default_work_root_follows_the_dependency_root(provision_home, recording
     builder = AdapterBuilder(cfg=cfg, runner=_MissingExecutableRunner())
 
     assert builder.work_root == provision_home.resolve() / "ur"
+
+
+
+def test_a_previous_binary_that_cannot_be_removed_is_recorded(
+        tmp_path, short_work_root, monkeypatch, recording_console, caplog):
+    """Check that a leftover ``.previous`` copy is logged and the install still succeeds."""
+    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
+    toolchain_root = tmp_path / "llvm-sycl"
+    bin_dir = toolchain_root / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "ur_adapter_fake.dll").write_bytes(b"old")
+    runner = _FakeRunner(_build_dir_for(short_work_root), ["ur_adapter_fake.dll"])
+    builder = AdapterBuilder(cfg=_windows_cfg(), runner=runner, work_root=short_work_root,
+                             environment=lambda cfg: {})
+
+    real_unlink = Path.unlink
+
+    def locked_unlink(self, *args, **kwargs):
+        """Refuse to delete a ``.previous`` copy and delete anything else."""
+        if self.name.endswith(".previous"):
+            raise PermissionError(13, "file is in use", str(self))
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+
+    with caplog.at_level("WARNING", logger="sushicore.provision"):
+        result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
+
+    warnings = [r.getMessage() for r in caplog.records
+                if r.name == "sushicore.provision" and r.levelname == "WARNING"]
+    assert result is True
+    assert (bin_dir / "ur_adapter_fake.dll").read_bytes() == b"fake"
+    assert len(warnings) == 1
+    assert "ur_adapter_fake.dll.previous" in warnings[0]

@@ -32,11 +32,7 @@ class Theme:
     cmd: str = "cyan"
     header: str = "bold #f0a500"
     panel_border: str = "red"
-    # The dashes either side of a `console.rule()` title (and, via Rich's
-    # theme-wide "rule.line" key, anything else that asks for that style).
-    # "default" means "the terminal's own foreground color" rather than a
-    # fixed color — it renders white on a dark terminal, black on a light
-    # one, instead of a color chosen without knowing the user's background.
+    # The dashes beside a rule title, in the terminal's own colour; docs/architecture/OVERVIEW.md.
     rule_line: str = "default"
     # Secondary text and the rule under a table header.
     muted: str = "dim"
@@ -57,11 +53,7 @@ class Theme:
             "header": self.header,
             "rule.line": self.rule_line,
             "muted": self.muted,
-            # rich.progress.Progress's built-in columns (SpinnerColumn,
-            # BarColumn, the [progress.*] TextColumn templates) read these
-            # theme keys directly — override them so `rich.progress.track()`
-            # and any bare `Progress(...)` in a downstream CLI is themed for
-            # free, with no call site changes.
+            # rich.progress reads these keys directly; see docs/architecture/OVERVIEW.md, theme.
             "bar.complete": self.header,
             "bar.finished": self.success,
             "bar.pulse": self.header,
@@ -72,12 +64,7 @@ class Theme:
         }
 
 
-# Lifted from sushiweb's palette (D:/Projects/sushiweb/src/styles/global.css):
-# near-monochrome (grey text on near-black/near-white) plus a single amber
-# accent (#f0a500), rather than the rainbow-of-hues terminal default. Semantic
-# colors are desaturated to sit alongside that accent instead of competing
-# with it; the accent itself is reused for both header rules and inline
-# commands, matching the site's one-accent-does-everything branding.
+# The sushiweb palette: grey text and one amber accent; see docs/architecture/OVERVIEW.md.
 _SUSHIWEB = Theme(
     info="bold #9a9a94",
     success="bold #6bbf59",

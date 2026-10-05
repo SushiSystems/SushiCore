@@ -38,11 +38,7 @@ def test_resolve_exe_reads_path_case_insensitively(tmp_path):
     exe.write_text("")
     exe.chmod(0o755)
     runner = Runner(_Recorder(), "sb")
-    # Case-insensitive compare, not just for the "Path"/"PATH" key this test is
-    # named for: shutil.which on Windows appends the extension exactly as
-    # PATHEXT spells it ('.EXE' by default), regardless of the on-disk file's
-    # own casing ('tool.exe'), so an exact string compare fails here even
-    # though resolution found the right file.
+    # shutil.which spells the extension as PATHEXT does; see docs/architecture/OVERVIEW.md, proc.
     assert runner.resolve_exe("tool", {"Path": str(tmp_path)}).lower() == str(exe).lower()
 
 

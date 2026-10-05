@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -22,6 +23,8 @@ from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commi
 if typing.TYPE_CHECKING:
     from .backend import GpuBackendSpec, ToolkitInstall
     from ..config import ProvisionConfig
+
+K_LOGGER = logging.getLogger("sushicore.provision")
 
 #: Windows work_root paths beyond this length push fetched object paths past MAX_PATH.
 _MAX_WORK_ROOT_LENGTH = 60
@@ -332,8 +335,13 @@ class AdapterBuilder:
         for previous_copy in previous.values():
             try:
                 previous_copy.unlink()
-            except OSError:
-                pass
+            except OSError as error:
+                K_LOGGER.warning(
+                    "%s was not deleted after the install (%s: %s); the file stays on disk",
+                    previous_copy,
+                    type(error).__name__,
+                    error,
+                )
         return True
 
     def _undo_installs(self, installed: list[Path], previous: dict[Path, Path]) -> None:

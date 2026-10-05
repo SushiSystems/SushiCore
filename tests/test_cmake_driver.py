@@ -121,12 +121,7 @@ def test_reconfigure_when_an_expectation_is_violated(tmp_path):
                                   expect={"CMAKE_BUILD_TYPE": "Debug"}) is True
 
 
-# -- root: the stale-source-path check (comparison itself is cmake_cache's) -----
-#
-# test_cmake_cache.py already pins is_stale's own comparison (case/separator handling,
-# an unconfigured tree, etc.). These tests are about needs_configure's wiring of it: that
-# passing root turns the check on at all, that it warns when it fires, and that omitting
-# root -- what every call site did before this -- leaves an otherwise-fresh tree alone.
+# is_stale's comparison is pinned in test_cmake_cache.py; see docs/architecture/OVERVIEW.md.
 
 def test_root_mismatch_forces_reconfigure_and_warns(tmp_path):
     build_dir = tmp_path / "build"

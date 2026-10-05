@@ -3,17 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Shared build-tool config schema and load/write skeleton for the Sushi* CLIs.
+"""Declares the build-tool config the Sushi CLIs share, and loads and writes it.
 
-Every module CLI (`sr`, `se`, `hub`) shells out to the same host build tools —
-cmake, ninja, vcpkg, a vcvars batch on Windows — and so carries the same handful
-of tool-path fields plus the same layered-load and ``[tool]``-write skeleton.
-That generic part lives here as :class:`ToolConfig` and the two helpers below.
-
-This module deliberately knows nothing about SYCL, toolchains, or any module's
-compute schema: a CLI that provisions a SYCL toolchain subclasses ``ToolConfig``
-and adds those fields in its own repo. The split keeps the shared seam
-domain-agnostic while removing the tool-path duplication the three repos had.
+The reasoning is in docs/architecture/OVERVIEW.md, section `config_base`.
 """
 
 from __future__ import annotations
@@ -44,18 +36,13 @@ class ToolConfig:
     vcpkg_root: str = ""
     vs_vcvars: str = ""
     ninja_exe: str = ""
-    # cmake/ctest are resolved from PATH when empty. They are configurable because
-    # VS BuildTools does not ship the CMake component, so on Windows cmake commonly
-    # lives in a scoop/standalone install that is not on PATH.
+    # Resolved from PATH when empty; see docs/architecture/OVERVIEW.md, config_base.
     cmake_exe: str = ""
     ctest_exe: str = ""
-    # rc (resource compiler) is resolved from CMAKE_RC_COMPILER's own default when
-    # empty; configurable because clang-cl/intel-llvm toolchains often don't probe
-    # for rc.exe correctly on Windows.
+    # Resolved from CMAKE_RC_COMPILER's default when empty; see docs/architecture/OVERVIEW.md.
     rc_exe: str = ""
     pkgconf_exe: str = ""
-    # doxygen is resolved from PATH when empty; configurable because on Windows it
-    # commonly installs outside PATH (winget/choco shims or Program Files).
+    # Resolved from PATH when empty; see docs/architecture/OVERVIEW.md, config_base.
     doxygen_exe: str = ""
     vcpkg_triplet: str = "x64-windows"
 

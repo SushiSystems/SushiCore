@@ -3,20 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Finding a module's project root, and loading its layered config.
+"""Finds a module's project root and loads its layered config.
 
-Every Sushi* CLI is installed outside the repository it builds -- pip or pipx
-puts it in a venv -- so the package's own location says nothing about where the
-project lives. The invocation directory does. Each CLI therefore walks up from
-the cwd looking for one of its markers -- the checkout's marker file, or the
-release manifest an unpacked binary install carries -- then layers config.toml,
-the workspace-shared config.local.toml that ``hub install`` writes, and the repo's
-own config.local.toml, in that order.
-
-That is the same procedure five times over, differing only in the marker, the
-project's name in the error message, and the prefix on the environment
-overrides -- all three of which a :class:`~sushicore.profile.ModuleProfile`
-already states.
+The reasoning is in docs/architecture/OVERVIEW.md, section `module_config`.
 """
 
 from __future__ import annotations

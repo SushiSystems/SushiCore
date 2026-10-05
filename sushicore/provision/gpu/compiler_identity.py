@@ -12,8 +12,7 @@ import subprocess
 import typing
 from pathlib import Path
 
-#: Matches a clang version line naming the intel/llvm commit it was built from,
-#: e.g. "clang version 21.0.0git (https://github.com/intel/llvm d5f649b7...)".
+#: Matches the clang version line that names the intel/llvm commit the compiler was built from.
 _COMMIT_PATTERN = re.compile(
     r"clang version [^\s]+ \(https://github\.com/intel/llvm(?:\.git)? ([0-9a-f]{40})\)"
 )

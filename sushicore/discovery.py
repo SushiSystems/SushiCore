@@ -3,18 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Locate built executables under a build tree.
+"""Locates the built executables under a build tree.
 
-Every Sushi* CLI has to answer the same question -- "which of the files under
-``build/`` is a program I can run?" -- and every one of them answered it with
-its own copy of this walk. The copies drifted only in one place: which sibling
-directories to skip, because a module that builds a dependency in-tree must not
-offer that dependency's executables as its own.
-
-So the walk lives here and the skip list is the caller's, supplied once when it
-builds an :class:`ExecutableIndex`. Nothing else about the search is
-configurable, which is the point: `sr run`, `se run`, `sa run` and `sb run`
-should not be able to disagree about what counts as an executable.
+The reasoning is in docs/architecture/OVERVIEW.md, section `discovery`.
 """
 
 from __future__ import annotations
@@ -56,8 +47,7 @@ def _is_executable(path: Path) -> bool:
     name = path.name
     if name.startswith("."):
         return False
-    # *.so / *.so.1 style shared objects on Linux: the suffix check below misses
-    # the versioned ones, so match the substring.
+    # A versioned shared object such as libx.so.1 has no ".so" suffix; match the substring.
     if ".so" in name:
         return False
     if path.suffix.lower() in _SKIP_SUFFIXES:
@@ -118,8 +108,7 @@ class ExecutableIndex:
 
     def select(self, build_root: Path, console: ConsoleLike) -> Path | None:
         """Print a table of executables and prompt for one. None if there are none."""
-        # Imported here, not at module scope: `find`/`match` are used on every
-        # `run` and must not pay for rich's table machinery to be imported.
+        # Rich is imported here so find and match never pay for it; docs/architecture/OVERVIEW.md.
         from rich.prompt import IntPrompt
         from rich.table import Table
 

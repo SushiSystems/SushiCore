@@ -7,11 +7,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from pathlib import Path
 
 from sushicore.provision._output import console
+
+K_LOGGER = logging.getLogger("sushicore.provision")
 
 #: The User-Agent header every installer download and release lookup sends.
 USER_AGENT = "sushicore-installer"
@@ -40,8 +43,14 @@ def os_release() -> dict[str, str]:
             if "=" in line and not line.startswith("#"):
                 key, _, val = line.partition("=")
                 data[key.strip()] = val.strip().strip('"')
-    except OSError:
-        pass
+    except FileNotFoundError:
+        K_LOGGER.debug("/etc/os-release is absent; no distribution field is reported")
+    except OSError as error:
+        K_LOGGER.warning(
+            "/etc/os-release was not read (%s: %s); no distribution field is reported",
+            type(error).__name__,
+            error,
+        )
     return data
 
 

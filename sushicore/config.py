@@ -3,31 +3,10 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Layered appearance config: resolves *what* theme/icons/color-mode to use.
+"""Resolves the theme, icon set and colour mode from TOML files and the environment.
 
-Deliberately knows nothing about *how* a repo finds its own config directory
-— that discovery (walking up for a marker file, etc.) is repo-specific and
-stays in each CLI. This module only merges a list of TOML files the caller
-hands it, highest-precedence last, plus environment variables on top. That
-keeps one seam: every Sushi* CLI points this loader at its own
-``config.toml`` / ``config.local.toml`` and gets the same merge behavior.
-
-Schema (in any of the given TOML files)::
-
-    [cli]
-    theme = "default"      # preset name; see sushicore.theme
-    icons = "text"         # preset name; see sushicore.icons
-    color = "auto"         # auto | always | never
-    background = "auto"    # auto | dark | light
-
-    [cli.colors]           # optional partial override merged onto the preset
-    error = "bold red on white"
-
-    [cli.icon_overrides]   # optional partial override merged onto the icon preset
-    warn = "!!"
-
-    [cli.windows]          # optional platform-specific override (any of the
-    icons = "text"         # above keys), merged over the common [cli] table
+The reasoning is in docs/architecture/OVERVIEW.md, section `config`.
+The schema of the `[cli]` table is in docs/reference/CONFIGURATION.md.
 """
 
 from __future__ import annotations

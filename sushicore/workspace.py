@@ -3,16 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Shared, domain-agnostic config plumbing for the Sushi* developer CLIs.
+"""Locates a workspace and merges the layered TOML config the Sushi CLIs share.
 
-Every module CLI (`sr`, `se`, `hub`) resolves its config the same way — walk up
-for a marker file, merge a ``[tool]`` table with its ``[tool.<platform>]``
-override, then let ``PREFIX_*`` environment variables win. That plumbing used to
-be copy-pasted into each repo's ``config.py``; it lives here so there is one seam.
-
-This module knows nothing about SYCL, toolchains, or any module's schema. It only
-locates directories and merges TOML the caller hands it — each CLI keeps its own
-``Config`` dataclass and passes its markers, section name, and env-var map in.
+The reasoning is in docs/architecture/OVERVIEW.md, section `workspace`.
 """
 
 from __future__ import annotations
@@ -36,8 +29,7 @@ WORKSPACE_MARKER = ".sushistack"
 #: The one file inside the marker that holds what the workspace owns.
 WORKSPACE_FILE = "workspace.toml"
 
-#: Where `hub install` wrote the shared tool paths before 2026-09-22, relative to the root.
-#: Read as a fallback so a workspace that no `hub` command has upgraded yet still resolves.
+#: The shared tool paths of a workspace hub has not upgraded; see docs/architecture/OVERVIEW.md.
 LEGACY_SHARED_CONFIG = Path("sushihub") / "cli" / "config.local.toml"
 
 

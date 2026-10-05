@@ -3,24 +3,21 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Rendering backends.
+"""Declares the Renderer protocol and its Rich, plain and JSON backends.
 
-``Renderer`` is the seam the rest of the package depends on: the
-:class:`~sushicore.console.Console` facade only ever talks to this Protocol,
-never to Rich directly. Any object implementing its eight methods is a
-drop-in renderer. Three ship here: ``RichRenderer`` for a terminal,
-``PlainRenderer`` for markup-free text, and ``JsonRenderer`` for one event
-per line on stdout, the shape ``docs/agent/specs/2026-09-05-hub-design.md``
-section 7 fixes.
+The reasoning is in docs/architecture/OVERVIEW.md, section `renderer`.
 """
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import Protocol
 
 from .events import event_line
 from .theme import Theme
+
+K_LOGGER = logging.getLogger("sushicore.renderer")
 
 
 class Renderer(Protocol):
@@ -78,8 +75,12 @@ def _force_utf8_streams() -> None:
         if reconfigure is not None:
             try:
                 reconfigure(encoding="utf-8", errors="replace")
-            except (ValueError, OSError):
-                pass
+            except (ValueError, OSError) as error:
+                K_LOGGER.warning(
+                    "a standard stream was not switched to UTF-8 (%s: %s); it keeps its encoding",
+                    type(error).__name__,
+                    error,
+                )
 
 
 def _answer(raw: str | None, default: str | None) -> str:

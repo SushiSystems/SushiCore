@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import glob
+import logging
 import os
 import shutil
 import subprocess
@@ -16,6 +17,8 @@ from pathlib import Path
 
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
+
+K_LOGGER = logging.getLogger("sushicore.provision")
 
 # Common Windows install roots probed when a tool is not already on PATH.
 _VS_VCVARS_GLOBS = [
@@ -169,8 +172,7 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
     acpp_path = str(found_acpp) if found_acpp is not None else ""
     acpp_ok = bool(acpp_path) and binary_works(acpp_path)
 
-    # oneAPI installs system-wide (off the deps tree). Trust the same probe
-    # the active-compiler row uses so a glob-discovered icx-cl/icpx counts.
+    # oneAPI is system-wide; reuse the active-compiler probe. See sushicore/provision/README.md.
     active, _ = find_sycl_compiler(cfg)
     oneapi_bin = (_first_glob(_ICX_GLOBS) or shutil.which("icx-cl")
                   or shutil.which("icpx") or shutil.which("icx")
@@ -275,7 +277,12 @@ def _linux_display_adapters() -> str:
     try:
         out = subprocess.run(["lspci"], capture_output=True, text=True,
                              timeout=10).stdout.lower()
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as error:
+        K_LOGGER.warning(
+            "lspci did not run (%s: %s); no display adapter is reported",
+            type(error).__name__,
+            error,
+        )
         return ""
     return "\n".join(
         ln for ln in out.splitlines()
@@ -291,7 +298,12 @@ def _windows_display_adapters() -> str:
     try:
         return subprocess.run(cmd, capture_output=True, text=True,
                               timeout=30).stdout.lower()
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as error:
+        K_LOGGER.warning(
+            "the Win32_VideoController query did not run (%s: %s); no display adapter is reported",
+            type(error).__name__,
+            error,
+        )
         return ""
 
 
@@ -305,7 +317,13 @@ def binary_works(cmd: str) -> bool:
         if subprocess.run([cmd, "--version"], capture_output=True, timeout=15).returncode == 0:
             return True
         return subprocess.run([cmd, "-version"], capture_output=True, timeout=15).returncode == 0
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as error:
+        K_LOGGER.debug(
+            "%s did not run (%s: %s); it is reported as not working",
+            cmd,
+            type(error).__name__,
+            error,
+        )
         return False
 
 

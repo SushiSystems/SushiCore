@@ -3,27 +3,22 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Snapshotting the environment a build runs under.
+"""Snapshots the environment a build runs under and caches it on disk.
 
-A parent process cannot ``call vcvars64.bat`` and inherit the result: the batch
-file sets its variables in its own shell, which then exits. So the shell is run
-as a child, its environment is dumped and parsed, and that dictionary is handed
-to every cmake/ctest subprocess. The snapshot is cached on disk keyed by the
-configuration that produced it, so an unchanged config skips the shell entirely.
-
-The primitives below are the parts that are the same wherever this is done.
-:class:`StackBuildEnv` composes them the way a module that *consumes* the shared
-toolchain needs; SushiRuntime, which *selects* one, composes them itself.
+The reasoning is in docs/architecture/OVERVIEW.md, section `build_env`.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import subprocess
 from pathlib import Path
 from typing import Mapping, Sequence
+
+K_LOGGER = logging.getLogger("sushicore.build_env")
 
 
 def merge_env(base: Mapping[str, str], overlay: Mapping[str, str]) -> dict[str, str]:
@@ -57,12 +52,7 @@ def prepend_path(env: dict[str, str], var: str, dirs: Sequence[str]) -> None:
     env[key] = os.pathsep.join(list(dirs) + ([existing] if existing else []))
 
 
-#: Variables that pick which accelerator a program runs on. The snapshot dumps
-#: the whole environment of the shell that produced it, so anything exported for
-#: one debugging session would otherwise be frozen into the cache and replayed
-#: into every later build and run -- including from a fresh terminal, since the
-#: snapshot is merged over the current environment. These name a run-time choice,
-#: never a toolchain fact, so they are dropped on the way in and on the way out.
+#: Run-time accelerator choices no snapshot may carry; see docs/architecture/OVERVIEW.md.
 RUNTIME_DEVICE_VARS = frozenset({
     "ONEAPI_DEVICE_SELECTOR",
     "SYCL_DEVICE_FILTER",
@@ -146,8 +136,13 @@ def write_cache(cache_file: Path, key: str, env: Mapping[str, str]) -> None:
     """Store *env* under *key*. Failing to write is not failing to build."""
     try:
         cache_file.write_text(json.dumps({"key": key, "env": dict(env)}))
-    except OSError:
-        pass
+    except OSError as error:
+        K_LOGGER.warning(
+            "the environment snapshot was not cached at %s (%s: %s); the next build takes it again",
+            cache_file,
+            type(error).__name__,
+            error,
+        )
 
 
 class StackBuildEnv:
@@ -206,9 +201,7 @@ class StackBuildEnv:
             if not cfg.is_windows and (bundle / "lib").is_dir():
                 prepend_path(env, "LD_LIBRARY_PATH", [str(bundle / "lib")])
 
-        # On Windows the runtime DLL pulls in vcpkg-installed dependencies
-        # (hwloc), so the vcpkg installed bin must be on PATH for the runtime
-        # DLL to load.
+        # The runtime DLL needs vcpkg's bin on PATH on Windows; see docs/architecture/OVERVIEW.md.
         if cfg.is_windows:
             vcpkg = cfg.resolved_vcpkg(root)
             if vcpkg:

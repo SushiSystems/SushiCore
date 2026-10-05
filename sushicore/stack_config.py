@@ -3,17 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Toolchain resolution for a module that consumes the shared dependency tree.
+"""Resolves the toolchain of a module that consumes the shared dependency tree.
 
-SushiEngine, SushiAI and SushiBLAS are heads of the stack: they select no SYCL
-toolchain of their own, they consume the one ``setup`` or ``hub install``
-provisions into a dependency root. Resolving the compiler and vcpkg from those
-roots is identical work in all three, and each carried its own copy of it.
-
-SushiRuntime is deliberately not a subclass. It owns the bundle rather than
-consuming it, selects between toolchains (acpp / clang++ / icpx), and resolves
-deps with a different signature. Forcing it into this shape would mean bending
-the base class around a case it does not describe.
+The reasoning is in docs/architecture/OVERVIEW.md, section `stack_config`.
 """
 
 from __future__ import annotations

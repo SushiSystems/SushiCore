@@ -3,18 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""sushicore — shared foundation for the Sushi* developer CLIs: hub, sr, se, sa, sb, sd, st.
+"""Exports the public surface of sushicore and builds a console from layered config.
 
-Two things live here. A config-driven CLI presentation layer: :func:`build_console`
-assembles a :class:`Console` from layered TOML config + environment, using pluggable
-:mod:`~sushicore.theme` and :mod:`~sushicore.icons` presets rendered through a pluggable
-:mod:`~sushicore.renderer` backend. And the build machinery that decides what reaches a
-compiler in five of those repositories: :class:`~sushicore.proc.Runner` (spawning),
-:mod:`~sushicore.cmake_cache` (reading CMakeCache.txt), :class:`~sushicore.cmake_driver.CMakeDriver`
-(the cmake and ctest invocations) and :mod:`~sushicore.toolchain_args` (compiler and vcpkg
-prefix derivation). Each consumer's own ``services/project.py`` keeps its own build policy
-and calls into these. Each piece can be registered, overridden, or swapped independently —
-see the module docstrings for how.
+What the package holds is in docs/architecture/OVERVIEW.md, section `The package`.
 """
 
 from __future__ import annotations

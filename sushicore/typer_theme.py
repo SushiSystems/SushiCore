@@ -3,15 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Recolor Typer/Click's rich-powered ``--help`` screen to match the theme.
+"""Recolours the help screen Typer renders through Rich to match the theme.
 
-Typer (with ``rich_markup_mode="rich"``) renders ``--help`` through Rich, but
-not via a ``Theme`` object — it reads a set of module-level style constants in
-``typer.rich_utils`` at render time. There is no config seam to plug into, so
-monkeypatching those constants at startup is the only way to make ``--help``
-match everything else this package themes. This is why the coloring lives in
-its own module: it is the one part of sushicore that reaches into another
-package's internals instead of composing a clean abstraction.
+The reasoning is in docs/architecture/OVERVIEW.md, section `typer_theme`.
 """
 
 from __future__ import annotations
