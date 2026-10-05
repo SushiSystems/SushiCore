@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -23,6 +24,8 @@ from ..system import USER_AGENT
 from .base import IPackageManager, refresh_windows_path
 from .github_release import gh_latest_asset
 
+K_LOGGER = logging.getLogger("sushicore.provision")
+
 
 def tools_dir() -> Path:
     """Return the directory where portable tools (cmake, ninja) install."""
@@ -38,8 +41,13 @@ def download(url: str, dest: Path) -> None:
             fh.write(chunk)
 
 
-def _add_to_user_path_windows(directory: str) -> None:
-    """Persistently append *directory* to the current user's PATH registry key."""
+def _add_to_user_path_windows(directory: str) -> bool:
+    """Append *directory* to this process's PATH and the user's PATH registry key.
+
+    Returns:
+        True when the registry holds *directory*, False when only this process does.
+    """
+    os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + directory
     try:
         import winreg
         key = winreg.OpenKey(
@@ -54,9 +62,24 @@ def _add_to_user_path_windows(directory: str) -> None:
             new_path = f"{current};{directory}" if current else directory
             winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
         winreg.CloseKey(key)
-        os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + directory
-    except Exception:
-        pass
+    except OSError as error:
+        K_LOGGER.warning(
+            "%s was not added to the user's PATH in the registry (%s: %s); "
+            "only this process finds it",
+            directory,
+            type(error).__name__,
+            error,
+        )
+        return False
+    return True
+
+
+def _put_on_user_path(directory: str) -> None:
+    """Add *directory* to the user's PATH and warn on the console when only this run has it."""
+    if not _add_to_user_path_windows(directory):
+        console.warn(
+            f"{directory} is on PATH for this run only; add it to the user PATH by hand."
+        )
 
 
 def _cmake_portable_bin() -> Path:
@@ -103,7 +126,7 @@ def _install_cmake_direct() -> bool:
                 shutil.rmtree(target, ignore_errors=True)
             shutil.move(str(srcroot), str(target))
         zip_dest.unlink(missing_ok=True)
-        _add_to_user_path_windows(str(_cmake_portable_bin()))
+        _put_on_user_path(str(_cmake_portable_bin()))
         if (_cmake_portable_bin() / "cmake.exe").is_file():
             return True
         console.error("CMake not found after extracting the portable archive.")
@@ -125,7 +148,7 @@ def _install_ninja_direct() -> bool:
         with zipfile.ZipFile(dest) as zf:
             zf.extract("ninja.exe", tools)
         dest.unlink(missing_ok=True)
-        _add_to_user_path_windows(str(tools))
+        _put_on_user_path(str(tools))
         return (tools / "ninja.exe").is_file()
     except Exception as exc:
         console.error(f"Ninja direct install failed: {exc}")
@@ -155,7 +178,7 @@ def _install_doxygen_direct() -> bool:
                 shutil.rmtree(target, ignore_errors=True)
             shutil.move(str(srcroot), str(target))
         zip_dest.unlink(missing_ok=True)
-        _add_to_user_path_windows(str(target))
+        _put_on_user_path(str(target))
         if exe.is_file():
             return True
         console.error("doxygen.exe not found after extracting the portable archive.")

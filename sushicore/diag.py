@@ -3,18 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""`<prog> config` and `<prog> env`: what the CLI resolved, and under what environment.
+"""Reports what a CLI resolved and which environment its build tools run under.
 
-Read-only troubleshooting. When a build picks the "wrong" compiler or a path
-looks off, ``config`` answers *what* was resolved and *where each value came
-from* -- default, config.toml, or an environment override -- and ``env`` answers
-*which environment* cmake and ctest actually run under.
-
-Four CLIs carried a copy of this and drifted in four ways: the program named in
-the prose, the environment tokens counted as build-relevant, which resolved
-directories got printed, and how the build directory was found. The first three
-are things a :class:`~sushicore.profile.ModuleProfile` and the config already
-know; the fourth is genuinely the caller's, so it is passed in.
+The reasoning is in docs/architecture/OVERVIEW.md, section `diag`.
 """
 
 from __future__ import annotations
@@ -140,9 +131,7 @@ class Diagnostics:
         cfg_dir = self._config.config_dir(root)
         console.info(f"{'Config dir':<{width}} : {cfg_dir}")
         for fname in _CONFIG_FILES:
-            # Parentheses, not brackets: every CLI used to write "[found]" here
-            # and rich parsed it as a style tag and dropped it, so the marker
-            # was invisible in all four.
+            # Rich drops "[found]" as a style tag, hence parentheses; docs/architecture/OVERVIEW.md.
             mark = "found" if (cfg_dir / fname).is_file() else "absent"
             console.info(f"  {fname:<20} ({mark})")
         return 0

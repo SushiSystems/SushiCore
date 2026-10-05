@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import glob
+import logging
 import os
 import pathlib
 import shutil
@@ -29,6 +30,8 @@ from .windows_installer import (
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
+
+K_LOGGER = logging.getLogger("sushicore.provision")
 
 # Neither the apt CUDA toolkit nor a manual install adds itself to PATH.
 _NVCC_GLOBS_LINUX = [
@@ -218,11 +221,16 @@ def _failure_reason(result: ElevatedResult) -> str:
 
 
 def _delete_quietly(path: pathlib.Path) -> None:
-    """Delete *path*, ignoring a file that is locked or already gone."""
+    """Delete *path*, logging a file that is locked and ignoring one already gone."""
     try:
         path.unlink(missing_ok=True)
-    except OSError:
-        pass
+    except OSError as error:
+        K_LOGGER.warning(
+            "%s was not deleted (%s: %s); the file stays on disk",
+            path,
+            type(error).__name__,
+            error,
+        )
 
 
 def _adapter_definitions(install: ToolkitInstall) -> dict[str, str]:

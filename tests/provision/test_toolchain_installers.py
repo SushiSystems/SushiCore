@@ -22,10 +22,6 @@ from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
 from sushicore.provision.toolchains.stamp import read_toolchain_stamp, toolchains_dir
 
 
-# --------------------------------------------------------------------------- #
-# Shared fakes
-# --------------------------------------------------------------------------- #
-
 class _StatusContext:
     """A no-op stand-in for the Rich ``console.status`` context manager."""
 
@@ -97,10 +93,6 @@ def _windows_cfg() -> ProvisionSettings:
     """Check that windows cfg."""
     return ProvisionSettings(platform="windows")
 
-
-# --------------------------------------------------------------------------- #
-# intel_llvm
-# --------------------------------------------------------------------------- #
 
 def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, fake_console, monkeypatch):
     """Check that install intel llvm reuses an existing bundle."""
@@ -230,10 +222,6 @@ def test_extract_tar_gz_leaves_an_unwrapped_layout_alone(tmp_path):
 
     assert (dest / "bin" / "clang++").is_file()
 
-
-# --------------------------------------------------------------------------- #
-# adaptivecpp
-# --------------------------------------------------------------------------- #
 
 def test_install_adaptivecpp_reuses_an_existing_binary(provision_home, fake_console):
     """Check that install adaptivecpp reuses an existing binary."""
@@ -443,10 +431,6 @@ def test_explain_acpp_skip_linux_names_the_dev_packages(fake_console):
     infos = " ".join(str(args) for name, args in fake_console.calls if name == "info")
     assert "llvm-17-dev" in infos
 
-
-# --------------------------------------------------------------------------- #
-# oneapi
-# --------------------------------------------------------------------------- #
 
 def _ctx(oneapi_selected: bool, dry_run: bool = False, detected: dict | None = None
          ) -> InstallContext:

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -15,6 +16,8 @@ from abc import ABC, abstractmethod
 
 from .._output import console
 from ..system import is_root
+
+K_LOGGER = logging.getLogger("sushicore.provision")
 
 
 def run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
@@ -93,8 +96,12 @@ def refresh_windows_path() -> None:
                 seen.add(key_l)
                 out.append(entry)
         os.environ["PATH"] = os.pathsep.join(out)
-    except Exception:
-        pass
+    except OSError as error:
+        K_LOGGER.warning(
+            "PATH was not reloaded from the registry (%s: %s); this process keeps its old PATH",
+            type(error).__name__,
+            error,
+        )
 
 
 class IPackageManager(ABC):

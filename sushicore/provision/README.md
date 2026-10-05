@@ -74,6 +74,16 @@ the dependency root first, then the folder `SUSHISTACK_DEPS_DIR` names and a leg
 `StackConfig.dependency_roots(root)` puts the tree of the workspace a module sits in, or is
 linked to, before those.
 
+## Probing a compiler
+
+`gpu/compiler_identity.py` reads the intel/llvm commit a SYCL compiler was built from out of
+its version line, which looks like
+`clang version 21.0.0git (https://github.com/intel/llvm d5f649b7...)`.
+
+oneAPI installs system-wide, outside the dependency tree. `probe.py` therefore trusts the same
+probe the active-compiler row uses, `find_sycl_compiler`, so an `icx-cl` or `icpx` that a glob
+discovered counts as installed.
+
 ## The commands
 
 ### `setup`

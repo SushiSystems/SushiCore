@@ -3,13 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Two derivations every cmake configure in this stack needs.
+"""Derives the C compiler and the vcpkg prefix a cmake configure is given.
 
-Only two. Assembling the full -D list is not here on purpose: SushiRuntime
-splits its assembly across Windows and Linux, and SushiEngine deliberately omits
-CMAKE_C_COMPILER because its runtime lane has no C sources. Both divergences are
-real and documented where they live. Forcing them into one function would hide a
-genuine difference behind a flag.
+The reasoning is in docs/architecture/OVERVIEW.md, section `toolchain_args`.
 """
 
 from __future__ import annotations

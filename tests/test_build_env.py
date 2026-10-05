@@ -39,9 +39,7 @@ def test_a_dumped_shell_environment_loses_only_the_device_choice():
 
 
 def test_a_cache_written_before_this_existed_heals_on_read(tmp_path):
-    # The defect this guards: a snapshot taken while a session had pinned SYCL
-    # to the CPU kept pinning every later build and run, from any terminal,
-    # because the cache is merged over the current environment.
+    # A stale cache must not pin the device for later runs; see docs/architecture/OVERVIEW.md.
     cache_file = _cache(tmp_path, {"PATH": "C:/msvc/bin", "ONEAPI_DEVICE_SELECTOR": "opencl:cpu"})
     cached = read_cache(cache_file, "k")
     assert cached == {"PATH": "C:/msvc/bin"}
@@ -57,9 +55,7 @@ def test_a_cache_still_round_trips_what_the_build_needs(tmp_path):
 
 
 def test_the_current_environment_still_reaches_a_subprocess(tmp_path):
-    # Dropping the variable from the snapshot must not stop a caller setting it
-    # for one run: merge_env starts from the live environment, so a deliberate
-    # export still arrives.
+    # A caller's own export still reaches the run; see docs/architecture/OVERVIEW.md, build_env.
     cached = read_cache(_cache(tmp_path, {"PATH": "C:/msvc/bin"}), "k")
     merged = merge_env({"ONEAPI_DEVICE_SELECTOR": "cuda:gpu", "PATH": "C:/system"}, cached)
     assert merged["ONEAPI_DEVICE_SELECTOR"] == "cuda:gpu"
@@ -118,3 +114,15 @@ def test_snapshot_windows_keeps_its_own_command_and_messages(monkeypatch, tmp_pa
     assert snapshot_windows(cfg, console) == {"PATH": "C:/msvc"}
     assert seen == ['cmd /c call "' + str(vcvars) + '" && set']
     assert console.lines == [("info", "Loading Visual Studio environment (vcvars64)...")]
+
+
+
+def test_a_cache_that_cannot_be_written_is_recorded(tmp_path, caplog):
+    """Check that write_cache logs one warning naming the file it could not write."""
+    cache_file = tmp_path / "taken"
+    cache_file.mkdir()
+    with caplog.at_level("WARNING", logger="sushicore.build_env"):
+        write_cache(cache_file, "k", {"PATH": "C:/msvc/bin"})
+    warnings = [r for r in caplog.records if r.name == "sushicore.build_env"]
+    assert [r.levelname for r in warnings] == ["WARNING"]
+    assert str(cache_file) in warnings[0].getMessage()

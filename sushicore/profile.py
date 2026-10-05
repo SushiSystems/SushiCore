@@ -3,22 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""What one Sushi* CLI has to say about itself, said once.
+"""Declares the facts one Sushi CLI states about itself.
 
-Five CLIs -- hub, sr, se, sa, sb, and now sd -- differ from each other in a
-handful of facts: a display name, the command a user types, the prefix on their
-environment overrides, the file that marks a project root, and which sibling
-checkouts they build in-tree. Everything else about locating a project, layering
-config, listing executables and reporting diagnostics is the same work.
-
-Those facts used to be spelled out separately in each CLI's config.py,
-console.py, services/discovery.py and services/diag.py -- so a module was
-described four times and could disagree with itself. A ModuleProfile is the one
-place a module describes itself; the shared machinery reads it.
-
-It deliberately holds no behaviour beyond deriving names. A profile is data
-about a module, not a place to hang a module's logic: anything genuinely
-specific to one CLI belongs in that CLI.
+The reasoning is in docs/architecture/OVERVIEW.md, section `profile`.
 """
 
 from __future__ import annotations
@@ -27,15 +14,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
 
-#: File the release build writes at the root of an unpacked binary install. A
-#: module CLI reads nothing but its presence; ``hub`` reads the product, version
-#: and platform inside it. See docs/agent/specs/2026-09-05-hub-design.md, §5.
+#: Names the file a release build writes at an install's root; docs/architecture/OVERVIEW.md.
 RELEASE_MANIFEST = "sushi-release.json"
 
-# Config field -> the suffix its environment override carries, after the
-# module's own prefix. Shared because ToolConfig (the fields these name) is
-# shared: it is the same knob on every CLI, so `SR_CMAKE` and `SE_CMAKE` must
-# not be allowed to mean different things.
+# One suffix per ToolConfig field, the same on every CLI; see docs/architecture/OVERVIEW.md.
 _TOOL_ENV_SUFFIXES: Mapping[str, str] = {
     "cxx": "CXX",
     "generator": "CMAKE_GENERATOR",

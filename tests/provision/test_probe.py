@@ -7,7 +7,10 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionSettings
@@ -136,3 +139,60 @@ def test_discovery_records_a_legacy_bundle(provision_home, tmp_path, monkeypatch
     values: dict[str, str] = {}
     probe._discover_installed_toolchains(ProvisionSettings(platform="linux"), values)
     assert values["llvm_root"] == str((legacy / "toolchains" / "llvm-sycl").resolve())
+
+
+
+def _failing_run(monkeypatch, error: Exception) -> None:
+    """Make every ``subprocess.run`` the probe starts raise *error*."""
+    def run(*_args, **_kwargs):
+        """Raise the configured error in place of running a process."""
+        raise error
+    monkeypatch.setattr(probe.subprocess, "run", run)
+
+
+def _probe_records(caplog, level: str) -> list[str]:
+    """Return the messages the provision logger recorded at *level*."""
+    return [r.getMessage() for r in caplog.records
+            if r.name == "sushicore.provision" and r.levelname == level]
+
+
+def test_a_missing_lspci_is_recorded(monkeypatch, caplog):
+    """Check that an lspci that cannot start yields no adapters and one warning."""
+    _failing_run(monkeypatch, FileNotFoundError("lspci"))
+    with caplog.at_level("WARNING", logger="sushicore.provision"):
+        assert probe._linux_display_adapters() == ""
+    assert len(_probe_records(caplog, "WARNING")) == 1
+    assert "lspci" in _probe_records(caplog, "WARNING")[0]
+
+
+def test_a_video_controller_query_that_times_out_is_recorded(monkeypatch, caplog):
+    """Check that a PowerShell query that times out yields no adapters and one warning."""
+    _failing_run(monkeypatch, subprocess.TimeoutExpired("powershell", 30))
+    with caplog.at_level("WARNING", logger="sushicore.provision"):
+        assert probe._windows_display_adapters() == ""
+    assert len(_probe_records(caplog, "WARNING")) == 1
+    assert "timed out" in _probe_records(caplog, "WARNING")[0]
+
+
+@pytest.mark.parametrize("reader", ["_linux_display_adapters", "_windows_display_adapters"])
+def test_a_defect_in_an_adapter_query_is_not_reported_as_no_adapters(monkeypatch, reader):
+    """Check that an error no process raises escapes the adapter readers."""
+    _failing_run(monkeypatch, TypeError("defect"))
+    with pytest.raises(TypeError):
+        getattr(probe, reader)()
+
+
+def test_binary_works_records_why_a_command_did_not_run(monkeypatch, caplog):
+    """Check that binary_works logs the error behind a False answer."""
+    _failing_run(monkeypatch, PermissionError(13, "Access is denied"))
+    with caplog.at_level("DEBUG", logger="sushicore.provision"):
+        assert probe.binary_works("cmake") is False
+    assert len(_probe_records(caplog, "DEBUG")) == 1
+    assert "cmake" in _probe_records(caplog, "DEBUG")[0]
+
+
+def test_binary_works_does_not_report_a_defect_as_a_broken_binary(monkeypatch):
+    """Check that an error no process raises escapes binary_works."""
+    _failing_run(monkeypatch, TypeError("defect"))
+    with pytest.raises(TypeError):
+        probe.binary_works("cmake")

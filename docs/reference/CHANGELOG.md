@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-05 — sushicore: Logged the registry, cache, probe, os-release, cleanup and stream failures that were dropped and stopped catching defects with them (`sushicore/provision/`, `build_env.py`, `renderer.py`).
+- 2026-10-05 — docs: Moved the design reasoning out of source comments and module docstrings into the manual (`docs/architecture/OVERVIEW.md`, `sushicore/provision/README.md`, `sushicore/`, `tests/`).
 - 2026-10-05 — docs: Built the documentation tree, split the manual out of the two front doors, archived finished agent work and added the checkers (`docs/`, `tools/`, `README.md`, `sushicore/provision/README.md`).
 - 2026-10-05 — cli: Documented that the entry point's reporter must look the console up when called (`entry.py`, `README.md`).
 - 2026-10-05 — cli: Added the root options, diagnostic commands, alias table and entry point every Sushi CLI registers (`root_options.py`, `diag_commands.py`, `aliases.py`, `entry.py`, `describe.py`).

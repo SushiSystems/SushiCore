@@ -95,3 +95,25 @@ def test_default_streams_are_forced_to_utf8(monkeypatch):
     monkeypatch.setattr(sys, "stdout", raw)
     JsonRenderer()
     assert sys.stdout.encoding.lower().replace("-", "") == "utf8"
+
+
+
+class _StubbornStream:
+    """Stands in for a stream whose encoding cannot be changed."""
+
+    def reconfigure(self, **_kwargs) -> None:
+        """Refuse the new encoding the way a detached stream does."""
+        raise ValueError("underlying buffer has been detached")
+
+
+def test_a_stream_that_refuses_utf8_is_recorded(monkeypatch, caplog):
+    """Check that a stream left on its old encoding is logged once per stream."""
+    import sys
+
+    monkeypatch.setattr(sys, "stdout", _StubbornStream())
+    monkeypatch.setattr(sys, "stderr", _StubbornStream())
+    with caplog.at_level("WARNING", logger="sushicore.renderer"):
+        JsonRenderer()
+    warnings = [r for r in caplog.records if r.name == "sushicore.renderer"]
+    assert [r.levelname for r in warnings] == ["WARNING", "WARNING"]
+    assert "detached" in warnings[0].getMessage()

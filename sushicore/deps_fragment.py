@@ -3,19 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Reading a `sushistack.deps.toml` fragment: what a repository says it needs.
+"""Reads a `sushistack.deps.toml` fragment and reports what a repository needs.
 
-A fragment is one table per dependency, keyed by its name, plus a reserved
-``[module]`` table carrying metadata rather than a dependency. Several CLIs read
-the format, so it is read here once: two readers of one file is how a required
-dependency goes missing without a word, which is what happened to sushidsp's
-fragment until 2026-09-22.
-
-This module reads and reports. It runs no package manager: whether a package is
-installed is a question only a package manager answers, and which one to ask is
-the caller's world, not this library's. What it answers is what the file says,
-which command would satisfy an entry on a given platform, and -- when an entry
-declares a ``check_cmd`` -- whether that check passes.
+The reasoning is in docs/architecture/OVERVIEW.md, section `deps_fragment`.
 """
 
 from __future__ import annotations

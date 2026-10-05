@@ -3,19 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""A CLI's console, built on first use rather than on import.
+"""Builds a CLI's console on first use instead of on import.
 
-Constructing a console needs the repo's ``cli/`` config directory, and locating
-that walks up for a root marker -- which fails outside a checkout. Doing it at
-import time makes *every* invocation of a CLI abort with "Not inside a … project",
-including the ones Typer can answer with no project at all: ``--help``, and
-``sr toolchain``.
-
-Four of the five CLIs had found that out and each fixed it with its own copy of
-the same PEP 562 module-``__getattr__`` dance. sushiengine's copy never received
-the fix, so ``se --help`` outside a checkout still failed while the other four
-worked. That is the whole argument for this module existing: one console
-lifecycle, so a CLI cannot be the one that missed it.
+The reasoning is in docs/architecture/OVERVIEW.md, section `cli_console`.
 """
 
 from __future__ import annotations

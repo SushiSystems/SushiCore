@@ -427,3 +427,33 @@ def test_linux_detection_reads_lspci(monkeypatch):
                                 "navi 21 [radeon rx 6800]")
 
     assert probe.detect_gpu_vendor() == "amd"
+
+
+
+def test_an_installer_that_cannot_be_deleted_is_recorded(
+        tmp_path, monkeypatch, recording_console, caplog):
+    """Check that an installer left on disk after a good install is logged once."""
+    root = tmp_path / "CUDA" / "v12.6"
+    exe = _installer(tmp_path)
+    environment = _FakeEnvironment({})
+
+    def install():
+        """Create the toolkit the installer run leaves behind."""
+        _toolkit(root)
+        environment.values["CUDA_PATH"] = str(root)
+
+    def locked_unlink(self, *args, **kwargs):
+        """Refuse every delete the way a file held open does."""
+        raise PermissionError(13, "file is in use", str(self))
+
+    monkeypatch.setattr(pathlib.Path, "unlink", locked_unlink)
+    runner = _FakeRunner(0, on_run=install)
+    locator = WindowsCudaLocator(_tools(tmp_path, _FakeDownloader(exe), runner, environment))
+
+    with caplog.at_level("WARNING", logger="sushicore.provision"):
+        assert locator.provision(_CFG, False) is True
+
+    warnings = [r.getMessage() for r in caplog.records
+                if r.name == "sushicore.provision" and r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert exe.name in warnings[0]

@@ -3,14 +3,9 @@
 # Copyright (c) 2026 Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Invoking cmake and ctest on behalf of a module that has a build policy.
+"""Invokes cmake and ctest for a module that supplies its own build policy.
 
-This knows the shape of a cmake command line. It does not know a single cache
-variable's name: which -D flags a module passes, which targets it has and which
-suites it runs are policy, and policy stays in the module. Everything
-module-specific arrives as a parameter -- `expect` for the cache entries a tree
-must already agree with, `targets` for what to build, `label_regex` for which
-tests to select.
+The reasoning is in docs/architecture/OVERVIEW.md, section `cmake_driver`.
 """
 
 from __future__ import annotations
@@ -41,8 +36,6 @@ class CMakeDriver:
         self._console = console
         self._runner = runner
 
-    # -- executables ----------------------------------------------------
-
     def cmake(self, cfg) -> str:
         """The cmake executable: the configured path if set, else 'cmake'."""
         return cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else "cmake"
@@ -50,8 +43,6 @@ class CMakeDriver:
     def ctest(self, cfg) -> str:
         """The ctest executable: the configured path if set, else 'ctest'."""
         return cfg.expand(cfg.ctest_exe) if cfg.ctest_exe else "ctest"
-
-    # -- configure ------------------------------------------------------
 
     def needs_configure(self, build_dir: Path, generator: str, *,
                         expect: Mapping[str, str] | None = None,
@@ -82,8 +73,6 @@ class CMakeDriver:
         """Run a configure whose argv the caller assembled."""
         return self._runner.run(list(args), cwd, env)
 
-    # -- build ----------------------------------------------------------
-
     def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
                 config: str | None = None, targets: Sequence[str] = (),
                 jobs: int | None = None) -> int:
@@ -102,8 +91,6 @@ class CMakeDriver:
         for target in targets:
             cmd += ["--target", target]
         return self._runner.run(cmd, cwd, env)
-
-    # -- test -----------------------------------------------------------
 
     def ctest_run(self, cfg, build_dir: Path, env, *,
                   label_regex: str | None = None, filter: str | None = None,
@@ -134,8 +121,6 @@ class CMakeDriver:
             cmd += ["-C", config]
         return self._runner.run_drained(cmd, build_dir, env)
 
-    # -- clean ----------------------------------------------------------
-
     def clean_tree(self, build_dir: Path) -> None:
         """Remove *build_dir* and say what happened either way."""
         if build_dir.is_dir():
@@ -144,8 +129,6 @@ class CMakeDriver:
             self._console.success(f"{build_dir} removed.")
         else:
             self._console.info(f"{build_dir} does not exist, nothing to clean.")
-
-    # -- docs -----------------------------------------------------------
 
     def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *,
                 install_hint: str = _DEFAULT_DOXYGEN_HINT) -> int:
@@ -171,10 +154,6 @@ class CMakeDriver:
             self._console.error(
                 "Doxygen is not installed or not on PATH.\n" + install_hint)
             return 1
-        # The child resolves its argument against cwd, and every module passes a
-        # path relative to the project root rather than an absolute one. Derive
-        # it rather than asking for it twice: as_posix() is load-bearing on
-        # Windows, where relative_to yields backslashes and str() would change
-        # the command line.
+        # The child resolves this against cwd, in POSIX form; see docs/architecture/OVERVIEW.md.
         argument = doxyfile.relative_to(cwd).as_posix()
         return self._runner.run([doxy, argument], cwd, env)
