@@ -6,8 +6,9 @@
 """Wires the help page into Typer; the only module in sushicore that imports Typer.
 
 The group replaces each child's format_help as it hands the child out; the reason is in
-docs/agent/specs/2026-09-21-terminal-components-design.md. A command that draws a page prints
-it on the Rich console while get_help runs, so ctx.get_help() gives back an empty string.
+docs/archive/agent/specs/2026-09-21-terminal-components-design.md. A command that draws a
+page prints it on the Rich console while get_help runs, so ctx.get_help() gives back an
+empty string.
 """
 
 from __future__ import annotations

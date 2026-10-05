@@ -1,8 +1,8 @@
 # Changelog
 
-One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
-where, in backticks. No why; the reason lives in a design document the entry may link.
+## Unreleased
 
+- 2026-10-05 — docs: Built the documentation tree, split the manual out of the two front doors, archived finished agent work and added the checkers (`docs/`, `tools/`, `README.md`, `sushicore/provision/README.md`).
 - 2026-10-05 — cli: Documented that the entry point's reporter must look the console up when called (`entry.py`, `README.md`).
 - 2026-10-05 — cli: Added the root options, diagnostic commands, alias table and entry point every Sushi CLI registers (`root_options.py`, `diag_commands.py`, `aliases.py`, `entry.py`, `describe.py`).
 - 2026-10-05 — config: Raised ConfigError for a malformed TOML file and an unknown theme or icon set, where a decode error or ValueError escaped (`errors.py`, `read_toml`, `get_theme`).
@@ -19,42 +19,41 @@ where, in backticks. No why; the reason lives in a design document the entry may
 - 2026-10-04 — provision: Added the shared base dependency fragment, moved from hub (`sushicore/provision/manifests/`).
 - 2026-10-04 — provision: Made the probe find toolchains and vcpkg in every dependency root, the legacy trees included (`sushicore/provision/probe.py`).
 - 2026-10-04 — provision: Recorded a module under its lower-cased key in fragments, the registry and a workspace's module list (`sushicore/profile.py`, `sushicore/provision/commands.py`).
-- 2026-09-24 — Added `Runner.capture` and the `catch_interrupt` and `missing_exit_code` options to `Runner` (`sushicore/proc.py`).
-- 2026-09-24 — Added `warn` to the `ConsoleLike` protocol (`sushicore/proc.py`).
-- 2026-09-24 — Added the `jobs` and `config` options to `CMakeDriver` (`sushicore/cmake_driver.py`).
-- 2026-09-24 — Added `build_env.snapshot_vcvars` and `provision.probe.find_vcvars` (`sushicore/build_env.py`, `sushicore/provision/probe.py`).
-- 2026-09-24 — Added `InstallContext.program` and named the calling program in install hints (`sushicore/provision/pipeline.py`).
-- 2026-09-24 — Made `doctor --for GROUP` count that group's optional checks as required (`sushicore/provision/doctor.py`).
+- 2026-09-24 — proc: Added `Runner.capture` and the `catch_interrupt` and `missing_exit_code` options to `Runner` (`sushicore/proc.py`).
+- 2026-09-24 — proc: Added `warn` to the `ConsoleLike` protocol (`sushicore/proc.py`).
+- 2026-09-24 — cmake: Added the `jobs` and `config` options to `CMakeDriver` (`sushicore/cmake_driver.py`).
+- 2026-09-24 — build_env: Added `build_env.snapshot_vcvars` and `provision.probe.find_vcvars` (`sushicore/build_env.py`, `sushicore/provision/probe.py`).
+- 2026-09-24 — provision: Added `InstallContext.program` and named the calling program in install hints (`sushicore/provision/pipeline.py`).
+- 2026-09-24 — doctor: Made `doctor --for GROUP` count that group's optional checks as required (`sushicore/provision/doctor.py`).
 - 2026-09-24 — workspace: Added a module-side link pointer that config loading follows to the linked workspace (`sushicore/workspace.py`, `sushicore/module_config.py`, `sushicore/provision/commands.py`).
-- 2026-09-23 — Renamed the shared package helpers to public names and made `setup` create a missing dependency root (`sushicore/provision/packages/`, `sushicore/provision/lock.py`).
-- 2026-09-23 — Added `sushicore.provision`: dependency root, registry, doctor and module commands, moved from hub (`sushicore/provision/`).
-- 2026-09-21 — Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).
-- 2026-09-22 — Stopped `typer_help` importing `click` at run time, since Typer 0.27 no longer installs it, and added `click` to the `test` extra (`sushicore/typer_help.py`, `pyproject.toml`).
-- 2026-09-22 — Kept a bracket in a help title or list as text unless it names a style, so `[required]` and `[default: x]` show on Typer 0.27 (`sushicore/ui/definition_list.py`, `sushicore/ui/title.py`).
-- 2026-09-22 — Added blank lines around the help logo and made definition-list terms not bold, so headings stand out (`sushicore/help/page.py`, `sushicore/ui/definition_list.py`).
-- 2026-09-22 — Printed the help page on the console's Rich stream, not through Click's `echo`, which garbled true-colour codes on Windows (`sushicore/typer_help.py`).
-- 2026-09-22 — Added `enable_virtual_terminal`, called when a `RichRenderer` is built, so a classic Windows console draws true colour (`sushicore/windows_console.py`, `sushicore/renderer.py`).
-- 2026-09-21 — Kept a bracket in a table cell as text unless it names a style (`sushicore/markup.py`, `sushicore/ui/table.py`).
-- 2026-09-21 — Added `group_by` to `Console.table` and coloured status words in tables (`sushicore/ui/table.py`, `sushicore/renderer.py`, `sushicore/console.py`).
-- 2026-09-21 — Fixed `Logo.width` disagreeing with the drawn width when the wordmark rows differ in length (`sushicore/ui/logo.py`).
-- 2026-09-21 — Made `help_group` fall back to Typer's own help, with one logged warning, when drawing the page fails (`sushicore/typer_help.py`).
-- 2026-09-21 — Added `choose_logo` and replaced `HelpPage`'s `show_logo` with a `logo` field (`sushicore/help/logo_choice.py`, `sushicore/help/page.py`).
-- 2026-09-21 — Added `is_dark_background`, the `[cli] background` setting and `Console.dark_background` (`sushicore/terminal_background.py`, `sushicore/config.py`, `sushicore/console.py`).
-- 2026-09-21 — Added the wordmark, the white glow and `Logo.width`, and trimmed the mark's empty edge (`sushicore/brand.py`, `sushicore/ui/logo.py`).
-- 2026-09-21 — Kept markup in `Header` and `Panel` titles and stopped `import sushicore` loading Rich (`sushicore/ui/header.py`, `sushicore/ui/panel.py`, `sushicore/renderer.py`).
-- 2026-09-21 — Added `HelpPage`, which lays a help model out from components (`sushicore/help/page.py`).
-- 2026-09-21 — Changed `RichRenderer.table`, `panel` and `header` to draw through components; tables lose their frame (`sushicore/renderer.py`).
-- 2026-09-21 — Added `HelpModel` and `build_model`, which read a Click or Typer command into help data (`sushicore/help/model.py`, `sushicore/help/from_click.py`).
-- 2026-09-21 — Added the `Title`, `Usage` and `DefinitionList` components (`sushicore/ui/`).
-- 2026-09-21 — Added the `Header`, `Panel` and `Table` components (`sushicore/ui/`).
-- 2026-09-21 — Added the `Logo` component (`sushicore/ui/logo.py`).
-- 2026-09-21 — Added the maki logo as a palette and a pixel grid (`sushicore/brand.py`).
-- 2026-09-21 — Added the `Component` protocol and the architecture test that guards `ui/` (`sushicore/ui/component.py`, `tests/test_ui_architecture.py`).
-- 2026-09-21 — Added `Theme.muted` and `Console.theme` (`sushicore/theme.py`, `sushicore/console.py`).
-- 2026-09-22 — Added `deps_fragment`, the one reader of a `sushistack.deps.toml` fragment (`sushicore/deps_fragment.py`).
-- 2026-09-22 — Split `write_tool_section` into the document writer and its `[tool]`-merging caller (`sushicore/config_base.py`).
-- 2026-09-22 — Moved the workspace contract into `workspace.py`: the marker, `workspace.toml` and the pre-2026-09-22 shared-config path (`sushicore/workspace.py`, `sushicore/module_config.py`).
-- 2026-09-22 — Removed `WORKSPACE_CLI_DIR`, which named another repository's source layout (`sushicore/workspace.py`).
-- 2026-09-22 — Kept sibling tables when writing `[tool]`, so one file can hold more than one section (`sushicore/config_base.py`).
-- 2026-09-22 — Published 0.1.0 to PyPI from its own repository (`.github/workflows/release.yml`).
-- 2026-09-22 — Split the package out of SushiStack with its own history (`git subtree split`).
+- 2026-09-23 — provision: Renamed the shared package helpers to public names and made `setup` create a missing dependency root (`sushicore/provision/packages/`, `sushicore/provision/lock.py`).
+- 2026-09-23 — provision: Added `sushicore.provision`: dependency root, registry, doctor and module commands, moved from hub (`sushicore/provision/`).
+
+## v0.4.0 — 2026-09-22
+
+- 2026-09-22 — help: Stopped typer_help importing click at run time and added click to the `test` extra (`sushicore/typer_help.py`, `pyproject.toml`).
+- 2026-09-22 — ui: Kept a bracket in a help title or list as text unless it names a style (`sushicore/ui/definition_list.py`, `sushicore/ui/title.py`).
+- 2026-09-22 — help: Added blank lines around the help logo and made definition-list terms not bold (`sushicore/help/page.py`, `sushicore/ui/definition_list.py`).
+- 2026-09-22 — help: Printed the help page on the console's Rich stream, not through Click's `echo` (`sushicore/typer_help.py`).
+- 2026-09-22 — renderer: Added `enable_virtual_terminal`, called when a `RichRenderer` is built, so a classic Windows console draws true colour (`sushicore/windows_console.py`, `sushicore/renderer.py`).
+- 2026-09-21 — help: Added `help_group`, the Typer group that draws every help screen as a `HelpPage` (`sushicore/typer_help.py`).
+- 2026-09-21 — ui: Kept a bracket in a table cell as text unless it names a style (`sushicore/markup.py`, `sushicore/ui/table.py`).
+- 2026-09-21 — ui: Added `group_by` to `Console.table` and coloured status words in tables (`sushicore/ui/table.py`, `sushicore/renderer.py`, `sushicore/console.py`).
+- 2026-09-21 — ui: Fixed `Logo.width` disagreeing with the drawn width when the wordmark rows differ in length (`sushicore/ui/logo.py`).
+- 2026-09-21 — help: Made `help_group` fall back to Typer's own help, with one logged warning, when drawing the page fails (`sushicore/typer_help.py`).
+- 2026-09-21 — help: Added `choose_logo`, which picks the logo a console is wide enough for (`sushicore/help/logo_choice.py`).
+- 2026-09-21 — help: Replaced `HelpPage`'s `show_logo` with a `logo` field (`sushicore/help/page.py`).
+- 2026-09-21 — config: Added `is_dark_background` and the `[cli] background` setting (`sushicore/terminal_background.py`, `sushicore/config.py`).
+- 2026-09-21 — console: Added `Console.dark_background` (`sushicore/console.py`).
+- 2026-09-21 — ui: Added the wordmark, the white glow and `Logo.width`, and trimmed the mark's empty edge (`sushicore/brand.py`, `sushicore/ui/logo.py`).
+- 2026-09-21 — ui: Kept markup in `Header` and `Panel` titles (`sushicore/ui/header.py`, `sushicore/ui/panel.py`).
+- 2026-09-21 — renderer: Stopped `import sushicore` loading Rich (`sushicore/renderer.py`).
+- 2026-09-21 — help: Added `HelpPage`, which lays a help model out from components (`sushicore/help/page.py`).
+- 2026-09-21 — renderer: Changed `RichRenderer.table`, `panel` and `header` to draw through components; tables lose their frame (`sushicore/renderer.py`).
+- 2026-09-21 — help: Added `HelpModel` and `build_model`, which read a Click or Typer command into help data (`sushicore/help/model.py`, `sushicore/help/from_click.py`).
+- 2026-09-21 — ui: Added the `Title`, `Usage` and `DefinitionList` components (`sushicore/ui/`).
+- 2026-09-21 — ui: Added the `Header`, `Panel` and `Table` components (`sushicore/ui/`).
+- 2026-09-21 — ui: Added the `Logo` component (`sushicore/ui/logo.py`).
+- 2026-09-21 — brand: Added the maki logo as a palette and a pixel grid (`sushicore/brand.py`).
+- 2026-09-21 — ui: Added the `Component` protocol and the architecture test that guards `ui/` (`sushicore/ui/component.py`, `tests/test_ui_architecture.py`).
+- 2026-09-21 — theme: Added `Theme.muted` and `Console.theme` (`sushicore/theme.py`, `sushicore/console.py`).
