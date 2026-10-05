@@ -32,7 +32,7 @@ them.
 | `sushicore.diag_commands.register_diagnostic_commands(app, diagnostics, ...)` | `config` and `env` |
 | `sushicore.provision.commands.register_provision_commands(app, module)` | `setup`, `doctor`, `link`, `unlink` |
 | `sushicore.aliases.AliasTable(program, aliases)` | Old spellings that still run, hidden, and name their replacement |
-| `sushicore.entry.run(app, console.error)` | An entry point that turns a `SushiCoreError` into one line and exit 1 |
+| `sushicore.entry.run(app, report)` | An entry point that turns a `SushiCoreError` into one line and exit 1; `report` looks the console up when called |
 
 A failure the user can act on derives from `sushicore.errors.SushiCoreError`; anything else
 stays a traceback.

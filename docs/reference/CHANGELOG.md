@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-10-05 — cli: Documented that the entry point's reporter must look the console up when called (`entry.py`, `README.md`).
 - 2026-10-05 — cli: Added the root options, diagnostic commands, alias table and entry point every Sushi CLI registers (`root_options.py`, `diag_commands.py`, `aliases.py`, `entry.py`, `describe.py`).
 - 2026-10-05 — config: Raised ConfigError for a malformed TOML file and an unknown theme or icon set, where a decode error or ValueError escaped (`errors.py`, `read_toml`, `get_theme`).
 - 2026-10-05 — licence: Replaced the Apache-2.0 licence with PolyForm Noncommercial 1.0.0, which ends free commercial use (`LICENSE`, `COMMERCIAL.md`, `NOTICE.md`, `README.md`).
