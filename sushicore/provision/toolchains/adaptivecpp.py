@@ -15,8 +15,11 @@ import tempfile
 import typing
 from pathlib import Path
 
+from sushicore.errors import DigestMismatchError
+
 from .. import home
 from .._output import console
+from ..download_verifier import verify_download
 from ..packages import download, gh_tagged_asset, run
 from ._process import _run_quiet
 from .stamp import toolchains_dir
@@ -114,6 +117,9 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
 
     Returns:
         ``(LLVM_DIR, clang_prefix)`` for the vendored install, or None on failure.
+
+    Raises:
+        DigestMismatchError: The installer's SHA-256 is not the one its manifest entry pins.
     """
     dest = home.root() / "tools" / "llvm"
     tag = f"llvmorg-{LLVM_WINDOWS_VERSION}"
@@ -128,6 +134,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
         try:
             console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
             download(url, archive)
+            verify_download("adaptivecpp", archive)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
             # PowerShell triggers a UAC prompt via -Verb RunAs to install silently.
@@ -136,6 +143,8 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
                 f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
             )
             subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], check=True)
+        except DigestMismatchError:
+            raise
         except Exception as exc:
             console.error(f"LLVM vendor failed: {exc}")
             shutil.rmtree(dest, ignore_errors=True)

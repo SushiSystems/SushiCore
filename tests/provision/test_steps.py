@@ -11,10 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.provision import home, probe, steps
+from sushicore.errors import DigestMismatchError
+from sushicore.provision import download_verifier, home, probe, steps
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.fragments import IDependencySource
-from sushicore.provision.pipeline import InstallContext, StepResult
+from sushicore.provision.fragments import Dependency, IDependencySource
+from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
 
 
 class _EmptySource(IDependencySource):
@@ -185,3 +186,74 @@ def test_missing_dependency_hint_defaults_to_hub(capsys_console):
     ctx = _context()
     _run_detect_with_one_missing(ctx)
     assert "`hub install`" in capsys_console.text()
+
+
+class _PinnedSource(IDependencySource):
+    """Serves one dependency that pins a Windows digest."""
+
+    def all(self):
+        """Return the pinned dependency."""
+        return [Dependency(name="cmake", sha256={"windows": "3f" * 32})]
+
+
+def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(
+        monkeypatch, tmp_path, recording_console):
+    """Check that the downloads of a run are verified against its fragments and no later."""
+    during: list[Path] = []
+    archive = tmp_path / "cmake.zip"
+
+    def install(self, ctx):
+        """Stand in for the Windows install by verifying one download."""
+        del self, ctx
+        archive.write_bytes(b"not the pinned archive")
+        try:
+            download_verifier.verify_download("cmake", archive)
+        except DigestMismatchError:
+            during.append(archive)
+        return StepResult.OK
+
+    monkeypatch.setattr(steps.InstallDepsStep, "_run_windows", install)
+    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
+
+    assert steps.InstallDepsStep(_PinnedSource(), managers=[]).run(ctx) is StepResult.OK
+
+    assert during == [archive]
+    archive.write_bytes(b"not the pinned archive")
+    download_verifier.verify_download("cmake", archive)
+
+
+def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(
+        monkeypatch, tmp_path, recording_console):
+    """Check that a mismatch leaves the pipeline as the error and later steps do not run."""
+    archive = tmp_path / "cmake.zip"
+    later: list[str] = []
+
+    def install(self, ctx):
+        """Stand in for the Windows install by verifying one mismatching download."""
+        del self, ctx
+        archive.write_bytes(b"not the pinned archive")
+        download_verifier.verify_download("cmake", archive)
+        return StepResult.OK
+
+    class _Later(steps.Step):
+        """Records that the pipeline reached the step after the install."""
+
+        name = "later"
+
+        def run(self, ctx):
+            """Record the run."""
+            del ctx
+            later.append(self.name)
+            return StepResult.OK
+
+    monkeypatch.setattr(steps.InstallDepsStep, "_run_windows", install)
+    pipeline = InstallPipeline([steps.InstallDepsStep(_PinnedSource(), managers=[]), _Later()])
+    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
+
+    with pytest.raises(DigestMismatchError):
+        pipeline.run(ctx, show_progress=False)
+
+    assert later == []
+    assert not archive.exists()
+    archive.write_bytes(b"not the pinned archive")
+    download_verifier.verify_download("cmake", archive)

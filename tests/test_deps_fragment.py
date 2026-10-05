@@ -146,3 +146,59 @@ def test_the_triplet_is_left_off_when_the_caller_pins_none():
     dep = Dependency(name="sdl2", windows_vcpkg=["sdl2"])
 
     assert install_command(dep, "windows") == ["vcpkg", "install", "sdl2"]
+
+
+K_DIGEST = "3f" * 32
+
+
+def test_an_entry_without_sha256_pins_nothing(tmp_path):
+    """The field is optional, so every fragment written before it still reads."""
+    (dep,) = read(_fragment(tmp_path, """
+[cmake]
+description = "Build system."
+""")).dependencies
+
+    assert dep.sha256 == {}
+    assert dep.digest_for("windows") == ""
+
+
+def test_sha256_pins_one_digest_per_platform(tmp_path):
+    """The table is keyed by platform, because each platform downloads its own file."""
+    (dep,) = read(_fragment(tmp_path, f"""
+[intel-llvm]
+sha256 = {{ windows = "{K_DIGEST}", linux = "{K_DIGEST.upper()}" }}
+""")).dependencies
+
+    assert dep.digest_for("windows") == K_DIGEST
+    assert dep.digest_for("linux") == K_DIGEST
+    assert dep.sha256 == {"windows": K_DIGEST, "linux": K_DIGEST}
+
+
+def test_a_platform_the_table_leaves_out_has_no_digest(tmp_path):
+    """A digest for one platform says nothing about the file another one downloads."""
+    (dep,) = read(_fragment(tmp_path, f"""
+[cmake]
+sha256 = {{ windows = "{K_DIGEST}" }}
+""")).dependencies
+
+    assert dep.digest_for("linux") == ""
+
+
+@pytest.mark.parametrize("value", [
+    f'"{K_DIGEST}"',
+    '{ windows = "abc123" }',
+    f'{{ windows = "{"zz" * 32}" }}',
+    '{ windows = 7 }',
+    f'{{ macos = "{K_DIGEST}" }}',
+])
+def test_a_sha256_that_cannot_pin_a_file_is_refused(tmp_path, value):
+    """A digest the reader cannot use is named, because dropping it leaves a download unchecked."""
+    path = _fragment(tmp_path, f"""
+[cmake]
+sha256 = {value}
+""")
+
+    with pytest.raises(ValueError) as refused:
+        read(path)
+
+    assert "cmake" in str(refused.value) and "sha256" in str(refused.value)

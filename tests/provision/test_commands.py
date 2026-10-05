@@ -468,3 +468,20 @@ def test_every_command_help_carries_examples(tmp_path, recording_console):
     for command in app.registered_commands:
         name = command.callback.__name__
         assert f"sd {name}" in command.epilog
+
+
+def test_doctor_lists_the_downloads_with_no_pinned_digest(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that doctor carries a row naming the downloads a setup would not verify."""
+    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
+    fragment.parent.mkdir(parents=True)
+    fragment.write_text('[intel-llvm]\ndescription = "SYCL bundle"\nrequired = false\n',
+                        encoding="utf-8")
+
+    CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
+
+    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
+    by_name = {row[0]: row for row in rows}
+    assert "intel-llvm" in by_name["download digests"][3]
+    assert "warn" in by_name["download digests"][2]

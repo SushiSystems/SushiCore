@@ -14,7 +14,8 @@ import sushicore.provision as provision
 
 _ROOT = Path(provision.__file__).parent
 _LAYER = {
-    "_output": 0, "config": 0, "home": 0, "manifests": 0, "closure": 1, "selection": 2,
+    "_output": 0, "config": 0, "home": 0, "manifests": 0, "integrity": 0, "closure": 1,
+    "download_verifier": 1, "selection": 2,
     "system": 1, "probe": 1, "toolchains.stamp": 1, "gpu.compiler_identity": 1,
     "gpu.windows_installer": 1, "fragments": 1, "registry": 1, "lock": 1, "doctor": 1,
     "pipeline": 1, "sinks": 2, "gpu.backend": 2, "gpu.cuda": 2, "gpu.rocm": 2,

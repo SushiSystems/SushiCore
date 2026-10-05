@@ -26,6 +26,7 @@ from this page. The front door is [`README.md`](../README.md).
 | Document | Holds |
 | --- | --- |
 | [Configuration](reference/CONFIGURATION.md) | The `[cli]` table, its precedence and the environment variables the package reads |
+| [Dependency fragment](reference/DEPENDENCY_FRAGMENT.md) | The keys of a `sushistack.deps.toml` entry, the pinned SHA-256 among them |
 | [JSON events](reference/JSON_EVENTS.md) | The event stream a console writes in machine mode |
 | [Changelog](reference/CHANGELOG.md) | What changed, by release |
 | [Glossary](reference/GLOSSARY.md) | The words these documents use |
@@ -52,6 +53,6 @@ from this page. The front door is [`README.md`](../README.md).
 | --- | --- |
 | [Contributing](CONTRIBUTING.md) | How a change lands and what it must carry |
 | [Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md) | How prose is written here |
-| [Agent instructions](CLAUDE.md) | The agent instruction file, still under `docs/`; see [Known issues](reference/KNOWN_ISSUES.md) |
+| [Agent instructions](../AGENTS.md) | The agent instruction file at the repository root; see [Known issues](reference/KNOWN_ISSUES.md) |
 
 Agent work folders are under `agent/`. Finished material is under `archive/` and is not edited.

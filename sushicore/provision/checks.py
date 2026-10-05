@@ -18,6 +18,7 @@ from typing import Callable, Mapping, Sequence
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
+from sushicore.provision.download_verifier import unpinned_downloads
 from sushicore.provision.fragments import Dependency, IDependencySource
 from sushicore.provision.selection import required_groups
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
@@ -185,6 +186,19 @@ def stamp_check(root: Path) -> FunctionCheck:
         detail = "unstamped toolchain(s): " + ", ".join(unstamped)
         return CheckResult(State.WARN, detail, "reinstall to record a toolchain stamp")
     return FunctionCheck("toolchain stamps", "build", False, fn)
+
+
+def digest_check(source: IDependencySource, platform: str) -> FunctionCheck:
+    """Return a check warning about each download *platform* fetches with no pinned digest."""
+    def fn() -> CheckResult:
+        declared = {dep.name for dep in source.all()}
+        unpinned = unpinned_downloads(declared, source.digests(platform), platform)
+        if not unpinned:
+            return CheckResult(State.OK, "every download carries a pinned sha256")
+        detail = "downloaded unverified, no sha256 pinned: " + ", ".join(unpinned)
+        return CheckResult(State.WARN, detail,
+                           "pin sha256 in each entry of the dependency manifest")
+    return FunctionCheck("download digests", "build", False, fn)
 
 
 def standard_checks(cfg: ProvisionConfig, fix: str) -> list[Check]:

@@ -17,8 +17,11 @@ import zipfile
 from pathlib import Path
 from typing import Callable
 
+from sushicore.errors import DigestMismatchError
+
 from .. import home
 from .._output import console
+from ..download_verifier import verify_download
 from ..probe import binary_works
 from ..system import USER_AGENT
 from .base import IPackageManager, refresh_windows_path
@@ -114,6 +117,7 @@ def _install_cmake_direct() -> bool:
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
         download(url, zip_dest)
+        verify_download("cmake", zip_dest)
         target = tools_dir() / "cmake"
         console.info(f"Extracting CMake to {target} ...")
         with tempfile.TemporaryDirectory() as staging:
@@ -131,6 +135,8 @@ def _install_cmake_direct() -> bool:
             return True
         console.error("CMake not found after extracting the portable archive.")
         return False
+    except DigestMismatchError:
+        raise
     except Exception as exc:
         console.error(f"CMake direct install failed: {exc}")
         return False
@@ -143,6 +149,7 @@ def _install_ninja_direct() -> bool:
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             dest = Path(f.name)
         download(url, dest)
+        verify_download("ninja", dest)
         tools = tools_dir()
         tools.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(dest) as zf:
@@ -150,6 +157,8 @@ def _install_ninja_direct() -> bool:
         dest.unlink(missing_ok=True)
         _put_on_user_path(str(tools))
         return (tools / "ninja.exe").is_file()
+    except DigestMismatchError:
+        raise
     except Exception as exc:
         console.error(f"Ninja direct install failed: {exc}")
         return False
@@ -167,6 +176,7 @@ def _install_doxygen_direct() -> bool:
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
         download(url, zip_dest)
+        verify_download("doxygen", zip_dest)
         console.info(f"Extracting Doxygen to {target} ...")
         with tempfile.TemporaryDirectory() as staging:
             stage = Path(staging)
@@ -183,6 +193,8 @@ def _install_doxygen_direct() -> bool:
             return True
         console.error("doxygen.exe not found after extracting the portable archive.")
         return False
+    except DigestMismatchError:
+        raise
     except Exception as exc:
         console.error(f"Doxygen direct install failed: {exc}")
         return False
@@ -195,6 +207,7 @@ def _install_git_direct() -> bool:
         with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
             dest = Path(f.name)
         download(url, dest)
+        verify_download("git", dest)
         console.info("Installing Git silently ...")
         rc = subprocess.run(
             [str(dest), "/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-",
@@ -204,6 +217,8 @@ def _install_git_direct() -> bool:
         ).returncode
         dest.unlink(missing_ok=True)
         return rc == 0
+    except DigestMismatchError:
+        raise
     except Exception as exc:
         console.error(f"Git direct install failed: {exc}")
         return False

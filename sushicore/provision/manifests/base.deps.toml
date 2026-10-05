@@ -14,6 +14,9 @@
 #   linux_apt      apt package names; empty list = not needed on Linux.
 #   windows_vcpkg  vcpkg port names; empty list = not needed on Windows.
 #   check_cmd      Optional command; exit 0 means "already installed".
+#   sha256         Optional table of platform to the SHA-256 of the file downloaded for
+#                  this entry there: { windows = "<64 hex digits>", linux = "..." }.
+#                  docs/reference/DEPENDENCY_FRAGMENT.md lists which entry pins which file.
 
 [build_tools]
 description   = "C++ compiler and core build tools (gcc, g++, make). Any GCC >= 9 suffices for the intel-llvm -fsycl host pass."
