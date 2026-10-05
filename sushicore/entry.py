@@ -40,7 +40,9 @@ def run(
 
     Args:
         app: The application to run.
-        report: Prints one error line the way the CLI prints errors, e.g. ``console.error``.
+        report: Prints one error line the way the CLI prints errors. It must look the printer
+            up when called, e.g. ``lambda message: console.error(message)``: a console built
+            from the same broken file fails on attribute access, before this function runs.
         argv: The arguments to parse; the process's own when None.
     """
     try:

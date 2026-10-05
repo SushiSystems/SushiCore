@@ -34,7 +34,7 @@ They live in sushicore and each is one call or one object.
 | The catalogue `--describe` prints | `describe.catalogue(app, distribution=..., applies_to=...)` | `sushihub/describe.py` |
 | `config`, `env` | `diag_commands.register_diagnostic_commands(app, diagnostics, program=..., panel=...)` | Two commands declared in six CLIs |
 | Old spellings | `aliases.AliasTable(program, aliases)` and its `command(parent, word, callback, old)` | `sushiengine/aliases.py` |
-| Entry point | `entry.run(app, console.error)` called from a `main()` function | Console scripts that name the Typer `app` |
+| Entry point | `entry.run(app, report)` called from a `main()` function; `report` looks the console up when called, since a lazy console fails on attribute access | Console scripts that name the Typer `app` |
 | User-facing failures | `errors.SushiCoreError`, `errors.ConfigError` | Tracebacks on a malformed `config.toml` or an unknown theme |
 
 A CLI with a root option of its own (`hub --json`) builds its callback from
@@ -44,7 +44,7 @@ A CLI with a root option of its own (`hub --json`) builds its callback from
 
 Every module CLI (`sr`, `sa`, `sb`, `sd`, `st`):
 
-1. A `main()` that calls `sushicore.entry.run(app, console.error)`; the console script names
+1. A `main()` that calls `sushicore.entry.run(app, report)`; the console script names
    it. The script line in `cli/pyproject.toml` is the orchestrator's edit.
 2. `register_root_options` with the distribution name from `cli/pyproject.toml`.
 3. `register_diagnostic_commands` in place of the local `config` and `env`, unless the CLI's
