@@ -1,3 +1,8 @@
+# diag.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """`<prog> config` and `<prog> env`: what the CLI resolved, and under what environment.
 
 Read-only troubleshooting. When a build picks the "wrong" compiler or a path

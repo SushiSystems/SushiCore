@@ -1,3 +1,8 @@
+# profile.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """What one Sushi* CLI has to say about itself, said once.
 
 Five CLIs -- hub, sr, se, sa, sb, and now sd -- differ from each other in a

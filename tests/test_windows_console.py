@@ -1,3 +1,8 @@
+# test_windows_console.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Virtual terminal processing is switched on per console handle, and never through the real API."""
 
 import ctypes

@@ -1,3 +1,8 @@
+# title.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Draws a command's name and its description.
 
 The description is Rich markup in which only a bracket that names a style is a tag, so a

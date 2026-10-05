@@ -1,3 +1,8 @@
+# icons.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Icon/prefix sets: the text glyphs printed before a message.
 
 Kept separate from :mod:`sushicore.theme` (which only owns color) so the two

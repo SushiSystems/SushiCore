@@ -1,3 +1,8 @@
+# test_typer_help.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """help_group draws every --help level as a HelpPage, or falls back to Typer's own."""
 
 import io

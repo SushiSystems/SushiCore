@@ -1,3 +1,8 @@
+# workspace.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Shared, domain-agnostic config plumbing for the Sushi* developer CLIs.
 
 Every module CLI (`sr`, `se`, `hub`) resolves its config the same way — walk up

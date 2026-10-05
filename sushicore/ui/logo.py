@@ -1,3 +1,8 @@
+# logo.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Draws the Sushi Systems mark, the wordmark beside it and its glow in half-block characters."""
 
 from __future__ import annotations

@@ -1,3 +1,8 @@
+# test_cmake_driver.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """The driver's whole contract is the argv it produces."""
 
 from pathlib import Path

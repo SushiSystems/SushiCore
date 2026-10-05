@@ -1,3 +1,8 @@
+# typer_theme.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Recolor Typer/Click's rich-powered ``--help`` screen to match the theme.
 
 Typer (with ``rich_markup_mode="rich"``) renders ``--help`` through Rich, but

@@ -1,3 +1,8 @@
+# __init__.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """sushicore — shared foundation for the Sushi* developer CLIs: hub, sr, se, sa, sb, sd, st.
 
 Two things live here. A config-driven CLI presentation layer: :func:`build_console`

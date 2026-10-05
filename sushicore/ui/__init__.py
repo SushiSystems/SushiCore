@@ -1,3 +1,8 @@
+# __init__.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Terminal components: one file per element, each drawn from a Theme."""
 
 from __future__ import annotations
