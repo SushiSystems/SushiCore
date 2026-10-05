@@ -21,6 +21,22 @@ it knows nothing about SYCL, a renderer, or any one module's schema.
 | `sushicore.help`, `sushicore.typer_help` | A themed help screen for a Typer CLI: `typer.Typer(cls=help_group(provider))` |
 | `sushicore.cmake_driver`, `cmake_cache`, `proc`, `toolchain_args` | The configure, build and test driver the CLIs share |
 
+## What a CLI takes from here
+
+Every Sushi CLI registers the same surfaces from this package, so none can be the one without
+them.
+
+| Call | Gives the CLI |
+| --- | --- |
+| `sushicore.root_options.register_root_options(app, distribution=...)` | `--version` and `--describe`, the command catalogue as JSON |
+| `sushicore.diag_commands.register_diagnostic_commands(app, diagnostics, ...)` | `config` and `env` |
+| `sushicore.provision.commands.register_provision_commands(app, module)` | `setup`, `doctor`, `link`, `unlink` |
+| `sushicore.aliases.AliasTable(program, aliases)` | Old spellings that still run, hidden, and name their replacement |
+| `sushicore.entry.run(app, console.error)` | An entry point that turns a `SushiCoreError` into one line and exit 1 |
+
+A failure the user can act on derives from `sushicore.errors.SushiCoreError`; anything else
+stays a traceback.
+
 ## Provisioning
 
 `sushicore.provision` is the dependency root, registry and doctor every module CLI shares.

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
 
+from .errors import ConfigError
+
 
 @dataclass(frozen=True)
 class IconSet:
@@ -45,7 +47,7 @@ def get_icon_set(name: str) -> IconSet:
         return _ICON_PRESETS[name]
     except KeyError:
         known = ", ".join(sorted(_ICON_PRESETS))
-        raise ValueError(f"Unknown CLI icon set '{name}'. Known icon sets: {known}") from None
+        raise ConfigError(f"Unknown CLI icon set '{name}'. Known icon sets: {known}") from None
 
 
 def known_icon_sets() -> tuple[str, ...]:

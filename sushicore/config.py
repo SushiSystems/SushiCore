@@ -37,6 +37,7 @@ import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .errors import ConfigError
 from .terminal_background import K_AUTO, K_VALUES
 
 try:
@@ -60,8 +61,11 @@ class AppearanceSpec:
 def _read_toml(path: Path) -> dict:
     if not path.is_file():
         return {}
-    with path.open("rb") as fh:
-        return tomllib.load(fh)
+    try:
+        with path.open("rb") as fh:
+            return tomllib.load(fh)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{path}: {exc}") from exc
 
 
 _OVERRIDE_TABLES = ("colors", "icon_overrides")

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.workspace import tomllib
+from sushicore.errors import ConfigError
 
 from sushicore.workspace import (
     WORKSPACE_MARKER,
@@ -40,7 +40,7 @@ def test_read_raises_on_a_malformed_local_config_as_config_loading_does(tmp_path
     cfg = tmp_path / "cli"
     cfg.mkdir()
     (cfg / "config.local.toml").write_text("[link", encoding="utf-8")
-    with pytest.raises(tomllib.TOMLDecodeError):
+    with pytest.raises(ConfigError):
         read_link(cfg)
 
 

@@ -17,6 +17,7 @@ try:
 except ModuleNotFoundError:  # Python 3.10 fallback
     import tomli as tomllib
 
+from ..errors import SushiCoreError
 from . import home
 
 _HEADER = "# Components installed under this dependency root. Written by sushicore.provision.\n"
@@ -43,7 +44,7 @@ class Component:
     consumers: tuple[str, ...]
 
 
-class RegistryError(Exception):
+class RegistryError(SushiCoreError):
     """Raised when the registry file exists but cannot be parsed."""
 
 
