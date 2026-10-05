@@ -12,8 +12,8 @@ renderer, or any one module's schema.
 pip install "sushicore[typer]"
 ```
 
-PyPI carries 0.4.0. The seven CLIs need 0.7.0, which is not released yet;
-[Installing](docs/getting_started/INSTALL.md) says how to install it from a checkout.
+The seven CLIs need 0.7.0 or later. [Installing](docs/getting_started/INSTALL.md) says how to
+install a checkout in its place.
 
 | To read about | Open |
 | --- | --- |
@@ -33,7 +33,7 @@ is the binding text and `NOTICE.md` lists the third-party software.
 Versions 0.1.0 to 0.4.0, on PyPI and tagged `v0.1.0` to `v0.4.0`, and the commits up to `9c0fce1`
 on GitHub, which carry 0.5.0 and 0.6.0, were published under the Apache License 2.0 and stay
 available under it. Every commit before the one that adds `NOTICE.md` carries the Apache License
-2.0 text; that commit and every later one are under the licence above, and 0.7.0, when it is
-released from such a commit, is the first version under it.
+2.0 text; that commit and every later one are under the licence above, and 0.7.0 is the first
+version under it.
 
 Contributions from outside Sushi Systems are not accepted yet.

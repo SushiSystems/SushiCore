@@ -13,9 +13,8 @@ pip install "sushicore[typer]"   # the same, plus Typer
 Typer is an optional extra. A CLI that uses `help_group`, the root options, the diagnostic
 commands or the provisioning commands needs it; `import sushicore` alone does not.
 
-PyPI carries 0.1.0 to 0.4.0. Versions 0.5.0, 0.6.0 and 0.7.0 exist in the source tree and were
-never tagged, so the release workflow never published them. All seven Sushi CLIs require
-`sushicore>=0.7.0`, which today resolves only against a checkout.
+PyPI carries 0.1.0 to 0.4.0 and 0.7.0. Versions 0.5.0 and 0.6.0 were never tagged, so the
+release workflow never published them. All seven Sushi CLIs require `sushicore>=0.7.0`.
 
 ## From a checkout
 

@@ -7,7 +7,7 @@ from this page. The front door is [`README.md`](../README.md).
 
 | Document | Holds |
 | --- | --- |
-| [Installing](getting_started/INSTALL.md) | The package, its extras, the unreleased 0.7.0, and how to run the tests and the checkers |
+| [Installing](getting_started/INSTALL.md) | The package, its extras, and how to run the tests and the checkers |
 
 ## Architecture
 

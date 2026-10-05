@@ -15,7 +15,7 @@ Design: [Standalone provisioning](STANDALONE_PROVISIONING.md). Plan:
 same programme in its own `docs/design/REMAINING_WORK.md`.
 
 - The owner runs the real `setup` and build of `sr`, `sb`, `sa`, `sd`, `st`, and `se` last.
-- The owner tags and publishes sushicore 0.7.0, then pushes each repository.
+- The owner pushes each module repository. sushicore 0.7.0 was tagged on 2026-10-05.
 
 ### Provision, phase B
 
@@ -39,9 +39,6 @@ on wave 4 above, and its sushicore version is 0.8.0. Its plan is
 
 ## Decisions waiting for the owner
 
-- Which commits become `v0.5.0`, `v0.6.0` and `v0.7.0`, or whether only 0.7.0 is cut, and whether
-  the commits after `c6d5f55` are 0.7.0 or 0.7.1 (Lay L1, Lay L4). The CLI unification of
-  2026-10-05 added public API on top of 0.7.0 as well.
 - Pushing `main`: 24 commits exist only on the owner's machine as of 2026-10-05 (Lay L2).
 - Correcting the stale lines of `AGENTS.md`, which moved from `docs/CLAUDE.md` as it was, and
   naming the skills this repository follows in it (Doc D9, Lay L10, Lay L14).
