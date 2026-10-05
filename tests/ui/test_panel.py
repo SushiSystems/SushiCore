@@ -1,3 +1,8 @@
+# test_panel.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """A panel is a bordered body under a title."""
 
 from rich.markup import escape

@@ -1,3 +1,8 @@
+# capture.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Renders a component to the text a terminal would show, with or without colour."""
 
 from __future__ import annotations

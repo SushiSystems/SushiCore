@@ -1,3 +1,8 @@
+# test_renderer_components.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """RichRenderer draws its table, panel and header through the components."""
 
 import inspect

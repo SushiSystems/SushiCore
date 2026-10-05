@@ -1,5 +1,8 @@
-# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under the Apache License, Version 2.0. See LICENSE.
+# test_toolchain_installers.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Fake-backed tests for the intel/llvm, AdaptiveCpp and oneAPI installers."""
 
 from __future__ import annotations

@@ -1,3 +1,8 @@
+# brand.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """The Sushi Systems mark and wordmark as data: palettes and pixel grids.
 
 Mark keys: n nori, r rice, a amber, g green, h inner white glow, H outer white glow.

@@ -81,4 +81,18 @@ pointer into the module's `cli/config.local.toml`; `unlink` removes both. Linkin
 config loading follows the pointer and layers the linked workspace's `[tool]` table at read time.
 `SUSHISTACK_HOME` still wins over the pointer, and a pointer to a deleted workspace is ignored.
 
-The manual is in `docs/README.md`. Licensed under the terms in `LICENSE`.
+The manual is in `docs/README.md`.
+
+## Licence
+
+SushiCore is source-available, free for non-commercial use under the PolyForm Noncommercial
+License 1.0.0; commercial use needs a licence from Sushi Systems, see `COMMERCIAL.md`. `LICENSE`
+is the binding text and `NOTICE.md` lists the third-party software.
+
+Versions 0.1.0 to 0.4.0, on PyPI and tagged `v0.1.0` to `v0.4.0`, and the commits up to `9c0fce1`
+on GitHub, which carry 0.5.0 and 0.6.0, were published under the Apache License 2.0 and stay
+available under it. Every commit before the one that adds `NOTICE.md` carries the Apache License
+2.0 text; that commit and every later one are under the licence above, and 0.7.0, when it is
+released from such a commit, is the first version under it.
+
+Contributions from outside Sushi Systems are not accepted yet.

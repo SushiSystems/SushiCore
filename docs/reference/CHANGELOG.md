@@ -3,6 +3,7 @@
 One line per meaningful change, newest first. Format: date, a past-tense verb, what changed, and
 where, in backticks. No why; the reason lives in a design document the entry may link.
 
+- 2026-10-05 — licence: Replaced the Apache-2.0 licence with PolyForm Noncommercial 1.0.0, which ends free commercial use (`LICENSE`, `COMMERCIAL.md`, `NOTICE.md`, `README.md`).
 - 2026-10-04 — provision: Added examples to the help of setup, doctor, link and unlink (`sushicore/provision/commands.py`).
 - 2026-10-04 — provision: Built the GPU adapters against a toolchain already on the machine when the run installed none (`provision_adapters_for_run`).
 - 2026-10-04 — provision: Made doctor pass a dependency a package manager holds when its check_cmd fails (`fragment_check`, `held_by_managers`).

@@ -1,3 +1,8 @@
+# config_base.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Shared build-tool config schema and load/write skeleton for the Sushi* CLIs.
 
 Every module CLI (`sr`, `se`, `hub`) shells out to the same host build tools —

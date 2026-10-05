@@ -1,3 +1,8 @@
+# test_profile.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """The profile is what keeps the shared machinery from naming a module."""
 
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile

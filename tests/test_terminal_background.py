@@ -1,3 +1,8 @@
+# test_terminal_background.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """The background decision reads a setting first and COLORFGBG only when asked to."""
 
 import pytest

@@ -1,3 +1,8 @@
+# stack_config.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026 Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
 """Toolchain resolution for a module that consumes the shared dependency tree.
 
 SushiEngine, SushiAI and SushiBLAS are heads of the stack: they select no SYCL
