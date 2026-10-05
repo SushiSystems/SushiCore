@@ -5,7 +5,7 @@
 # Commercial use requires a licence from Sushi Systems.
 """Dependency provisioning shared by hub and every module CLI.
 
-See ``docs/agent/specs/2026-09-23-provision-design.md``.
+See ``docs/design/PROVISION.md``.
 """
 
 from ._output import bind_console
