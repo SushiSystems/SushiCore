@@ -78,6 +78,24 @@ def test_provision_adapters_for_run_uses_the_resolved_llvm_root(
     assert calls == [tmp_path]
 
 
+def test_provision_adapters_for_run_drops_probed_keys_the_settings_do_not_hold(
+        monkeypatch, tmp_path, recording_console):
+    """Check that a probed key with no field on the settings does not stop the adapter build."""
+    built = []
+    monkeypatch.setattr(
+        steps_mod, "provision_gpu_adapters",
+        lambda cfg, registry, root, builder, dry_run: built.append((root, cfg.cxx)))
+    monkeypatch.setattr(
+        steps_mod.probe, "resolve_local_config",
+        lambda cfg, gpu=None: {"cxx": "clang++", "cc": "clang"})
+    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
+    ctx.resolved_paths["llvm_root"] = str(tmp_path)
+
+    provision_adapters_for_run(ctx)
+
+    assert built == [(tmp_path, "clang++")]
+
+
 def _patch_heavy_windows_steps(monkeypatch, llvm_root: str) -> None:
     """Stub every Windows sub-step except the GPU block, and mark the toolchain resolved."""
     monkeypatch.setattr(InstallDepsStep, "_install_portable_tools",

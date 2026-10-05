@@ -48,7 +48,8 @@ def provision_adapters_for_run(ctx: InstallContext) -> None:
     if not llvm_root:
         console.info("No intel/llvm toolchain installed; GPU adapter build skipped.")
         return
-    cfg = dataclasses.replace(ctx.cfg, **probed) if probed else ctx.cfg
+    held = {field.name for field in dataclasses.fields(ctx.cfg)}
+    cfg = dataclasses.replace(ctx.cfg, **{key: value for key, value in probed.items() if key in held})
     builder = AdapterBuilder(cfg=cfg, runner=SubprocessCommandRunner())
     provision_gpu_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), builder, ctx.dry_run)
 

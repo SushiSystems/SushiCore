@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from sushicore.provision.gpu.windows_installer import (
     ELEVATION_DECLINED,
     LAUNCH_FAILED,
@@ -54,6 +56,7 @@ class _FakeEnvironment:
         return self._values.get(name)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="a drive-letter path holds the POSIX path separator")
 def test_prepend_machine_path_adds_only_the_entries_not_already_on_path(monkeypatch):
     """Check that prepend machine path adds only the entries not already on path."""
     monkeypatch.setenv("PATH", r"C:\Existing")
@@ -64,6 +67,7 @@ def test_prepend_machine_path_adds_only_the_entries_not_already_on_path(monkeypa
     assert os.environ["PATH"] == r"C:\New" + os.pathsep + r"C:\Existing"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="a drive-letter path holds the POSIX path separator")
 def test_prepend_machine_path_dedupes_case_insensitively(monkeypatch):
     """Check that prepend machine path dedupes case insensitively."""
     monkeypatch.setenv("PATH", r"C:\existing")
