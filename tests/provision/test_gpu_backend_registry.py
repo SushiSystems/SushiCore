@@ -1,6 +1,6 @@
 # test_gpu_backend_registry.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
-# Copyright (c) 2026 Sushi Systems
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 """The GPU backend registry indexes specs by vendor and probe key and rejects duplicates."""

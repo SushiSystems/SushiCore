@@ -1,6 +1,6 @@
 # oneapi.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
-# Copyright (c) 2026 Sushi Systems
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 """Installs Intel oneAPI DPC++ (icx/icpx), the opt-in, heavy Windows toolchain."""

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
 ## v0.7.0 — 2026-10-05
 
 - 2026-10-05 — provision: Fixed the adapter build stopping with a TypeError when the probe found clang (`provision_adapters_for_run`, `sushicore/provision/steps.py`).
