@@ -1,6 +1,6 @@
 # test_markup_safety.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
-# Copyright (c) 2026 Sushi Systems
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 """A help page prints the text of a Click or Typer command as written, and never raises on it."""

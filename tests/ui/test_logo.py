@@ -1,6 +1,6 @@
 # test_logo.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
-# Copyright (c) 2026 Sushi Systems
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 """The logo draws the mark, the wordmark beside it and the glow behind it, in half blocks."""

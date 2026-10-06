@@ -1,6 +1,6 @@
 # diag_commands.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
-# Copyright (c) 2026 Sushi Systems
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
 """The ``config`` and ``env`` commands, registered on a CLI from its diagnostics object.
