@@ -77,7 +77,7 @@ class PageCollector:
             if source not in order:
                 raise PageError(
                     self._docs / K_INDEX_NAME, 1,
-                    f"does not link to {source}, so the page has no order",
+                    f"does not reach {source} through its links, so the page has no order",
                 )
             for link in iter_links(text):
                 asset = self._asset_of(path, source, link, known)

@@ -104,7 +104,7 @@ meant to hide.
 
 Every Markdown file under a listed section is published unless it is excluded. Each needs a
 level-one heading, each is UTF-8 text, and each is reached from `docs/README.md`, directly or
-through other manual pages, which is the rule `check_docs_layout.py` applies. A file whose suffix
+through other documents outside `agent/` and `archive/`, as in `check_docs_layout.py`. A file whose suffix
 is `.md` in any case is a page.
 
 A link in a published page stops the producer, with the page's path and the line, when its
