@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-07 — ci: Added the release job that builds the documentation bundle after CI and attaches it to the tag's release (`.github/workflows/release.yml`, `ci.yml`).
 - 2026-10-07 — docs-bundle: Fixed the page order refusing a page that the index reaches only through another page, by walking links as the layout checker does (`sushicore/docs_bundle/page_order.py`).
 - 2026-10-07 — docs: Added the publish list, so this repository's manual is bundled for the documentation site (`docs/publish.toml`, `check_docs_layout.py`).
 - 2026-10-07 — docs: Added the frequently asked questions page (`docs/guides/FAQ.md`).
