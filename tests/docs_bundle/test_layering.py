@@ -15,9 +15,10 @@ import sushicore.docs_bundle as docs_bundle
 K_ROOT = Path(docs_bundle.__file__).parent
 K_LAYER = {
     "errors": 0, "markdown_scan": 0,
-    "publish_list": 1, "page_order": 1, "api_reference": 1, "bundle_archive": 1,
+    "page_text": 1, "publish_list": 1, "api_reference": 1, "bundle_archive": 1,
     "source_revision": 1,
-    "page_set": 2, "bundle_manifest": 3, "producer": 4, "commands": 5, "__main__": 5,
+    "page_order": 2, "page_set": 3, "bundle_manifest": 4, "producer": 5,
+    "commands": 6, "__main__": 6,
 }
 K_COMMAND_FRAMEWORKS = frozenset({"typer", "click"})
 
@@ -51,7 +52,7 @@ def test_no_module_imports_a_higher_or_equal_layer():
 
 
 def test_no_module_imports_a_command_framework_at_module_level():
-    """Typer and Click are imported inside the function that needs them."""
+    """Imports no command framework at module level; Typer loads inside the function."""
     for path in K_ROOT.glob("*.py"):
         _, packages = _module_imports(path)
         assert not packages & K_COMMAND_FRAMEWORKS, path.name

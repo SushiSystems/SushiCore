@@ -19,11 +19,12 @@ from typing import final
 from .errors import PageError, PublishListError
 from .markdown_scan import MarkdownLink, first_heading, iter_links, local_path
 from .page_order import K_INDEX_NAME, read_page_order
+from .page_text import is_page, read_page_text
 from .publish_list import K_FILE_NAME, K_SECTIONS, PublishList
 
 K_DOCS = "docs"
 K_FAQ = "guides/FAQ.md"
-K_PAGE_SUFFIX = ".md"
+K_BACKSLASH = "\\"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +70,7 @@ class PageCollector:
         assets: set[str] = set()
         for source in sources:
             path = self._docs / source
-            text = path.read_text(encoding="utf-8")
+            text = read_page_text(path)
             title = first_heading(text)
             if title is None:
                 raise PageError(path, 1, "has no level-one heading to take its title from")
@@ -91,8 +92,9 @@ class PageCollector:
         list_path = self._docs / K_FILE_NAME
         found: list[str] = []
         for section in self._publish_list.sections:
-            for path in sorted((self._docs / section).rglob(f"*{K_PAGE_SUFFIX}")):
-                found.append(path.relative_to(self._docs).as_posix())
+            for path in sorted((self._docs / section).rglob("*")):
+                if path.is_file() and is_page(path.name):
+                    found.append(path.relative_to(self._docs).as_posix())
         unknown = sorted(self._publish_list.exclude - set(found))
         if unknown:
             raise PublishListError(
@@ -110,6 +112,11 @@ class PageCollector:
         local = local_path(link.target)
         if local is None:
             return None
+        if K_BACKSLASH in local:
+            raise PageError(
+                path, link.line,
+                f"links to {link.target} with a backslash; write the path with forward slashes",
+            )
         if local.startswith("/"):
             raise PageError(path, link.line, f"links to {link.target}, an absolute path")
         target = posixpath.normpath(posixpath.join(K_DOCS, posixpath.dirname(source), local))
@@ -120,7 +127,7 @@ class PageCollector:
         if not target.startswith(K_DOCS + "/"):
             return None
         inside = target[len(K_DOCS) + 1:]
-        if inside in known or inside.endswith(K_PAGE_SUFFIX):
+        if inside in known or is_page(inside):
             return None
         published = inside.split("/", 1)[0] in self._publish_list.sections
         return inside if published and (self._root / target).is_file() else None

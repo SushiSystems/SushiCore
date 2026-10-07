@@ -108,3 +108,32 @@ def test_collect_refuses_a_list_that_publishes_nothing(repository):
     """Stops when the listed sections hold no Markdown file."""
     with pytest.raises(PublishListError):
         _collect(repository, sections=("reference",))
+
+
+@pytest.mark.parametrize("target", [r"..\design\secret.png", "..%5Cdesign%5Csecret.png"])
+def test_collect_refuses_a_link_written_with_backslashes(repository, target):
+    """Stops on a backslash, which a Windows path would follow into an unlisted folder."""
+    (repository / "docs" / "design" / "secret.png").write_bytes(b"x")
+    write_file(repository, "docs/guides/BUILDING.md", f"# Building\n\n![x]({target})\n")
+    with pytest.raises(PageError) as caught:
+        _collect(repository)
+    assert caught.value.line == 3
+    assert "forward slashes" in str(caught.value)
+
+
+def test_collect_never_carries_an_excluded_page_as_an_asset(repository):
+    """Treats `.MD` as a page, so excluding it keeps it out when a page links to it."""
+    write_file(repository, "docs/guides/HIDDEN.MD", "# Hidden\n")
+    write_file(repository, "docs/guides/BUILDING.md", "# Building\n\n[h](HIDDEN.MD)\n")
+    page_set = _collect(repository, exclude=frozenset({"guides/HIDDEN.MD"}))
+    assert page_set.assets == ()
+    assert all("HIDDEN" not in page.source for page in page_set.pages)
+
+
+def test_collect_reports_a_page_that_is_not_utf_8(repository):
+    """Names the page whose bytes cannot be read as UTF-8."""
+    page = repository / "docs" / "guides" / "BUILDING.md"
+    page.write_bytes(b"# Building \xe5\n")
+    with pytest.raises(PageError) as caught:
+        _collect(repository)
+    assert caught.value.path == page

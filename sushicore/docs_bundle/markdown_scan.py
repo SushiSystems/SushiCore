@@ -17,7 +17,7 @@ from urllib.parse import unquote
 
 K_FENCE = re.compile(r"^\s{0,3}(```|~~~)")
 K_CODE_SPAN = re.compile(r"`[^`]*`")
-K_LINK = re.compile(r"\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)")
+K_LINK = re.compile(r"\]\(\s*(?:<([^>\n]*)>|([^\s)]+))[^)\n]*\)")
 K_HEADING = re.compile(r"^#\s+(.*?)\s*#*\s*$")
 K_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
@@ -32,20 +32,30 @@ class MarkdownLink:
 
 def _prose_lines(text: str) -> Iterator[tuple[int, str]]:
     """Yields each line outside a fenced code block, with its number."""
-    fenced = False
+    fence: str | None = None
     for number, line in enumerate(text.splitlines(), start=1):
-        if K_FENCE.match(line):
-            fenced = not fenced
-            continue
-        if not fenced:
+        match = K_FENCE.match(line)
+        if fence is None and match is None:
             yield number, line
+        elif fence is None:
+            fence = match.group(1)
+        elif match is not None and match.group(1) == fence:
+            fence = None
 
 
 def iter_links(text: str) -> Iterator[MarkdownLink]:
-    """Yields every inline link and image target outside code, in reading order."""
+    """Yields every inline link and image target outside code, in reading order.
+
+    A link whose text wraps is reported on the line that holds its target, and a linked
+    image yields the image first, then the target it links to.
+    """
+    lines = [""] * (text.count("\n") + 1)
     for number, line in _prose_lines(text):
-        for match in K_LINK.finditer(K_CODE_SPAN.sub("", line)):
-            yield MarkdownLink(match.group(1), number)
+        lines[number - 1] = K_CODE_SPAN.sub("", line)
+    prose = "\n".join(lines)
+    for match in K_LINK.finditer(prose):
+        target = match.group(1) if match.group(1) is not None else match.group(2)
+        yield MarkdownLink(target, prose.count("\n", 0, match.start()) + 1)
 
 
 def first_heading(text: str) -> str | None:

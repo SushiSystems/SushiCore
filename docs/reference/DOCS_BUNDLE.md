@@ -61,7 +61,7 @@ files give the same bytes and the same SHA-256.
 | `pages[].path` | The page's place in the archive |
 | `pages[].section` | The folder under `docs/` the page lives in |
 | `pages[].title` | The page's first level-one heading |
-| `pages[].order` | The position of the page's first link in `docs/README.md`, counted from 1 over every Markdown link there |
+| `pages[].order` | The position of the page among the distinct Markdown files below `docs/` that `docs/README.md` links to, counted from 1 in the order of their first link |
 | `pages[].source` | The page's path in the repository |
 | `assets` | Every file under `pages/` that is not a page, sorted |
 | `faq` | The archive path of `docs/guides/FAQ.md` when it is published, else `null` |
@@ -103,8 +103,12 @@ A key outside this table stops the producer, so a misspelt key is not read as ab
 meant to hide.
 
 Every Markdown file under a listed section is published unless it is excluded. Each needs a
-level-one heading and a link from `docs/README.md`. A link in a published page to a file that
-does not exist stops the producer with the page's path and the line.
+level-one heading and a link from `docs/README.md`, and each is UTF-8 text. A file whose suffix
+is `.md` in any case is a page.
+
+A link in a published page stops the producer, with the page's path and the line, when its
+target does not exist, when it is an absolute path, when it leaves the repository, and when it
+is written with a backslash.
 
 ## The commands
 
@@ -128,7 +132,13 @@ every CLI.
 
 ### Limits
 
-- Inline Markdown links only. A reference-style link, `[text][label]`, is not followed.
+- Inline Markdown links only. A reference-style link, `[text][label]`, and an HTML `<img>` are
+  not followed, so their targets are neither checked nor carried.
+- A link target that holds a parenthesis is cut at it.
+- The same files give the same archive, but a checkout with CRLF line endings holds other files
+  than one with LF. The bundle a site pins is the one CI attaches.
+- `commit` is the checked-out commit. The producer does not look for uncommitted changes, so a
+  bundle built from a tree with some carries pages that commit does not hold.
 - The release is three integers; `v1.2.3` and `1.2.3-rc1` are refused.
 - The files of the API reference are those `index.xml` names. A file an earlier Doxygen run
   left in the output folder is not copied.
