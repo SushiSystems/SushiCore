@@ -1,6 +1,6 @@
 # Notices
 
-SushiCore is Copyright (c) 2026 Sushi Systems and licensed under the PolyForm Noncommercial
+SushiCore is Copyright (c) 2026-present Mustafa Garip & Sushi Systems and licensed under the PolyForm Noncommercial
 License 1.0.0; see `LICENSE`. The material below keeps its own licence.
 
 No third-party code is vendored in this repository, no file is ported from third-party code,
