@@ -55,3 +55,28 @@ def test_read_reports_a_missing_index(tmp_path):
     with pytest.raises(PageError) as caught:
         read_page_order(tmp_path)
     assert "README.md" in str(caught.value)
+
+
+def test_read_follows_links_through_the_pages_of_the_manual(repository):
+    """Orders a page that only another manual page links to, after the pages before it."""
+    write_file(repository, "docs/README.md", "[Guide](guides/GUIDE.md)\n[Ref](reference/INDEX.md)\n")
+    write_file(repository, "docs/guides/GUIDE.md", "# Guide\n\n[Deep](deep/PART.md)\n")
+    write_file(repository, "docs/guides/deep/PART.md", "# Part\n\n[Back](../GUIDE.md)\n")
+    write_file(repository, "docs/reference/INDEX.md", "# Index\n\n[One](spice/ONE.md) [Two](spice/TWO.md)\n")
+    write_file(repository, "docs/reference/spice/ONE.md", "# One\n")
+    write_file(repository, "docs/reference/spice/TWO.md", "# Two\n")
+    assert read_page_order(repository / "docs") == {
+        "guides/GUIDE.md": 1,
+        "reference/INDEX.md": 2,
+        "guides/deep/PART.md": 3,
+        "reference/spice/ONE.md": 4,
+        "reference/spice/TWO.md": 5,
+    }
+
+
+def test_read_does_not_follow_links_out_of_a_page_that_is_not_manual(repository):
+    """Gives a design document an order and reads no further through it."""
+    write_file(repository, "docs/README.md", "[Design](design/TOPIC.md)\n")
+    write_file(repository, "docs/design/TOPIC.md", "# Topic\n\n[Hidden](../guides/HIDDEN.md)\n")
+    write_file(repository, "docs/guides/HIDDEN.md", "# Hidden\n")
+    assert read_page_order(repository / "docs") == {"design/TOPIC.md": 1}
