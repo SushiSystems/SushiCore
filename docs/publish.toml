@@ -1,0 +1,6 @@
+name = "sushicore"
+title = "SushiCore"
+summary = "The shared core of the Sushi developer CLIs."
+sections = ["getting_started", "guides", "architecture", "reference"]
+api = false
+source_url = "https://github.com/SushiSystems/SushiCore"
