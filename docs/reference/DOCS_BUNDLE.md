@@ -61,7 +61,7 @@ files give the same bytes and the same SHA-256.
 | `pages[].path` | The page's place in the archive |
 | `pages[].section` | The folder under `docs/` the page lives in |
 | `pages[].title` | The page's first level-one heading |
-| `pages[].order` | The position of the page in a breadth-first walk of links that starts at `docs/README.md` and reads on through the manual's pages, counted from 1 |
+| `pages[].order` | The position of the page in a breadth-first walk of links that starts at `docs/README.md` and reads on through every document outside `agent/` and `archive/`, counted from 1. A document the walk meets and the bundle does not publish takes a number too, so the numbers have gaps |
 | `pages[].source` | The page's path in the repository |
 | `assets` | Every file under `pages/` that is not a page, sorted |
 | `faq` | The archive path of `docs/guides/FAQ.md` when it is published, else `null` |
@@ -104,8 +104,8 @@ meant to hide.
 
 Every Markdown file under a listed section is published unless it is excluded. Each needs a
 level-one heading, each is UTF-8 text, and each is reached from `docs/README.md`, directly or
-through other documents outside `agent/` and `archive/`, as in `check_docs_layout.py`. A file whose suffix
-is `.md` in any case is a page.
+through other documents outside `agent/` and `archive/`, as in `check_docs_layout.py`. A file
+whose suffix is `.md` in any case is a page.
 
 A link in a published page stops the producer, with the page's path and the line, when its
 target does not exist, when it is an absolute path, when it leaves the repository, and when it

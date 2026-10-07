@@ -24,7 +24,7 @@ K_RECORD_FOLDERS = frozenset({"agent", "archive"})
 
 
 def _is_followed(page: str) -> bool:
-    """Returns whether the walk reads on through a page: any but a work record or an archived one."""
+    """Returns whether the walk reads on through a page: not a work record, not an archived one."""
     return page.split("/", 1)[0] not in K_RECORD_FOLDERS
 
 
