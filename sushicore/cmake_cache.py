@@ -45,6 +45,20 @@ def cached_value(build_dir: Path, entry: str) -> str | None:
     return None
 
 
+def same_path(left: str, right: str) -> bool:
+    """Report whether two spellings name one path, ignoring case and separators as the platform does."""
+    return os.path.normcase(os.path.normpath(left)) == os.path.normcase(os.path.normpath(right))
+
+
+def compiler_changed(build_dir: Path, compiler: str) -> bool:
+    """Report whether *build_dir* was configured with a C++ compiler at another path than *compiler*.
+
+    @return False when the tree is unconfigured or its cache names no compiler.
+    """
+    cached = cached_value(build_dir, "CMAKE_CXX_COMPILER")
+    return bool(cached) and not same_path(cached, compiler)
+
+
 def home_directory(build_dir: Path) -> str | None:
     """The source directory *build_dir* was configured against, or None."""
     return cached_value(build_dir, "CMAKE_HOME_DIRECTORY")

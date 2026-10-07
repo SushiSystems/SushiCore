@@ -14,7 +14,26 @@ import shutil
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .cmake_cache import cached_value, generator_sentinel, is_stale
+from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_stale
+
+
+def _option_value(args: Sequence[str], option: str) -> str | None:
+    """Return the value of *option* in a cmake argv, given as two words or as one."""
+    for index, word in enumerate(args):
+        if word == option and index + 1 < len(args):
+            return args[index + 1]
+        if word.startswith(option) and len(word) > len(option):
+            return word[len(option):]
+    return None
+
+
+def _definition(args: Sequence[str], name: str) -> str | None:
+    """Return the value a cmake argv gives the cache entry *name* through ``-D``, or None."""
+    prefix = f"-D{name}="
+    for word in args:
+        if word.startswith(prefix):
+            return word[len(prefix):]
+    return None
 
 _DEFAULT_DOXYGEN_HINT = (
     "  - Windows: winget install DimitriVanHeesch.Doxygen\n"
@@ -70,8 +89,24 @@ class CMakeDriver:
         return False
 
     def configure(self, args: Sequence[str], cwd: Path, env=None) -> int:
-        """Run a configure whose argv the caller assembled."""
+        """Run a configure whose argv the caller assembled.
+
+        A cache configured with a compiler at another path is deleted first; the reason is
+        in docs/architecture/OVERVIEW.md, under `cmake_driver`.
+        """
+        self._drop_cache_of_another_compiler(list(args))
         return self._runner.run(list(args), cwd, env)
+
+    def _drop_cache_of_another_compiler(self, args: list[str]) -> None:
+        """Delete the cache of the tree *args* configures when its compiler path differs."""
+        build_dir = _option_value(args, "-B")
+        compiler = _definition(args, "CMAKE_CXX_COMPILER")
+        if not build_dir or not compiler or not compiler_changed(Path(build_dir), compiler):
+            return
+        self._console.warn(
+            f"The build tree was configured with another compiler path; "
+            f"configuring {build_dir} from an empty cache.")
+        (Path(build_dir) / "CMakeCache.txt").unlink()
 
     def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
                 config: str | None = None, targets: Sequence[str] = (),

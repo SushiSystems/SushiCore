@@ -147,6 +147,13 @@ are policy, and policy stays in the module. Everything specific to a module arri
 parameter: `expect` for the cache entries a tree must already agree with, `targets` for what to
 build, `label_regex` for which tests to select.
 
+`configure` deletes `CMakeCache.txt` first when the tree was configured with a C++ compiler at
+another path than the one the argv names. CMake would otherwise delete the cache itself and
+run the configure a second time without the `-D` values of the command line, which leaves a
+tree with default options: targets go missing and the build type is lost. This happens to
+every build tree after the dependency root moves. The comparison ignores case and separators
+as the platform does, and an argv that names no compiler leaves the cache alone.
+
 In `doxygen`, the child resolves its argument against `cwd`, and every module passes a path
 relative to the project root, not an absolute one. The method derives that path from the
 Doxyfile so a caller does not give it twice. It needs `as_posix()` on Windows, where
