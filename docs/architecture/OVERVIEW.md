@@ -1,6 +1,6 @@
 # Architecture overview
 
-SushiCore is one Python package, `sushicore`, with three sub-packages. Seven CLIs import it:
+SushiCore is one Python package, `sushicore`, with four sub-packages. Seven CLIs import it:
 `hub`, `sr`, `se`, `sa`, `sb`, `sd` and `st`. It registers commands on their Typer applications
 and has no application of its own.
 
@@ -62,6 +62,7 @@ files a CLI hands it.
 | `aliases` | `AliasTable`: old spellings that still run, hidden, and name their replacement |
 | `entry` | `run`, the entry point that turns a `SushiCoreError` into one line and exit code 1 |
 | [`provision`](../../sushicore/provision/README.md) | The dependency root, the registry, the doctor and the commands `setup`, `doctor`, `link`, `unlink` |
+| [`docs_bundle`](../../sushicore/docs_bundle/README.md) | The `docs` command group and the documentation bundle `docs bundle` writes |
 
 ## Rules the code keeps
 
@@ -73,8 +74,8 @@ files a CLI hands it.
 - A component in `ui` reads `Theme` and `brand` and nothing else. `tests/test_ui_architecture.py`
   fails when one imports more.
 - `typer_help` is the only module that imports Typer when it is loaded. `typer_theme`,
-  `root_options`, `diag_commands` and `provision/commands.py` import it inside the function that
-  needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`
+  `root_options`, `diag_commands`, `provision/commands.py` and `docs_bundle/commands.py` import it
+  inside the function that needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`
   works without the `typer` extra.
 - Inside `provision`, lower layers do not import higher ones; the layer table is in
   [`docs/design/PROVISION.md`](../design/PROVISION.md).
