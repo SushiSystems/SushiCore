@@ -61,7 +61,7 @@ files give the same bytes and the same SHA-256.
 | `pages[].path` | The page's place in the archive |
 | `pages[].section` | The folder under `docs/` the page lives in |
 | `pages[].title` | The page's first level-one heading |
-| `pages[].order` | The position of the page among the distinct Markdown files below `docs/` that `docs/README.md` links to, counted from 1 in the order of their first link |
+| `pages[].order` | The position of the page in a breadth-first walk of links that starts at `docs/README.md` and reads on through the manual's pages, counted from 1 |
 | `pages[].source` | The page's path in the repository |
 | `assets` | Every file under `pages/` that is not a page, sorted |
 | `faq` | The archive path of `docs/guides/FAQ.md` when it is published, else `null` |
@@ -103,7 +103,8 @@ A key outside this table stops the producer, so a misspelt key is not read as ab
 meant to hide.
 
 Every Markdown file under a listed section is published unless it is excluded. Each needs a
-level-one heading and a link from `docs/README.md`, and each is UTF-8 text. A file whose suffix
+level-one heading, each is UTF-8 text, and each is reached from `docs/README.md`, directly or
+through other manual pages, which is the rule `check_docs_layout.py` applies. A file whose suffix
 is `.md` in any case is a page.
 
 A link in a published page stops the producer, with the page's path and the line, when its

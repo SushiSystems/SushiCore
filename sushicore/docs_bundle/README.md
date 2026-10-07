@@ -12,7 +12,7 @@ CLI registers to build it. The archive's layout and the two files it is driven b
 | `iter_links`, `first_heading`, `local_path` | `markdown_scan.py` | Read what a Markdown page links to and what it is called |
 | `read_page_text`, `is_page` | `page_text.py` | Read a page as UTF-8 text and say which file names are pages |
 | `PublishList`, `read_publish_list` | `publish_list.py` | Read and validate `docs/publish.toml` |
-| `read_page_order` | `page_order.py` | Give each page its position among the links of `docs/README.md` |
+| `read_page_order` | `page_order.py` | Give each page its position in a walk of links that starts at `docs/README.md` |
 | `ApiSource`, `stage_api` | `api_reference.py` | Build the API reference and copy the XML files `index.xml` names |
 | `write_archive` | `bundle_archive.py` | Pack a folder into a reproducible gzip tar and record its SHA-256 |
 | `read_head_commit` | `source_revision.py` | Read the commit a bundle is built from |
