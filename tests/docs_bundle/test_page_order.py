@@ -74,9 +74,18 @@ def test_read_follows_links_through_the_pages_of_the_manual(repository):
     }
 
 
-def test_read_does_not_follow_links_out_of_a_page_that_is_not_manual(repository):
-    """Gives a design document an order and reads no further through it."""
-    write_file(repository, "docs/README.md", "[Design](design/TOPIC.md)\n")
-    write_file(repository, "docs/design/TOPIC.md", "# Topic\n\n[Hidden](../guides/HIDDEN.md)\n")
+def test_read_follows_links_through_a_document_outside_the_manual(repository):
+    """Reaches a page through the contributing page, as the layout checker does."""
+    write_file(repository, "docs/README.md", "[Contributing](CONTRIBUTING.md)\n")
+    write_file(repository, "docs/CONTRIBUTING.md", "# Contributing\n\n[Guide](guides/GUIDE.md)\n")
+    write_file(repository, "docs/guides/GUIDE.md", "# Guide\n")
+    assert read_page_order(repository / "docs") == {"CONTRIBUTING.md": 1, "guides/GUIDE.md": 2}
+
+
+@pytest.mark.parametrize("folder", ["agent", "archive"])
+def test_read_does_not_follow_links_out_of_a_record(repository, folder):
+    """Gives a work record or an archived document an order and reads no further through it."""
+    write_file(repository, "docs/README.md", f"[Record]({folder}/RECORD.md)\n")
+    write_file(repository, f"docs/{folder}/RECORD.md", "# Record\n\n[Hidden](../guides/HIDDEN.md)\n")
     write_file(repository, "docs/guides/HIDDEN.md", "# Hidden\n")
-    assert read_page_order(repository / "docs") == {"design/TOPIC.md": 1}
+    assert read_page_order(repository / "docs") == {f"{folder}/RECORD.md": 1}

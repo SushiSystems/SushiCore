@@ -5,8 +5,8 @@
 # Commercial use requires a licence from Sushi Systems.
 """Reads the order of the manual's pages by following links from `docs/README.md`.
 
-The walk is the one `check_docs_layout.py` uses for reachability, so a manual that passes
-the checker has an order for every page.
+The walk reads on through every document outside `agent/` and `archive/`, as the reachability
+rule of `check_docs_layout.py` does.
 """
 
 from __future__ import annotations
@@ -18,14 +18,14 @@ from pathlib import Path
 from .errors import PageError
 from .markdown_scan import iter_links, local_path
 from .page_text import is_page, read_page_text
-from .publish_list import K_SECTIONS
 
 K_INDEX_NAME = "README.md"
+K_RECORD_FOLDERS = frozenset({"agent", "archive"})
 
 
 def _is_followed(page: str) -> bool:
-    """Returns whether the walk reads on through a page: the index, or a page of the manual."""
-    return page == K_INDEX_NAME or page.split("/", 1)[0] in K_SECTIONS
+    """Returns whether the walk reads on through a page: any but a work record or an archived one."""
+    return page.split("/", 1)[0] not in K_RECORD_FOLDERS
 
 
 def _linked_pages(docs_dir: Path, page: str) -> list[str]:
@@ -48,8 +48,8 @@ def read_page_order(docs_dir: Path) -> dict[str, int]:
     """Returns each page reached from the index, keyed by its path below docs/, with its position.
 
     Pages are numbered from 1 in the order a breadth-first walk first reaches them: the pages
-    the index links to, then the pages those link to. The walk reads on through manual pages
-    only; a page elsewhere under docs/ gets a position and is not read.
+    the index links to, then the pages those link to. A page under agent/ or archive/ gets a
+    position and is not read.
 
     Raises:
         PageError: The documentation tree has no index.
