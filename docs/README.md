@@ -20,6 +20,7 @@ from this page. The front door is [`README.md`](../README.md).
 | Document | Holds |
 | --- | --- |
 | [CLI integration](guides/CLI_INTEGRATION.md) | How a Sushi CLI builds its console and registers the shared surfaces |
+| [FAQ](guides/FAQ.md) | The questions a newcomer asks, each answered from this manual |
 
 ## Reference
 
