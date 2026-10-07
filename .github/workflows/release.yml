@@ -36,3 +36,44 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  docs-bundle:
+    name: Documentation bundle
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check the tag against the version in pyproject.toml
+        id: release
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re, sys
+          tag = os.environ["GITHUB_REF_NAME"]
+          text = open("pyproject.toml", encoding="utf-8").read()
+          found = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', text, re.S | re.M)
+          declared = found.group(1) if found else None
+          if tag != f"v{declared}":
+              sys.exit(f"the tag is {tag} and pyproject.toml declares {declared}")
+          print(f"version={declared}")
+          PY
+      - name: python -m pip install -e .
+        run: python -m pip install -e .
+      - name: python -m sushicore.docs_bundle --release ${{ steps.release.outputs.version }}
+        run: python -m sushicore.docs_bundle --release "${{ steps.release.outputs.version }}"
+      - name: Attach the bundle to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+          gh release upload "$GITHUB_REF_NAME" --clobber \
+            "build/docs/bundle/docs-bundle-${{ steps.release.outputs.version }}.tar.gz" \
+            "build/docs/bundle/docs-bundle-${{ steps.release.outputs.version }}.tar.gz.sha256"
