@@ -20,10 +20,16 @@ same programme in its own `docs/design/REMAINING_WORK.md`.
 ### Provision, phase B
 
 Design: [Provision](PROVISION.md), "Phase B: hub's tree moves". Hub's dependency tree moves from
-`<workspace>/dependencies` to `~/.sushisystems`, with a junction left at the old path. It waits
-on wave 4 above, and its sushicore version is 0.8.0. Its plan is
-`docs/agent/plans/2026-09-25-hub-root-migration.md`, which is untracked. The modules it plans,
-`sushicore/provision/links.py` and `migrate.py`, do not exist yet.
+`<workspace>/dependencies` to a directory the owner names, with a junction left at the old path.
+Its plan is `docs/agent/plans/2026-09-25-hub-root-migration.md`, which is untracked. Tasks 1 to
+4 of that plan exist in sushicore 0.8.0 and in hub: `sushicore/provision/links.py`,
+`migrate.py`, `user_environment.py` and `hub migrate`. What is left:
+
+- The owner's real run of `hub migrate`, then each module's `doctor` and build, then
+  `hub migrate --finalize` or `--rollback` (plan Tasks 5 and 6).
+- Rewriting the build caches and each module's `cli/config.local.toml` to the new root. Until
+  then the link at the old path has to stay.
+- The versioned layout `toolchains/<name>/<version>/`.
 
 ## Deferred by the designs
 

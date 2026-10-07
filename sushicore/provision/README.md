@@ -10,8 +10,11 @@ them. The designs are [`docs/design/PROVISION.md`](../../docs/design/PROVISION.m
 | Path | Job |
 | --- | --- |
 | `home.py` | Resolves the dependency root, its subdirectories and the legacy trees read beside it |
-| `registry.py` | Reads and writes `registry.toml`, the record of installed components and their consumers |
+| `registry.py` | Reads and writes `registry.toml`, the record of installed components and their consumers, and seeds it from a tree already on disk |
 | `lock.py` | The file lock around every operation that changes the root |
+| `links.py` | Makes, reads and removes a directory link: a junction on Windows, a symlink elsewhere |
+| `migrate.py` | Moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it |
+| `user_environment.py` | Reads and writes the user's persistent environment variables: the registry on Windows, one block of `~/.profile` elsewhere |
 | `fragments.py` | Merges dependency fragments from a caller-supplied source list |
 | `closure.py` | Follows a fragment's `depends_on` to each module's checkout |
 | `selection.py` | Decides which toolchain components a run installs |
@@ -75,6 +78,52 @@ the dependency root first, then the folder `SUSHISTACK_DEPS_DIR` names and a leg
 `<workspace>/dependencies` tree. New installs go to the dependency root.
 `StackConfig.dependency_roots(root)` puts the tree of the workspace a module sits in, or is
 linked to, before those.
+
+## Moving the dependency root
+
+`migrate.plan(old_root, new_root)` reads the disk and changes nothing. It returns one `Move` per
+top-level directory of the old root with its file count and bytes, the free space under the new
+root, and `same_volume`. It raises `MigrationError` when the old root is missing or links
+elsewhere, when one root lies inside the other, and when the new root already holds a
+component's name.
+
+`migrate.migrate(plan, report)` holds the lock at `<new root>/.lock` and takes the components
+one at a time. On one volume each is renamed into the new root and journaled `moved`. Across
+volumes each is copied to `<name>.partial`, compared with its source by file count and file
+size, renamed into place and journaled `copied`; this path needs free space of 1.1 times the
+tree. A directory link inside a component is recreated, not followed. Then the old root is
+renamed to `<old>.pre-migrate` and a directory link to the new root takes its place. Loose
+files at the top of the old root, its `.lock` among them, stay in the aside copy.
+
+The journal is `<new root>/.migrate-journal.jsonl`, one JSON object per line. A run that
+stopped goes on from it: finished components are not moved again and a leftover `.partial`
+folder is deleted first. A rename that Windows refuses because a file is open raises
+`MigrationError` naming the component; what moved before it stays journaled.
+
+`migrate.rollback(old_root, new_root, report)` replays the journal newest first: it removes the
+link, renames the aside copy back, renames each `moved` component back and deletes each
+`copied` one. A copy is deleted only while the old root still holds the original. A step the
+module does not know is skipped, so a caller can record its own steps with
+`MigrationJournal(new_root).append(step, **fields)` and read them with `entries()`.
+
+`migrate.finalize(old_root, new_root, report, drop_link=False)` deletes the aside copy and
+renames the journal to `.migrate-journal.done.jsonl`, after which a rollback finds nothing.
+With `drop_link=True` it also removes the link at the old path. It refuses when the old root is
+not a link to the new root, and when there is no aside copy and the link was not asked to go.
+
+`Registry.seed_from_tree(root, consumer)` records what a moved tree holds: each child of
+`toolchains`, `tools` and `ur`, and `vcpkg`. The version is the `tag` of the component's
+`.sushi_toolchain.json`, else `unversioned`.
+
+## The user's environment
+
+`user_environment.write_user_variable(name, value)` sets a variable for every process the user
+starts from then on; `read_user_variable` and `remove_user_variable` complete the set. Each
+takes a `store`, and without one uses `default_environment()`. `RegistryEnvironment` writes
+`HKEY_CURRENT_USER\Environment` and broadcasts `WM_SETTINGCHANGE`. `ProfileEnvironment` keeps
+`export NAME="value"` lines between two marker comments in `~/.profile` and removes the markers
+with the last line. Both take what they touch as constructor arguments, the key opener and the
+broadcast for one and the file for the other, so a test passes a fake key or a temporary file.
 
 ## Probing a compiler
 

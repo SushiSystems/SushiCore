@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 2026-10-07 — provision: Added a journaled dependency-root migration that renames on one volume and copies across two, with rollback and finalize (`sushicore/provision/migrate.py`).
+- 2026-10-07 — provision: Added directory links, junctions on Windows and symlinks elsewhere (`sushicore/provision/links.py`).
+- 2026-10-07 — provision: Added the reader and writer of the user's persistent environment variables (`sushicore/provision/user_environment.py`).
+- 2026-10-07 — provision: Added registry seeding from an existing dependency tree (`Registry.seed_from_tree`, `sushicore/provision/registry.py`).
 - 2026-10-07 — licence: Named Mustafa Garip and Sushi Systems as the copyright holders in the licence and notice files (`LICENSE`, `NOTICE.md`).
 - 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
 ## v0.7.0 — 2026-10-05

@@ -29,6 +29,12 @@ def _leave_the_real_console_alone(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_machine_dependency_root(tmp_path, monkeypatch):
+    """Point ``SUSHISYSTEMS_HOME`` at a temporary folder so no test writes to the machine's root."""
+    monkeypatch.setenv("SUSHISYSTEMS_HOME", str(tmp_path / "machine-root"))
+
+
+@pytest.fixture(autouse=True)
 def _clear_shared_style_cache():
     """Clear, after each test, the styles and colours Rich caches for one colour system."""
     yield

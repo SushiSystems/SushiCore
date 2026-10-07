@@ -1,6 +1,6 @@
 # Provision: one dependency root, one setup command, one doctor
 
-**Status:** Open — phase A shipped in 0.5.0 to 0.7.0; phase B, the move of hub's tree, has not started.
+**Status:** Open — phase A shipped in 0.5.0 to 0.7.0; phase B's engine and `hub migrate` exist since 0.8.0, and the owner's real move, steps 5 and 6, has not run.
 
 Every Sushi Systems repository must build after one command on any machine. In SushiStack,
 `hub install` does that. SushiTrack and SushiDSP are deliberately not tied to hub, so today they
@@ -150,13 +150,28 @@ The owner is told before this starts and pauses SushiEngine work first.
 1. Inventory: every component under `dependencies/`, and every `CMakeCache.txt`,
    `workspace.toml` and `config.local.toml` holding an old path, listed for the owner.
 2. `hub migrate --dry-run` prints each move and touches nothing.
-3. Each component moves on its own: a rename on the same volume, otherwise copy, verify,
-   delete. Every step goes to a journal; `hub migrate --rollback` replays it in reverse.
+3. Each component moves on its own: a rename on the same volume, otherwise copy and verify.
+   Every step goes to a journal; `hub migrate --rollback` replays it in reverse.
 4. The old `dependencies/` path becomes a junction (a symlink on Linux) to the new root, so
-   every existing absolute path still resolves.
+   every existing absolute path still resolves. What is left of the old folder is kept as
+   `dependencies.pre-migrate` until `hub migrate --finalize` deletes it.
 5. Each module's `doctor` and build run through its own CLI, and the output goes to the owner.
 6. Later and separately: configs are rewritten to the new paths and build trees reconfigured.
    The junction goes only when no file names the old path, with the owner's approval.
+
+What exists since 0.8.0, decided by the owner on 2026-10-07:
+
+- The target is any directory: `hub migrate --to PATH`, and `~/.sushisystems` without `--to`.
+- `provision/links.py` makes the link, `provision/migrate.py` holds steps 2 to 4 with
+  `plan`, `migrate`, `rollback` and `finalize`, and `Registry.seed_from_tree` records the moved
+  components. `finalize(..., drop_link=True)` also removes the link, which is the engine's half
+  of step 6.
+- `provision/user_environment.py` writes `SUSHISYSTEMS_HOME` for the user when the target is
+  not the default, and hub rewrites the `[tool]` paths of its `workspace.toml` to the new root.
+  The build caches and each module's `config.local.toml` are not rewritten.
+- The module's behaviour is in `sushicore/provision/README.md`, "Moving the dependency root".
+
+Not done: steps 1 and 5 on the owner's machine, and the rest of step 6.
 
 ## Testing
 
