@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-07 — cmake: Fixed a configure losing its `-D` values when the compiler path changed, by deleting the tree's cache before the run (`CMakeDriver.configure`, `compiler_changed`, `sushicore/cmake_cache.py`).
+
 ## v0.8.0 — 2026-10-07
 
 - 2026-10-07 — provision: Added a journaled dependency-root migration that renames on one volume and copies across two, with rollback and finalize (`sushicore/provision/migrate.py`).

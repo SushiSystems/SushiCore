@@ -5,6 +5,7 @@
 # Commercial use requires a licence from Sushi Systems.
 """The driver's whole contract is the argv it produces."""
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -247,3 +248,36 @@ def test_ctest_run_skips_parallel_for_a_single_job(tmp_path):
     driver, runner = _driver()
     driver.ctest_run(_cfg(), tmp_path, None, jobs=1)
     assert "--parallel" not in runner.calls[-1][1]
+
+
+def _configured_tree(tmp_path, compiler):
+    build = tmp_path / "build"
+    build.mkdir()
+    (build / "CMakeCache.txt").write_text(
+        f"CMAKE_CXX_COMPILER:STRING={compiler}\nSUSHI_OPTION:BOOL=ON\n", encoding="utf-8")
+    return build
+
+
+def test_configure_drops_the_cache_when_the_compiler_path_changed(tmp_path):
+    build = _configured_tree(tmp_path, "D:/old/bin/clang++.exe")
+    driver, runner = _driver()
+    args = ["cmake", "-S", str(tmp_path), "-B", str(build),
+            "-DCMAKE_CXX_COMPILER=D:/new/bin/clang++.exe", "-DSUSHI_OPTION=ON"]
+    assert driver.configure(args, tmp_path) == 0
+    assert not (build / "CMakeCache.txt").exists()
+    assert runner.calls == [("run", args, str(tmp_path))]
+
+
+def test_configure_keeps_the_cache_when_only_the_spelling_of_the_path_differs(tmp_path):
+    build = _configured_tree(tmp_path, "D:/Tools/bin/clang++.exe")
+    driver, _ = _driver()
+    spelled = r"D:\Tools\bin\clang++.exe" if os.name == "nt" else "D:/Tools/bin/./clang++.exe"
+    driver.configure(["cmake", "-B", str(build), f"-DCMAKE_CXX_COMPILER={spelled}"], tmp_path)
+    assert (build / "CMakeCache.txt").exists()
+
+
+def test_configure_keeps_the_cache_when_no_compiler_is_named(tmp_path):
+    build = _configured_tree(tmp_path, "D:/old/bin/clang++.exe")
+    driver, _ = _driver()
+    driver.configure(["cmake", "-B", str(build), "-DSUSHI_OPTION=ON"], tmp_path)
+    assert (build / "CMakeCache.txt").exists()
