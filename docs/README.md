@@ -28,6 +28,7 @@ from this page. The front door is [`README.md`](../README.md).
 | [Configuration](reference/CONFIGURATION.md) | The `[cli]` table, its precedence and the environment variables the package reads |
 | [Dependency fragment](reference/DEPENDENCY_FRAGMENT.md) | The keys of a `sushistack.deps.toml` entry, the pinned SHA-256 among them |
 | [JSON events](reference/JSON_EVENTS.md) | The event stream a console writes in machine mode |
+| [Documentation bundle](reference/DOCS_BUNDLE.md) | The archive a repository publishes to the documentation site, its `bundle.json` and `docs/publish.toml` |
 | [Changelog](reference/CHANGELOG.md) | What changed, by release |
 | [Glossary](reference/GLOSSARY.md) | The words these documents use |
 | [Known issues](reference/KNOWN_ISSUES.md) | Defects that are recorded and not yet fixed |

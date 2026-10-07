@@ -23,6 +23,7 @@ SushiCore follows the Sushi Systems skills: `documentation`, `source-comments`,
 | Touches `sushicore/provision`, `sushicore/ui` or `sushicore/help` | That module's `README.md` |
 | Adds a `[cli]` key or an environment variable | [Configuration](reference/CONFIGURATION.md) |
 | Adds or changes a JSON event | [JSON events](reference/JSON_EVENTS.md); the keys are a contract with the desktop application |
+| Changes a field of `bundle.json` or a key of `docs/publish.toml` | [Documentation bundle](reference/DOCS_BUNDLE.md) and `K_SCHEMA_VERSION`; the documentation site reads both |
 | Finishes a phase of a design | The status line of the document under `docs/design/` and the row in [the design map](design/README.md) |
 | Fixes a recorded defect | Its row removed from [Known issues](reference/KNOWN_ISSUES.md) |
 | Introduces a word a reader has to learn | [The glossary](reference/GLOSSARY.md) |

@@ -17,6 +17,17 @@ same programme in its own `docs/design/REMAINING_WORK.md`.
 - The owner runs the real `setup` and build of `sr`, `sb`, `sa`, `sd`, `st`, and `se` last.
 - The owner pushes each module repository. sushicore 0.7.0 was tagged on 2026-10-05 and 0.8.0 on 2026-10-07.
 
+### Documentation site, sub-project 1
+
+Design: `docs/agent/2026_10_07_DOCS_BUNDLE/SPEC.md`, under the programme design
+`docs/agent/2026_10_07_DOCS_SITE/SPEC.md` in the SushiStack repository. `sushicore.docs_bundle`
+and the catalogue change exist since 2026-10-07 and are unreleased.
+
+- The owner releases the version that carries `docs_bundle`; each CLI's `sushicore` floor rises
+  to it afterwards.
+- `hub`, `st`, `se`, `sa`, `sb` and `sd` register the `docs` group, and this repository gets
+  its own `docs/publish.toml`. Both belong to sub-project 3 of the programme.
+
 ### Provision, phase B
 
 Design: [Provision](PROVISION.md), "Phase B: hub's tree moves". Hub's dependency tree moves from
