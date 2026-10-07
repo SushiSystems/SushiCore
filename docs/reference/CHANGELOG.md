@@ -2,43 +2,11 @@
 
 ## Unreleased
 
+## v0.8.0 — 2026-10-07
+
 - 2026-10-07 — provision: Added a journaled dependency-root migration that renames on one volume and copies across two, with rollback and finalize (`sushicore/provision/migrate.py`).
 - 2026-10-07 — provision: Added directory links, junctions on Windows and symlinks elsewhere (`sushicore/provision/links.py`).
 - 2026-10-07 — provision: Added the reader and writer of the user's persistent environment variables (`sushicore/provision/user_environment.py`).
 - 2026-10-07 — provision: Added registry seeding from an existing dependency tree (`Registry.seed_from_tree`, `sushicore/provision/registry.py`).
 - 2026-10-07 — licence: Named Mustafa Garip and Sushi Systems as the copyright holders in the licence and notice files (`LICENSE`, `NOTICE.md`).
 - 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
-## v0.7.0 — 2026-10-05
-
-- 2026-10-05 — provision: Fixed the adapter build stopping with a TypeError when the probe found clang (`provision_adapters_for_run`, `sushicore/provision/steps.py`).
-- 2026-10-05 — provision: Verified the archives and installers fetched by `download`, curl to a file or the GPU installer downloader against their pinned SHA-256 and stopped on a mismatch (`integrity.py`, `download_verifier.py`).
-- 2026-10-05 — provision: Added the optional `sha256` key to a fragment entry (`sushicore/deps_fragment.py`, `sushicore/provision/fragments.py`, `docs/reference/DEPENDENCY_FRAGMENT.md`).
-- 2026-10-05 — provision: Warned once per download with no pinned digest and listed them in doctor's `download digests` row (`DownloadVerifier`, `digest_check`).
-- 2026-10-05 — sushicore: Logged the registry, cache, probe, os-release, cleanup and stream failures that were dropped and stopped catching defects with them (`sushicore/provision/`, `build_env.py`, `renderer.py`).
-- 2026-10-05 — docs: Moved the design reasoning out of source comments and module docstrings into the manual (`docs/architecture/OVERVIEW.md`, `sushicore/provision/README.md`, `sushicore/`, `tests/`).
-- 2026-10-05 — docs: Built the documentation tree, split the manual out of the two front doors, archived finished agent work and added the checkers (`docs/`, `tools/`, `README.md`, `sushicore/provision/README.md`).
-- 2026-10-05 — cli: Documented that the entry point's reporter must look the console up when called (`entry.py`, `README.md`).
-- 2026-10-05 — cli: Added the root options, diagnostic commands, alias table and entry point every Sushi CLI registers (`root_options.py`, `diag_commands.py`, `aliases.py`, `entry.py`, `describe.py`).
-- 2026-10-05 — config: Raised ConfigError for a malformed TOML file and an unknown theme or icon set, where a decode error or ValueError escaped (`errors.py`, `read_toml`, `get_theme`).
-- 2026-10-05 — licence: Replaced the Apache-2.0 licence with PolyForm Noncommercial 1.0.0, which ends free commercial use (`LICENSE`, `COMMERCIAL.md`, `NOTICE.md`, `README.md`).
-- 2026-10-04 — provision: Added examples to the help of setup, doctor, link and unlink (`sushicore/provision/commands.py`).
-- 2026-10-04 — provision: Built the GPU adapters against a toolchain already on the machine when the run installed none (`provision_adapters_for_run`).
-- 2026-10-04 — provision: Made doctor pass a dependency a package manager holds when its check_cmd fails (`fragment_check`, `held_by_managers`).
-- 2026-10-04 — provision: Reported a toolchain as not needed when another one provides its capability (`sushicore/provision/steps.py`).
-- 2026-10-04 — config: Made StackConfig resolve the compiler and vcpkg across every dependency root and locate sibling checkouts (`sushicore/stack_config.py`, `sushicore/build_env.py`).
-- 2026-10-04 — provision: Made setup follow depends_on, choose toolchains by the selection rule and take --toolchain and --no-gpu (`sushicore/provision/commands.py`).
-- 2026-10-04 — provision: Added doctor checks for missing module checkouts and unsatisfied toolchain capabilities (`sushicore/provision/checks.py`).
-- 2026-10-04 — provision: Added the dependency closure that follows a fragment's depends_on to each module's checkout (`sushicore/provision/closure.py`).
-- 2026-10-04 — provision: Added the toolchain selection rule and its component table, moved from hub (`sushicore/provision/selection.py`).
-- 2026-10-04 — provision: Added the shared base dependency fragment, moved from hub (`sushicore/provision/manifests/`).
-- 2026-10-04 — provision: Made the probe find toolchains and vcpkg in every dependency root, the legacy trees included (`sushicore/provision/probe.py`).
-- 2026-10-04 — provision: Recorded a module under its lower-cased key in fragments, the registry and a workspace's module list (`sushicore/profile.py`, `sushicore/provision/commands.py`).
-- 2026-09-24 — proc: Added `Runner.capture` and the `catch_interrupt` and `missing_exit_code` options to `Runner` (`sushicore/proc.py`).
-- 2026-09-24 — proc: Added `warn` to the `ConsoleLike` protocol (`sushicore/proc.py`).
-- 2026-09-24 — cmake: Added the `jobs` and `config` options to `CMakeDriver` (`sushicore/cmake_driver.py`).
-- 2026-09-24 — build_env: Added `build_env.snapshot_vcvars` and `provision.probe.find_vcvars` (`sushicore/build_env.py`, `sushicore/provision/probe.py`).
-- 2026-09-24 — provision: Added `InstallContext.program` and named the calling program in install hints (`sushicore/provision/pipeline.py`).
-- 2026-09-24 — doctor: Made `doctor --for GROUP` count that group's optional checks as required (`sushicore/provision/doctor.py`).
-- 2026-09-24 — workspace: Added a module-side link pointer that config loading follows to the linked workspace (`sushicore/workspace.py`, `sushicore/module_config.py`, `sushicore/provision/commands.py`).
-- 2026-09-23 — provision: Renamed the shared package helpers to public names and made `setup` create a missing dependency root (`sushicore/provision/packages/`, `sushicore/provision/lock.py`).
-- 2026-09-23 — provision: Added `sushicore.provision`: dependency root, registry, doctor and module commands, moved from hub (`sushicore/provision/`).

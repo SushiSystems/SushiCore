@@ -10,7 +10,7 @@ and hygiene, Code for Code shape. Work that is not a defect is in
 
 | Issue | Where | Finding |
 | --- | --- | --- |
-| Versions 0.5.0 and 0.6.0 were never tagged or published; PyPI goes from 0.4.0 to 0.7.0 | `pyproject.toml`, git tags | Lay L1 |
+| Versions 0.5.0 and 0.6.0 were never tagged or published; PyPI goes from 0.4.0 to 0.7.0, then 0.8.0 | `pyproject.toml`, git tags | Lay L1 |
 | `release.yml` publishes on a tag without running the tests or the checkers | `.github/workflows/release.yml` | Lay L7 |
 | `ci.yml` runs no checker | `.github/workflows/ci.yml` | Lay L6 |
 
