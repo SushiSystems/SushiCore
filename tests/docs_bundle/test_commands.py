@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -41,6 +42,14 @@ def test_bare_docs_builds_the_api_and_returns_its_code(repository):
     result = CliRunner().invoke(_app(repository, [], api=lambda: source), ["docs"])
     assert result.exit_code == 4
     assert calls == ["build"]
+
+
+def test_the_group_works_where_click_is_not_installed(repository, monkeypatch):
+    """Registers and runs with Typer alone, as a Typer that carries its own Click requires."""
+    monkeypatch.setitem(sys.modules, "click", None)
+    source = ApiSource(build=lambda: 4, xml_dir=repository / "xml")
+    result = CliRunner().invoke(_app(repository, [], api=lambda: source), ["docs"])
+    assert result.exit_code == 4
 
 
 def test_bare_docs_shows_help_when_the_cli_builds_no_api(repository):

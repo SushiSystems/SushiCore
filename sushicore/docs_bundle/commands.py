@@ -44,7 +44,6 @@ def register_docs_commands(
         report: Prints one line of the result the way the CLI prints.
         group_cls: The Click group class the CLI draws its help with.
     """
-    import click
     import typer
 
     options: dict = {
@@ -57,11 +56,14 @@ def register_docs_commands(
     docs_app = typer.Typer(**options)
 
     if api is not None:
-        @docs_app.callback(invoke_without_command=True, epilog=f"{program} docs")
-        def docs() -> None:
+        def docs(ctx) -> None:
             """Build the API reference with Doxygen, or bundle the documentation."""
-            if click.get_current_context().invoked_subcommand is None:
+            if ctx.invoked_subcommand is None:
                 raise typer.Exit(api().build())
+
+        # Typer reads the annotation when it registers; the name `typer` is local to this call.
+        docs.__annotations__ = {"ctx": typer.Context, "return": None}
+        docs_app.callback(invoke_without_command=True, epilog=f"{program} docs")(docs)
 
     @docs_app.command(
         "bundle",
