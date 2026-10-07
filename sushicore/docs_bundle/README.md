@@ -10,6 +10,7 @@ CLI registers to build it. The archive's layout and the two files it is driven b
 | --- | --- | --- |
 | `DocsBundleError`, `PublishListError`, `PageError`, `ApiReferenceError`, `ReleaseError` | `errors.py` | The failures the producer reports as one line |
 | `iter_links`, `first_heading`, `local_path` | `markdown_scan.py` | Read what a Markdown page links to and what it is called |
+| `read_page_text`, `is_page` | `page_text.py` | Read a page as UTF-8 text and say which file names are pages |
 | `PublishList`, `read_publish_list` | `publish_list.py` | Read and validate `docs/publish.toml` |
 | `read_page_order` | `page_order.py` | Give each page its position among the links of `docs/README.md` |
 | `ApiSource`, `stage_api` | `api_reference.py` | Build the API reference and copy the XML files `index.xml` names |
@@ -28,11 +29,13 @@ private to it.
 ## What it depends on
 
 `sushicore.errors` for the base error and `sushicore.workspace.read_toml` for the publish list.
-Everything else is the standard library. `commands.py` imports Typer and Click inside
-`register_docs_commands`, so importing the package needs neither.
+Everything else is the standard library. `commands.py` imports Typer inside
+`register_docs_commands`, so importing the package does not need it. It never imports Click:
+Typer 0.27 carries its own, and the installed CLIs have no `click` package.
 
 Inside the package a file imports only files in a lower layer. `tests/docs_bundle/test_layering.py`
-holds the layer of each file and fails when an import points up or sideways.
+holds the layer of each file and fails when a module-level import of a sibling points up or
+sideways.
 
 ## Using it
 
@@ -70,8 +73,9 @@ python -m sushicore.docs_bundle --release 1.2.3
 
 ## Known limits
 
-- Inline Markdown links only. A reference-style link, `[text][label]`, is not followed, so its
-  target is neither checked nor carried as an asset.
+- Inline Markdown links only. A reference-style link, `[text][label]`, and an HTML `<img>` are
+  not followed, so their targets are neither checked nor carried as assets.
+- A link target that holds a parenthesis is cut at it.
 - The release is three integers. A pre-release suffix is refused.
 - The archive is the same bytes for the same files, but a checkout with CRLF line endings holds
   other files than one with LF. The bundle a site pins is the one CI attaches.

@@ -51,3 +51,25 @@ def test_local_path_drops_the_fragment_and_refuses_addresses():
     assert local_path("mailto:a@b.io") is None
     assert local_path("#part") is None
     assert local_path("//cdn.example/x.png") is None
+
+
+def test_iter_links_reads_a_bracketed_target_that_holds_a_space():
+    """Reads the whole target between angle brackets, a title after it or not."""
+    assert [link.target for link in iter_links('[a](<b c.md> "t")\n')] == ["b c.md"]
+
+
+def test_iter_links_reads_both_targets_of_a_linked_image():
+    """Yields the image and the page an image link wraps."""
+    text = "[![thumb](t.png)](full.png)\n"
+    assert [link.target for link in iter_links(text)] == ["t.png", "full.png"]
+
+
+def test_iter_links_reads_a_link_whose_text_wraps():
+    """Finds a link whose text runs over two lines, on the line that holds the target."""
+    assert list(iter_links("See [the long\ntext](a.md) here.\n")) == [MarkdownLink("a.md", 2)]
+
+
+def test_a_fence_closes_only_on_its_own_marker():
+    """Keeps reading links after a backtick fence that holds a tilde line."""
+    text = "```\n~~~\n[in](fenced.md)\n```\n[a](after.md)\n"
+    assert list(iter_links(text)) == [MarkdownLink("after.md", 5)]

@@ -1,6 +1,6 @@
 # Documentation bundle
 
-**Status:** Open — designed 2026-10-07; no task has started.
+**Status:** Open — built and reviewed 2026-10-07, see `REPORT.md`; the release that carries it is the owner's.
 
 Sub-project 1 of the documentation site programme, whose design is
 `docs/agent/2026_10_07_DOCS_SITE/SPEC.md` in the SushiStack repository. That document fixes the
@@ -26,20 +26,22 @@ ones.
 | --- | --- | --- |
 | 0 | `errors.py` | `DocsBundleError` and the four failures derived from it |
 | 0 | `markdown_scan.py` | `iter_links`, `first_heading`, `local_path`: what a Markdown file links to and what it is called |
+| 1 | `page_text.py` | `read_page_text`, `is_page`: a page read as UTF-8, and which file names are pages |
 | 1 | `publish_list.py` | `PublishList` and `read_publish_list`: `docs/publish.toml`, validated |
-| 1 | `page_order.py` | `read_page_order`: a page's position among the links of `docs/README.md` |
+| 2 | `page_order.py` | `read_page_order`: a page's position among the links of `docs/README.md` |
 | 1 | `api_reference.py` | `ApiSource` and `stage_api`: build the reference, copy the XML `index.xml` names |
 | 1 | `bundle_archive.py` | `write_archive`: a reproducible gzip tar and its SHA-256 |
 | 1 | `source_revision.py` | `read_head_commit` |
-| 2 | `page_set.py` | `Page`, `PageSet`, `PageCollector`: the published pages, their assets, the link rule |
-| 3 | `bundle_manifest.py` | `BundleIdentity` and `build_manifest`: the `bundle.json` document |
-| 4 | `producer.py` | `BundleRequest`, `BundleResult`, `BundleProducer` |
-| 5 | `commands.py` | `register_docs_commands` |
-| 5 | `__main__.py` | `python -m sushicore.docs_bundle` |
+| 3 | `page_set.py` | `Page`, `PageSet`, `PageCollector`: the published pages, their assets, the link rule |
+| 4 | `bundle_manifest.py` | `BundleIdentity` and `build_manifest`: the `bundle.json` document |
+| 5 | `producer.py` | `BundleRequest`, `BundleResult`, `BundleProducer` |
+| 6 | `commands.py` | `register_docs_commands` |
+| 6 | `__main__.py` | `python -m sushicore.docs_bundle` |
 
 ## 3. Public interface
 
-`sushicore/docs_bundle/__init__.py` re-exports exactly these names.
+`sushicore/docs_bundle/__init__.py` re-exports these names and the four errors derived from
+`DocsBundleError`: `PublishListError`, `PageError`, `ApiReferenceError`, `ReleaseError`.
 
 ```python
 class DocsBundleError(SushiCoreError): ...
@@ -106,8 +108,8 @@ not change, so `K_CONTRACT_VERSION` stays `"1"`.
 
 ## 6. Limits
 
-- Inline Markdown links only. A reference-style link (`[text][label]`) is not followed, so its
-  target is not checked and not carried as an asset.
+- Inline Markdown links only. A reference-style link (`[text][label]`) and an HTML `<img>` are
+  not followed, so their targets are not checked and not carried as assets.
 - The release is three integers. A pre-release suffix is refused.
 - A bundle built on Windows from a checkout with CRLF line endings has another SHA-256 than one
   built on Linux. The bundle a site pins is the one CI attaches.

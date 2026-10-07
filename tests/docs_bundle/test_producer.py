@@ -68,7 +68,7 @@ def test_produce_is_reproducible_and_replaces_an_earlier_staging(repository, tmp
     assert "pages/guides/LEFTOVER.md" not in _names(second.archive)
 
 
-@pytest.mark.parametrize("release", ["v1.2.3", "1.2", "1.2.3-rc1", ""])
+@pytest.mark.parametrize("release", ["v1.2.3", "1.2", "1.2.3-rc1", "", "1.2.3\n"])
 def test_produce_refuses_a_release_that_is_not_three_integers(repository, tmp_path, release):
     """Refuses a tag's v, a short version and a pre-release suffix."""
     with pytest.raises(ReleaseError):

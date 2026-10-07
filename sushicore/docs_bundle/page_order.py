@@ -12,9 +12,9 @@ from pathlib import Path
 
 from .errors import PageError
 from .markdown_scan import iter_links, local_path
+from .page_text import is_page, read_page_text
 
 K_INDEX_NAME = "README.md"
-K_PAGE_SUFFIX = ".md"
 
 
 def read_page_order(docs_dir: Path) -> dict[str, int]:
@@ -27,12 +27,12 @@ def read_page_order(docs_dir: Path) -> dict[str, int]:
     if not index.is_file():
         raise PageError(index, 1, "does not exist; the pages take their order from it")
     order: dict[str, int] = {}
-    for link in iter_links(index.read_text(encoding="utf-8")):
+    for link in iter_links(read_page_text(index)):
         path = local_path(link.target)
         if path is None:
             continue
         page = posixpath.normpath(path)
-        if page.startswith("..") or not page.endswith(K_PAGE_SUFFIX):
+        if page.startswith("..") or not is_page(page):
             continue
         order.setdefault(page, len(order) + 1)
     return order

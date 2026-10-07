@@ -23,7 +23,7 @@ from .publish_list import read_publish_list
 from .source_revision import read_head_commit
 
 K_DEFAULT_OUTPUT = Path("build") / "docs" / "bundle"
-K_RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
+K_RELEASE = re.compile(r"\d+\.\d+\.\d+")
 K_MANIFEST_NAME = "bundle.json"
 K_STAGING = ".docs-bundle-staging"
 
@@ -62,7 +62,7 @@ class BundleProducer:
             DocsBundleError: The release, the publish list, a page or the API reference
                 cannot be used; nothing is archived.
         """
-        if not K_RELEASE.match(request.release):
+        if not K_RELEASE.fullmatch(request.release):
             raise ReleaseError(
                 f"{request.release!r} is not a release; write it as 1.2.3, without the v of the tag."
             )
