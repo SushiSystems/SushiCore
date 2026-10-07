@@ -39,6 +39,7 @@ jobs:
 
   ci:
     uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   docs-bundle:
     name: Documentation bundle
