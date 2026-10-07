@@ -119,6 +119,35 @@ def test_catalogue_carries_applies_to():
     assert document["commands"][0]["applies_to"] == ["cloned"]
 
 
+def test_catalogue_lists_a_group_that_runs_bare_beside_its_children():
+    """A group that runs without a subcommand is a command; one that shows help is not."""
+    app = _app()
+    docs = typer.Typer(help="Build the reference.")
+
+    @docs.callback(invoke_without_command=True)
+    def docs_root() -> None:
+        """Runs when no subcommand is given."""
+
+    @docs.command("bundle")
+    def bundle() -> None:
+        """Bundle the pages."""
+
+    container = typer.Typer(help="Containers.", no_args_is_help=True)
+
+    @container.command("run")
+    def container_run() -> None:
+        """Start the container."""
+
+    app.add_typer(docs, name="docs")
+    app.add_typer(container, name="container")
+    commands = catalogue(app, distribution="sushicore")["commands"]
+    assert [command["name"] for command in commands] == [
+        "build", "container run", "docs", "docs bundle",
+    ]
+    assert commands[2]["help"] == "Build the reference."
+    assert commands[2]["params"] == []
+
+
 def test_diagnostic_commands_delegate_and_return_the_code():
     """config and env call the diagnostics object and exit with what it returns."""
     app = _app()
