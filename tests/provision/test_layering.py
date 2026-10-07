@@ -23,6 +23,7 @@ _LAYER = {
     "gpu": 2, "checks": 2, "packages": 3, "toolchains": 4, "toolchains.intel_llvm": 4,
     "toolchains.adaptivecpp": 4, "toolchains.oneapi": 4, "toolchains._process": 1,
     "steps": 5, "commands": 6,
+    "links": 0, "user_environment": 0, "migrate": 2,
 }
 
 

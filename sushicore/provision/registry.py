@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -19,6 +20,16 @@ except ModuleNotFoundError:  # Python 3.10 fallback
 
 from ..errors import SushiCoreError
 from . import home
+from .toolchains.stamp import read_toolchain_stamp
+
+#: The version recorded for a component whose tree carries no stamp tag.
+UNVERSIONED = "unversioned"
+
+#: The folders of a dependency root whose children are one component each.
+_COMPONENT_GROUPS = ("toolchains", "tools", "ur")
+
+#: The folders of a dependency root that are one component themselves.
+_SINGLE_COMPONENTS = ("vcpkg",)
 
 _HEADER = "# Components installed under this dependency root. Written by sushicore.provision.\n"
 
@@ -169,6 +180,34 @@ class Registry:
         )
         return len(remaining) == 0
 
+    def seed_from_tree(
+        self, root: Path, consumer: str, source: str = "migrated",
+    ) -> list[Component]:
+        """Register the components found under *root* and return the ones added.
+
+        A component is each child of ``toolchains``, ``tools`` and ``ur``, and
+        ``vcpkg``. Its version is the ``tag`` of its toolchain stamp, else
+        :data:`UNVERSIONED`. A name already registered is skipped. Nothing is saved.
+        """
+        known = {component.name for component in self._components.values()}
+        installed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        added: list[Component] = []
+        for folder in _component_folders(root):
+            if folder.name in known:
+                continue
+            component = Component(
+                name=folder.name,
+                version=str(read_toolchain_stamp(folder).get("tag") or UNVERSIONED),
+                path=folder.as_posix(),
+                source=source,
+                installed_at=installed_at,
+                consumers=(consumer,),
+            )
+            self.add(component)
+            known.add(component.name)
+            added.append(component)
+        return added
+
     def save(self) -> None:
         """Write the registry to its file, replacing it atomically."""
         lines = [_HEADER]
@@ -186,3 +225,13 @@ class Registry:
         tmp_path = self._path.with_suffix(".toml.tmp")
         tmp_path.write_text("".join(lines), encoding="utf-8")
         os.replace(tmp_path, self._path)
+
+
+def _component_folders(root: Path) -> list[Path]:
+    """Return the folder of every component under *root*, sorted within each group."""
+    folders: list[Path] = []
+    for group in _COMPONENT_GROUPS:
+        if (root / group).is_dir():
+            folders.extend(sorted(p for p in (root / group).iterdir() if p.is_dir()))
+    folders.extend(root / name for name in _SINGLE_COMPONENTS if (root / name).is_dir())
+    return folders
