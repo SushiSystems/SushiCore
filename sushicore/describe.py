@@ -97,10 +97,10 @@ def _command(name: str, command: "click.Command", applies_to: Sequence[str]) -> 
 
 
 def _flatten(group: "click.Group", applies_to: Sequence[str], prefix: str = "") -> list[dict]:
-    """Describes every visible leaf command under *group*, sorted, with its full name.
+    """Describes every visible command under *group*, sorted, with its full name.
 
-    A nested group is not a command a caller can run, so it contributes its children under
-    ``"<group> <child>"`` and no entry of its own. A hidden command or group is an old
+    A nested group contributes its children under ``"<group> <child>"``. It gets an entry
+    of its own only when it runs without a subcommand. A hidden command or group is an old
     spelling and is left out.
     """
     described: list[dict] = []
@@ -108,10 +108,12 @@ def _flatten(group: "click.Group", applies_to: Sequence[str], prefix: str = "") 
         command = group.commands[name]
         if getattr(command, "hidden", False):
             continue
-        if hasattr(command, "commands"):
-            described.extend(_flatten(command, applies_to, prefix + name + " "))
-        else:
+        if not hasattr(command, "commands"):
             described.append(_command(prefix + name, command, applies_to))
+            continue
+        if getattr(command, "invoke_without_command", False):
+            described.append(_command(prefix + name, command, applies_to))
+        described.extend(_flatten(command, applies_to, prefix + name + " "))
     return described
 
 
