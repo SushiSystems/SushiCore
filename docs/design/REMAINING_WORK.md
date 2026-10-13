@@ -15,7 +15,7 @@ Design: [Standalone provisioning](STANDALONE_PROVISIONING.md). Plan:
 same programme in its own `docs/design/REMAINING_WORK.md`.
 
 - The owner runs the real `setup` and build of `sr`, `sb`, `sa`, `sd`, `st`, and `se` last.
-- The owner pushes each module repository. sushicore 0.7.0 was tagged on 2026-10-05, 0.8.0 on 2026-10-07 and 0.9.0 on 2026-10-13.
+- The owner pushes each module repository. sushicore 0.7.0 was tagged on 2026-10-05, 0.8.0 on 2026-10-07 and 0.8.1 on 2026-10-13.
 
 ### Documentation site, sub-project 1
 
