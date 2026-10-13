@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-## v0.9.0 — 2026-10-13
+## v0.8.1 — 2026-10-13
 
-- 2026-10-13 — docs-bundle: Published the documentation bundle in a release; the PyPI 0.8.0 wheel lacks `sushicore/docs_bundle/`, so a consumer that imports it needs 0.9.0 (`pyproject.toml`, `sushicore/docs_bundle/`).
+- 2026-10-13 — docs-bundle: Published the documentation bundle in a release; the PyPI 0.8.0 wheel lacks `sushicore/docs_bundle/`, so a consumer that imports it needs 0.8.1 (`pyproject.toml`, `sushicore/docs_bundle/`).
 - 2026-10-07 — ci: Passed the repository's secrets to the CI the release job calls (`.github/workflows/release.yml`).
 - 2026-10-07 — docs-bundle: Fixed the page order to read on through every document outside `agent/` and `archive/`, as the layout checker does (`page_order.py`, `DOCS_BUNDLE.md`).
 - 2026-10-07 — ci: Added the release job that builds the documentation bundle after CI and attaches it to the tag's release (`.github/workflows/release.yml`, `ci.yml`).
