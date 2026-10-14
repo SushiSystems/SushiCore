@@ -51,6 +51,8 @@ It replaces the 12.6.3 pin. The install and the choice ran on an RTX 4050. What 
   SYCL code and the Unified Runtime CUDA adapter. Neither has been built against CUDA 13.
 - A real `sr` build on the Pascal machine, which should now get 12.9.x in place of 12.6.3.
 - The owner releases the version that carries it, and hub's and sushiruntime's floors follow.
+- A real ROCm install and `sr` build on an AMD card under Linux, which proves the tarball's
+  layout past its first 60 MB, `rocm_agent_enumerator` under `ROCM_PATH`, and the HIP adapter.
 - Whether `gpu/windows_installer.py` is deleted. Since this change no backend calls it, and hub
   still re-exports it from `cli/sushihub/setup/gpu_backends/windows_installer.py`.
 

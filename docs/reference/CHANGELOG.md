@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-14 — provision: Breaking change: Replaced the apt ROCm install with the newest AMD SDK tarball whose family covers every card, under `<home>/rocm` (`rocm_vendor.py`, `rocm_selection.py`).
+- 2026-10-14 — provision: Read the AMD cards' ISAs from the amdgpu topology, with nothing installed (`amd_hardware.py`).
+
 - 2026-10-14 — provision: Breaking change: Moved the choose, install and remember flow of CUDA into one vendor-blind `ChosenToolkitLocator` (`chosen_toolkit_locator.py`, `toolkit_vendor.py`, `cuda_vendor.py`).
 
 - 2026-10-14 — provision: Breaking change: Replaced the CUDA 12.6.3 pin with the newest release the driver runs whose nvcc builds every card (`cuda_selection.py`, `CudaLocator`).

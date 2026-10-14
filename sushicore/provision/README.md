@@ -24,7 +24,7 @@ them. The designs are [`docs/design/PROVISION.md`](../../docs/design/PROVISION.m
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
-| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA release selection, the adapter builder, the Windows installer helpers |
+| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
 | `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep` |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |

@@ -1,7 +1,7 @@
 # GPU toolkit selection: the hardware picks the release
 
-**Status:** Built on 2026-10-14 and run end to end on an RTX 4050. Two parts still need a real
-build on hardware, listed in [Remaining work](REMAINING_WORK.md).
+**Status:** Built on 2026-10-14. CUDA ran end to end on an RTX 4050; ROCm has run only against
+AMD's real listing, not on an AMD card. What is left is in [Remaining work](REMAINING_WORK.md).
 
 ## The problem
 
@@ -58,6 +58,36 @@ The merged folder has the same layout as a full install: `bin/nvcc`, `nvvm/libde
 `include/cuda.h` and, on Windows, `lib/x64/cuda.lib`. SushiRuntime's locator reads `CUDA_PATH`
 first on both platforms, and the Unified Runtime adapter build is given the same root.
 
+## ROCm: the rule
+
+AMD publishes ROCm as SDK tarballs at `repo.amd.com/rocm/tarball/`, one per release and per
+family of cards: `therock-dist-linux-gfx110X-all-7.13.0.tar.gz`. A family name is an ISA
+pattern in which `X` stands for any character, and an optional variant such as `-all` or
+`-dgpu`. The tarball installed is the one of the newest release whose family covers every AMD
+card in the machine. When several families cover them, the one with the fewest wildcards wins,
+then a family without a variant, then `-all`.
+
+The cards come from the amdgpu kernel driver. Each agent under
+`/sys/class/kfd/kfd/topology/nodes` reports a `gfx_target_version`, which spells the ISA
+(110003 is `gfx1103`). Nothing has to be installed to read it.
+
+| Step | Module | What it does |
+| --- | --- | --- |
+| Hardware | `gpu/amd_hardware.py` | Reads each card's ISA from the kfd topology |
+| Index | `gpu/rocm_tarball_index.py`, `rocm_package.py` | Reads the tarball names from AMD's listing and matches a family against an ISA |
+| Choice | `gpu/rocm_selection.py` | Picks the newest tarball whose family covers every card |
+| Install | `gpu/rocm_toolkit_installer.py` | Downloads the tarball and unpacks it into `<home>/rocm/<release>-<family>`; its top level is the ROCm root |
+| Vendor | `gpu/rocm_vendor.py` | Answers the `ToolkitVendor` protocol, with `ROCM_PATH` and `SUSHISYSTEMS_ROCM_RELEASE` |
+| Spec | `gpu/rocm.py` | The backend spec, Linux only |
+
+Checked against AMD's listing on 2026-10-14: `gfx1036`, the 7600X's iGPU, gets
+`7.13.0-gfx103X-all`; `gfx1103` gets `7.13.0-gfx110X-all`; `gfx1151` gets the exact
+`7.13.0-gfx1151`. An RDNA2 and an RDNA3 card together get nothing, because no one tarball
+covers both.
+
+The ROCm spec covers Linux alone. AMD lists Windows tarballs too, but intel/llvm ships no HIP
+adapter on Windows, so nothing there would use them.
+
 ## The choice file
 
 `<home>/<vendor>/choice.json` holds one object, written by `gpu/toolkit_choice_file.py`:
@@ -94,6 +124,13 @@ The first run on Windows also hit the 260-character path limit inside `cuda_cccl
 installer now unpacks through the `\\?\` extended-length form.
 
 ## Limits
+
+- AMD publishes no digest for its tarballs, so a ROCm download is trusted on HTTPS alone. Each
+  tarball is about 5 GB.
+- A family's variant is not read. `gfx110X-dgpu` may leave out the APU `gfx1103` that its
+  pattern matches; when a release offers both, `-all` is preferred, but a release that offers
+  only `-dgpu` is taken for an APU too.
+- Cards that no single family covers, such as RDNA2 and RDNA3 together, get no ROCm.
 
 - The choice sees only the cards in the machine. An `SR_CUDA_ARCH` that names a card the
   machine does not have, such as `61;89` on an Ada machine, needs the override.
