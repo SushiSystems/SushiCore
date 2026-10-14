@@ -45,9 +45,9 @@ and hygiene, Code for Code shape. Work that is not a defect is in
 | No fragment entry pins a `sha256` yet, so every download is still extracted or run unverified, with a warning | `sushicore/provision/manifests/base.deps.toml`, the fragments of sushiruntime and sushidsp | Code C6 |
 | `git` and `doxygen` are downloaded on Windows and no fragment declares them, so there is no entry to pin them in | `sushicore/provision/manifests/base.deps.toml` | Code C6 |
 | `cmake`, `ninja`, `doxygen`, `git` and `intel-llvm` are fetched as the newest release and a fragment has no version key, so a pinned digest stops matching when upstream publishes | `sushicore/provision/packages/direct_download.py`, `sushicore/provision/toolchains/intel_llvm.py` | Code C6 |
-| Shell pipelines and clones are not verified: the CUDA keyring package that `dpkg` installs as root on Linux, the ROCm and oneAPI apt keys, and the vcpkg, AdaptiveCpp and Unified Runtime clones | `sushicore/provision/gpu/cuda.py`, `rocm.py`, `adapter_builder.py`, `sushicore/provision/system.py`, `packages/vcpkg.py`, `toolchains/adaptivecpp.py` | Code C6 |
+| Shell pipelines and clones are not verified: the ROCm and oneAPI apt keys, and the vcpkg, AdaptiveCpp and Unified Runtime clones | `sushicore/provision/gpu/rocm.py`, `adapter_builder.py`, `sushicore/provision/system.py`, `packages/vcpkg.py`, `toolchains/adaptivecpp.py` | Code C6 |
 | The oneAPI installer runs with `--eula accept`, and winget installs pass `--accept-package-agreements`, on the user's behalf | `sushicore/provision/toolchains/oneapi.py`, `sushicore/provision/packages/winget.py`, `sushicore/provision/steps.py`, `sushicore/provision/toolchains/adaptivecpp.py` | Lic L10 |
-| The CUDA toolkit installs silently, which accepts NVIDIA's licence on the user's behalf | `sushicore/provision/gpu/cuda.py` | Lic L9 |
+| The CUDA toolkit is unpacked from NVIDIA's redistributable archives without showing NVIDIA's licence, which accepts it on the user's behalf | `sushicore/provision/gpu/cuda_toolkit_installer.py` | Lic L9 |
 | Failures are swallowed by broad `except` clauses that return nothing and record nothing | `sushicore/provision/packages/base.py`, `direct_download.py`, `sushicore/provision/probe.py` | Code C5 |
 
 ## Source

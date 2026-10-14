@@ -52,7 +52,7 @@ Lower layers never import higher ones. Each file has one job.
 | `provision/packages/` | `IPackageManager` and one file per manager: apt, dnf, yum, pacman, zypper, winget, direct download, vcpkg. |
 | `provision/probe.py` | Finds tools on this machine: vcvars, oneAPI, cmake, ninja, doxygen, compilers. |
 | `provision/toolchains/` | `intel_llvm.py`, `adaptivecpp.py`, `oneapi.py`, and `stamp.py` for `.sushi_toolchain.json`. |
-| `provision/gpu/` | Backend spec and registry, CUDA, ROCm and Level Zero locators, adapter builder, Windows elevated-installer helpers. |
+| `provision/gpu/` | Backend spec and registry, CUDA, ROCm and Level Zero locators, CUDA release selection, adapter builder, Windows elevated-installer helpers. |
 | `provision/pipeline.py` | `StepResult`, `Step`, `InstallContext`, `InstallPipeline`. |
 | `provision/steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`. |
 | `provision/sinks.py` | `ConfigSink` and its two implementations: workspace `[tool]` and a module's `cli/config.local.toml`. |

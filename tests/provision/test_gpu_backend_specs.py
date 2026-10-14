@@ -3,7 +3,7 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Each vendor's spec answers the contract; Windows CUDA locates from CUDA_PATH."""
+"""Each vendor's spec answers the contract; CUDA locates from CUDA_PATH."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ import pytest
 from sushicore.provision.gpu import cuda as cuda_mod
 from sushicore.provision.gpu import level_zero as level_zero_mod
 from sushicore.provision.gpu import rocm as rocm_mod
-from sushicore.provision.gpu import windows_installer
 from sushicore.provision.gpu.backend import NotProvided, ToolkitInstall
 from sushicore.provision.gpu.cuda import CUDA
 from sushicore.provision.gpu.level_zero import LEVEL_ZERO
@@ -37,75 +36,15 @@ def test_cuda_spec_declares_the_adapter_build_inputs():
     assert CUDA.adapter_definitions(install) == {"CUDAToolkit_ROOT": str(root)}
 
 
-def test_windows_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeypatch):
-    """Check that windows cuda locator finds the toolkit from cuda path."""
+def test_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeypatch):
+    """Check that the CUDA locator takes the toolkit CUDA_PATH names."""
     (tmp_path / "bin").mkdir()
-    (tmp_path / "bin" / "nvcc.exe").write_text("")
+    (tmp_path / "bin" / cuda_mod.nvcc_in(tmp_path).name).write_text("")
     monkeypatch.setenv("CUDA_PATH", str(tmp_path))
-    cfg = SimpleNamespace(platform="windows")
 
-    install = CUDA.locator.locate(cfg)
+    install = CUDA.locator.locate(SimpleNamespace(platform="windows"))
 
     assert install == ToolkitInstall(root=pathlib.Path(str(tmp_path)), version=None)
-
-
-def test_windows_cuda_locator_reports_nothing_without_nvcc_exe(tmp_path, monkeypatch):
-    """Check that windows cuda locator reports nothing without nvcc exe."""
-    monkeypatch.setattr(windows_installer.RegistryMachineEnvironment, "read",
-                        lambda self, name: None)
-    monkeypatch.setenv("CUDA_PATH", str(tmp_path))
-    cfg = SimpleNamespace(platform="windows")
-
-    assert CUDA.locator.locate(cfg) is None
-
-
-def test_windows_cuda_locator_reports_nothing_without_cuda_path(monkeypatch):
-    """Check that windows cuda locator reports nothing without cuda path."""
-    monkeypatch.setattr(windows_installer.RegistryMachineEnvironment, "read",
-                        lambda self, name: None)
-    monkeypatch.delenv("CUDA_PATH", raising=False)
-    cfg = SimpleNamespace(platform="windows")
-
-    assert CUDA.locator.locate(cfg) is None
-
-
-def test_windows_cuda_provision_reports_an_existing_install(
-        tmp_path, monkeypatch, recording_console):
-    """Check that windows cuda provision reports an existing install."""
-    (tmp_path / "bin").mkdir()
-    (tmp_path / "bin" / "nvcc.exe").write_text("")
-    monkeypatch.setenv("CUDA_PATH", str(tmp_path))
-    cfg = SimpleNamespace(platform="windows")
-
-    assert CUDA.locator.provision(cfg, dry_run=False) is True
-
-
-def test_linux_cuda_provision_skips_the_install_only_when_nvcc_runs(
-        monkeypatch, recording_console):
-    """The pinned-install decision is ``binary_works("nvcc")``, not ``locate``."""
-    monkeypatch.setattr(cuda_mod.probe, "binary_works", lambda cmd: cmd == "nvcc")
-    cfg = SimpleNamespace(platform="linux")
-
-    assert cuda_mod.LinuxCudaLocator().provision(cfg, dry_run=True) is True
-    assert recording_console.calls == [("info", ("CUDA toolkit already present (nvcc found).",))]
-
-
-def test_linux_cuda_provision_installs_when_nvcc_does_not_run(monkeypatch, recording_console):
-    """A toolkit ``locate`` can see (a stale /usr/local/cuda-13.0) must not skip
-    the pinned 12.6 install: only a working ``nvcc`` does that.
-    """
-    monkeypatch.setattr(cuda_mod.probe, "binary_works", lambda cmd: False)
-    monkeypatch.setattr(
-        cuda_mod.LinuxCudaLocator, "locate",
-        lambda self, cfg: ToolkitInstall(root=pathlib.Path("/usr/local/cuda-13.0"), version=None),
-    )
-    monkeypatch.setattr(cuda_mod, "os_release", lambda: {"ID": "ubuntu", "VERSION_ID": "24.04"})
-    monkeypatch.setattr(cuda_mod, "is_root", lambda: False)
-
-    assert cuda_mod.LinuxCudaLocator().provision(cfg=SimpleNamespace(platform="linux"),
-                                                  dry_run=True) is True
-    commands = [args[0] for name, args in recording_console.calls if name == "command"]
-    assert commands  # the pinned apt install ran, not skipped
 
 
 # ROCm
@@ -148,26 +87,6 @@ def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
 
 
 # Linux dry-run commands pinned to a fixed text
-
-def test_cuda_linux_provision_command_matches_the_pinned_text(monkeypatch, recording_console):
-    """Check that cuda linux provision command matches the pinned text."""
-    monkeypatch.setattr(cuda_mod.probe, "binary_works", lambda cmd: False)
-    monkeypatch.setattr(cuda_mod, "os_release", lambda: {"ID": "ubuntu", "VERSION_ID": "24.04"})
-    monkeypatch.setattr(cuda_mod, "is_root", lambda: False)
-
-    cfg = SimpleNamespace(platform="linux")
-    assert cuda_mod.LinuxCudaLocator().provision(cfg, dry_run=True) is True
-
-    commands = [args[0] for name, args in recording_console.calls if name == "command"]
-    assert commands == [
-        "tmp=$(mktemp -d) && cd \"$tmp\" && "
-        "curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/"
-        "ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb && "
-        "sudo dpkg -i cuda-keyring_1.1-1_all.deb && "
-        "sudo apt-get update && "
-        "sudo apt-get install -y cuda-toolkit-12-6"
-    ]
-
 
 def test_rocm_linux_provision_command_matches_the_pinned_text(monkeypatch, recording_console):
     """Check that rocm linux provision command matches the pinned text."""

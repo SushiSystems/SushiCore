@@ -28,7 +28,7 @@ K_TOOL_DOWNLOADS: dict[str, tuple[str, ...]] = {
 
 #: The downloads each platform fetches only for a dependency a fragment declares.
 K_DECLARED_DOWNLOADS: dict[str, tuple[str, ...]] = {
-    "windows": ("intel-llvm", "adaptivecpp", "oneapi", "cuda"),
+    "windows": ("intel-llvm", "adaptivecpp", "oneapi"),
     "linux": ("intel-llvm",),
 }
 

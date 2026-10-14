@@ -42,6 +42,18 @@ Its plan is `docs/agent/plans/2026-09-25-hub-root-migration.md`, which is untrac
   then the link at the old path has to stay.
 - The versioned layout `toolchains/<name>/<version>/`.
 
+### CUDA toolkit selection
+
+Design: [CUDA toolkit selection](CUDA_TOOLKIT_SELECTION.md). Built on 2026-10-14 and unreleased.
+It replaces the 12.6.3 pin. The install and the choice ran on an RTX 4050. What is left:
+
+- A real `sr` build against a 13.x toolkit on an Ada or newer card, which builds the intel/llvm
+  SYCL code and the Unified Runtime CUDA adapter. Neither has been built against CUDA 13.
+- A real `sr` build on the Pascal machine, which should now get 12.9.x in place of 12.6.3.
+- The owner releases the version that carries it, and hub's and sushiruntime's floors follow.
+- Whether `gpu/windows_installer.py` is deleted. Since this change no backend calls it, and hub
+  still re-exports it from `cli/sushihub/setup/gpu_backends/windows_installer.py`.
+
 ## Deferred by the designs
 
 - The build, test, package and deploy scaffold that `sushiai` and `sushiblas` each carry in

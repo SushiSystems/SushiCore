@@ -17,8 +17,6 @@ import pytest
 from sushicore.errors import DigestMismatchError
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.download_verifier import DownloadVerifier, bind_verifier
-from sushicore.provision.gpu import windows_installer as wi
-from sushicore.provision.gpu.cuda import WindowsCudaLocator
 from sushicore.provision.packages import direct_download as dd
 from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
 
@@ -275,82 +273,4 @@ def test_a_oneapi_installer_with_the_pinned_digest_is_returned(
     pins.digests["oneapi"] = K_PAYLOAD_DIGEST
 
     assert oneapi.download_oneapi_installer() == installer
-    assert pins.verifier.unverified() == ()
-
-
-class _FixedDownloader:
-    """Returns one installer file for every fetch."""
-
-    def __init__(self, result: Path) -> None:
-        """Store the path every fetch returns."""
-        self._result = result
-
-    def fetch(self, download, dest_dir):
-        """Return the stored path."""
-        del download, dest_dir
-        return self._result
-
-
-class _RecordingRunner:
-    """Records elevated runs and reports success."""
-
-    def __init__(self) -> None:
-        """Start with no recorded runs."""
-        self.runs: list[Path] = []
-
-    def command(self, exe, args):
-        """Return a recognisable command line."""
-        return ["elevate", str(exe), *args]
-
-    def run(self, exe, args):
-        """Record the run."""
-        del args
-        self.runs.append(exe)
-        return wi.ElevatedResult(0)
-
-
-class _EmptyEnvironment:
-    """Reports every machine variable as unset."""
-
-    def read(self, name):
-        """Return None for *name*."""
-        del name
-        return None
-
-
-def _cuda_locator(tmp_path) -> tuple[WindowsCudaLocator, _RecordingRunner]:
-    """Return a CUDA locator whose download is the payload, and the runner it would launch."""
-    exe = tmp_path / "installers" / "cuda.exe"
-    exe.parent.mkdir(parents=True)
-    exe.write_bytes(K_PAYLOAD)
-    runner = _RecordingRunner()
-    tools = wi.WindowsInstallerTools(downloader=_FixedDownloader(exe), runner=runner,
-                                     environment=_EmptyEnvironment(),
-                                     dest_dir=lambda: tmp_path / "installers")
-    return WindowsCudaLocator(tools), runner
-
-
-def test_a_cuda_installer_with_the_wrong_digest_is_not_run(
-        monkeypatch, tmp_path, recording_console, pins):
-    """Check that a mismatching CUDA installer stops the install before the elevated run."""
-    monkeypatch.delenv("CUDA_PATH", raising=False)
-    locator, runner = _cuda_locator(tmp_path)
-    pins.digests["cuda"] = K_WRONG_DIGEST
-
-    with pytest.raises(DigestMismatchError):
-        locator.provision(types.SimpleNamespace(platform="windows"), False)
-
-    assert runner.runs == []
-
-
-def test_a_cuda_installer_with_the_pinned_digest_is_run(
-        monkeypatch, tmp_path, recording_console, pins):
-    """Check that a matching CUDA installer reaches the elevated run."""
-    monkeypatch.delenv("CUDA_PATH", raising=False)
-    locator, runner = _cuda_locator(tmp_path)
-    pins.digests["cuda"] = K_PAYLOAD_DIGEST
-
-    locator.provision(types.SimpleNamespace(platform="windows"), False)
-
-    assert len(runner.runs) == 1
     assert pins.verifier.unverified() == ()

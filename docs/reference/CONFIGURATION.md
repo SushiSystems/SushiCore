@@ -65,4 +65,5 @@ Low to high:
 | `SUSHISTACK_DEPS_DIR` | `provision/home.py`, `stack_config.py` | Names a legacy dependency tree to read |
 | `<PREFIX>_<TOOL>` | `profile.py` | Overrides one tool path of one CLI, such as `SR_CMAKE`; the prefix is `ModuleProfile.env_prefix` |
 | `<PROGRAM>_NO_DEPRECATION_NOTICE` | `aliases.py` | Set to `1`, silences the notice an old command spelling prints |
-| `CUDA_PATH`, `ROCM_PATH` | `provision/gpu/` | Where the CUDA and ROCm locators look first |
+| `CUDA_PATH`, `ROCM_PATH` | `provision/gpu/` | Where the CUDA and ROCm locators look first; the CUDA install writes `CUDA_PATH` to the user's variables |
+| `SUSHISYSTEMS_CUDA_RELEASE` | `provision/gpu/cuda.py` | Installs this CUDA release, or the newest one it prefixes such as `12.6`, in place of the one chosen from the hardware |

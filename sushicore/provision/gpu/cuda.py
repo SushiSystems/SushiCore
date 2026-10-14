@@ -3,240 +3,221 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""The CUDA backend: NVIDIA's toolkit, located and provisioned per platform."""
+"""The CUDA backend: the toolkit release chosen for this machine's cards, located and installed.
+
+No CUDA version is written here. The release comes from the hardware: the newest one NVIDIA
+publishes that the driver runs and whose compiler builds for every card. The reasoning is in
+docs/design/CUDA_TOOLKIT_SELECTION.md.
+"""
 
 from __future__ import annotations
 
 import glob
-import logging
 import os
 import pathlib
+import platform as host_platform
 import shutil
-import subprocess
 import typing
 
-from .. import probe
 from .._output import console
-from ..download_verifier import verify_download
-from ..system import is_root, os_release, sudo_bash
+from ..user_environment import UserEnvironment, read_user_variable, write_user_variable
 from .backend import GpuBackendSpec, PlatformLocator, ToolkitInstall
-from .windows_installer import (
-    ELEVATION_DECLINED,
-    ElevatedResult,
-    InstallerDownload,
-    WindowsInstallerTools,
-    adopt_machine_variable,
-    prepend_machine_path,
+from .cuda_choice import CudaChoice
+from .cuda_choice_file import CudaChoiceFile
+from .cuda_hardware import NvidiaHardware, query_hardware
+from .cuda_redist import RedistError, RedistIndex
+from .cuda_release import Version, format_version, parse_version
+from .cuda_selection import select_release
+from .cuda_toolkit_installer import (
+    RedistToolkitInstaller,
+    ToolkitInstallError,
+    nvcc_in,
+    toolkits_dir,
 )
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+#: Names a release, or a release prefix such as ``12.6``, to install instead of choosing one.
+K_RELEASE_OVERRIDE = "SUSHISYSTEMS_CUDA_RELEASE"
+
+#: The variable every CUDA consumer, SushiRuntime's locator included, reads the root from.
+K_CUDA_PATH = "CUDA_PATH"
 
 # Neither the apt CUDA toolkit nor a manual install adds itself to PATH.
-_NVCC_GLOBS_LINUX = [
+K_NVCC_GLOBS_LINUX = (
     "/usr/local/cuda/bin/nvcc",
     "/usr/local/cuda-*/bin/nvcc",
-]
-
-# Ubuntu tag ceiling for NVIDIA's CUDA 12.6 apt repo.
-_CUDA126_MAX_UBUNTU_TAG = "ubuntu2404"
-
-# NVIDIA's CUDA 12.6.3 network installer and the MD5 NVIDIA publishes for it.
-_WINDOWS_INSTALLER = InstallerDownload(
-    url=("https://developer.download.nvidia.com/compute/cuda/12.6.3/"
-         "network_installers/cuda_12.6.3_windows_network.exe"),
-    file_name="cuda_12.6.3_windows_network.exe",
-    md5="48d5d66c3550b7744715c638dac4f522",
 )
 
-# Silent mode (-s) with the subpackages the adapter build needs; -n forbids a reboot.
-_WINDOWS_INSTALLER_ARGS = (
-    "-s", "nvcc_12.6", "cudart_12.6", "nvml_dev_12.6", "-n",
-)
 
-_MANUAL_HINT = ("Install CUDA Toolkit 12.6 from "
-                "https://developer.nvidia.com/cuda-12-6-3-download-archive; the build "
-                "otherwise uses the CPU path.")
-
-
-def _apt_distro_tag() -> str:
-    """Return the NVIDIA/ROCm-style distro tag for repo URLs, or '' if unknown."""
-    rel = os_release()
-    idv = rel.get("ID", "").lower()
-    ver = rel.get("VERSION_ID", "").replace(".", "")
-    if idv in ("ubuntu", "debian") and ver:
-        return f"{idv}{ver}"
-    return ""
+def redist_platform_key() -> str:
+    """Return the redistributable platform key of this machine, such as ``windows-x86_64``."""
+    if os.name == "nt":
+        return "windows-x86_64"
+    machine = host_platform.machine().lower()
+    return "linux-sbsa" if machine in ("aarch64", "arm64") else "linux-x86_64"
 
 
-def _cuda_repo_tag() -> str:
-    """Return the distro tag for NVIDIA's CUDA apt repo, clamped to one that ships 12.6."""
-    tag = _apt_distro_tag()
-    if not tag:
-        return ""
-    if tag.startswith("ubuntu"):
-        try:
-            ver = int(tag[len("ubuntu"):])
-        except ValueError:
-            return tag
-        if ver > int(_CUDA126_MAX_UBUNTU_TAG[len("ubuntu"):]):
-            console.info(f"NVIDIA has no CUDA 12.6 repo for {tag}; using "
-                         f"{_CUDA126_MAX_UBUNTU_TAG} (Pascal-capable, runs on newer Ubuntu).")
-            return _CUDA126_MAX_UBUNTU_TAG
-    return tag
-
-
-class LinuxCudaLocator:
-    """Finds and installs the CUDA toolkit from NVIDIA's official apt repo."""
-
-    def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Return the CUDA toolkit root found via PATH or a well-known glob."""
-        nvcc = shutil.which("nvcc") or self._glob_nvcc()
-        if not nvcc:
-            return None
-        root = pathlib.Path(nvcc).resolve().parent.parent
-        return ToolkitInstall(root=root, version=None)
-
-    def _glob_nvcc(self) -> str:
-        """Return the newest nvcc found under the well-known CUDA install globs."""
-        for pattern in _NVCC_GLOBS_LINUX:
-            hits = sorted(glob.glob(pattern))
-            if hits:
-                return hits[-1]
-        return ""
-
-    def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
-        """Install the pinned NVIDIA CUDA toolkit from NVIDIA's official apt repo."""
-        if probe.binary_works("nvcc"):
-            console.info("CUDA toolkit already present (nvcc found).")
-            return True
-        tag = _cuda_repo_tag()
-        if not tag:
-            console.warn("Unrecognised distro for the NVIDIA CUDA repo; install the "
-                         "CUDA 12.x toolkit manually "
-                         "(https://developer.nvidia.com/cuda-downloads).")
-            return False
-        sudo = "" if is_root() else "sudo "
-        keyring_url = (f"https://developer.download.nvidia.com/compute/cuda/repos/"
-                       f"{tag}/x86_64/cuda-keyring_1.1-1_all.deb")
-        steps = (
-            f"tmp=$(mktemp -d) && cd \"$tmp\" && "
-            f"curl -fsSLO {keyring_url} && "
-            f"{sudo}dpkg -i cuda-keyring_1.1-1_all.deb && "
-            f"{sudo}apt-get update && "
-            f"{sudo}apt-get install -y cuda-toolkit-12-6"
-        )
-        if not sudo_bash(steps, dry_run):
-            console.warn("CUDA toolkit install failed. Install CUDA 12.x manually "
-                         "(https://developer.nvidia.com/cuda-downloads); the build will "
-                         "otherwise fall back to the CPU/OpenCL path.")
-            return False
-        return True
-
-
-class WindowsCudaLocator:
-    """Finds the CUDA toolkit through CUDA_PATH and installs it with NVIDIA's network installer.
+@typing.final
+class CudaLocator:
+    """Finds the CUDA toolkit in use and installs the release this machine's hardware needs.
 
     Args:
-        tools: The download, elevation and machine-environment helpers.
+        hardware: Returns the cards and the driver's CUDA ceiling, or None without a driver.
+        index: NVIDIA's redistributable index.
+        installer: Downloads and unpacks releases.
+        choices: The record of the last choice; ``<home>/cuda/choice.json`` when None.
+        environment: The user's persistent variables; the platform's default when None.
     """
 
-    def __init__(self, tools: WindowsInstallerTools | None = None) -> None:
-        """Store the installer helpers, defaulting to the real ones."""
-        self._tools = tools or WindowsInstallerTools()
+    def __init__(self,
+                 hardware: typing.Callable[[], NvidiaHardware | None] = query_hardware,
+                 index: RedistIndex | None = None,
+                 installer: RedistToolkitInstaller | None = None,
+                 choices: CudaChoiceFile | None = None,
+                 environment: UserEnvironment | None = None) -> None:
+        """Store the collaborators, defaulting to the real ones."""
+        self._hardware = hardware
+        self._index = index or RedistIndex()
+        self._installer = installer or RedistToolkitInstaller()
+        self._choices = choices
+        self._environment = environment
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Return the toolkit named by the process CUDA_PATH, else the machine CUDA_PATH;
-        a machine value found is copied into this process's environment."""
-        found = _toolkit_at(os.environ.get("CUDA_PATH", ""))
-        if found is not None:
-            return found
-        machine = self._tools.environment.read("CUDA_PATH") or ""
-        found = _toolkit_at(machine)
-        if found is not None:
-            os.environ["CUDA_PATH"] = machine
-        return found
+        """Return the toolkit named by CUDA_PATH, in this process or the user's variables,
+        else an nvcc on PATH or under a well-known Linux prefix."""
+        for raw in (os.environ.get(K_CUDA_PATH, ""),
+                    read_user_variable(K_CUDA_PATH, self._environment) or ""):
+            found = _toolkit_at(raw)
+            if found is not None:
+                return found
+        nvcc = shutil.which("nvcc") or ("" if os.name == "nt" else _glob_nvcc())
+        if not nvcc:
+            return None
+        return ToolkitInstall(root=pathlib.Path(nvcc).resolve().parent.parent, version=None)
 
     def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
-        """Report an existing toolkit, or download and silently install the pinned one.
+        """Install the release this machine needs and point CUDA_PATH at it.
 
-        Always returns True: a failed download, a declined UAC prompt or a failed
-        install leaves the CPU path working.
-
-        Raises:
-            DigestMismatchError: The installer's SHA-256 is not the one its manifest
-                entry pins.
+        Always returns True: without a driver, a network or a fitting release the CPU path
+        still builds, and the reason is reported.
         """
-        found = self.locate(cfg)
-        if found is not None:
-            console.info(f"CUDA toolkit already present at {found.root}.")
+        hardware = self._hardware()
+        if hardware is None:
+            console.warn("nvidia-smi did not report a card; the CUDA toolkit is not installed "
+                         "and the build uses the CPU path.")
             return True
-        dest_dir = self._tools.dest_dir()
-        exe = dest_dir / _WINDOWS_INSTALLER.file_name
-        command = self._tools.runner.command(exe, _WINDOWS_INSTALLER_ARGS)
+        major, minor = hardware.driver_cuda
+        console.info(f"NVIDIA cards {_architectures_text(hardware)}; the driver runs CUDA up "
+                     f"to {major}.{minor}.")
         if dry_run:
-            console.info(f"(dry-run) would download {_WINDOWS_INSTALLER.url} to {exe}")
-            console.command(subprocess.list2cmdline(command))
+            console.info("(dry-run) would choose the CUDA release for this hardware and "
+                         f"install it under {self._installer.root_of('<release>').parent}.")
             return True
-        downloaded = self._tools.downloader.fetch(_WINDOWS_INSTALLER, dest_dir)
-        if downloaded is None:
-            console.warn(f"CUDA toolkit not installed: {_WINDOWS_INSTALLER.file_name} "
-                         "could not be downloaded and verified. " + _MANUAL_HINT)
+        try:
+            root = self._provide(hardware, redist_platform_key())
+        except (RedistError, ToolkitInstallError) as error:
+            self._installer.discard_downloads()
+            self._report_failure(cfg, str(error))
             return True
-        verify_download("cuda", downloaded)
-        console.info("Installing the CUDA 12.6 compiler, runtime and libraries. Windows "
-                     "will ask once for administrator rights.")
-        console.command(subprocess.list2cmdline(command))
-        result = self._tools.runner.run(downloaded, _WINDOWS_INSTALLER_ARGS)
-        self._refresh_environment()
-        installed = self.locate(cfg)
-        if installed is None:
-            console.warn(f"CUDA toolkit not installed: {_failure_reason(result)}. "
-                         + _MANUAL_HINT)
+        if root is None:
             return True
-        suffix = f" (installer exit code {result.code})" if result.code else ""
-        console.success(f"CUDA toolkit installed at {installed.root}{suffix}.")
-        _delete_quietly(downloaded)
+        os.environ[K_CUDA_PATH] = str(root)
+        write_user_variable(K_CUDA_PATH, str(root), self._environment)
+        console.success(f"CUDA toolkit at {root}; {K_CUDA_PATH} points to it.")
         return True
 
-    def _refresh_environment(self) -> None:
-        """Copy the machine CUDA_PATH and the new machine PATH entries into this process."""
-        adopt_machine_variable(self._tools.environment, "CUDA_PATH")
-        prepend_machine_path(self._tools.environment)
+    def _provide(self, hardware: NvidiaHardware, key: str) -> pathlib.Path | None:
+        """Return the root of the release to use, installing it when needed."""
+        override = os.environ.get(K_RELEASE_OVERRIDE, "").strip()
+        if override:
+            return self._install(self._resolve_override(override), key)
+        choices = self._choices or CudaChoiceFile(toolkits_dir() / "choice.json")
+        recorded = choices.read()
+        if (recorded is not None and recorded.fingerprint == hardware.fingerprint()
+                and recorded.platform == key and self._installer.is_installed(recorded.release)):
+            console.info(f"CUDA {recorded.release} was chosen for this hardware before.")
+            return self._installer.root_of(recorded.release)
+        chosen = select_release(hardware, self._index.versions(),
+                                lambda version: self._architectures(version, key))
+        if chosen is None:
+            self._installer.discard_downloads()
+            console.warn(f"No published CUDA release that the driver runs builds for "
+                         f"{_architectures_text(hardware)}; update the NVIDIA driver, or set "
+                         f"{K_RELEASE_OVERRIDE}. The build uses the CPU path.")
+            return None
+        console.info(f"CUDA {format_version(chosen)} is the newest release that builds for "
+                     "every card here.")
+        root = self._install(chosen, key)
+        choices.write(CudaChoice(hardware.fingerprint(), key, format_version(chosen)))
+        return root
+
+    def _install(self, version: Version, key: str) -> pathlib.Path:
+        """Install *version* unless it is already in place, and return its root."""
+        label = format_version(version)
+        if self._installer.is_installed(label):
+            return self._installer.root_of(label)
+        console.info(f"Installing the CUDA {label} compiler, runtime and libraries under "
+                     f"{self._installer.root_of(label)}.")
+        return self._installer.install(self._index.release(version, key))
+
+    def _architectures(self, version: Version, key: str) -> frozenset[str]:
+        """Return what *version*'s compiler builds for; an unreadable one builds for nothing."""
+        console.info(f"Asking the CUDA {format_version(version)} compiler which cards it "
+                     "builds for ...")
+        try:
+            return self._installer.probe_architectures(self._index.release(version, key))
+        except (RedistError, ToolkitInstallError) as error:
+            console.warn(f"CUDA {format_version(version)} skipped: {error}")
+            return frozenset()
+
+    def _resolve_override(self, text: str) -> Version:
+        """Return the newest published release that *text* names or prefixes.
+
+        Raises:
+            RedistError: *text* is not a version, or no published release matches it.
+        """
+        try:
+            wanted = parse_version(text)
+        except ValueError as error:
+            raise RedistError(f"{K_RELEASE_OVERRIDE}={text} is not a CUDA version") from error
+        for version in self._index.versions():
+            if version[:len(wanted)] == wanted:
+                console.info(f"{K_RELEASE_OVERRIDE} asks for CUDA {format_version(version)}.")
+                return version
+        raise RedistError(f"NVIDIA publishes no CUDA release matching {text}")
+
+    def _report_failure(self, cfg: "ProvisionConfig", reason: str) -> None:
+        """Say why no release was installed and what the build uses instead."""
+        existing = self.locate(cfg)
+        fallback = (f"the toolkit at {existing.root} stays in use" if existing is not None
+                    else "the build uses the CPU path")
+        console.warn(f"CUDA toolkit not installed: {reason}; {fallback}.")
+
+
+def _architectures_text(hardware: NvidiaHardware) -> str:
+    """Return the cards as ``sm_61, sm_89``."""
+    return ", ".join(f"sm_{arch}" for arch in hardware.architectures)
 
 
 def _toolkit_at(raw: str) -> ToolkitInstall | None:
-    """Return the toolkit rooted at *raw* when its bin/nvcc.exe exists, else None."""
+    """Return the toolkit rooted at *raw* when its nvcc exists, else None."""
     if not raw:
         return None
     root = pathlib.Path(os.path.normpath(raw))
-    if not (root / "bin" / "nvcc.exe").is_file():
+    if not nvcc_in(root).is_file():
         return None
     return ToolkitInstall(root=root, version=None)
 
 
-def _failure_reason(result: ElevatedResult) -> str:
-    """Describe why an elevated installer run left no toolkit behind."""
-    if result.code == ELEVATION_DECLINED:
-        return "the administrator prompt was declined"
-    if result.message:
-        return f"the installer could not start (code {result.code}): {result.message}"
-    return f"the installer exited with code {result.code}"
-
-
-def _delete_quietly(path: pathlib.Path) -> None:
-    """Delete *path*, logging a file that is locked and ignoring one already gone."""
-    try:
-        path.unlink(missing_ok=True)
-    except OSError as error:
-        K_LOGGER.warning(
-            "%s was not deleted (%s: %s); the file stays on disk",
-            path,
-            type(error).__name__,
-            error,
-        )
+def _glob_nvcc() -> str:
+    """Return the newest nvcc found under the well-known Linux install globs."""
+    for pattern in K_NVCC_GLOBS_LINUX:
+        hits = sorted(glob.glob(pattern))
+        if hits:
+            return hits[-1]
+    return ""
 
 
 def _adapter_definitions(install: ToolkitInstall) -> dict[str, str]:
@@ -247,10 +228,7 @@ def _adapter_definitions(install: ToolkitInstall) -> dict[str, str]:
 CUDA = GpuBackendSpec(
     vendor="cuda",
     probe_vendor="nvidia",
-    locator=PlatformLocator("CUDA", {
-        "linux": LinuxCudaLocator(),
-        "windows": WindowsCudaLocator(),
-    }),
+    locator=PlatformLocator("CUDA", dict.fromkeys(("linux", "windows"), CudaLocator())),
     adapter_option="UR_BUILD_ADAPTER_CUDA",
     adapter_definitions=_adapter_definitions,
     adapter_target="ur_adapter_cuda",
