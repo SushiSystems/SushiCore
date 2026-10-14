@@ -189,7 +189,12 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
         ("oneapi",      oneapi_ok, f"Intel oneAPI DPC++ (icx/icpx) -> {_rich_escape(oneapi_bin)}" if oneapi_ok and oneapi_bin else "Intel oneAPI DPC++ (icx/icpx)"),
     ]
     if gpu:
-        nvcc_bin = shutil.which("nvcc") or (_first_glob(_NVCC_GLOBS_LINUX) if not win else "")
+        cuda_path = os.environ.get("CUDA_PATH", "")
+        in_cuda_path = (os.path.join(cuda_path, "bin", "nvcc.exe" if win else "nvcc")
+                        if cuda_path else "")
+        nvcc_bin = ((in_cuda_path if in_cuda_path and os.path.isfile(in_cuda_path) else "")
+                    or shutil.which("nvcc")
+                    or (_first_glob(_NVCC_GLOBS_LINUX) if not win else ""))
         nvcc_ok = bool(nvcc_bin) and binary_works(nvcc_bin)
         detail = (f"NVIDIA CUDA toolkit (nvcc) -> {_rich_escape(nvcc_bin)}" if nvcc_ok
                   else "NVIDIA CUDA toolkit (nvcc)")

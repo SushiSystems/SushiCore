@@ -24,7 +24,7 @@ them. The designs are [`docs/design/PROVISION.md`](../../docs/design/PROVISION.m
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
-| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the adapter builder, the Windows installer helpers |
+| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA release selection, the adapter builder, the Windows installer helpers |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
 | `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep` |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |
@@ -145,16 +145,19 @@ its `sha256` key. The key, and the table of which entry pins which file, are in
 `sushicore.errors.DigestMismatchError`, which names the file, the expected digest and the one
 found.
 
-Three kinds of download are covered: an archive or installer fetched by
-`direct_download.download`, the oneAPI installer that curl writes to a file on Windows, and the
-Windows CUDA installer fetched by the GPU installer downloader. Each of those sites calls
-`download_verifier.verify_download(name, path)` after the download and before it extracts or
-runs the file. `name` is the fragment entry: `cmake`, `ninja`, `doxygen`, `git`, `intel-llvm`,
-`adaptivecpp`, `oneapi` or `cuda`.
+Two kinds of download are covered: an archive or installer fetched by
+`direct_download.download`, and the oneAPI installer that curl writes to a file on Windows. Each
+of those sites calls `download_verifier.verify_download(name, path)` after the download and
+before it extracts or runs the file. `name` is the fragment entry: `cmake`, `ninja`, `doxygen`,
+`git`, `intel-llvm`, `adaptivecpp` or `oneapi`.
 
-A download that happens inside a shell pipeline, and a git clone, are not verified. On Linux
-that includes the CUDA keyring package, which `gpu/cuda.py` fetches with curl and installs with
-`dpkg` as root. The full list is in
+The CUDA toolkit is not a fragment entry. Its release is chosen per machine, so no fragment can
+pin it. `gpu/cuda_toolkit_installer.py` checks each archive against the SHA-256 that NVIDIA's
+own `redistrib_<version>.json` publishes for it, before unpacking. The design is in
+[`docs/design/CUDA_TOOLKIT_SELECTION.md`](../../docs/design/CUDA_TOOLKIT_SELECTION.md).
+
+A download that happens inside a shell pipeline, and a git clone, are not verified. The full
+list is in
 [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md), under "Installing
 third-party software".
 
@@ -180,8 +183,8 @@ a run on this platform would download with no pin. `K_TOOL_DOWNLOADS` holds the 
 fetches whatever the fragments say, and `K_DECLARED_DOWNLOADS` those fetched only when a
 fragment declares them.
 
-`gpu/windows_installer.py` also compares the Windows CUDA installer with the MD5 NVIDIA
-publishes.
+`gpu/windows_installer.py` compares an installer with the MD5 its publisher lists. No
+backend calls it since CUDA moved to the redistributable archives.
 
 ## The commands
 

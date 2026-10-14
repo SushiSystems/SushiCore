@@ -66,9 +66,8 @@ These are the downloads the verifier sees, and the entry each one is pinned unde
 | `intel-llvm` | `linux` | `sycl_linux.tar.gz` from intel/llvm | The newest nightly |
 | `adaptivecpp` | `windows` | `LLVM-17.0.6-win64.exe` from llvm/llvm-project | Fixed in `toolchains/adaptivecpp.py` |
 | `oneapi` | `windows` | `intel-oneapi-toolkit-2026.0.0.193_offline.exe` from Intel | Fixed in `toolchains/oneapi.py` |
-| `cuda` | `windows` | `cuda_12.6.3_windows_network.exe` from NVIDIA | Fixed in `gpu/cuda.py` |
 
-A fragment has no key for the version of a download. Six of the nine rows resolve the newest
+A fragment has no key for the version of a download. Six of the eight rows resolve the newest
 release, so a digest pinned for one of them stops matching on the day upstream publishes, and
 the install stops there until the pin is renewed.
 [Known issues](KNOWN_ISSUES.md) carries this.

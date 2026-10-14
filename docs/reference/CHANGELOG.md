@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-10-14 — provision: Breaking change: Replaced the CUDA 12.6.3 pin with the newest release the driver runs whose nvcc builds every card (`cuda_selection.py`, `CudaLocator`).
+- 2026-10-14 — provision: Installed CUDA from NVIDIA's redistributable archives under `<home>/cuda`, without administrator rights (`cuda_toolkit_installer.py`, `cuda_redist.py`).
+- 2026-10-14 — provision: Breaking change: Removed `WindowsCudaLocator` and `LinuxCudaLocator`, replaced by one `CudaLocator` (`gpu/cuda.py`).
+- 2026-10-14 — provision: Removed `cuda` from the downloads a fragment pins, since its archives are checked against NVIDIA's published SHA-256 (`download_verifier.py`, `DEPENDENCY_FRAGMENT.md`).
+- 2026-10-14 — provision: Made the doctor's `cuda` row look in `CUDA_PATH` first (`probe.py`).
+
 ## v0.8.1 — 2026-10-13
 
 - 2026-10-13 — docs-bundle: Published the documentation bundle in a release; the PyPI 0.8.0 wheel lacks `sushicore/docs_bundle/`, so a consumer that imports it needs 0.8.1 (`pyproject.toml`, `sushicore/docs_bundle/`).

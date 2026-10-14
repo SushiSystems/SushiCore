@@ -168,8 +168,8 @@ meets first:
   `table` or `prompt` event.
 - No fragment entry pins a `sha256` yet, so every download is extracted or run unverified, with
   a warning. Downloads inside a shell pipeline and git clones are not verified at all.
-- The CUDA installer runs silently, the oneAPI installer runs with `--eula accept`, and winget
-  runs with `--accept-package-agreements`, each on the user's behalf.
+- The CUDA toolkit is unpacked from NVIDIA's archives, the oneAPI installer runs with
+  `--eula accept`, and winget runs with `--accept-package-agreements`, each on the user's behalf.
 - `link --workspace PATH` does not check the path for the workspace marker and creates
   `.sushistack/workspace.toml` there.
 

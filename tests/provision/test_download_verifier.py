@@ -139,10 +139,10 @@ def test_unpinned_downloads_on_linux_names_only_the_declared_bundle():
 
 
 def test_every_download_name_is_listed_for_some_platform():
-    """Check that the two tables cover the eight downloads the installers name."""
+    """Check that the two tables cover the seven downloads the installers name."""
     named = {name for table in (download_verifier.K_TOOL_DOWNLOADS,
                                 download_verifier.K_DECLARED_DOWNLOADS)
              for names in table.values() for name in names}
 
     assert named == {"cmake", "ninja", "doxygen", "git",
-                     "intel-llvm", "adaptivecpp", "oneapi", "cuda"}
+                     "intel-llvm", "adaptivecpp", "oneapi"}
