@@ -18,13 +18,14 @@ import urllib.request
 
 from ..system import USER_AGENT
 from .cuda_release import RedistArchive, RedistRelease, Version, format_version, parse_version
+from .toolkit_vendor import ToolkitSourceError
 
 #: The root NVIDIA serves the redistributable index and archives from.
 K_REDIST_ROOT = "https://developer.download.nvidia.com/compute/cuda/redist/"
 
 K_MANIFEST_NAME = re.compile(r"redistrib_(\d+(?:\.\d+)+)\.json")
 
-class RedistError(Exception):
+class RedistError(ToolkitSourceError):
     """The redistributable index could not be read or did not parse."""
 
 

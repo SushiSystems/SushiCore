@@ -28,6 +28,7 @@ from .._output import console
 from ..integrity import verify_sha256
 from ..system import USER_AGENT
 from .cuda_release import RedistArchive, RedistRelease
+from .toolkit_vendor import ToolkitSourceError
 
 #: The components the SYCL toolchain and the Unified Runtime adapter build need.
 K_REQUIRED_COMPONENTS = ("cuda_nvcc", "cuda_cudart", "cuda_nvml_dev")
@@ -41,7 +42,7 @@ K_NVCC = "nvcc.exe" if os.name == "nt" else "nvcc"
 K_EXTENDED_PREFIX = "\\\\?\\"
 
 
-class ToolkitInstallError(Exception):
+class ToolkitInstallError(ToolkitSourceError):
     """A release could not be downloaded, verified or unpacked."""
 
 
@@ -84,6 +85,11 @@ class RedistToolkitInstaller:
         """Store the target folder and the download function."""
         self._target_dir = target_dir
         self._download = download or _download
+
+    @property
+    def base_dir(self) -> Path:
+        """Return the folder releases are installed under."""
+        return self._base()
 
     def root_of(self, release_label: str) -> Path:
         """Return where the release labelled *release_label* is, or would be, installed."""

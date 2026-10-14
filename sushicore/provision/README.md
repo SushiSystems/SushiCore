@@ -154,7 +154,7 @@ before it extracts or runs the file. `name` is the fragment entry: `cmake`, `nin
 The CUDA toolkit is not a fragment entry. Its release is chosen per machine, so no fragment can
 pin it. `gpu/cuda_toolkit_installer.py` checks each archive against the SHA-256 that NVIDIA's
 own `redistrib_<version>.json` publishes for it, before unpacking. The design is in
-[`docs/design/CUDA_TOOLKIT_SELECTION.md`](../../docs/design/CUDA_TOOLKIT_SELECTION.md).
+[`docs/design/GPU_TOOLKIT_SELECTION.md`](../../docs/design/GPU_TOOLKIT_SELECTION.md).
 
 A download that happens inside a shell pipeline, and a git clone, are not verified. The full
 list is in

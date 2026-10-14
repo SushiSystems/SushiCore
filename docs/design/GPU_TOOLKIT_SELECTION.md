@@ -1,4 +1,4 @@
-# CUDA toolkit selection: the hardware picks the release
+# GPU toolkit selection: the hardware picks the release
 
 **Status:** Built on 2026-10-14 and run end to end on an RTX 4050. Two parts still need a real
 build on hardware, listed in [Remaining work](REMAINING_WORK.md).
@@ -14,7 +14,17 @@ and tied the whole estate to one machine. On Linux it needed an apt repository c
 The aim of the estate is to depend on hardware as little as possible. Writing a version into
 the code is the opposite of that.
 
-## The rule
+## The shared flow
+
+`gpu/chosen_toolkit_locator.py` holds the one flow every vendor follows. It reads the cards,
+reuses the release recorded for them or chooses one, installs it under `<home>/<vendor>`, and
+names the root in the vendor's variable for this process and in the user's variables.
+`gpu/toolkit_vendor.py` is the `ToolkitVendor` protocol each vendor answers: how to read the
+cards, which release fits them, how to install a release and what a toolkit root looks like.
+The locator never names a vendor. Adding one adds a vendor file and a spec, and changes nothing
+else.
+
+## CUDA: the rule
 
 The release installed is the newest one NVIDIA publishes that meets two conditions:
 
@@ -27,7 +37,7 @@ The release installed is the newest one NVIDIA publishes that meets two conditio
 No CUDA version is written anywhere in the code. When NVIDIA publishes CUDA 14 the rule sees it
 the same day, and when a card goes into or comes out of the machine the choice changes with it.
 
-## How it works
+## CUDA: how it works
 
 | Step | Module | What it does |
 | --- | --- | --- |
@@ -35,8 +45,8 @@ the same day, and when a card goes into or comes out of the machine the choice c
 | Index | `gpu/cuda_redist.py`, `cuda_release.py` | Lists the `redistrib_<version>.json` files under NVIDIA's `compute/cuda/redist/` and reads the archives and SHA-256 of one release |
 | Choice | `gpu/cuda_selection.py` | Walks the majors from newest to oldest and asks the newest release of each major which architectures it builds for |
 | Install | `gpu/cuda_toolkit_installer.py` | Downloads `cuda_nvcc`, `cuda_cudart` and `cuda_nvml_dev`, plus `cuda_crt`, `libnvvm` and `cuda_cccl` when the release publishes them, checks each one's SHA-256 and merges them into `<home>/cuda/<release>` |
-| Memory | `gpu/cuda_choice.py`, `cuda_choice_file.py` | Records the release with a fingerprint of the cards and the driver in `<home>/cuda/choice.json` |
-| Wiring | `gpu/cuda.py` | Runs the steps, sets `CUDA_PATH` for this process and in the user's variables, and keeps the backend spec |
+| Vendor | `gpu/cuda_vendor.py` | Answers the `ToolkitVendor` protocol with the modules above |
+| Spec | `gpu/cuda.py` | The backend spec, with a `ChosenToolkitLocator` over `CudaVendor` |
 
 Only the newest release of each major is asked, because NVIDIA removes an architecture only in
 a major release. A minor release can deprecate one but does not remove it. Each question
@@ -50,7 +60,7 @@ first on both platforms, and the Unified Runtime adapter build is given the same
 
 ## The choice file
 
-`<home>/cuda/choice.json` holds one object:
+`<home>/<vendor>/choice.json` holds one object, written by `gpu/toolkit_choice_file.py`:
 
 ```json
 {"format": 1, "fingerprint": "sm=89;driver=13.1", "platform": "windows-x86_64", "release": "13.1.2"}

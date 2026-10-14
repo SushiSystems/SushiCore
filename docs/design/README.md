@@ -7,7 +7,7 @@ it.
 | --- | --- | --- |
 | The dependency root, the registry, the doctor, the four module commands, and the move of hub's tree | [Provision](PROVISION.md) | Open: phase B has not started |
 | Every module provisioning itself without hub: the selection rule, the `depends_on` closure, the base fragment | [Standalone provisioning](STANDALONE_PROVISIONING.md) | Open: wave 4 of 4 |
-| Which CUDA release a machine gets, chosen from its cards and driver | [CUDA toolkit selection](CUDA_TOOLKIT_SELECTION.md) | Built; two checks on hardware remain |
+| Which CUDA or ROCm release a machine gets, chosen from its cards and driver | [GPU toolkit selection](GPU_TOOLKIT_SELECTION.md) | Built; two checks on hardware remain |
 
 The backlog is [Remaining work](REMAINING_WORK.md).
 

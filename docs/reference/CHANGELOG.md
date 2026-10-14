@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-14 — provision: Breaking change: Moved the choose, install and remember flow of CUDA into one vendor-blind `ChosenToolkitLocator` (`chosen_toolkit_locator.py`, `toolkit_vendor.py`, `cuda_vendor.py`).
+
 - 2026-10-14 — provision: Breaking change: Replaced the CUDA 12.6.3 pin with the newest release the driver runs whose nvcc builds every card (`cuda_selection.py`, `CudaLocator`).
 - 2026-10-14 — provision: Installed CUDA from NVIDIA's redistributable archives under `<home>/cuda`, without administrator rights (`cuda_toolkit_installer.py`, `cuda_redist.py`).
 - 2026-10-14 — provision: Breaking change: Removed `WindowsCudaLocator` and `LinuxCudaLocator`, replaced by one `CudaLocator` (`gpu/cuda.py`).
