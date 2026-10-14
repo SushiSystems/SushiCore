@@ -13,7 +13,6 @@ from types import SimpleNamespace
 import pytest
 
 from sushicore.provision.gpu import level_zero as level_zero_mod
-from sushicore.provision.gpu import rocm as rocm_mod
 from sushicore.provision.gpu.backend import NotProvided, ToolkitInstall
 from sushicore.provision.gpu.cuda import CUDA
 from sushicore.provision.gpu.cuda_toolkit_installer import nvcc_in
@@ -88,29 +87,6 @@ def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
 
 # Linux dry-run commands pinned to a fixed text
 
-def test_rocm_linux_provision_command_matches_the_pinned_text(monkeypatch, recording_console):
-    """Check that rocm linux provision command matches the pinned text."""
-    monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: None)
-    monkeypatch.setattr(rocm_mod, "os_release",
-                         lambda: {"ID": "ubuntu", "VERSION_CODENAME": "noble"})
-    monkeypatch.setattr(rocm_mod, "is_root", lambda: False)
-
-    cfg = SimpleNamespace(platform="linux")
-    assert rocm_mod.LinuxRocmLocator().provision(cfg, dry_run=True) is True
-
-    commands = [args[0] for name, args in recording_console.calls if name == "command"]
-    assert commands == [
-        "sudo mkdir -p --mode=0755 /etc/apt/keyrings && "
-        "curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key "
-        "| sudo gpg --dearmor -o /etc/apt/keyrings/rocm.gpg && "
-        'echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] '
-        'https://repo.radeon.com/rocm/apt/latest noble main" '
-        "| sudo tee /etc/apt/sources.list.d/rocm.list && "
-        "sudo apt-get update && "
-        "sudo apt-get install -y rocm-hip-runtime-dev"
-    ]
-
-
 def test_level_zero_linux_provision_command_matches_the_pinned_text(
         monkeypatch, recording_console):
     """Check that level zero linux provision command matches the pinned text."""
@@ -166,25 +142,15 @@ def test_level_zero_locator_reports_nothing_when_the_loader_is_absent(monkeypatc
     assert LEVEL_ZERO.locator.locate(cfg) is None
 
 
-# ROCm reads ROCM_PATH before falling back to /opt/rocm
+# ROCm reads ROCM_PATH first
 
-def test_rocm_locator_prefers_rocm_path_over_the_default(monkeypatch):
-    """Check that rocm locator prefers rocm path over the default."""
-    monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: "/custom/rocm/bin/hipcc")
-    monkeypatch.setenv("ROCM_PATH", "/custom/rocm")
-    cfg = SimpleNamespace(platform="linux")
+def test_rocm_locator_takes_the_root_rocm_path_names(monkeypatch, tmp_path):
+    """Check that a ROCM_PATH holding the HIP headers is the toolkit found."""
+    header = tmp_path / "include" / "hip" / "hip_runtime.h"
+    header.parent.mkdir(parents=True)
+    header.write_text("")
+    monkeypatch.setenv("ROCM_PATH", str(tmp_path))
 
-    install = ROCM.locator.locate(cfg)
+    install = ROCM.locator.locate(SimpleNamespace(platform="linux"))
 
-    assert install == ToolkitInstall(root=pathlib.Path("/custom/rocm"), version=None)
-
-
-def test_rocm_locator_falls_back_to_opt_rocm_without_rocm_path(monkeypatch):
-    """Check that rocm locator falls back to opt rocm without rocm path."""
-    monkeypatch.setattr(rocm_mod.shutil, "which", lambda cmd: "/usr/bin/hipcc")
-    monkeypatch.delenv("ROCM_PATH", raising=False)
-    cfg = SimpleNamespace(platform="linux")
-
-    install = ROCM.locator.locate(cfg)
-
-    assert install == ToolkitInstall(root=pathlib.Path("/opt/rocm"), version=None)
+    assert install == ToolkitInstall(root=pathlib.Path(str(tmp_path)), version=None)

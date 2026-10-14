@@ -21,6 +21,8 @@ _LAYER = {
     "pipeline": 1, "sinks": 2, "gpu.backend": 2, "gpu.cuda": 2, "gpu.cuda_hardware": 1, "gpu.cuda_redist": 1,
     "gpu.cuda_selection": 1, "gpu.cuda_toolkit_installer": 1, "gpu.toolkit_choice": 0, "gpu.toolkit_choice_file": 0, "gpu.gpu_hardware": 0,
     "gpu.toolkit_vendor": 0, "gpu.chosen_toolkit_locator": 2, "gpu.cuda_vendor": 2,
+    "gpu.amd_hardware": 1, "gpu.rocm_package": 0, "gpu.rocm_tarball_index": 1,
+    "gpu.rocm_selection": 1, "gpu.rocm_toolkit_installer": 1, "gpu.rocm_vendor": 2,
     "gpu.cuda_release": 0, "gpu.rocm": 2,
     "gpu.level_zero": 2, "gpu.registry": 2, "gpu.provisioning": 2, "gpu.adapter_builder": 2,
     "gpu": 2, "checks": 2, "packages": 3, "toolchains": 4, "toolchains.intel_llvm": 4,
