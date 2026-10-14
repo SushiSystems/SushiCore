@@ -12,11 +12,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from sushicore.provision.gpu import cuda as cuda_mod
 from sushicore.provision.gpu import level_zero as level_zero_mod
 from sushicore.provision.gpu import rocm as rocm_mod
 from sushicore.provision.gpu.backend import NotProvided, ToolkitInstall
 from sushicore.provision.gpu.cuda import CUDA
+from sushicore.provision.gpu.cuda_toolkit_installer import nvcc_in
 from sushicore.provision.gpu.level_zero import LEVEL_ZERO
 from sushicore.provision.gpu.registry import Registry
 from sushicore.provision.gpu.rocm import ROCM
@@ -39,7 +39,7 @@ def test_cuda_spec_declares_the_adapter_build_inputs():
 def test_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeypatch):
     """Check that the CUDA locator takes the toolkit CUDA_PATH names."""
     (tmp_path / "bin").mkdir()
-    (tmp_path / "bin" / cuda_mod.nvcc_in(tmp_path).name).write_text("")
+    (tmp_path / "bin" / nvcc_in(tmp_path).name).write_text("")
     monkeypatch.setenv("CUDA_PATH", str(tmp_path))
 
     install = CUDA.locator.locate(SimpleNamespace(platform="windows"))

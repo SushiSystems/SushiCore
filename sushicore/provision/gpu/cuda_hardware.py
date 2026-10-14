@@ -38,6 +38,12 @@ class NvidiaHardware:
     architectures: tuple[str, ...]
     driver_cuda: tuple[int, int]
 
+    def describe(self) -> str:
+        """Return the cards and the ceiling for a console line."""
+        major, minor = self.driver_cuda
+        return (f"{', '.join(f'sm_{arch}' for arch in self.architectures)} "
+                f"(the driver runs CUDA up to {major}.{minor})")
+
     def fingerprint(self) -> str:
         """Return a stable text that changes when a card or the driver's CUDA ceiling does."""
         major, minor = self.driver_cuda
