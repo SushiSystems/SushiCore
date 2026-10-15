@@ -71,8 +71,8 @@ files a CLI hands it.
   `result`, `prompt`) and its `raw` property.
 - `Theme` and `IconSet` are data. A new preset is registered with `register_theme` or
   `register_icon_set`; no other module changes.
-- A component in `ui` reads `Theme` and `brand` and nothing else. `tests/test_ui_architecture.py`
-  fails when one imports more.
+- A component in `ui` reads `Theme` and `brand` and nothing else. `tools/layering/check_package_layers.py`
+  reports one that imports more.
 - `typer_help` is the only module that imports Typer when it is loaded. `typer_theme`,
   `root_options`, `diag_commands`, `provision/commands.py` and `docs_bundle/commands.py` import it
   inside the function that needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`

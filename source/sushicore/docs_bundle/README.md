@@ -33,8 +33,8 @@ Everything else is the standard library. `commands.py` imports Typer inside
 `register_docs_commands`, so importing the package does not need it. It never imports Click:
 Typer 0.27 carries its own, and the installed CLIs have no `click` package.
 
-Inside the package a file imports only files in a lower layer. `tests/docs_bundle/test_layering.py`
-holds the layer of each file and fails when a module-level import of a sibling points up or
+Inside the package a file imports only files in a lower layer. `tools/layering/check_package_layers.py`
+holds the layer of each file and reports a module-level import of a sibling points up or
 sideways.
 
 ## Using it
