@@ -31,7 +31,8 @@ SushiCore follows the Sushi Systems skills: `documentation`, `source-comments`,
 ## Checks
 
 ```bash
-python -m pytest tests -q
+python tools/check_all.py .
+python -m pytest -q
 python tools/documentation/check_docs_layout.py .
 python tools/documentation/check_changelog.py .
 python tools/documentation/check_source_comments.py .
@@ -43,6 +44,11 @@ under "Documentation and layout" in [Known issues](reference/KNOWN_ISSUES.md), a
 `check_source_comments.py` only the findings counted in
 [Remaining work](design/REMAINING_WORK.md). A change adds to neither. A claim that a check
 passed carries the command and its output.
+
+Every test carries exactly one size: `small`, `medium` or `large`, set by a module-level
+`pytestmark`. `tests/conftest.py` fails collection for a test without one and stops a test that
+outlives its size's timeout of 60, 300 or 900 seconds. A stage runs a size with
+`python -m pytest -m small`. A quarantined test also carries `quarantined`.
 
 This repository has no CLI and nothing to compile. A change here is never proved by running a
 sibling repository's build.
