@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .toolkit_choice import ToolkitChoice
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 #: The version of the file's layout; a different value is ignored.
 K_FORMAT = 1
@@ -45,7 +45,7 @@ class ToolkitChoiceFile:
         except FileNotFoundError:
             return None
         except (OSError, ValueError) as error:
-            K_LOGGER.warning("%s is unreadable (%s); the release is chosen again",
+            _log.warning("%s is unreadable (%s); the release is chosen again",
                              self._path, error)
             return None
         if not isinstance(data, dict) or data.get("format") != K_FORMAT:
@@ -54,7 +54,7 @@ class ToolkitChoiceFile:
             return ToolkitChoice(str(data["fingerprint"]), str(data["platform"]),
                               str(data["release"]))
         except KeyError as error:
-            K_LOGGER.warning("%s lacks %s; the release is chosen again", self._path, error)
+            _log.warning("%s lacks %s; the release is chosen again", self._path, error)
             return None
 
     def write(self, choice: ToolkitChoice) -> None:

@@ -27,7 +27,7 @@ from ..system import USER_AGENT
 from .base import IPackageManager, refresh_windows_path
 from .github_release import gh_latest_asset
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 
 def tools_dir() -> Path:
@@ -66,7 +66,7 @@ def _add_to_user_path_windows(directory: str) -> bool:
             winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
         winreg.CloseKey(key)
     except OSError as error:
-        K_LOGGER.warning(
+        _log.warning(
             "%s was not added to the user's PATH in the registry (%s: %s); "
             "only this process finds it",
             directory,

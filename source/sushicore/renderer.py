@@ -17,7 +17,7 @@ from typing import Protocol
 from .events import event_line
 from .theme import Theme
 
-K_LOGGER = logging.getLogger("sushicore.renderer")
+_log = logging.getLogger(__name__)
 
 
 class Renderer(Protocol):
@@ -76,7 +76,7 @@ def _force_utf8_streams() -> None:
             try:
                 reconfigure(encoding="utf-8", errors="replace")
             except (ValueError, OSError) as error:
-                K_LOGGER.warning(
+                _log.warning(
                     "a standard stream was not switched to UTF-8 (%s: %s); it keeps its encoding",
                     type(error).__name__,
                     error,

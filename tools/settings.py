@@ -19,3 +19,10 @@ K_PRIVATE_DEPENDS = "PRIVATE_DEPENDS"
 K_INTERNAL_MARK = "INTERNAL"
 K_CLOSED = False
 K_MACRO_PREFIXES: tuple[str, ...] = ()
+K_LOG_PREFIX = ""
+K_CONSOLE_PATHS: tuple[str, ...] = (
+    "source/sushicore/aliases.py",
+    "source/sushicore/docs_bundle/__main__.py",
+    "source/sushicore/entry.py",
+    "source/sushicore/renderer.py",
+)

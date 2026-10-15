@@ -126,7 +126,7 @@ def test_a_refused_user_path_write_is_recorded_and_reported(monkeypatch, caplog)
     with caplog.at_level("WARNING", logger="sushicore.provision"):
         assert dd._add_to_user_path_windows("C:/tools") is False
     warnings = [r.getMessage() for r in caplog.records
-                if r.name == "sushicore.provision" and r.levelname == "WARNING"]
+                if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
     assert len(warnings) == 1
     assert "C:/tools" in warnings[0]
     assert os.environ["PATH"] == os.pathsep.join(["C:/base", "C:/tools"])

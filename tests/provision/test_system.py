@@ -44,7 +44,7 @@ def _os_release_raising(monkeypatch, error: OSError) -> None:
 def _system_warnings(caplog) -> list[str]:
     """Return the warnings the provision logger recorded."""
     return [r.getMessage() for r in caplog.records
-            if r.name == "sushicore.provision" and r.levelname == "WARNING"]
+            if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
 
 
 def test_an_unreadable_os_release_is_recorded(monkeypatch, caplog):

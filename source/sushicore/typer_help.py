@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     import click
 
 K_LOGO_COLOUR_SYSTEMS = ("256", "truecolor")
-K_LOGGER = logging.getLogger("sushicore.help")
+_log = logging.getLogger(__name__)
 
 Provider = Callable[[], Console]
 HelpWriter = Callable[["click.Context", "click.HelpFormatter"], None]
@@ -90,7 +90,7 @@ def _write_guarded(
             raise _HelpPageError("the help group was built without a console provider")
         _print_page(command, ctx, provider())
     except Exception as error:
-        K_LOGGER.warning(
+        _log.warning(
             "the help page for %s was not drawn (%s: %s); Typer's own help is used instead",
             ctx.command_path,
             type(error).__name__,

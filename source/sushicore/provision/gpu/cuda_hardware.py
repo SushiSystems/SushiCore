@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import typing
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 #: The banner line ``nvidia-smi`` prints with the newest CUDA release the driver runs.
 K_DRIVER_CUDA = re.compile(r"CUDA Version:\s*(\d+)\.(\d+)")
@@ -79,7 +79,7 @@ def query_hardware(run: typing.Callable[[list[str]], str] | None = None) -> Nvid
         caps = runner(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"])
         banner = runner(["nvidia-smi"])
     except (OSError, subprocess.SubprocessError) as error:
-        K_LOGGER.info("nvidia-smi did not answer (%s: %s)", type(error).__name__, error)
+        _log.info("nvidia-smi did not answer (%s: %s)", type(error).__name__, error)
         return None
     return parse_hardware(caps, banner)
 

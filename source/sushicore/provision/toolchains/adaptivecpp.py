@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import glob as _glob
+import logging
 import os
 import shutil
 import subprocess
@@ -23,6 +24,8 @@ from ..download_verifier import verify_download
 from ..packages import download, gh_tagged_asset, run
 from ._process import _run_quiet
 from .stamp import toolchains_dir
+
+_log = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
@@ -74,7 +77,7 @@ def _confirm_timeout(message: str, timeout: int = _LLVM_CONSENT_TIMEOUT,
         try:
             result[0] = input().strip().lower() in _YES
         except (EOFError, OSError):
-            pass  # non-interactive: keep the default
+            _log.debug("no answer on stdin; keeping the default %s", default)
 
     thread = threading.Thread(target=_read, daemon=True)
     thread.start()
