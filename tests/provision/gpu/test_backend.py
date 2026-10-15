@@ -1,82 +1,29 @@
-# test_gpu_backend_specs.py
+# test_backend.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Each vendor's spec answers the contract; CUDA locates from CUDA_PATH."""
+"""Tests what every GPU backend spec shares."""
 
 from __future__ import annotations
 
-import pathlib
 from types import SimpleNamespace
 
 import pytest
 
-from sushicore.provision.gpu import level_zero as level_zero_mod
-from sushicore.provision.gpu.backend import NotProvided, ToolkitInstall
+from sushicore.provision.gpu.backend import NotProvided
+
 from sushicore.provision.gpu.cuda import CUDA
-from sushicore.provision.gpu.cuda_toolkit_installer import nvcc_in
+
 from sushicore.provision.gpu.level_zero import LEVEL_ZERO
-from sushicore.provision.gpu.registry import Registry
+
 from sushicore.provision.gpu.rocm import ROCM
+
 
 
 pytestmark = pytest.mark.medium
 
 
-# CUDA
-
-def test_cuda_spec_declares_the_adapter_build_inputs():
-    """Check that cuda spec declares the adapter build inputs."""
-    assert CUDA.vendor == "cuda"
-    assert CUDA.probe_vendor == "nvidia"
-    assert CUDA.adapter_option == "UR_BUILD_ADAPTER_CUDA"
-    assert CUDA.adapter_target == "ur_adapter_cuda"
-    assert CUDA.adapter_binaries == ("ur_adapter_cuda", "umf")
-    root = pathlib.Path("/opt/cuda")
-    install = ToolkitInstall(root=root, version="12.6")
-    assert CUDA.adapter_definitions(install) == {"CUDAToolkit_ROOT": str(root)}
-
-
-def test_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeypatch):
-    """Check that the CUDA locator takes the toolkit CUDA_PATH names."""
-    (tmp_path / "bin").mkdir()
-    (tmp_path / "bin" / nvcc_in(tmp_path).name).write_text("")
-    monkeypatch.setenv("CUDA_PATH", str(tmp_path))
-
-    install = CUDA.locator.locate(SimpleNamespace(platform="windows"))
-
-    assert install == ToolkitInstall(root=pathlib.Path(str(tmp_path)), version=None)
-
-
-# ROCm
-
-def test_rocm_spec_declares_the_adapter_build_inputs():
-    """Check that rocm spec declares the adapter build inputs."""
-    assert ROCM.vendor == "rocm"
-    assert ROCM.probe_vendor == "amd"
-    assert ROCM.adapter_option == "UR_BUILD_ADAPTER_HIP"
-    assert ROCM.adapter_target == "ur_adapter_hip"
-    assert ROCM.adapter_binaries == ("ur_adapter_hip", "umf")
-    root = pathlib.Path("/opt/rocm")
-    install = ToolkitInstall(root=root, version=None)
-    assert ROCM.adapter_definitions(install) == {"UR_HIP_ROCM_DIR": str(root)}
-
-
-# Level Zero
-
-def test_level_zero_spec_declares_the_adapter_build_inputs():
-    """Check that level zero spec declares the adapter build inputs."""
-    assert LEVEL_ZERO.vendor == "level_zero"
-    assert LEVEL_ZERO.probe_vendor == "intel"
-    assert LEVEL_ZERO.adapter_option == "UR_BUILD_ADAPTER_L0"
-    assert LEVEL_ZERO.adapter_target == "ur_adapter_level_zero"
-    assert LEVEL_ZERO.adapter_binaries == ("ur_adapter_level_zero", "umf")
-    install = ToolkitInstall(root=pathlib.Path("/usr"), version=None)
-    assert LEVEL_ZERO.adapter_definitions(install) == {}
-
-
-# Platform coverage
 
 @pytest.mark.parametrize("spec", [CUDA, ROCM, LEVEL_ZERO])
 def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
@@ -86,74 +33,3 @@ def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
     assert spec.locator.locate(cfg) is None
     assert isinstance(spec.locator._for(cfg), NotProvided)
     assert spec.locator.provision(cfg, dry_run=True) is True
-
-
-# Linux dry-run commands pinned to a fixed text
-
-def test_level_zero_linux_provision_command_matches_the_pinned_text(
-        monkeypatch, recording_console):
-    """Check that level zero linux provision command matches the pinned text."""
-    monkeypatch.setattr(level_zero_mod, "ensure_intel_oneapi_repo", lambda dry_run: True)
-    monkeypatch.setattr(level_zero_mod, "is_root", lambda: False)
-
-    cfg = SimpleNamespace(platform="linux")
-    assert level_zero_mod.LinuxLevelZeroLocator().provision(cfg, dry_run=True) is True
-
-    commands = [args[0] for name, args in recording_console.calls if name == "command"]
-    assert commands == [
-        "sudo apt-get update && "
-        "sudo apt-get install -y level-zero intel-oneapi-runtime-opencl "
-        "intel-oneapi-runtime-libs"
-    ]
-
-
-# The Level Zero locator finds a real shared library, not an executable
-
-def test_level_zero_locator_finds_the_loader_via_find_library(monkeypatch):
-    """Check that level zero locator finds the loader via find library."""
-    monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library",
-                         lambda name: "/usr/lib/x86_64-linux-gnu/libze_loader.so.1")
-    cfg = SimpleNamespace(platform="linux")
-
-    install = LEVEL_ZERO.locator.locate(cfg)
-
-    assert install == ToolkitInstall(
-        root=pathlib.Path("/usr/lib/x86_64-linux-gnu"), version=None,
-    )
-
-
-def test_level_zero_locator_falls_back_to_the_known_lib_dirs(monkeypatch, tmp_path):
-    """Check that level zero locator falls back to the known lib dirs."""
-    monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library", lambda name: None)
-    fake_dir = tmp_path / "lib"
-    fake_dir.mkdir()
-    (fake_dir / "libze_loader.so.1").write_text("")
-    monkeypatch.setattr(level_zero_mod, "_ZE_LOADER_LIB_DIRS", (str(fake_dir),))
-    cfg = SimpleNamespace(platform="linux")
-
-    install = LEVEL_ZERO.locator.locate(cfg)
-
-    assert install == ToolkitInstall(root=fake_dir, version=None)
-
-
-def test_level_zero_locator_reports_nothing_when_the_loader_is_absent(monkeypatch, tmp_path):
-    """Check that level zero locator reports nothing when the loader is absent."""
-    monkeypatch.setattr(level_zero_mod.ctypes.util, "find_library", lambda name: None)
-    monkeypatch.setattr(level_zero_mod, "_ZE_LOADER_LIB_DIRS", (str(tmp_path),))
-    cfg = SimpleNamespace(platform="linux")
-
-    assert LEVEL_ZERO.locator.locate(cfg) is None
-
-
-# ROCm reads ROCM_PATH first
-
-def test_rocm_locator_takes_the_root_rocm_path_names(monkeypatch, tmp_path):
-    """Check that a ROCM_PATH holding the HIP headers is the toolkit found."""
-    header = tmp_path / "include" / "hip" / "hip_runtime.h"
-    header.parent.mkdir(parents=True)
-    header.write_text("")
-    monkeypatch.setenv("ROCM_PATH", str(tmp_path))
-
-    install = ROCM.locator.locate(SimpleNamespace(platform="linux"))
-
-    assert install == ToolkitInstall(root=pathlib.Path(str(tmp_path)), version=None)
