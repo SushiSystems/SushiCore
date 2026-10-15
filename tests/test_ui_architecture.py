@@ -17,7 +17,7 @@ import pytest
 
 pytestmark = pytest.mark.small
 
-K_UI = Path(__file__).resolve().parent.parent / "sushicore" / "ui"
+K_UI = Path(__file__).resolve().parent.parent / "source" / "sushicore" / "ui"
 K_PACKAGE = ("sushicore", "ui")
 K_ALLOWED_INTERNAL = {
     "sushicore.theme",

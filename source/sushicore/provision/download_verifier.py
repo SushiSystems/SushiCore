@@ -5,7 +5,7 @@
 # Commercial use requires a licence from Sushi Systems.
 """Checks each download of a run against its pinned digest and names the unpinned ones.
 
-The reasoning is in sushicore/provision/README.md, section "Verifying downloads".
+The reasoning is in source/sushicore/provision/README.md, section "Verifying downloads".
 """
 
 from __future__ import annotations

@@ -33,7 +33,7 @@ typer = ["typer>=0.12"]
 test = ["pytest>=8.0", "pytest-timeout>=2.3", "typer>=0.12", "click>=8.0"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["source"]
 include = ["sushicore*"]
 
 [tool.setuptools.package-data]
@@ -41,6 +41,7 @@ sushicore = ["py.typed", "provision/manifests/*.deps.toml"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
+pythonpath = ["source"]
 testpaths = ["tests"]
 markers = [
     "small: one process and one thread, no network, no sleep, no file outside the build tree (60 s)",
