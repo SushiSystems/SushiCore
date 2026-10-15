@@ -8,8 +8,13 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from sushicore.build_env import (RUNTIME_DEVICE_VARS, merge_env, parse_windows_set,
                                  read_cache, without_device_selection, write_cache)
+
+
+pytestmark = pytest.mark.medium
 
 
 def _cache(tmp_path: Path, env: dict[str, str], key: str = "k") -> Path:

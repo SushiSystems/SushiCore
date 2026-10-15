@@ -26,6 +26,9 @@ from sushicore.provision.gpu.cuda_toolkit_installer import (
     nvcc_in,
 )
 
+
+pytestmark = pytest.mark.medium
+
 K_ROOT = "https://example.invalid/"
 K_NVCC_NAME = nvcc_in(Path(".")).name
 

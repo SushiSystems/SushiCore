@@ -7,9 +7,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import (
     InstallContext, InstallPipeline, Step, StepResult, ToolchainSelection)
+
+
+pytestmark = pytest.mark.small
 
 
 class _Step(Step):

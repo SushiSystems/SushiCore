@@ -8,7 +8,12 @@
 import click
 import typer
 
+import pytest
+
 from sushicore.help.from_click import build_model
+
+
+pytestmark = pytest.mark.small
 
 
 class _RegistrationOrderGroup(click.Group):

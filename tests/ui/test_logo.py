@@ -13,6 +13,9 @@ from sushicore.brand import K_MARK_PIXELS
 from sushicore.ui.logo import Logo
 from tests.ui.capture import capture, capture_ansi
 
+
+pytestmark = pytest.mark.small
+
 K_WIDE = 80
 K_GOLDEN = Path(__file__).resolve().parents[1] / "golden"
 K_TINY_PALETTE = {"a": "#f0a500", "n": "#1d1e20", "g": "#4caf50"}

@@ -18,6 +18,9 @@ import pytest
 from sushicore.provision.packages import direct_download as dd
 
 
+pytestmark = pytest.mark.medium
+
+
 def _write_zip(path: Path, member: str) -> None:
     """Write a single-entry zip archive to *path*."""
     with zipfile.ZipFile(path, "w") as zf:

@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision import steps as steps_mod
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import IDependencySource
@@ -14,6 +16,9 @@ from sushicore.provision.packages import LinuxPackageManager
 from sushicore.provision.packages import install_gpu_stack as _real_install_gpu_stack
 from sushicore.provision.pipeline import InstallContext, StepResult, ToolchainSelection
 from sushicore.provision.steps import InstallDepsStep, provision_adapters_for_run
+
+
+pytestmark = pytest.mark.medium
 
 
 class MemorySource(IDependencySource):

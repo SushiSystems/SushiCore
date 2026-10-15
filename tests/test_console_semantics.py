@@ -7,9 +7,14 @@
 
 import io
 
+import pytest
+
 from sushicore.icons import IconSet
 from sushicore.renderer import JsonRenderer, PlainRenderer, RichRenderer
 from sushicore.theme import Theme
+
+
+pytestmark = pytest.mark.small
 
 
 def test_plain_table_prints_title_header_and_rows():

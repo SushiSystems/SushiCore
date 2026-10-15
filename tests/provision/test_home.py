@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from sushicore.provision import home
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_default_root_is_in_the_user_home(monkeypatch):

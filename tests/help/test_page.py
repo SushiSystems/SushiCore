@@ -5,10 +5,15 @@
 # Commercial use requires a licence from Sushi Systems.
 """HelpPage lays a HelpModel out from components."""
 
+import pytest
+
 from sushicore.help.model import HelpModel, HelpSection
 from sushicore.help.page import HelpPage
 from sushicore.ui.logo import Logo
 from tests.ui.capture import capture
+
+
+pytestmark = pytest.mark.small
 
 K_BLOCKS = "▀▄█"
 K_LOGO_WIDTH = Logo().width

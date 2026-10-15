@@ -8,9 +8,14 @@
 from rich.color import ColorSystem
 from rich.style import Style
 
+import pytest
+
 from sushicore.theme import Theme, get_theme
 from sushicore.ui.definition_list import DefinitionList
 from tests.ui.capture import capture, capture_ansi, capture_raw
+
+
+pytestmark = pytest.mark.small
 
 K_BOLD_AMBER = "[1;38;2;240;165;0m"
 K_AMBER = "[38;2;240;165;0m"

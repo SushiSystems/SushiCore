@@ -15,6 +15,9 @@ from sushicore.provision import steps
 from sushicore.provision._output import console
 
 
+pytestmark = pytest.mark.small
+
+
 def test_calls_reach_the_bound_console(recording_console):
     """Check that console calls reach the bound console."""
     console.info("hello")

@@ -7,8 +7,13 @@
 
 from rich.markup import escape
 
+import pytest
+
 from sushicore.ui.header import Header
 from tests.ui.capture import capture, capture_ansi
+
+
+pytestmark = pytest.mark.small
 
 
 def test_header_is_a_blank_line_then_a_rule_holding_the_title():

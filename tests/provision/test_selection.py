@@ -14,6 +14,9 @@ from sushicore.provision.pipeline import ToolchainSelection
 from sushicore.provision.selection import COMPONENTS, derive, enabled_keys, toolchain_keys
 
 
+pytestmark = pytest.mark.small
+
+
 class _Source(IDependencySource):
     """A dependency source holding a fixed list."""
 

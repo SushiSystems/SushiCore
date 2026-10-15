@@ -20,6 +20,9 @@ from sushicore.provision.download_verifier import DownloadVerifier, bind_verifie
 from sushicore.provision.packages import direct_download as dd
 from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
 
+
+pytestmark = pytest.mark.medium
+
 K_WRONG_DIGEST = "0" * 64
 K_PAYLOAD = b"downloaded bytes"
 K_PAYLOAD_DIGEST = hashlib.sha256(K_PAYLOAD).hexdigest()

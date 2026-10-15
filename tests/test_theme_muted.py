@@ -7,10 +7,15 @@
 
 import io
 
+import pytest
+
 from sushicore.console import Console
 from sushicore.icons import IconSet
 from sushicore.renderer import PlainRenderer
 from sushicore.theme import Theme
+
+
+pytestmark = pytest.mark.small
 
 
 def test_muted_defaults_to_dim():

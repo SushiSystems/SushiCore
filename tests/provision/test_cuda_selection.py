@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.gpu.cuda_hardware import NvidiaHardware
 from sushicore.provision.gpu.cuda_selection import select_release
+
+
+pytestmark = pytest.mark.small
 
 K_VERSIONS = [(12, 6, 3), (12, 9, 1), (13, 0, 2), (13, 1, 2), (13, 4, 3)]
 K_ARCHS = {12: frozenset({"61", "75", "89"}), 13: frozenset({"75", "89", "120"})}

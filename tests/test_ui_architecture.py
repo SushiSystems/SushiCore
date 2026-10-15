@@ -14,6 +14,9 @@ from pathlib import Path
 
 import pytest
 
+
+pytestmark = pytest.mark.small
+
 K_UI = Path(__file__).resolve().parent.parent / "sushicore" / "ui"
 K_PACKAGE = ("sushicore", "ui")
 K_ALLOWED_INTERNAL = {

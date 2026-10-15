@@ -20,6 +20,9 @@ from sushicore.provision.gpu.windows_installer import (
 )
 
 
+pytestmark = pytest.mark.small
+
+
 def test_ps_quote_escapes_a_single_quote_and_keeps_spaces_and_backslashes():
     """Check that ps quote escapes a single quote and keeps spaces and backslashes."""
     assert _ps_quote(r"C:\Program Files\App's Name") == r"'C:\Program Files\App''s Name'"

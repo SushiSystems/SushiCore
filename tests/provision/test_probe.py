@@ -16,6 +16,9 @@ from sushicore.provision import probe
 from sushicore.provision.config import ProvisionSettings
 
 
+pytestmark = pytest.mark.medium
+
+
 def test_classify_prefers_a_discrete_adapter():
     """Check that classification prefers a discrete adapter."""
     adapters = "Intel(R) UHD Graphics 770\nNVIDIA GeForce RTX 4070\n"

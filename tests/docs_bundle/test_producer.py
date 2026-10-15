@@ -20,6 +20,9 @@ from sushicore.docs_bundle.source_revision import read_head_commit
 
 from .sample_repository import K_PUBLISH, commit_all, write_file
 
+
+pytestmark = pytest.mark.medium
+
 K_COMMIT = "c0ffee"
 
 

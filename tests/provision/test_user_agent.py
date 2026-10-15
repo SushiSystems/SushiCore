@@ -15,6 +15,9 @@ import pytest
 import sushicore.provision as provision
 from sushicore.provision.packages import direct_download, github_release
 
+
+pytestmark = pytest.mark.medium
+
 _ROOT = Path(provision.__file__).parent
 
 

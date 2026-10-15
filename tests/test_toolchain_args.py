@@ -8,7 +8,12 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from sushicore.toolchain_args import c_compiler_for, vcpkg_prefix
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_a_clangxx_gets_its_sibling_clang(tmp_path):

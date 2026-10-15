@@ -21,6 +21,9 @@ from sushicore.errors import ConfigError, SushiCoreError
 from sushicore.root_options import register_root_options, version_line
 from sushicore.workspace import read_toml
 
+
+pytestmark = pytest.mark.medium
+
 K_REMOVED = date(2027, 3, 25)
 
 

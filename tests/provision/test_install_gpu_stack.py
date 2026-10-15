@@ -16,6 +16,9 @@ from sushicore.provision import probe
 from sushicore.provision.gpu.registry import Registry
 
 
+pytestmark = pytest.mark.small
+
+
 class _RecordingLocator:
     """A locator that records whether it was asked to provision."""
 

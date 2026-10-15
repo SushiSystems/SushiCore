@@ -8,7 +8,12 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from sushicore.proc import Runner
+
+
+pytestmark = pytest.mark.medium
 
 
 class _Recorder:

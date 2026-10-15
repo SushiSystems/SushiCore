@@ -10,7 +10,12 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 import sushicore.provision as provision
+
+
+pytestmark = pytest.mark.small
 
 _ROOT = Path(provision.__file__).parent
 _LAYER = {

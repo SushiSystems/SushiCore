@@ -12,6 +12,8 @@ import os
 import typer
 from typer.testing import CliRunner
 
+import pytest
+
 from sushicore.profile import ModuleProfile
 from sushicore.provision import commands, probe
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
@@ -19,6 +21,9 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.packages import LinuxPackageManager
 from sushicore.workspace import read_link, registered_modules, write_module
+
+
+pytestmark = pytest.mark.medium
 
 
 class _FakeAptManager(LinuxPackageManager):

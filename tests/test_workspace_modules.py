@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.workspace import (
     read_toml, registered_modules, remove_module, workspace_file, write_module)
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_no_file_means_no_modules(tmp_path):

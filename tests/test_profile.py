@@ -5,7 +5,12 @@
 # Commercial use requires a licence from Sushi Systems.
 """The profile is what keeps the shared machinery from naming a module."""
 
+import pytest
+
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_env_overrides_are_prefixed_from_the_profile():

@@ -10,8 +10,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 import sushicore.provision as provision
 from sushicore.provision.config import ProvisionConfig
+
+
+pytestmark = pytest.mark.small
 
 _ROOT = Path(provision.__file__).parent
 _CFG_ATTRIBUTE = re.compile(r"\bcfg\.([a-z_]+)")

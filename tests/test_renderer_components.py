@@ -16,6 +16,9 @@ import pytest
 from sushicore.renderer import RichRenderer
 from sushicore.theme import Theme
 
+
+pytestmark = pytest.mark.medium
+
 K_FRAME = set("│┃┌┐└┘╭╮╰╯|+")
 K_REPOSITORY = Path(__file__).resolve().parent.parent
 

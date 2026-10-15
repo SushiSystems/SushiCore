@@ -9,9 +9,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from sushicore.provision.gpu.backend import GpuBackendSpec, ToolkitInstall
 from sushicore.provision.gpu.provisioning import provision_gpu_adapters
 from sushicore.provision.gpu.registry import Registry
+
+
+pytestmark = pytest.mark.medium
 
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
 

@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision import packages
+
+
+pytestmark = pytest.mark.small
 
 
 def test_every_manager_is_exported():

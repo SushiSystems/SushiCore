@@ -9,7 +9,12 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from sushicore.cmake_driver import CMakeDriver
+
+
+pytestmark = pytest.mark.medium
 
 
 class _Console:

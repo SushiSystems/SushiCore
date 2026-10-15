@@ -21,6 +21,9 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.gpu.adapter_builder import AdapterBuilder
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP, write_toolchain_stamp
 
+
+pytestmark = pytest.mark.medium
+
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
 
 

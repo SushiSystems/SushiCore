@@ -13,6 +13,9 @@ import pytest
 from sushicore import windows_console
 from sushicore.windows_console import enable_virtual_terminal
 
+
+pytestmark = pytest.mark.small
+
 K_VT = 0x0004
 K_STDOUT = -11
 K_STDERR = -12

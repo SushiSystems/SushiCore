@@ -14,6 +14,9 @@ import pytest
 from sushicore.errors import DigestMismatchError, SushiCoreError
 from sushicore.provision.integrity import sha256_of, verify_sha256
 
+
+pytestmark = pytest.mark.medium
+
 K_CONTENT = b"an archive"
 K_DIGEST = hashlib.sha256(K_CONTENT).hexdigest()
 K_OTHER_DIGEST = hashlib.sha256(b"another archive").hexdigest()

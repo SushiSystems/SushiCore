@@ -7,9 +7,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.gpu.amd_hardware import AmdHardware
 from sushicore.provision.gpu.rocm_package import RocmPackage
 from sushicore.provision.gpu.rocm_selection import select_package
+
+
+pytestmark = pytest.mark.small
 
 
 def _p(version: tuple[int, ...], family: str) -> RocmPackage:

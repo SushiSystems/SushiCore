@@ -20,6 +20,9 @@ from sushicore.provision.gpu.rocm_toolkit_installer import (
     is_rocm_root,
 )
 
+
+pytestmark = pytest.mark.medium
+
 K_PACKAGE = RocmPackage((7, 13, 0), "gfx110X-all", "https://example.invalid/rocm.tar.gz")
 
 

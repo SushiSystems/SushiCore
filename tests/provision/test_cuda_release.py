@@ -17,6 +17,9 @@ from sushicore.provision.gpu.cuda_release import (
 )
 
 
+pytestmark = pytest.mark.small
+
+
 def test_versions_round_trip_through_text():
     """Check that parsing and formatting are inverse."""
     assert format_version(parse_version("13.1.2")) == "13.1.2"

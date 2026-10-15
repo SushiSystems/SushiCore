@@ -12,6 +12,9 @@ import pytest
 from sushicore.provision.registry import Component, Registry, RegistryError
 
 
+pytestmark = pytest.mark.medium
+
+
 def _llvm(consumer):
     """Check that llvm."""
     return Component("intel-llvm", "nightly-1", "/x", "intel/llvm", "2026-09-23T00:00:00Z",

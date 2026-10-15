@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.gpu.toolkit_choice import ToolkitChoice
 from sushicore.provision.gpu.toolkit_choice_file import ToolkitChoiceFile
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_a_written_choice_reads_back(tmp_path):

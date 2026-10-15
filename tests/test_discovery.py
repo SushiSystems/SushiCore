@@ -10,7 +10,12 @@ import stat
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from sushicore.discovery import ExecutableIndex
+
+
+pytestmark = pytest.mark.medium
 
 
 class _FakeConsole:

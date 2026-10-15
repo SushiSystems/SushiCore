@@ -20,6 +20,9 @@ from sushicore.provision.download_verifier import (
     verify_download,
 )
 
+
+pytestmark = pytest.mark.medium
+
 K_CONTENT = b"an installer"
 K_DIGEST = hashlib.sha256(K_CONTENT).hexdigest()
 K_WRONG_DIGEST = "0" * 64

@@ -16,6 +16,9 @@ from sushicore.theme import Theme
 from sushicore.ui.table import Table
 from tests.ui.capture import capture, capture_ansi
 
+
+pytestmark = pytest.mark.small
+
 K_ROWS = (("sushiruntime", "cloned"), ("sushiengine", "linked"))
 
 K_INVENTORY_COLUMNS = ("Owner", "Component", "Status", "Detail")

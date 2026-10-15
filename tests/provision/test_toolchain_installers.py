@@ -22,6 +22,9 @@ from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
 from sushicore.provision.toolchains.stamp import read_toolchain_stamp, toolchains_dir
 
 
+pytestmark = pytest.mark.medium
+
+
 class _StatusContext:
     """A no-op stand-in for the Rich ``console.status`` context manager."""
 

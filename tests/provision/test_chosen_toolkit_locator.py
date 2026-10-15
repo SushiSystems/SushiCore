@@ -17,6 +17,9 @@ from sushicore.provision.gpu.toolkit_choice import ToolkitChoice
 from sushicore.provision.gpu.toolkit_choice_file import ToolkitChoiceFile
 from sushicore.provision.gpu.toolkit_vendor import ToolkitSourceError, ToolkitVendor
 
+
+pytestmark = pytest.mark.medium
+
 K_CFG = SimpleNamespace(platform="linux")
 K_ROOT_VARIABLE = "FAKE_TOOLKIT_PATH"
 K_OVERRIDE = "FAKE_TOOLKIT_RELEASE"

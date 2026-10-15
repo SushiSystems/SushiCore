@@ -15,6 +15,9 @@ from sushicore.provision import lock
 from sushicore.provision.lock import LockTimeout, ProvisionLock
 
 
+pytestmark = pytest.mark.medium
+
+
 def test_lock_is_released_on_exit(tmp_path):
     """Check that lock is released on exit."""
     path = tmp_path / ".lock"

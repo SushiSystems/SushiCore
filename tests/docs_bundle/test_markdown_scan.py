@@ -7,12 +7,17 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.docs_bundle.markdown_scan import (
     MarkdownLink,
     first_heading,
     iter_links,
     local_path,
 )
+
+
+pytestmark = pytest.mark.small
 
 
 def test_iter_links_reports_each_target_with_its_line():

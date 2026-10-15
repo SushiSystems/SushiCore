@@ -8,8 +8,13 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from sushicore import JsonRenderer, build_console
 from sushicore.cli_console import LazyConsole
+
+
+pytestmark = pytest.mark.small
 
 
 def test_build_console_machine_uses_the_json_renderer():

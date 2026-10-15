@@ -18,6 +18,9 @@ from sushicore.provision.fragments import Dependency, IDependencySource
 from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
 
 
+pytestmark = pytest.mark.medium
+
+
 class _EmptySource(IDependencySource):
     """Fake EmptySource for testing."""
     def all(self):

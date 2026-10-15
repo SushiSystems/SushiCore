@@ -26,6 +26,9 @@ from sushicore.typer_help import HelpGroup, help_group
 from sushicore.ui.logo import Logo
 from tests.ui.capture import capture
 
+
+pytestmark = pytest.mark.small
+
 K_BLOCKS = "▀▄█"
 K_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 K_TYPER_PANEL = "─ Options ─"
