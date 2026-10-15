@@ -172,7 +172,7 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
     acpp_path = str(found_acpp) if found_acpp is not None else ""
     acpp_ok = bool(acpp_path) and binary_works(acpp_path)
 
-    # oneAPI is system-wide; reuse the active-compiler probe. See sushicore/provision/README.md.
+    # oneAPI is system-wide; reuse the active-compiler probe. See source/sushicore/provision/README.md.
     active, _ = find_sycl_compiler(cfg)
     oneapi_bin = (_first_glob(_ICX_GLOBS) or shutil.which("icx-cl")
                   or shutil.which("icpx") or shutil.which("icx")
