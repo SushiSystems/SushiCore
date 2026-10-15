@@ -25,6 +25,7 @@ K_CHECKERS = (
     "documentation/check_docs_truth.py",
     "layering/check_layering.py",
     "testing/check_test_mirror.py",
+    "testing/check_test_sizes.py",
 )
 
 
