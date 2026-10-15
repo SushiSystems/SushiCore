@@ -22,7 +22,7 @@ Rich renderable. Each component is a frozen dataclass.
 
 `sushicore.theme` for the styles, `sushicore.brand` for the logo's palette and pixel grid,
 `sushicore.markup` for bracket handling, and Rich. A component reads no console, no config and
-no environment. `tests/test_ui_architecture.py` fails when a file here imports more or holds
+no environment. `tools/layering/check_package_layers.py` reports a file here imports more or holds
 more than one component.
 
 ## Tables
