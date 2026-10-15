@@ -18,47 +18,47 @@ and hygiene, Code for Code shape. Work that is not a defect is in
 
 | Issue | Where | Finding |
 | --- | --- | --- |
-| The `level` of a JSON `line` event is read from the icon prefix, so with the `emoji`, `minimal` or `none` icon set every warning and error is reported as `info` | `sushicore/renderer.py`, `_level_from_prefix` | Cli C3 |
-| `doctor` puts Rich markup such as `[success]ok[/success]` in the rows of its `table` event | `sushicore/provision/doctor.py` | Cli C2 |
-| A child process inherits stdout, so in machine mode stdout carries more than events | `sushicore/proc.py`, `Runner.run`; `sushicore/provision/steps.py`, `system.py`, `toolchains/oneapi.py` | Cli C4 |
-| `setup`, `link` and `unlink` end without a `result` event | `sushicore/provision/commands.py` | Cli C5 |
-| `config`, `env` and the executable picker build Rich tables and prompts directly, so they emit no `table` or `prompt` event | `sushicore/diag.py`, `sushicore/discovery.py` | Cli C6 |
+| The `level` of a JSON `line` event is read from the icon prefix, so with the `emoji`, `minimal` or `none` icon set every warning and error is reported as `info` | `source/sushicore/renderer.py`, `_level_from_prefix` | Cli C3 |
+| `doctor` puts Rich markup such as `[success]ok[/success]` in the rows of its `table` event | `source/sushicore/provision/doctor.py` | Cli C2 |
+| A child process inherits stdout, so in machine mode stdout carries more than events | `source/sushicore/proc.py`, `Runner.run`; `source/sushicore/provision/steps.py`, `system.py`, `toolchains/oneapi.py` | Cli C4 |
+| `setup`, `link` and `unlink` end without a `result` event | `source/sushicore/provision/commands.py` | Cli C5 |
+| `config`, `env` and the executable picker build Rich tables and prompts directly, so they emit no `table` or `prompt` event | `source/sushicore/diag.py`, `source/sushicore/discovery.py` | Cli C6 |
 
 ## Commands
 
 | Issue | Where | Finding |
 | --- | --- | --- |
-| A command run outside a checkout ends in `SystemExit(message)`: plain text on stderr, no console line | `sushicore/module_config.py`, `find_project_root` | Cli C8 |
-| `link --workspace PATH` does not check the path for the workspace marker and creates `.sushistack/workspace.toml` there | `sushicore/provision/commands.py` | Cli C12 |
-| `link` writes the module's pointer before the workspace's `[modules]` table and does not undo it when the second write fails | `sushicore/provision/commands.py` | Cli C12 |
-| `doctor --for` does not list its groups in its help, and the groups `infer` and `eval` belong to one module | `sushicore/provision/commands.py`, `sushicore/provision/doctor.py` | Cli C16 |
-| `--yes` has no `-y` form here and has one in `hub` | `sushicore/provision/commands.py` | Cli C17 |
-| The `cli/` folder is fixed in the provisioning commands, and `InstallContext.program` defaults to `hub` | `sushicore/provision/commands.py`, `sushicore/provision/pipeline.py` | Cli C18 |
-| `config` reports `config.toml` for a value that came from `config.local.toml` or from the linked workspace | `sushicore/diag.py`, `_source_of` | Cli C20 |
-| `CMakeDriver.clean_tree` prints "removed" whether or not the tree is gone | `sushicore/cmake_driver.py` | CLI unification report, item 10 |
-| An unknown `color` or `background` value falls back without a message, while an unknown `theme` or `icons` name is an error | `sushicore/config.py` | Cli C7 |
+| A command run outside a checkout ends in `SystemExit(message)`: plain text on stderr, no console line | `source/sushicore/module_config.py`, `find_project_root` | Cli C8 |
+| `link --workspace PATH` does not check the path for the workspace marker and creates `.sushistack/workspace.toml` there | `source/sushicore/provision/commands.py` | Cli C12 |
+| `link` writes the module's pointer before the workspace's `[modules]` table and does not undo it when the second write fails | `source/sushicore/provision/commands.py` | Cli C12 |
+| `doctor --for` does not list its groups in its help, and the groups `infer` and `eval` belong to one module | `source/sushicore/provision/commands.py`, `source/sushicore/provision/doctor.py` | Cli C16 |
+| `--yes` has no `-y` form here and has one in `hub` | `source/sushicore/provision/commands.py` | Cli C17 |
+| The `cli/` folder is fixed in the provisioning commands, and `InstallContext.program` defaults to `hub` | `source/sushicore/provision/commands.py`, `source/sushicore/provision/pipeline.py` | Cli C18 |
+| `config` reports `config.toml` for a value that came from `config.local.toml` or from the linked workspace | `source/sushicore/diag.py`, `_source_of` | Cli C20 |
+| `CMakeDriver.clean_tree` prints "removed" whether or not the tree is gone | `source/sushicore/cmake_driver.py` | CLI unification report, item 10 |
+| An unknown `color` or `background` value falls back without a message, while an unknown `theme` or `icons` name is an error | `source/sushicore/config.py` | Cli C7 |
 
 ## Installing third-party software
 
 | Issue | Where | Finding |
 | --- | --- | --- |
-| No fragment entry pins a `sha256` yet, so every download is still extracted or run unverified, with a warning | `sushicore/provision/manifests/base.deps.toml`, the fragments of sushiruntime and sushidsp | Code C6 |
-| `git` and `doxygen` are downloaded on Windows and no fragment declares them, so there is no entry to pin them in | `sushicore/provision/manifests/base.deps.toml` | Code C6 |
-| `cmake`, `ninja`, `doxygen`, `git` and `intel-llvm` are fetched as the newest release and a fragment has no version key, so a pinned digest stops matching when upstream publishes | `sushicore/provision/packages/direct_download.py`, `sushicore/provision/toolchains/intel_llvm.py` | Code C6 |
-| Shell pipelines and clones are not verified: the oneAPI apt key, and the vcpkg, AdaptiveCpp and Unified Runtime clones | `sushicore/provision/gpu/adapter_builder.py`, `sushicore/provision/system.py`, `packages/vcpkg.py`, `toolchains/adaptivecpp.py` | Code C6 |
-| The oneAPI installer runs with `--eula accept`, and winget installs pass `--accept-package-agreements`, on the user's behalf | `sushicore/provision/toolchains/oneapi.py`, `sushicore/provision/packages/winget.py`, `sushicore/provision/steps.py`, `sushicore/provision/toolchains/adaptivecpp.py` | Lic L10 |
-| ROCm SDK tarballs are used unverified: AMD publishes no digest for them | `sushicore/provision/gpu/rocm_toolkit_installer.py` | none |
-| The CUDA toolkit is unpacked from NVIDIA's redistributable archives without showing NVIDIA's licence, which accepts it on the user's behalf | `sushicore/provision/gpu/cuda_toolkit_installer.py` | Lic L9 |
-| Failures are swallowed by broad `except` clauses that return nothing and record nothing | `sushicore/provision/packages/base.py`, `direct_download.py`, `sushicore/provision/probe.py` | Code C5 |
+| No fragment entry pins a `sha256` yet, so every download is still extracted or run unverified, with a warning | `source/sushicore/provision/manifests/base.deps.toml`, the fragments of sushiruntime and sushidsp | Code C6 |
+| `git` and `doxygen` are downloaded on Windows and no fragment declares them, so there is no entry to pin them in | `source/sushicore/provision/manifests/base.deps.toml` | Code C6 |
+| `cmake`, `ninja`, `doxygen`, `git` and `intel-llvm` are fetched as the newest release and a fragment has no version key, so a pinned digest stops matching when upstream publishes | `source/sushicore/provision/packages/direct_download.py`, `source/sushicore/provision/toolchains/intel_llvm.py` | Code C6 |
+| Shell pipelines and clones are not verified: the oneAPI apt key, and the vcpkg, AdaptiveCpp and Unified Runtime clones | `source/sushicore/provision/gpu/adapter_builder.py`, `source/sushicore/provision/system.py`, `packages/vcpkg.py`, `toolchains/adaptivecpp.py` | Code C6 |
+| The oneAPI installer runs with `--eula accept`, and winget installs pass `--accept-package-agreements`, on the user's behalf | `source/sushicore/provision/toolchains/oneapi.py`, `source/sushicore/provision/packages/winget.py`, `source/sushicore/provision/steps.py`, `source/sushicore/provision/toolchains/adaptivecpp.py` | Lic L10 |
+| ROCm SDK tarballs are used unverified: AMD publishes no digest for them | `source/sushicore/provision/gpu/rocm_toolkit_installer.py` | none |
+| The CUDA toolkit is unpacked from NVIDIA's redistributable archives without showing NVIDIA's licence, which accepts it on the user's behalf | `source/sushicore/provision/gpu/cuda_toolkit_installer.py` | Lic L9 |
+| Failures are swallowed by broad `except` clauses that return nothing and record nothing | `source/sushicore/provision/packages/base.py`, `direct_download.py`, `source/sushicore/provision/probe.py` | Code C5 |
 
 ## Source
 
 | Issue | Where | Finding |
 | --- | --- | --- |
-| Two docstrings cite `docs/agent/specs/2026-09-05-hub-design.md`, a document of the SushiStack repository, as if it were here | `sushicore/renderer.py`, `sushicore/profile.py` | Cli C15 |
-| A comment cites an absolute path on the owner's machine | `sushicore/theme.py` | Cli C19 |
-| `workspace` and `config_base` import each other, hidden by imports inside functions | `sushicore/workspace.py`, `sushicore/config_base.py` | Code C4 |
-| `_first_available` has no caller | `sushicore/provision/steps.py` | Code C24 |
+| Two docstrings cite `docs/agent/specs/2026-09-05-hub-design.md`, a document of the SushiStack repository, as if it were here | `source/sushicore/renderer.py`, `source/sushicore/profile.py` | Cli C15 |
+| A comment cites an absolute path on the owner's machine | `source/sushicore/theme.py` | Cli C19 |
+| `workspace` and `config_base` import each other, hidden by imports inside functions | `source/sushicore/workspace.py`, `source/sushicore/config_base.py` | Code C4 |
+| `_first_available` has no caller | `source/sushicore/provision/steps.py` | Code C24 |
 
 ## Documentation and layout
 
@@ -73,7 +73,6 @@ and hygiene, Code for Code shape. Work that is not a defect is in
 | The provisioning, module adoption and standalone provisioning work have no report | `docs/archive/agent/`, `docs/agent/2026_10_04_STANDALONE_PROVISIONING/` | Doc D10 |
 | The archived entries of v0.1.0 to v0.3.0 are dated 2026-09-22, a day after those tags | `docs/archive/changelog/` | |
 | No changelog entry records the 0.5.0, 0.6.0 and 0.7.0 version changes | `docs/reference/CHANGELOG.md` | Doc D7 |
-| `tests/` mirrors the package tree, not the `unit`, `integration`, `regression`, `common` layout, and its golden files sit outside a `fixtures` folder | `tests/`, `tests/golden/` | Lay L13 |
 | `pyproject.toml` sits in the repository root, where the layout rule forbids it | `pyproject.toml` | Lay L18 |
 | The root has no `.gitattributes` and no `.editorconfig` | repository root | Lay L17 |
 | `.gitignore` names neither `.pytest_cache/` nor `.superpowers/`; each is ignored only by a file the tool writes inside it | `.gitignore` | Lay L16 |

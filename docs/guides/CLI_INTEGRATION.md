@@ -22,6 +22,8 @@ def __getattr__(name: str):
     return lazy.attribute(name)
 ```
 
+Source: not compiled
+
 Other modules of the CLI then write `from . import console` and call `console.info(...)`,
 `console.error(...)`, `console.table(...)` and the rest of the facade. `lazy.get()` returns the
 `Console` object itself. Outside a checkout the console is built with no config files and uses
@@ -44,6 +46,8 @@ from . import console
 
 app = typer.Typer(cls=help_group(console.lazy.get), rich_markup_mode="rich")
 ```
+
+Source: not compiled
 
 Pass the same class to every `add_typer` sub-application. What the page shows and when the logo
 appears is in [`sushicore/help/README.md`](../../source/sushicore/help/README.md).
@@ -87,6 +91,8 @@ from .cli import app
 def main() -> None:
     entry.run(app, lambda message: console.error(message))
 ```
+
+Source: not compiled
 
 The reporter looks the printer up when it is called. Passing `console.error` directly reads the
 attribute before `run` starts, and a console built from a malformed config file fails on that
