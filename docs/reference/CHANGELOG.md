@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-15 — layout: Moved the package to `source/sushicore/` and each test to the mirror path of the unit it checks; an editable install is reinstalled with `pip install -e .` (`pyproject.toml`, `tests/`).
+- 2026-10-15 — tests: Gave every unit a test file and enforced the size timeouts through pytest-timeout (`tests/`, `tests/conftest.py`).
 - 2026-10-15 — ci: Split the pipeline into `ci.yml` (pre-merge checks, small and medium tests, `gate`) and `nightly.yml` (everything, quarantined tests reported), and made the release wait for CI (`.github/workflows/`).
 - 2026-10-15 — tests: Labelled every test `small` or `medium`, registered the size markers and their timeouts, and made a test without a size fail collection (`tests/conftest.py`, `pyproject.toml`).
 - 2026-10-14 — provision: Breaking change: Replaced the apt ROCm install with the newest AMD SDK tarball whose family covers every card, under `<home>/rocm` (`rocm_vendor.py`, `rocm_selection.py`).
