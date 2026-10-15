@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-15 — cmake: Let `ctest_run` leave out the tests whose labels match `exclude_label_regex`, such as quarantined ones (`cmake_driver.py`).
 - 2026-10-15 — layout: Moved the package to `source/sushicore/` and each test to the mirror path of the unit it checks; an editable install is reinstalled with `pip install -e .` (`pyproject.toml`, `tests/`).
 - 2026-10-15 — tests: Gave every unit a test file and enforced the size timeouts through pytest-timeout (`tests/`, `tests/conftest.py`).
 - 2026-10-15 — ci: Split the pipeline into `ci.yml` (pre-merge checks, small and medium tests, `gate`) and `nightly.yml` (everything, quarantined tests reported), and made the release wait for CI (`.github/workflows/`).

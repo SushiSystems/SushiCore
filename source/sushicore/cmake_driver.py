@@ -128,11 +128,14 @@ class CMakeDriver:
         return self._runner.run(cmd, cwd, env)
 
     def ctest_run(self, cfg, build_dir: Path, env, *,
-                  label_regex: str | None = None, filter: str | None = None,
+                  label_regex: str | None = None, exclude_label_regex: str | None = None,
+                  filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
                   config: str | None = None) -> int:
         """Run ctest over *build_dir*, draining its output.
 
+        @param exclude_label_regex A ctest -LE pattern; the tests whose labels match it are left
+            out, as a quarantined label is from a gating run.
         @param filter A ctest -R pattern. gtest_discover_tests registers cases
             as "Suite.Case", so this filters those names directly -- a richer
             alternative to --gtest_filter.
@@ -144,6 +147,8 @@ class CMakeDriver:
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
         if label_regex:
             cmd += ["-L", label_regex]
+        if exclude_label_regex:
+            cmd += ["-LE", exclude_label_regex]
         if filter:
             cmd += ["-R", filter]
         if repeat > 0:
