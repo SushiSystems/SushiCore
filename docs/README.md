@@ -38,9 +38,9 @@ from this page. The front door is [`README.md`](../README.md).
 
 | Module | Holds |
 | --- | --- |
-| [`sushicore/provision`](../sushicore/provision/README.md) | The dependency root, `setup`, `doctor`, `link` and `unlink` |
-| [`sushicore/ui`](../sushicore/ui/README.md) | The terminal components and the table |
-| [`sushicore/help`](../sushicore/help/README.md) | The help screen |
+| [`sushicore/provision`](../source/sushicore/provision/README.md) | The dependency root, `setup`, `doctor`, `link` and `unlink` |
+| [`sushicore/ui`](../source/sushicore/ui/README.md) | The terminal components and the table |
+| [`sushicore/help`](../source/sushicore/help/README.md) | The help screen |
 
 ## Design
 

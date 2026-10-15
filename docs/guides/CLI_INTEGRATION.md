@@ -46,7 +46,7 @@ app = typer.Typer(cls=help_group(console.lazy.get), rich_markup_mode="rich")
 ```
 
 Pass the same class to every `add_typer` sub-application. What the page shows and when the logo
-appears is in [`sushicore/help/README.md`](../../sushicore/help/README.md).
+appears is in [`sushicore/help/README.md`](../../source/sushicore/help/README.md).
 
 ## The shared surfaces
 
@@ -71,7 +71,7 @@ own and is declared there.
 `<PROGRAM>_NO_DEPRECATION_NOTICE=1` silences it, for example `SR_NO_DEPRECATION_NOTICE=1`.
 
 The provisioning commands and the `ModuleProvision` value they are registered from are in
-[`sushicore/provision/README.md`](../../sushicore/provision/README.md).
+[`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
 
 ## The entry point
 

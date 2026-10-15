@@ -3,7 +3,7 @@
 A documentation bundle is the archive a repository publishes to `docs.sushisystems.io`. The
 site reads `bundle.json` and nothing else about a repository, so a repository may change its
 `docs/` layout or its API generator and the site keeps working while the bundle keeps this
-shape. The code is [`sushicore.docs_bundle`](../../sushicore/docs_bundle/README.md).
+shape. The code is [`sushicore.docs_bundle`](../../source/sushicore/docs_bundle/README.md).
 
 ## The archive
 
