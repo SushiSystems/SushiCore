@@ -33,8 +33,8 @@ and has no application of its own.
 | `terminal_background` | `is_dark_background`, decided from the `background` setting and `COLORFGBG` |
 | `windows_console` | `enable_virtual_terminal` for a classic Windows console |
 | `brand` | The Sushi Systems mark and wordmark as palettes and pixel grids |
-| [`ui`](../../sushicore/ui/README.md) | One file per terminal element, each drawn from a `Theme` |
-| [`help`](../../sushicore/help/README.md) | A help screen as data and the page that lays it out |
+| [`ui`](../../source/sushicore/ui/README.md) | One file per terminal element, each drawn from a `Theme` |
+| [`help`](../../source/sushicore/help/README.md) | A help screen as data and the page that lays it out |
 | `typer_help` | `help_group`, which wires the help page into a Typer application |
 | `typer_theme` | `apply_typer_theme`, which recolours Typer's own help screen |
 
@@ -61,8 +61,8 @@ files a CLI hands it.
 | `diag`, `diag_commands` | `Diagnostics` and the `config` and `env` commands registered from it |
 | `aliases` | `AliasTable`: old spellings that still run, hidden, and name their replacement |
 | `entry` | `run`, the entry point that turns a `SushiCoreError` into one line and exit code 1 |
-| [`provision`](../../sushicore/provision/README.md) | The dependency root, the registry, the doctor and the commands `setup`, `doctor`, `link`, `unlink` |
-| [`docs_bundle`](../../sushicore/docs_bundle/README.md) | The `docs` command group and the documentation bundle `docs bundle` writes |
+| [`provision`](../../source/sushicore/provision/README.md) | The dependency root, the registry, the doctor and the commands `setup`, `doctor`, `link`, `unlink` |
+| [`docs_bundle`](../../source/sushicore/docs_bundle/README.md) | The `docs` command group and the documentation bundle `docs bundle` writes |
 
 ## Rules the code keeps
 

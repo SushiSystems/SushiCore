@@ -91,7 +91,7 @@ is the folder `SUSHISYSTEMS_HOME` names, and `~/.sushisystems` when that variabl
 
 New installs go to the dependency root. Toolchains and vcpkg are looked up there first, then in
 the folder `SUSHISTACK_DEPS_DIR` names and in a legacy `<workspace>/dependencies` tree; a legacy
-tree is read and never written. [`sushicore/provision/README.md`](../../sushicore/provision/README.md)
+tree is read and never written. [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md)
 describes the root and how it is moved to another directory.
 
 ## What do `setup` and `doctor` do?
@@ -108,7 +108,7 @@ digests, then the module's own checks. `--for GROUP` restricts the report to one
 `test`, `infer` or `eval`. It exits with code 1 when a required check fails.
 
 No module needs `hub` installed to use either command. The options and exit codes are in
-[`sushicore/provision/README.md`](../../sushicore/provision/README.md).
+[`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
 
 ## What do `link` and `unlink` do?
 
@@ -121,7 +121,7 @@ Linking copies nothing. Config loading follows the pointer and layers the linked
 `[tool]` table at read time. `SUSHISTACK_HOME` wins over the pointer, and a pointer to a deleted
 workspace is ignored. The workspace `link` uses is `--workspace PATH`, else `SUSHISTACK_HOME`,
 else the first folder above the project root that holds `.sushistack`. See
-[`sushicore/provision/README.md`](../../sushicore/provision/README.md).
+[`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
 
 ## What is the JSON event stream?
 
@@ -173,7 +173,7 @@ meets first:
 - `link --workspace PATH` does not check the path for the workspace marker and creates
   `.sushistack/workspace.toml` there.
 
-The limits of the help screen are in [`sushicore/help/README.md`](../../sushicore/help/README.md).
+The limits of the help screen are in [`sushicore/help/README.md`](../../source/sushicore/help/README.md).
 
 ## Does SushiCore accept outside contributions?
 
