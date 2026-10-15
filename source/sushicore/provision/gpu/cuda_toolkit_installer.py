@@ -19,7 +19,7 @@ import tarfile
 import typing
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from sushicore.errors import DigestMismatchError
 
@@ -203,7 +203,8 @@ def _extract(archive: Path, dest: Path) -> None:
     if archive.suffix == ".zip":
         with zipfile.ZipFile(archive) as bundle:
             for member in bundle.namelist():
-                if not (dest / member).resolve().is_relative_to(dest.resolve()):
+                parts = PurePosixPath(member.replace("\\", "/")).parts
+                if member.startswith(("/", "\\")) or ":" in member or ".." in parts:
                     raise ToolkitInstallError(f"{archive.name} holds an unsafe path {member}")
             bundle.extractall(dest)
         return

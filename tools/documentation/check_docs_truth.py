@@ -351,8 +351,8 @@ class SourceTree:
 
     @cached_property
     def top_level(self) -> frozenset[str]:
-        """Returns the names of the entries directly under the root."""
-        return frozenset(entry.name for entry in self.root.iterdir())
+        """Returns the names of the entries directly under the root that git does not ignore."""
+        return frozenset(entry.name for entry in self.root.iterdir() if entry.resolve() not in self.ignored)
 
     def lines_of(self, relative: str) -> frozenset[str] | None:
         """Returns the trimmed lines of a file named from the root, or None when it is absent."""

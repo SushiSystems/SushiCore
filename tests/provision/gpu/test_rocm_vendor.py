@@ -41,6 +41,7 @@ class _Installer:
 
     def __init__(self) -> None:
         """Start with nothing installed."""
+        self.base_dir = Path("toolkits")
         self.installed: list[RocmPackage] = []
 
     def install(self, package):
