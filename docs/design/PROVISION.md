@@ -67,7 +67,7 @@ Two things change shape on the way in:
   `install_acpp`, `gpu_vendor` and more). They become one `ToolchainSelection` value. A module
   with no SYCL options passes an empty selection.
 - `ConfigureStep` writes `workspace.toml` directly. It writes to a `ConfigSink` instead, so the
-  step no longer knows where its result goes. Hub passes the workspace sink, a standalone module
+  step does not know where its result goes. Hub passes the workspace sink, a standalone module
   passes its own.
 
 Stays in hub: the module catalog, `hub add`/`sync`/`update`, workspace-wide fragment discovery

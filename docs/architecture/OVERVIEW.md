@@ -223,9 +223,8 @@ environment tokens counted as relevant to a build, which resolved directories we
 how the build directory was found. A `ModuleProfile` and the config already know the first
 three. The fourth is the caller's, so it is passed in.
 
-`config_show` marks a config file as `(found)` or `(absent)` in parentheses. Every CLI used to
-write `[found]`, and Rich parsed it as a style tag and dropped it, so the marker was invisible
-in all four.
+`config_show` marks a config file as `(found)` or `(absent)` in parentheses, because Rich
+parses `[found]` as a style tag and drops it.
 
 ### `discovery`
 
@@ -265,10 +264,8 @@ name, the command a user types, the prefix on their environment overrides, the f
 a project root, and which sibling checkouts they build in-tree. Everything else about locating
 a project, layering config, listing executables and reporting diagnostics is the same work.
 
-Those facts used to be spelled out separately in each CLI's `config.py`, `console.py`,
-`services/discovery.py` and `services/diag.py`, so a module was described four times and could
-disagree with itself. A `ModuleProfile` is the one place a module describes itself, and the
-shared machinery reads it.
+A `ModuleProfile` is the one place a module describes itself, and the shared machinery reads
+it, so no CLI restates these facts in its own files.
 
 It holds no behaviour beyond deriving names. A profile is data about a module, not a place to
 hang a module's logic: anything specific to one CLI belongs in that CLI.
@@ -320,7 +317,7 @@ colour would be chosen without knowing the user's background.
 
 `as_rich_styles` also sets the `bar.*` and `progress.*` keys. The built-in columns of
 `rich.progress.Progress` (`SpinnerColumn`, `BarColumn` and the `[progress.*]` `TextColumn`
-templates) read those theme keys directly. Overriding them themes `rich.progress.track()` and
+templates) read those theme keys directly. Overriding them themes `rich.progress`'s `track` function and
 any bare `Progress(...)` in a downstream CLI with no change at the call site.
 
 The preset registered as `default` and `sushiweb` is lifted from the palette in sushiweb's
@@ -351,8 +348,7 @@ of composing an abstraction.
 
 Every module CLI (`sr`, `se`, `hub`) resolves its config the same way: walk up for a marker
 file, merge a `[tool]` table with its `[tool.<platform>]` override, then let `PREFIX_*`
-environment variables win. That plumbing used to be copied into each repository's `config.py`;
-it lives in `workspace` so there is one seam.
+environment variables win. That plumbing lives in `workspace`, so there is one seam.
 
 The module knows nothing about SYCL, toolchains or any module's schema. It only locates
 directories and merges the TOML the caller hands it. Each CLI keeps its own `Config` dataclass
