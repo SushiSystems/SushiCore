@@ -156,7 +156,7 @@ def _failing_run(monkeypatch, error: Exception) -> None:
 def _probe_records(caplog, level: str) -> list[str]:
     """Return the messages the provision logger recorded at *level*."""
     return [r.getMessage() for r in caplog.records
-            if r.name == "sushicore.provision" and r.levelname == level]
+            if r.name.startswith("sushicore.provision") and r.levelname == level]
 
 
 def test_a_missing_lspci_is_recorded(monkeypatch, caplog):

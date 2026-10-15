@@ -549,7 +549,7 @@ def test_a_previous_binary_that_cannot_be_removed_is_recorded(
         result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
 
     warnings = [r.getMessage() for r in caplog.records
-                if r.name == "sushicore.provision" and r.levelname == "WARNING"]
+                if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
     assert result is True
     assert (bin_dir / "ur_adapter_fake.dll").read_bytes() == b"fake"
     assert len(warnings) == 1

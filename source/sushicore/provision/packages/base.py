@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from .._output import console
 from ..system import is_root
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 
 def run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
@@ -86,7 +86,7 @@ def refresh_windows_path() -> None:
                 finally:
                     winreg.CloseKey(key)
             except FileNotFoundError:
-                pass
+                _log.debug("registry key %s has no Path value; skipped", sub)
         parts.append(os.environ.get("PATH", ""))
         seen: set[str] = set()
         out: list[str] = []
@@ -97,7 +97,7 @@ def refresh_windows_path() -> None:
                 out.append(entry)
         os.environ["PATH"] = os.pathsep.join(out)
     except OSError as error:
-        K_LOGGER.warning(
+        _log.warning(
             "PATH was not reloaded from the registry (%s: %s); this process keeps its old PATH",
             type(error).__name__,
             error,

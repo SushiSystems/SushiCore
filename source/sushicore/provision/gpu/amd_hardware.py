@@ -19,7 +19,7 @@ import re
 import typing
 from pathlib import Path
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 #: Where the amdgpu driver lists its agents.
 K_KFD_NODES = Path("/sys/class/kfd/kfd/topology/nodes")
@@ -66,6 +66,6 @@ def query_hardware(nodes: Path = K_KFD_NODES) -> AmdHardware | None:
     try:
         texts = [path.read_text(encoding="utf-8") for path in nodes.glob("*/properties")]
     except OSError as error:
-        K_LOGGER.info("%s could not be read (%s: %s)", nodes, type(error).__name__, error)
+        _log.info("%s could not be read (%s: %s)", nodes, type(error).__name__, error)
         return None
     return parse_targets(texts)

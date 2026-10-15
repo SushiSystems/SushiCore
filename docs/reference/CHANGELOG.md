@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-16 — logging: Named every logger after its module and logged two silent failures, so `sushicore.typer_help` replaces `sushicore.help` (`provision/packages/base.py`, `provision/toolchains/adaptivecpp.py`).
+
 ## v0.9.0 — 2026-10-15
 
 - 2026-10-15 — cmake: Let `ctest_run` leave out the tests whose labels match `exclude_label_regex`, such as quarantined ones (`cmake_driver.py`).

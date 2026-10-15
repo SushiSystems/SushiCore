@@ -38,7 +38,7 @@ def test_a_refused_registry_read_is_recorded_and_leaves_path_alone(monkeypatch, 
     with caplog.at_level("WARNING", logger="sushicore.provision"):
         base.refresh_windows_path()
     warnings = [r.getMessage() for r in caplog.records
-                if r.name == "sushicore.provision" and r.levelname == "WARNING"]
+                if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
     assert len(warnings) == 1
     assert "Access is denied" in warnings[0]
     assert os.environ["PATH"] == "C:/base"

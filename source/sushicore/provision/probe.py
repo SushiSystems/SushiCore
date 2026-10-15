@@ -18,7 +18,7 @@ from pathlib import Path
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 # Common Windows install roots probed when a tool is not already on PATH.
 _VS_VCVARS_GLOBS = [
@@ -283,7 +283,7 @@ def _linux_display_adapters() -> str:
         out = subprocess.run(["lspci"], capture_output=True, text=True,
                              timeout=10).stdout.lower()
     except (OSError, subprocess.SubprocessError) as error:
-        K_LOGGER.warning(
+        _log.warning(
             "lspci did not run (%s: %s); no display adapter is reported",
             type(error).__name__,
             error,
@@ -304,7 +304,7 @@ def _windows_display_adapters() -> str:
         return subprocess.run(cmd, capture_output=True, text=True,
                               timeout=30).stdout.lower()
     except (OSError, subprocess.SubprocessError) as error:
-        K_LOGGER.warning(
+        _log.warning(
             "the Win32_VideoController query did not run (%s: %s); no display adapter is reported",
             type(error).__name__,
             error,
@@ -323,7 +323,7 @@ def binary_works(cmd: str) -> bool:
             return True
         return subprocess.run([cmd, "-version"], capture_output=True, timeout=15).returncode == 0
     except (OSError, subprocess.SubprocessError) as error:
-        K_LOGGER.debug(
+        _log.debug(
             "%s did not run (%s: %s); it is reported as not working",
             cmd,
             type(error).__name__,

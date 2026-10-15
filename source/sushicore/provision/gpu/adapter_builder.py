@@ -24,7 +24,7 @@ if typing.TYPE_CHECKING:
     from .backend import GpuBackendSpec, ToolkitInstall
     from ..config import ProvisionConfig
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 #: Windows work_root paths beyond this length push fetched object paths past MAX_PATH.
 _MAX_WORK_ROOT_LENGTH = 60
@@ -336,7 +336,7 @@ class AdapterBuilder:
             try:
                 previous_copy.unlink()
             except OSError as error:
-                K_LOGGER.warning(
+                _log.warning(
                     "%s was not deleted after the install (%s: %s); the file stays on disk",
                     previous_copy,
                     type(error).__name__,

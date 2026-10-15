@@ -19,7 +19,7 @@ from sushicore.errors import DigestMismatchError
 
 from .integrity import verify_sha256
 
-K_LOGGER = logging.getLogger("sushicore.provision")
+_log = logging.getLogger(__name__)
 
 #: The downloads each platform fetches whatever the fragments declare, by manifest entry.
 K_TOOL_DOWNLOADS: dict[str, tuple[str, ...]] = {
@@ -72,7 +72,7 @@ class DownloadVerifier:
         if name in self._unverified:
             return
         self._unverified.append(name)
-        K_LOGGER.warning(
+        _log.warning(
             "%s was downloaded to %s with no sha256 pinned in its manifest entry; "
             "the file is used unverified",
             name,

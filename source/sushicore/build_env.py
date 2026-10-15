@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 from typing import Mapping, Sequence
 
-K_LOGGER = logging.getLogger("sushicore.build_env")
+_log = logging.getLogger(__name__)
 
 
 def merge_env(base: Mapping[str, str], overlay: Mapping[str, str]) -> dict[str, str]:
@@ -137,7 +137,7 @@ def write_cache(cache_file: Path, key: str, env: Mapping[str, str]) -> None:
     try:
         cache_file.write_text(json.dumps({"key": key, "env": dict(env)}))
     except OSError as error:
-        K_LOGGER.warning(
+        _log.warning(
             "the environment snapshot was not cached at %s (%s: %s); the next build takes it again",
             cache_file,
             type(error).__name__,

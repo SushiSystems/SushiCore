@@ -38,7 +38,7 @@ def _file(tmp_path):
 def _warnings(caplog) -> list[str]:
     """Return the warning lines the provision logger recorded."""
     return [record.getMessage() for record in caplog.records
-            if record.name == "sushicore.provision" and record.levelname == "WARNING"]
+            if record.name.startswith("sushicore.provision") and record.levelname == "WARNING"]
 
 
 def test_a_pinned_download_that_matches_passes_and_is_not_reported(tmp_path, caplog):
