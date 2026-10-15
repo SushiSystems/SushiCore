@@ -5,8 +5,6 @@
 # Commercial use requires a licence from Sushi Systems.
 """Shared fixtures for the whole suite, and the size rules every test follows."""
 
-import faulthandler
-
 import pytest
 from rich.color import Color
 from rich.style import Style
@@ -66,21 +64,11 @@ def _sizes_of(item: pytest.Item) -> list[str]:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Fail collection when a test carries no size or more than one."""
+    """Fail collection when a test carries no size or more than one, and give each its timeout."""
     wrong = [f"{item.nodeid}: {_sizes_of(item) or 'no size'}"
              for item in items if len(_sizes_of(item)) != 1]
     if wrong:
         listing = ", ".join(wrong)
         raise pytest.UsageError(f"every test carries exactly one size: {listing}")
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
-    """Stop the run with a traceback dump when a test outlives the timeout of its size."""
-    sizes = _sizes_of(item)
-    if len(sizes) == 1:
-        faulthandler.dump_traceback_later(K_SIZE_TIMEOUTS[sizes[0]], exit=True)
-    try:
-        return (yield)
-    finally:
-        faulthandler.cancel_dump_traceback_later()
+    for item in items:
+        item.add_marker(pytest.mark.timeout(K_SIZE_TIMEOUTS[_sizes_of(item)[0]]))
