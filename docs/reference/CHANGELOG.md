@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-15 — ci: Split the pipeline into `ci.yml` (pre-merge checks, small and medium tests, `gate`) and `nightly.yml` (everything, quarantined tests reported), and made the release wait for CI (`.github/workflows/`).
+- 2026-10-15 — tests: Labelled every test `small` or `medium`, registered the size markers and their timeouts, and made a test without a size fail collection (`tests/conftest.py`, `pyproject.toml`).
 - 2026-10-14 — provision: Breaking change: Replaced the apt ROCm install with the newest AMD SDK tarball whose family covers every card, under `<home>/rocm` (`rocm_vendor.py`, `rocm_selection.py`).
 - 2026-10-14 — provision: Read the AMD cards' ISAs from the amdgpu topology, with nothing installed (`amd_hardware.py`).
 
