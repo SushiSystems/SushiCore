@@ -17,7 +17,7 @@ from tests.ui.capture import capture, capture_ansi
 pytestmark = pytest.mark.small
 
 K_WIDE = 80
-K_GOLDEN = Path(__file__).resolve().parents[1] / "golden"
+K_GOLDEN = Path(__file__).resolve().parent / "goldens" / "logo"
 K_TINY_PALETTE = {"a": "#f0a500", "n": "#1d1e20", "g": "#4caf50"}
 
 
