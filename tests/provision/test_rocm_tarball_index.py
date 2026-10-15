@@ -12,6 +12,9 @@ import pytest
 from sushicore.provision.gpu.rocm_package import RocmPackage
 from sushicore.provision.gpu.rocm_tarball_index import RocmIndexError, RocmTarballIndex
 
+
+pytestmark = pytest.mark.small
+
 K_ROOT = "https://example.invalid/tarball/"
 K_LISTING = (
     'const files = [{"name": "therock-dist-linux-gfx110X-all-7.12.0.tar.gz"}, '

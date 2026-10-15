@@ -10,6 +10,9 @@ from rich.text import Text
 
 from sushicore.markup import escape_unknown_tags
 
+
+pytestmark = pytest.mark.small
+
 K_THEME_NAMES = {"success": "bold green", "error": "bold red", "cmd": "cyan"}
 
 

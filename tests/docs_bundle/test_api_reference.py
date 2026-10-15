@@ -14,6 +14,9 @@ import pytest
 from sushicore.docs_bundle.api_reference import ApiSource, stage_api
 from sushicore.docs_bundle.errors import ApiReferenceError
 
+
+pytestmark = pytest.mark.medium
+
 K_INDEX = (
     '<?xml version="1.0"?>\n<doxygenindex>\n'
     '  <compound refid="classsr_1_1Graph" kind="class"><name>sr::Graph</name></compound>\n'

@@ -12,6 +12,9 @@ import pytest
 from sushicore.events import EVENT_KINDS, event_line
 
 
+pytestmark = pytest.mark.small
+
+
 def test_every_kind_is_named():
     assert EVENT_KINDS == {"line", "command", "header", "panel",
                            "table", "progress", "result", "prompt"}

@@ -10,6 +10,9 @@ import pytest
 from sushicore.terminal_background import is_dark_background
 
 
+pytestmark = pytest.mark.small
+
+
 def test_dark_wins_over_a_light_colorfgbg():
     assert is_dark_background("dark", {"COLORFGBG": "0;15"})
 

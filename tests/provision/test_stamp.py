@@ -11,7 +11,12 @@ import json
 import os
 from pathlib import Path
 
+import pytest
+
 from sushicore.provision.toolchains import stamp
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_missing_stamp_reads_empty(tmp_path):

@@ -8,8 +8,13 @@
 from rich.color import ColorSystem
 from rich.style import Style
 
+import pytest
+
 from sushicore.ui.title import Title
 from tests.ui.capture import capture, capture_ansi
+
+
+pytestmark = pytest.mark.small
 
 
 def _painted(style: str, text: str) -> str:

@@ -7,8 +7,13 @@
 
 from rich.text import Text
 
+import pytest
+
 from sushicore.theme import Theme
 from sushicore.ui.component import Component
+
+
+pytestmark = pytest.mark.small
 
 
 class _Hello:

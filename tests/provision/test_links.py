@@ -20,6 +20,9 @@ from sushicore.provision.links import (
 )
 
 
+pytestmark = pytest.mark.medium
+
+
 def test_link_resolves_to_target_contents(tmp_path):
     """Check that a link shows the target's contents and names the target."""
     target = tmp_path / "new"

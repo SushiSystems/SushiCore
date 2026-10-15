@@ -16,6 +16,9 @@ from sushicore.workspace import (
     write_link,
 )
 
+
+pytestmark = pytest.mark.medium
+
 PROFILE = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE")
 
 

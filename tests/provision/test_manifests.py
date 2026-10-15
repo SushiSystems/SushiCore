@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore import deps_fragment
 from sushicore.provision import fragments, manifests
+
+
+pytestmark = pytest.mark.small
 
 
 def test_base_fragment_is_a_readable_file():

@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.fragments import SHARED_OWNER, TomlDependencySource
+
+
+pytestmark = pytest.mark.medium
 
 
 def _write(path, body):

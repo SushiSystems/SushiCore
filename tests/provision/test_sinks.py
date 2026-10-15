@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.sinks import ModuleSink, WorkspaceSink
 from sushicore.workspace import read_toml, workspace_file, write_module
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_module_sink_writes_config_local(tmp_path):

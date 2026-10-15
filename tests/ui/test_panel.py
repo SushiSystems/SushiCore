@@ -7,8 +7,13 @@
 
 from rich.markup import escape
 
+import pytest
+
 from sushicore.ui.panel import Panel
 from tests.ui.capture import capture
+
+
+pytestmark = pytest.mark.small
 
 
 def test_panel_puts_the_title_on_the_top_border_and_the_body_inside():

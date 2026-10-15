@@ -17,6 +17,9 @@ from sushicore.renderer import PlainRenderer
 from sushicore.theme import Theme
 
 
+pytestmark = pytest.mark.medium
+
+
 @pytest.fixture(autouse=True)
 def _no_background_environment(monkeypatch):
     """Remove both background variables so each test states the environment it needs."""

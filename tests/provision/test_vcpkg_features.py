@@ -14,6 +14,9 @@ import pytest
 from sushicore.provision.packages import vcpkg as vcpkg_mod
 from sushicore.provision.packages.vcpkg import VcpkgManager
 
+
+pytestmark = pytest.mark.small
+
 #: One line of `vcpkg list --triplet x64-windows` output for an installed imgui.
 LISTED = "imgui:x64-windows                        1.92.8    Dear ImGui\n"
 

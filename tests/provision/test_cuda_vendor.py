@@ -18,6 +18,9 @@ from sushicore.provision.gpu.cuda_toolkit_installer import ToolkitInstallError
 from sushicore.provision.gpu.cuda_vendor import CudaVendor
 from sushicore.provision.gpu.toolkit_vendor import ToolkitVendor
 
+
+pytestmark = pytest.mark.medium
+
 K_VERSIONS = [(13, 4, 3), (13, 1, 2), (12, 9, 2), (12, 6, 3)]
 
 

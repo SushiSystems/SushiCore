@@ -21,6 +21,9 @@ from sushicore.workspace import (
 )
 
 
+pytestmark = pytest.mark.medium
+
+
 def _workspace(tmp_path):
     """Create a directory carrying the workspace marker and return it."""
     ws = tmp_path / "ws"

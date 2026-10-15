@@ -10,7 +10,12 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 import sushicore.docs_bundle as docs_bundle
+
+
+pytestmark = pytest.mark.small
 
 K_ROOT = Path(docs_bundle.__file__).parent
 K_LAYER = {

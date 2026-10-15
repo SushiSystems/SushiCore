@@ -17,6 +17,9 @@ from sushicore.errors import ConfigError
 
 from .sample_repository import write_file
 
+
+pytestmark = pytest.mark.medium
+
 K_MINIMAL = 'name = "sample"\ntitle = "Sample"\nsummary = "S."\nsections = ["guides"]\n'
 
 

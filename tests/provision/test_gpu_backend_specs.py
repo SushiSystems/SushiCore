@@ -21,6 +21,9 @@ from sushicore.provision.gpu.registry import Registry
 from sushicore.provision.gpu.rocm import ROCM
 
 
+pytestmark = pytest.mark.medium
+
+
 # CUDA
 
 def test_cuda_spec_declares_the_adapter_build_inputs():

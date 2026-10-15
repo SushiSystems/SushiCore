@@ -18,6 +18,9 @@ from sushicore.brand import (
     K_WORDMARK_PIXELS,
 )
 
+
+pytestmark = pytest.mark.small
+
 K_MARK_MAX_SIDE = 24
 K_WORDMARK_MAX_WIDTH = 56
 K_WORDMARK_MAX_ROWS = 16

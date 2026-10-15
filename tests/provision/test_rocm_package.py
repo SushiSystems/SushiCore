@@ -12,6 +12,9 @@ import pytest
 from sushicore.provision.gpu.rocm_package import RocmPackage
 
 
+pytestmark = pytest.mark.small
+
+
 def _package(family: str) -> RocmPackage:
     """Return a 7.13.0 tarball of *family*."""
     return RocmPackage((7, 13, 0), family, f"https://example.invalid/{family}.tar.gz")

@@ -9,9 +9,14 @@ from __future__ import annotations
 
 import sys
 
+import pytest
+
 from sushicore.provision import checks
 from sushicore.provision.doctor import State
 from sushicore.provision.fragments import Dependency, IDependencySource
+
+
+pytestmark = pytest.mark.medium
 
 
 class _FixedSource(IDependencySource):

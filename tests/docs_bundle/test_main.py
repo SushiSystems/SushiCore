@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.docs_bundle.__main__ import main
+
+
+pytestmark = pytest.mark.medium
 
 
 def test_main_writes_the_archive_and_prints_it(checkout, tmp_path, capsys):

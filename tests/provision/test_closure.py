@@ -12,6 +12,9 @@ import pytest
 from sushicore.provision.closure import DEFAULT_FRAGMENT, resolve
 
 
+pytestmark = pytest.mark.medium
+
+
 def _module(tmp_path, name, depends_on=()):
     """Create a checkout named *name* whose fragment depends on *depends_on*."""
     root = tmp_path / name

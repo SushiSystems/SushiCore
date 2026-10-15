@@ -7,8 +7,13 @@
 
 from pathlib import Path
 
+import pytest
+
 from sushicore.cmake_cache import (cached_value, generator_sentinel,
                                    home_directory, is_stale)
+
+
+pytestmark = pytest.mark.medium
 
 _CACHE = """\
 # This is the CMakeCache file.

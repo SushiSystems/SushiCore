@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.doctor import CheckResult, Doctor, FunctionCheck, State
+
+
+pytestmark = pytest.mark.small
 
 
 def _check(name, group, required, state, fix=""):

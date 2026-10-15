@@ -12,9 +12,14 @@ import os
 import tarfile
 from pathlib import Path
 
+import pytest
+
 from sushicore.docs_bundle.bundle_archive import write_archive
 
 from .sample_repository import write_file
+
+
+pytestmark = pytest.mark.medium
 
 
 def _staging(root: Path) -> Path:

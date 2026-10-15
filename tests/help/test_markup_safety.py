@@ -11,9 +11,14 @@ import click
 import typer
 import typer.main
 
+import pytest
+
 from sushicore.help.from_click import build_model
 from sushicore.help.page import HelpPage
 from tests.ui.capture import capture
+
+
+pytestmark = pytest.mark.small
 
 K_WIDTH = 100
 

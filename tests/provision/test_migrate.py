@@ -31,6 +31,9 @@ from sushicore.provision.migrate import (
     rollback,
 )
 
+
+pytestmark = pytest.mark.medium
+
 _FILES = {
     "toolchains/llvm-sycl/bin/clang++.exe": b"clang",
     "vcpkg/installed/x.lib": b"library",

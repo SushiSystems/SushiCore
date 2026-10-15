@@ -14,6 +14,9 @@ from sushicore.docs_bundle.markdown_scan import first_heading
 from sushicore.docs_bundle.page_text import read_page_text
 
 
+pytestmark = pytest.mark.medium
+
+
 def test_read_drops_a_byte_order_mark(tmp_path):
     """Returns the text without the mark, so the first heading is still found."""
     page = tmp_path / "A.md"

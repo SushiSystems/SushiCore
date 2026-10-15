@@ -15,7 +15,10 @@ import pytest
 
 from sushicore.provision.packages import base
 
-pytestmark = pytest.mark.skipif(os.name != "nt", reason="the PATH refresh reads the registry")
+pytestmark = [
+    pytest.mark.small,
+    pytest.mark.skipif(os.name != "nt", reason="the PATH refresh reads the registry"),
+]
 
 
 def _winreg_raising(monkeypatch, error: Exception) -> None:

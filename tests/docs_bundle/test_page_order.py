@@ -15,6 +15,9 @@ from sushicore.docs_bundle.page_order import read_page_order
 from .sample_repository import write_file
 
 
+pytestmark = pytest.mark.medium
+
+
 def test_read_numbers_the_pages_in_link_order(repository):
     """Numbers each linked page from 1 in the order the index links to it."""
     assert read_page_order(repository / "docs") == {

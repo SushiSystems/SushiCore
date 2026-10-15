@@ -21,6 +21,9 @@ from sushicore.provision.user_environment import (
 )
 
 
+pytestmark = pytest.mark.medium
+
+
 class FakeKey:
     """Stands in for the opened registry key, over a dict the test owns."""
 

@@ -7,9 +7,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.docs_bundle.bundle_manifest import BundleIdentity, build_manifest
 from sushicore.docs_bundle.page_set import PageCollector
 from sushicore.docs_bundle.publish_list import read_publish_list
+
+
+pytestmark = pytest.mark.small
 
 K_IDENTITY = BundleIdentity(version="1.2.3", commit="c0ffee")
 

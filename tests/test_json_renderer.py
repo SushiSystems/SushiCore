@@ -8,7 +8,12 @@
 import io
 import json
 
+import pytest
+
 from sushicore.renderer import JsonRenderer
+
+
+pytestmark = pytest.mark.small
 
 
 def _renderer(stdin_text=""):

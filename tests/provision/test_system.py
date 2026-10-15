@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision import system
+
+
+pytestmark = pytest.mark.small
 
 
 def test_sudo_bash_dry_run_runs_nothing(recording_console):

@@ -19,6 +19,9 @@ from sushicore.docs_bundle.publish_list import read_publish_list
 from .sample_repository import write_file
 
 
+pytestmark = pytest.mark.small
+
+
 def _collect(repository: Path, **changes) -> PageSet:
     """Collects the sample's pages, with *changes* applied to its publish list."""
     publish_list = replace(read_publish_list(repository / "docs"), **changes)

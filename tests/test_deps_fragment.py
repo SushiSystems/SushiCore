@@ -24,6 +24,9 @@ from sushicore.deps_fragment import (
 )
 
 
+pytestmark = pytest.mark.medium
+
+
 def _fragment(tmp_path, text: str):
     """Write *text* as a fragment and return its path."""
     path = tmp_path / "sushistack.deps.toml"

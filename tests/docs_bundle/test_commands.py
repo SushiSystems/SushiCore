@@ -14,8 +14,13 @@ from typing import Callable
 import typer
 from typer.testing import CliRunner
 
+import pytest
+
 from sushicore.describe import catalogue
 from sushicore.docs_bundle import ApiSource, PublishListError, register_docs_commands
+
+
+pytestmark = pytest.mark.medium
 
 
 def _app(

@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import subprocess
 
+import pytest
+
 from sushicore.provision.gpu.cuda_hardware import NvidiaHardware, parse_hardware, query_hardware
+
+
+pytestmark = pytest.mark.small
 
 K_BANNER = "| NVIDIA-SMI 592.82   Driver Version: 592.82   CUDA Version: 13.1     |"
 

@@ -18,6 +18,9 @@ from sushicore.provision.gpu.rocm_vendor import RocmVendor
 from sushicore.provision.gpu.toolkit_vendor import ToolkitVendor
 
 
+pytestmark = pytest.mark.small
+
+
 def _p(version: tuple[int, ...], family: str) -> RocmPackage:
     """Return a tarball of *family* at *version*."""
     return RocmPackage(version, family, f"https://example.invalid/{family}")

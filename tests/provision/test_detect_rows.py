@@ -7,10 +7,15 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import SHARED_OWNER, Dependency, IDependencySource
 from sushicore.provision.pipeline import InstallContext
 from sushicore.provision.steps import DetectStep
+
+
+pytestmark = pytest.mark.small
 
 
 class MemorySource(IDependencySource):

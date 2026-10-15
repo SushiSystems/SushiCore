@@ -21,6 +21,9 @@ from sushicore.provision.gpu.backend import (
 from sushicore.provision.gpu.registry import Registry
 
 
+pytestmark = pytest.mark.small
+
+
 class _FakeLocator:
     """A locator that reports a fixed install and records provision calls."""
 

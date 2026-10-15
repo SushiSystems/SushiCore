@@ -14,6 +14,9 @@ import pytest
 from sushicore.provision.gpu.cuda_redist import RedistError, RedistIndex
 from sushicore.provision.gpu.cuda_release import RedistArchive
 
+
+pytestmark = pytest.mark.small
+
 K_ROOT = "https://example.invalid/redist/"
 K_LISTING = ('<a href="redistrib_12.6.3.json">x</a> <a href="redistrib_13.1.2.json">x</a>'
              '<a href="redistrib_13.1.2.json">x</a> <a href="redistrib_9.json.sig">x</a>')

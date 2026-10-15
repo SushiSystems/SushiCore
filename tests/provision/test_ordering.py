@@ -12,6 +12,9 @@ import pytest
 from sushicore.provision.fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
 
 
+pytestmark = pytest.mark.small
+
+
 class MemorySource(IDependencySource):
     """Serves a fixed dependency list and a fixed module dependency map."""
 

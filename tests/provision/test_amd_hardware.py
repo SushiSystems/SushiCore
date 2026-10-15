@@ -17,6 +17,9 @@ from sushicore.provision.gpu.amd_hardware import (
 )
 
 
+pytestmark = pytest.mark.medium
+
+
 @pytest.mark.parametrize(("version", "name"), [
     (90010, "gfx90a"), (110003, "gfx1103"), (100300, "gfx1030"), (120001, "gfx1201"),
     (90008, "gfx908"),

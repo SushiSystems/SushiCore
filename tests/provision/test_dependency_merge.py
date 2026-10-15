@@ -7,7 +7,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sushicore.provision.fragments import Dependency, TomlDependencySource, _merge, _merge_ports
+
+
+pytestmark = pytest.mark.medium
 
 
 def _dep(owner: str, **overrides) -> Dependency:

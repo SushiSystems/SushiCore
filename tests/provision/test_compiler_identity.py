@@ -10,7 +10,12 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from sushicore.provision.gpu.compiler_identity import read_intel_llvm_commit
+
+
+pytestmark = pytest.mark.small
 
 _DPCPP_VERSION = (
     "DPC++ ...\n"

@@ -11,6 +11,9 @@ from sushicore.help.logo_choice import choose_logo
 from sushicore.ui.logo import Logo
 
 
+pytestmark = pytest.mark.small
+
+
 @pytest.mark.parametrize("dark", [False, True])
 def test_a_console_as_wide_as_the_lockup_gets_the_mark_and_the_wordmark(dark):
     logo = choose_logo(width=Logo(glow=dark).width, dark_background=dark)
