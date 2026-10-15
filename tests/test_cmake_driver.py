@@ -94,6 +94,13 @@ def test_ctest_run_is_drained_and_carries_the_knobs(tmp_path):
     assert cwd == str(tmp_path)
 
 
+
+def test_ctest_run_leaves_out_the_excluded_labels(tmp_path):
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), tmp_path, None, label_regex="^(small|medium)$",
+                     exclude_label_regex="^quarantined$")
+    assert runner.calls[0][1][-4:] == ["-L", "^(small|medium)$", "-LE", "^quarantined$"]
+
 def test_ctest_run_omits_absent_knobs(tmp_path):
     driver, runner = _driver()
     driver.ctest_run(_cfg(), tmp_path, None)
