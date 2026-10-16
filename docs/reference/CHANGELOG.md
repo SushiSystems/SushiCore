@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-16 — cmake: Passed one job to ctest as `--parallel 1`, so `jobs=1` overrides `CTEST_PARALLEL_LEVEL` (`cmake_driver.py`).
 - 2026-10-16 — logging: Named every logger after its module and logged two silent failures, so `sushicore.typer_help` replaces `sushicore.help` (`provision/packages/base.py`, `provision/toolchains/adaptivecpp.py`).
 
 ## v0.9.0 — 2026-10-15

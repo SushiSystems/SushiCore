@@ -141,7 +141,8 @@ class CMakeDriver:
             alternative to --gtest_filter.
         @param repeat Re-run each selected test until it fails or this many runs
             pass, the native ctest way to flush out flakiness.
-        @param jobs Passed as --parallel only when greater than one.
+        @param jobs When set, passed as --parallel, so one job also overrides
+            CTEST_PARALLEL_LEVEL.
         @param config When set, passed as -C.
         """
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
@@ -155,7 +156,7 @@ class CMakeDriver:
             cmd += ["--repeat", f"until-fail:{repeat}"]
             self._console.info(
                 f"Repeating each test up to {repeat}x (stop on first failure).")
-        if jobs and jobs > 1:
+        if jobs:
             cmd += ["--parallel", str(jobs)]
         if config:
             cmd += ["-C", config]
