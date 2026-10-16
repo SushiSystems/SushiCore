@@ -53,4 +53,14 @@ Every behaviour has a test in the file that mirrors its module under `tests/prov
   helper that belongs below the package managers. Recorded in `REMAINING_WORK.md`.
 - Fixed: an unused `ToolchainSelection` import in `commands.py`, a duplicate `project_root()`
   call and a fixed fragment path in `StackConfig.sushi_pins`.
+- Fixed after the release review: `present_toolchains` moved to `probe.toolchain_presence`, so
+  `setup` no longer depends on the doctor-row module; one fragment reader
+  (`deps_fragment.read_present`, `pins_at`) serves `commands`, `sushi_setup` and `StackConfig`;
+  `PinConflict` no longer names a consumer command.
+
+## Release review
+
+A reviewer read the manual against the code for v0.9.1 and found 17 false or stale sentences,
+six humanizer breaks, a changelog line missing the new public names, and three SOLID breaches.
+All were fixed in a third round; the orchestrator re-checked the changed lines.
 - Unneeded dependencies made: none.

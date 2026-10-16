@@ -10,8 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, Sequence
 
-from sushicore import deps_fragment
-from sushicore.deps_fragment import Fragment, SushiPin
+from sushicore.deps_fragment import SushiPin
 
 from . import home
 from ._output import console
@@ -22,26 +21,6 @@ from .pin_chain import conflicts
 from .pipeline import InstallContext, InstallPipeline
 from .sushi_fetch import FetchSushiSourcesStep
 from .sushi_sources import resolve
-
-
-def own_fragment(root: Path, relative: str) -> Optional[Fragment]:
-    """Return the fragment at *root*/*relative*, or None when there is none.
-
-    Raises:
-        ValueError: The fragment is malformed.
-    """
-    path = root / relative
-    return deps_fragment.read(path) if path.is_file() else None
-
-
-def own_pins(root: Path, relative: str) -> list[SushiPin]:
-    """Return the pins of the fragment at *root*/*relative*, none when there is none.
-
-    Raises:
-        ValueError: The fragment is malformed.
-    """
-    fragment = own_fragment(root, relative)
-    return fragment.pins if fragment is not None else []
 
 
 def locator(base: Locate, root: Path, pins: Sequence[SushiPin]) -> Locate:

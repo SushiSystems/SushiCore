@@ -201,8 +201,9 @@ Three of the fields exist because of where Windows installs the tools:
 
 ### `deps_fragment`
 
-A fragment is one table per dependency, keyed by its name, and a reserved `[module]` table that
-carries metadata instead of a dependency. Several CLIs read the format, so it is read here
+A fragment is one table per dependency, keyed by its name, and two reserved tables that carry
+metadata instead of a dependency: `[module]`, and `[sushi]` with the pins of the Sushi libraries
+the module links. No dependency can be named `module` or `sushi`. Several CLIs read the format, so it is read here
 once. Two readers of one file is how a required dependency goes missing without a word, which
 is what happened to sushidsp's fragment until 2026-09-22.
 

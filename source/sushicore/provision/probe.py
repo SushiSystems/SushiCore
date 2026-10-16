@@ -481,3 +481,8 @@ def _resolve_linux(cfg: ProvisionConfig) -> dict[str, str]:
     del path
     _discover_installed_toolchains(cfg, values)
     return values
+
+
+def toolchain_presence(cfg: "ProvisionConfig") -> dict[str, bool]:
+    """Return each SYCL toolchain's key mapped to whether this machine holds it."""
+    return {name: present for name, present, _detail in toolchain_status(cfg, False)}

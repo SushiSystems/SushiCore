@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Sequence
 
+from ..deps_fragment import pins_at, read_present
 from ..profile import ModuleProfile
 from ..workspace import (
     WORKSPACE_MARKER,
@@ -24,7 +25,7 @@ from ..workspace import (
     write_module,
 )
 from . import closure as closure_module
-from . import home, manifests, selection, sushi_setup
+from . import home, manifests, probe, selection, sushi_setup
 from ._output import bind_console
 from .checks import python_check
 from .closure import Closure, Locate
@@ -44,7 +45,7 @@ from .packages import (
     YumManager,
     ZypperManager,
 )
-from .module_checks import ModuleState, doctor_checks, present_toolchains
+from .module_checks import ModuleState, doctor_checks
 from .pipeline import InstallContext, InstallPipeline
 from .sinks import ModuleSink
 from .steps import ConfigureStep, DetectStep, InstallDepsStep
@@ -112,7 +113,7 @@ def _closure(module: ModuleProvision, root: Path) -> Closure:
         ValueError: The modules depend on one another in a cycle, or a fragment is malformed.
     """
     shared = [(manifests.base_fragment(), manifests.BASE_OWNER)] if module.uses_base else []
-    locate = sushi_setup.locator(module.locate, root, sushi_setup.own_pins(root, module.fragment))
+    locate = sushi_setup.locator(module.locate, root, pins_at(root / module.fragment))
     return closure_module.resolve(module.profile.key, root, locate,
                                   fragment=module.fragment, shared=shared)
 
@@ -151,7 +152,7 @@ def _run_doctor(module: ModuleProvision, groups: Optional[set[str]],
     root = module.project_root()
     try:
         found = _closure(module, root)
-        own = sushi_setup.own_fragment(root, module.fragment)
+        own = read_present(root / module.fragment)
     except ValueError as exc:
         console.error(str(exc))
         return 1
@@ -171,7 +172,7 @@ def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
     root = module.project_root()
     cfg = module.load_config()
     try:
-        pins = sushi_setup.own_pins(root, module.fragment)
+        pins = pins_at(root / module.fragment)
     except ValueError as exc:
         console.error(str(exc))
         return 1
@@ -190,7 +191,7 @@ def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return _EXIT_USAGE
     source = _source(module, root, found)
     try:
-        chosen = selection.derive(source, present_toolchains(cfg),
+        chosen = selection.derive(source, probe.toolchain_presence(cfg),
                                   requested=toolchains, gpu=gpu)
     except ValueError as exc:
         console.error(str(exc))

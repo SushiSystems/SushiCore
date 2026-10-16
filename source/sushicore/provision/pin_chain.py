@@ -31,8 +31,7 @@ class PinConflict:
     def message(self) -> str:
         """Return the line naming the library, both pinning repositories and both versions."""
         return (f"{self.name} is pinned at {self.first_version} by {self.first_owner} and at "
-                f"{self.second_version} by {self.second_owner}; move every pin to one version "
-                f"with `hub pin {self.name} <version>`.")
+                f"{self.second_version} by {self.second_owner}; move both pins to one version.")
 
 
 def conflicts(owner: str, root: Path, pins: Sequence[SushiPin]) -> list[PinConflict]:

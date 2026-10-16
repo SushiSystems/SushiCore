@@ -63,8 +63,7 @@ class StackConfig(ProvisionSettings):
 
         @param root This module's project root.
         """
-        path = root / self.fragment
-        return deps_fragment.read(path).pins if path.is_file() else []
+        return deps_fragment.pins_at(root / self.fragment)
 
     def resolve_sushi(self, root: Path, name: str) -> sushi_sources.ResolvedSource | None:
         """Return the checkout of the Sushi library *name* and where it was found.

@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- 2026-10-16 — provision: Resolved each `[sushi.<name>]` pin through NAME_DIR, the sibling, then a clone of the pinned tag that setup checks against the commit (`sushi_sources.py`, `sushi_fetch.py`).
+- 2026-10-16 — provision: Made setup clone each Sushi library a `[sushi.<name>]` pin names when no NAME_DIR or sibling holds it, and refuse a clone off the pinned commit (`sushi_fetch.py`).
+- 2026-10-16 — provision: Stopped setup and failed doctor when one chain pins a library at two versions (`pin_chain.py`).
+- 2026-10-16 — provision: Added `Fragment.pins` and `SushiPin`, read from `[sushi.<name>]` (`deps_fragment.py`).
+- 2026-10-16 — provision: Added `ModuleProvision.git`, the git client that fetches pinned libraries (`commands.py`).
+- 2026-10-16 — stack: Added `StackConfig.fragment`, `sushi_pins`, `resolve_sushi` and `sushi_definitions`, which hands CMake each resolved NAME_DIR (`stack_config.py`).
+- 2026-10-16 — stack: Made `locate_sibling` look for the fetched copy after NAME_DIR and the sibling, and pass over a NAME_DIR that names no folder (`stack_config.py`).
 - 2026-10-16 — cmake: Passed one job to ctest as `--parallel 1`, so `jobs=1` overrides `CTEST_PARALLEL_LEVEL` (`cmake_driver.py`).
 - 2026-10-16 — logging: Named every logger after its module and logged two silent failures, so `sushicore.typer_help` replaces `sushicore.help` (`provision/packages/base.py`, `provision/toolchains/adaptivecpp.py`).
 
