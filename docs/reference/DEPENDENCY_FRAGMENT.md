@@ -29,6 +29,48 @@ installers.
 | --- | --- |
 | `depends_on` | The modules this one builds on. `setup` reads the fragment of each one it can find |
 
+## The `[sushi.<name>]` pins
+
+A module `depends_on` names is pinned in a `[sushi.<name>]` table, and each pin names a
+module in `depends_on`. A module left unpinned is found through `<NAME>_DIR` and the sibling
+only and is never fetched; `setup` exits 2 when neither exists, and `doctor` shows a warning
+row `sushi <name>`: not pinned.
+
+```toml
+[module]
+depends_on = ["sushilog"]
+
+[sushi.sushilog]
+version = "v1.0.0"                                   # the release tag
+commit  = "<the 40-hex hash the tag points at>"
+```
+
+The reader raises `ValueError`, naming the file, when
+a pin names a module `depends_on` does not, when `version` is empty, or when `commit` is not 40
+hex digits.
+
+`sushicore/provision/sushi_sources.py` finds a pinned library's checkout. It takes the first of
+these that exists:
+
+1. `<NAME>_DIR`, such as `SUSHILOG_DIR`: the config field `<name>_dir`, else the environment;
+2. the sibling checkout `../<name>`;
+3. the copy `setup` fetched, `<home>/sources/<name>/<version>/`.
+
+`setup` first walks the pins through each resolved library's own fragment and stops when one
+library is pinned at two versions, naming both pinning repositories and both versions. Then it
+clones, for each pin with neither a directory nor a sibling, the tag of
+`https://github.com/sushisystems/<name>.git` at depth one into the fetched folder, and removes
+the folder and stops when its HEAD is not the pinned commit. A folder that already holds the
+pinned commit is not cloned again. A clone that fails stops `setup` with one message naming the
+library, the URL, the tag and the `<NAME>_DIR` that hands it a checkout instead.
+
+`doctor` shows one `sushi <name>` row per pin, naming the source it found, and warns when a
+sibling's HEAD is not the pinned commit. Its `sushi pins` row fails on a conflicting pin.
+
+`StackConfig.sushi_pins(root)` reads the fragment at `StackConfig.fragment`, the path the module
+also hands `ModuleProvision.fragment`. `StackConfig.sushi_definitions(root)` returns `-D<NAME>_DIR=<path>` for each pin that resolves;
+the CLI adds these to the CMake configure, and CMake never downloads.
+
 ## `sha256`
 
 `sha256` pins the file an installer downloads for the entry. It is a table with one key per

@@ -13,8 +13,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
+from . import deps_fragment
 from .provision import home as provision_home
+from .provision import sushi_sources
+from .provision.closure import DEFAULT_FRAGMENT
 from .provision.config import ProvisionSettings
 
 
@@ -25,6 +29,9 @@ class StackConfig(ProvisionSettings):
     Subclasses declare their sibling checkouts as fields. Everything below is
     the same for all of them.
     """
+
+    #: The fragment below the project root, the value handed to ``ModuleProvision.fragment``.
+    fragment: ClassVar[str] = DEFAULT_FRAGMENT
 
     def sibling_dir(self, root: Path, name: str, configured: str = "") -> Path:
         """Resolve a sibling module checkout.
@@ -40,13 +47,50 @@ class StackConfig(ProvisionSettings):
         return (root / ".." / name).resolve()
 
     def locate_sibling(self, root: Path, name: str) -> Path | None:
-        """Return the checkout of the sibling module *name*, or None when there is none.
+        """Return the checkout of the Sushi library *name*, or None when there is none.
+
+        The order is ``<NAME>_DIR``, the sibling ``../<name>``, then the copy
+        ``setup`` fetched at the version the fragment pins.
 
         @param root This module's project root.
-        @param name The sibling's directory name, e.g. ``"sushiruntime"``.
+        @param name The library's directory name, e.g. ``"sushiruntime"``.
         """
-        found = self.sibling_dir(root, name, getattr(self, f"{name}_dir", ""))
-        return found if found.is_dir() else None
+        found = self.resolve_sushi(root, name)
+        return found.path if found is not None else None
+
+    def sushi_pins(self, root: Path) -> list[deps_fragment.SushiPin]:
+        """Return the pins of this module's fragment, none when it has no fragment.
+
+        @param root This module's project root.
+        """
+        path = root / self.fragment
+        return deps_fragment.read(path).pins if path.is_file() else []
+
+    def resolve_sushi(self, root: Path, name: str) -> sushi_sources.ResolvedSource | None:
+        """Return the checkout of the Sushi library *name* and where it was found.
+
+        @param root This module's project root.
+        @param name The library's directory name.
+        """
+        versions = {pin.name: pin.version for pin in self.sushi_pins(root)}
+        configured = getattr(self, f"{name}_dir", "")
+        return sushi_sources.resolve(root, name, versions.get(name, ""),
+                                     self.expand(configured) if configured else "")
+
+    def sushi_definitions(self, root: Path) -> list[str]:
+        """Return ``-D<NAME>_DIR=<path>`` for each pinned Sushi library that resolves.
+
+        The CLI hands these to the CMake configure; CMake never downloads.
+
+        @param root This module's project root.
+        """
+        definitions = []
+        for pin in self.sushi_pins(root):
+            found = self.resolve_sushi(root, pin.name)
+            if found is not None:
+                variable = sushi_sources.directory_variable(pin.name)
+                definitions.append(f"-D{variable}={found.path}")
+        return definitions
 
     def standalone_deps_dir(self, root: Path) -> Path:
         """Return the machine's dependency root.

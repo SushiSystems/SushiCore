@@ -15,15 +15,31 @@ from typer.testing import CliRunner
 import pytest
 
 from sushicore.profile import ModuleProfile
-from sushicore.provision import commands, probe
+from sushicore.provision import commands, module_checks, probe
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.git_client import IGitClient
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.packages import LinuxPackageManager
 from sushicore.workspace import read_link, registered_modules, write_module
 
 
 pytestmark = pytest.mark.medium
+
+#: A commit every fixture fragment pins its Sushi libraries to.
+K_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+
+class _OfflineGit(IGitClient):
+    """A git that cannot reach the network: every clone fails, every HEAD is the pin."""
+
+    def clone_tag(self, url, tag, destination, dry_run):
+        """Report the clone as failed."""
+        return False
+
+    def head(self, checkout):
+        """Report the pinned commit."""
+        return K_COMMIT
 
 
 class _FakeAptManager(LinuxPackageManager):
@@ -69,7 +85,7 @@ def _quiet_setup(monkeypatch, provision_home, managers):
     console, not the recording fake).
     """
     monkeypatch.setattr(commands, "_managers_for", lambda cfg: managers)
-    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     monkeypatch.setattr(commands, "_SHOW_PROGRESS", False)
 
 
@@ -83,6 +99,7 @@ def _app(tmp_path, recording_console, **overrides):
     def _root():
         """Test app."""
 
+    overrides.setdefault("git", _OfflineGit)
     register_provision_commands(app, ModuleProvision(
         profile=profile, project_root=lambda: tmp_path / "dsp",
         load_config=lambda: ProvisionSettings(platform="linux"),
@@ -131,7 +148,7 @@ def test_doctor_rejects_an_unknown_group(tmp_path, recording_console):
 def test_doctor_reports_the_module_fragment_and_toolchain_stamps(
         tmp_path, recording_console, provision_home, monkeypatch):
     """Check that doctor reports the module fragment and toolchain stamps."""
-    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
     fragment.write_text(
@@ -306,13 +323,15 @@ def _depending_fragment(root, depends_on):
     """Write a fragment under *root* that depends on *depends_on* and declares a widget."""
     fragment = _write_fragment(root)
     names = ", ".join(f'"{name}"' for name in depends_on)
-    fragment.write_text(f"[module]\ndepends_on = [{names}]\n"
+    pins = "".join(f'[sushi.{name}]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n'
+                   for name in depends_on)
+    fragment.write_text(f"[module]\ndepends_on = [{names}]\n{pins}"
                         + fragment.read_text(encoding="utf-8"), encoding="utf-8")
 
 
-def test_setup_exits_two_and_installs_nothing_when_a_module_is_missing(
+def test_setup_fails_and_installs_nothing_when_a_pinned_module_cannot_be_fetched(
         tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup exits two and installs nothing when a module is missing."""
+    """Check that setup exits one and installs nothing when a pinned module cannot be cloned."""
     installs = []
 
     class _Recording(_FakeAptManager):
@@ -329,12 +348,39 @@ def test_setup_exits_two_and_installs_nothing_when_a_module_is_missing(
 
     result = CliRunner().invoke(app, ["setup"])
 
-    assert result.exit_code == 2
+    assert result.exit_code == 1
     errors = [args[0] for name, args in recording_console.calls if name == "error"]
-    assert any("sushiruntime" in e and "SUSHIRUNTIME_DIR" in e for e in errors)
+    assert any("sushiruntime" in e and "failed" in e for e in errors)
     assert installs == []
-    assert not (provision_home / ".lock").exists()
+    assert not (provision_home / "sources" / "sushiruntime" / "v1.0.0").exists()
     assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
+
+
+class _FetchingGit(_OfflineGit):
+    """A git whose clone writes a checkout holding a fragment that declares gtest."""
+
+    def clone_tag(self, url, tag, destination, dry_run):
+        """Create the checkout and report success."""
+        fragment = destination / "cli" / "sushistack.deps.toml"
+        fragment.parent.mkdir(parents=True)
+        fragment.write_text('[gtest]\nlinux_apt = ["libgtest-dev"]\n', encoding="utf-8")
+        return True
+
+
+def test_setup_fetches_a_pinned_module_and_reads_its_fragment(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that setup clones a pinned module with no sibling and reads the clone's fragment."""
+    _quiet_setup(monkeypatch, provision_home, managers=[_FakeAptManager()])
+    _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=_FetchingGit)
+
+    result = CliRunner().invoke(app, ["setup"])
+
+    assert result.exit_code == 0, recording_console.calls
+    assert (provision_home / "sources" / "sushiruntime" / "v1.0.0").is_dir()
+    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
+    by_name = {row[0]: row for row in rows}
+    assert "fetched" in by_name["sushi sushiruntime"][3]
 
 
 def test_setup_reads_the_fragment_of_a_located_dependency(
@@ -423,7 +469,7 @@ def test_uses_base_adds_the_shared_fragment(
 def test_doctor_reports_a_missing_module_and_keeps_running(
         tmp_path, recording_console, provision_home, monkeypatch):
     """Check that doctor reports a missing module and keeps running."""
-    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
     app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path))
 
@@ -452,7 +498,7 @@ def test_the_panel_is_set_on_every_command(tmp_path, recording_console):
 def test_doctor_agrees_with_the_inventory_on_a_package_the_manager_holds(
         tmp_path, recording_console, provision_home, monkeypatch):
     """Check that doctor passes a dependency whose check cmd fails but whose package is held."""
-    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     monkeypatch.setattr(commands, "_managers_for", lambda cfg: [_FakeAptManager()])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
@@ -478,7 +524,7 @@ def test_every_command_help_carries_examples(tmp_path, recording_console):
 def test_doctor_lists_the_downloads_with_no_pinned_digest(
         tmp_path, recording_console, provision_home, monkeypatch):
     """Check that doctor carries a row naming the downloads a setup would not verify."""
-    monkeypatch.setattr(commands, "standard_checks", lambda cfg, fix: [])
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
     fragment.write_text('[intel-llvm]\ndescription = "SYCL bundle"\nrequired = false\n',
@@ -490,3 +536,97 @@ def test_doctor_lists_the_downloads_with_no_pinned_digest(
     by_name = {row[0]: row for row in rows}
     assert "intel-llvm" in by_name["download digests"][3]
     assert "warn" in by_name["download digests"][2]
+
+
+def test_setup_stops_before_fetching_when_two_pins_conflict(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that a chain pinning one library at two versions stops setup before any clone."""
+    _quiet_setup(monkeypatch, provision_home, managers=[_FakeAptManager()])
+    root = tmp_path / "dsp"
+    _depending_fragment(root, ["sushiruntime"])
+    fragment = root / "cli" / "sushistack.deps.toml"
+    text = fragment.read_text(encoding="utf-8")
+    text = text.replace('depends_on = ["sushiruntime"]', 'depends_on = ["sushiruntime", "sushilog"]')
+    fragment.write_text(text + f'[sushi.sushilog]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n',
+                        encoding="utf-8")
+    runtime = tmp_path / "sushiruntime" / "cli" / "sushistack.deps.toml"
+    runtime.parent.mkdir(parents=True)
+    runtime.write_text(f'[module]\ndepends_on = ["sushilog"]\n[sushi.sushilog]\n'
+                       f'version = "v1.1.0"\ncommit = "{K_COMMIT}"\n', encoding="utf-8")
+    clones = []
+
+    class _Recording(_OfflineGit):
+        """Records every clone."""
+
+        def clone_tag(self, url, tag, destination, dry_run):
+            """Record the clone and fail it."""
+            clones.append(url)
+            return False
+
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=_Recording)
+
+    result = CliRunner().invoke(app, ["setup"])
+
+    assert result.exit_code == 1
+    assert clones == []
+    errors = [args[0] for name, args in recording_console.calls if name == "error"]
+    assert any("sushilog" in e and "sushidsp" in e and "sushiruntime" in e
+               and "v1.0.0" in e and "v1.1.0" in e for e in errors)
+
+
+def _unpinned_fragment(root, depends_on):
+    """Write a fragment under *root* naming *depends_on* with no pins, and a widget."""
+    fragment = _write_fragment(root)
+    names = ", ".join(f'"{name}"' for name in depends_on)
+    fragment.write_text(f"[module]\ndepends_on = [{names}]\n"
+                        + fragment.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+class _NoCloneGit(_OfflineGit):
+    """Fails the test on any clone."""
+
+    def clone_tag(self, url, tag, destination, dry_run):
+        """Refuse to clone."""
+        raise AssertionError(f"an unpinned module was cloned: {url}")
+
+
+def test_setup_exits_two_and_installs_nothing_when_an_unpinned_module_is_missing(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that an unpinned module with no checkout is never fetched and setup exits two."""
+    installs = []
+
+    class _Recording(_FakeAptManager):
+        """Records every install call."""
+
+        def install(self, pkgs, dry_run):
+            """Record the call and report success."""
+            installs.append(pkgs)
+            return True
+
+    _quiet_setup(monkeypatch, provision_home, managers=[_Recording()])
+    _unpinned_fragment(tmp_path / "dsp", ["sushiruntime"])
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=_NoCloneGit)
+
+    result = CliRunner().invoke(app, ["setup"])
+
+    assert result.exit_code == 2
+    errors = [args[0] for name, args in recording_console.calls if name == "error"]
+    assert any("sushiruntime" in e and "SUSHIRUNTIME_DIR" in e for e in errors)
+    assert installs == []
+    assert not (provision_home / ".lock").exists()
+    assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
+
+
+def test_doctor_warns_on_an_unpinned_module(
+        tmp_path, recording_console, provision_home, monkeypatch):
+    """Check that doctor shows a warning row for a depends_on module with no pin."""
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+    _unpinned_fragment(tmp_path / "dsp", ["sushiruntime"])
+    (tmp_path / "sushiruntime").mkdir()
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path))
+
+    CliRunner().invoke(app, ["doctor"])
+
+    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
+    by_name = {row[0]: row for row in rows}
+    assert "not pinned; pin it in [sushi.sushiruntime]" in by_name["sushi sushiruntime"][3]

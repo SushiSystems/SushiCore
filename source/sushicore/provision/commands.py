@@ -24,22 +24,14 @@ from ..workspace import (
     write_module,
 )
 from . import closure as closure_module
-from . import home, manifests, probe, selection
+from . import home, manifests, selection, sushi_setup
 from ._output import bind_console
-from .checks import (
-    capability_check,
-    digest_check,
-    fragment_check,
-    modules_check,
-    python_check,
-    stamp_check,
-    standard_checks,
-)
+from .checks import python_check
 from .closure import Closure, Locate
 from .config import ProvisionConfig
 from .doctor import GROUPS, Check, Doctor
-from .fragments import IDependencySource
 from .fragments import TomlDependencySource
+from .git_client import GitClient, IGitClient
 from .lock import LockTimeout, ProvisionLock
 from .packages import (
     AptManager,
@@ -52,9 +44,10 @@ from .packages import (
     YumManager,
     ZypperManager,
 )
-from .pipeline import InstallContext, InstallPipeline, ToolchainSelection
+from .module_checks import ModuleState, doctor_checks, present_toolchains
+from .pipeline import InstallContext, InstallPipeline
 from .sinks import ModuleSink
-from .steps import ConfigureStep, DetectStep, InstallDepsStep, held_by_managers
+from .steps import ConfigureStep, DetectStep, InstallDepsStep
 
 #: Header written atop a module's ``config.local.toml``.
 _MODULE_SINK_HEADER = [
@@ -84,6 +77,7 @@ class ModuleProvision:
         panel: The help panel the commands are listed under, or None for the default.
         is_binary: Reports a binary install, which registers ``doctor`` alone.
         uses_base: Whether the shared base fragment joins the module's own.
+        git: Builds the git client that fetches and inspects pinned Sushi libraries.
     """
 
     profile: ModuleProfile
@@ -91,11 +85,12 @@ class ModuleProvision:
     load_config: Callable[[], ProvisionConfig]
     console: Callable[[], object]
     extra_checks: Callable[[], list[Check]] = lambda: []
-    fragment: str = "cli/sushistack.deps.toml"
+    fragment: str = closure_module.DEFAULT_FRAGMENT
     locate: Locate = _locate_nothing
     panel: Optional[str] = None
     is_binary: Callable[[], bool] = lambda: False
     uses_base: bool = False
+    git: Callable[[], IGitClient] = GitClient
 
 
 #: Exit code for a request ``setup`` cannot act on: an unknown toolchain, a missing module.
@@ -114,10 +109,11 @@ def _closure(module: ModuleProvision, root: Path) -> Closure:
     """Return the fragments *module* needs: the base when asked for, its modules', its own.
 
     Raises:
-        ValueError: The modules depend on one another in a cycle.
+        ValueError: The modules depend on one another in a cycle, or a fragment is malformed.
     """
     shared = [(manifests.base_fragment(), manifests.BASE_OWNER)] if module.uses_base else []
-    return closure_module.resolve(module.profile.key, root, module.locate,
+    locate = sushi_setup.locator(module.locate, root, sushi_setup.own_pins(root, module.fragment))
+    return closure_module.resolve(module.profile.key, root, locate,
                                   fragment=module.fragment, shared=shared)
 
 
@@ -127,30 +123,10 @@ def _source(module: ModuleProvision, root: Path, found: Closure) -> TomlDependen
     return TomlDependencySource(sources)
 
 
-def _present_toolchains(cfg: ProvisionConfig) -> dict[str, bool]:
-    """Return each SYCL toolchain's key mapped to whether this machine holds it."""
-    return {name: present for name, present, _detail in probe.toolchain_status(cfg, False)}
-
-
 def _missing_module_message(module: str, wanted_by: str) -> str:
     """Return the line that tells a user where the checkout of *module* belongs."""
     return (f"{wanted_by} builds on {module}, and no checkout of it was found. "
             f"Clone it beside this repository or set {module.upper()}_DIR.")
-
-
-def _checks(module: ModuleProvision, cfg: ProvisionConfig, source: IDependencySource,
-            found: Closure, managers: list[IPackageManager]) -> list[Check]:
-    """Return every check ``doctor`` runs for a source checkout of *module*."""
-    fix = f"{module.profile.program} setup"
-    clone = "clone it beside this repository"
-    return (standard_checks(cfg, fix=fix)
-            + [modules_check(found.missing, clone),
-               capability_check(source, _present_toolchains(cfg), fix),
-               fragment_check(source, cfg.platform, False, fix,
-                              held_by_managers(managers, cfg.platform)),
-               stamp_check(home.root()),
-               digest_check(source, cfg.platform)]
-            + module.extra_checks())
 
 
 def _report(checks: Sequence[Check], groups: Optional[set[str]], console: object) -> int:
@@ -175,13 +151,17 @@ def _run_doctor(module: ModuleProvision, groups: Optional[set[str]],
     root = module.project_root()
     try:
         found = _closure(module, root)
+        own = sushi_setup.own_fragment(root, module.fragment)
     except ValueError as exc:
         console.error(str(exc))
         return 1
     if managers is None:
         managers = _managers_for(cfg)
-    return _report(_checks(module, cfg, _source(module, root, found), found, managers),
-                   groups, console)
+    state = ModuleState(cfg=cfg, root=root, owner=module.profile.key,
+                        program=module.profile.program, own=own,
+                        source=_source(module, root, found), missing=found.missing)
+    checks = doctor_checks(state, managers, module.git()) + module.extra_checks()
+    return _report(checks, groups, console)
 
 
 def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
@@ -190,6 +170,15 @@ def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
     console = module.console()
     root = module.project_root()
     cfg = module.load_config()
+    try:
+        pins = sushi_setup.own_pins(root, module.fragment)
+    except ValueError as exc:
+        console.error(str(exc))
+        return 1
+    fetch = InstallContext(cfg=cfg, consumer=module.profile.key,
+                           program=module.profile.program, dry_run=dry_run)
+    if not sushi_setup.prepare(fetch, root, pins, module.git(), _LOCK_TIMEOUT):
+        return 1
     try:
         found = _closure(module, root)
     except ValueError as exc:
@@ -201,7 +190,7 @@ def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return _EXIT_USAGE
     source = _source(module, root, found)
     try:
-        chosen = selection.derive(source, _present_toolchains(cfg),
+        chosen = selection.derive(source, present_toolchains(cfg),
                                   requested=toolchains, gpu=gpu)
     except ValueError as exc:
         console.error(str(exc))

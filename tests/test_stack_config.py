@@ -112,3 +112,55 @@ def test_a_pinned_llvm_root_wins_when_its_compiler_exists(provision_home, tmp_pa
     exe.write_text("")
     cfg = _Config(platform="linux", llvm_root=str(pinned))
     assert cfg.bundled_clang(tmp_path) == str(exe)
+
+
+def _pin(root, name, version="v1.0.0"):
+    """Write *root*'s fragment pinning *name* at *version*."""
+    path = root / "cli" / "sushistack.deps.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f'[module]\ndepends_on = ["{name}"]\n[sushi.{name}]\n'
+                    f'version = "{version}"\ncommit = "0123456789abcdef0123456789abcdef01234567"\n', encoding="utf-8")
+
+
+def test_locate_sibling_finds_the_fetched_copy_of_a_pinned_library(
+        tmp_path, provision_home, monkeypatch):
+    """Check that a pinned library with no sibling resolves to the copy setup fetched."""
+    monkeypatch.delenv("SUSHIRUNTIME_DIR", raising=False)
+    root = tmp_path / "sushiblas"
+    _pin(root, "sushiruntime")
+    fetched = provision_home / "sources" / "sushiruntime" / "v1.0.0"
+    fetched.mkdir(parents=True)
+    assert _Config(platform="linux").locate_sibling(root, "sushiruntime") == fetched.resolve()
+
+
+def test_sushi_definitions_hand_cmake_each_resolved_directory(
+        tmp_path, provision_home, monkeypatch):
+    """Check that each pinned library that resolves becomes -D<NAME>_DIR=<path>."""
+    monkeypatch.delenv("SUSHIRUNTIME_DIR", raising=False)
+    root = tmp_path / "sushiblas"
+    _pin(root, "sushiruntime")
+    cfg = _Config(platform="linux")
+    assert cfg.sushi_definitions(root) == []
+
+    (tmp_path / "sushiruntime").mkdir()
+    sibling = (tmp_path / "sushiruntime").resolve()
+    assert cfg.sushi_definitions(root) == [f"-DSUSHIRUNTIME_DIR={sibling}"]
+
+
+def test_sushi_pins_read_the_fragment_the_module_declares(tmp_path, provision_home):
+    """Check that a config naming another fragment path reads its pins from there."""
+
+    @dataclass
+    class _Moved(_Config):
+        """A config whose fragment sits elsewhere."""
+
+        fragment = "build/deps.toml"
+
+    root = tmp_path / "sushiblas"
+    _pin(root, "sushiruntime")
+    assert _Moved(platform="linux").sushi_pins(root) == []
+    moved = root / "build" / "deps.toml"
+    moved.parent.mkdir(parents=True)
+    moved.write_text((root / "cli" / "sushistack.deps.toml").read_text(encoding="utf-8"),
+                     encoding="utf-8")
+    assert [pin.name for pin in _Moved(platform="linux").sushi_pins(root)] == ["sushiruntime"]
