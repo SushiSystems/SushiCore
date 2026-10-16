@@ -1,7 +1,8 @@
 # Dependency fragment
 
 A fragment is a `sushistack.deps.toml` file. It holds one table per dependency, keyed by the
-dependency's name, and a reserved `[module]` table. `sushicore/deps_fragment.py` is its one
+dependency's name, and two reserved tables, `[module]` and `[sushi]`; no dependency can be
+named `module` or `sushi`. `sushicore/deps_fragment.py` is its one
 reader; `sushicore/provision/fragments.py` merges several fragments into one list. The shared
 base fragment is `sushicore/provision/manifests/base.deps.toml`.
 
@@ -33,8 +34,8 @@ installers.
 
 A module `depends_on` names is pinned in a `[sushi.<name>]` table, and each pin names a
 module in `depends_on`. A module left unpinned is found through `<NAME>_DIR` and the sibling
-only and is never fetched; `setup` exits 2 when neither exists, and `doctor` shows a warning
-row `sushi <name>`: not pinned.
+only and is never fetched. `setup` exits 2 when neither exists, and `doctor` shows a warning
+row `sushi <name>` saying the module is not pinned.
 
 ```toml
 [module]
@@ -45,9 +46,8 @@ version = "v1.0.0"                                   # the release tag
 commit  = "<the 40-hex hash the tag points at>"
 ```
 
-The reader raises `ValueError`, naming the file, when
-a pin names a module `depends_on` does not, when `version` is empty, or when `commit` is not 40
-hex digits.
+The reader raises `ValueError` and names the file in three cases: a pin names a module
+`depends_on` does not, `version` is empty, or `commit` is not 40 hex digits.
 
 `sushicore/provision/sushi_sources.py` finds a pinned library's checkout. It takes the first of
 these that exists:
@@ -56,20 +56,22 @@ these that exists:
 2. the sibling checkout `../<name>`;
 3. the copy `setup` fetched, `<home>/sources/<name>/<version>/`.
 
-`setup` first walks the pins through each resolved library's own fragment and stops when one
-library is pinned at two versions, naming both pinning repositories and both versions. Then it
-clones, for each pin with neither a directory nor a sibling, the tag of
-`https://github.com/sushisystems/<name>.git` at depth one into the fetched folder, and removes
-the folder and stops when its HEAD is not the pinned commit. A folder that already holds the
+`setup` first walks the pins through each resolved library's own fragment. When one library
+is pinned at two versions it stops and names both pinning repositories and both versions.
+
+Then it takes each pin with neither a directory nor a sibling, and clones the tag of
+`https://github.com/sushisystems/<name>.git` at depth one into the fetched folder. When the
+clone's HEAD is not the pinned commit, it removes the folder and stops. A folder that already holds the
 pinned commit is not cloned again. A clone that fails stops `setup` with one message naming the
 library, the URL, the tag and the `<NAME>_DIR` that hands it a checkout instead.
 
 `doctor` shows one `sushi <name>` row per pin, naming the source it found, and warns when a
 sibling's HEAD is not the pinned commit. Its `sushi pins` row fails on a conflicting pin.
 
-`StackConfig.sushi_pins(root)` reads the fragment at `StackConfig.fragment`, the path the module
-also hands `ModuleProvision.fragment`. `StackConfig.sushi_definitions(root)` returns `-D<NAME>_DIR=<path>` for each pin that resolves;
-the CLI adds these to the CMake configure, and CMake never downloads.
+`StackConfig.sushi_pins(root)` reads the fragment at `StackConfig.fragment`, the path the
+module also hands `ModuleProvision.fragment`. `StackConfig.sushi_definitions(root)` returns
+`-D<NAME>_DIR=<path>` for each pin that resolves. The CLI adds these to the CMake configure, and
+CMake never downloads.
 
 ## `sha256`
 
@@ -93,7 +95,7 @@ When an installer has downloaded a file it calls `verify_download` in
   `sushicore.errors.DigestMismatchError` stops the run. Its message names the file, the pinned
   digest and the digest found.
 - The entry pins nothing for the platform, or no fragment declares the entry: the install goes
-  on, and the run logs one warning per entry on the `sushicore.provision` logger. `doctor`
+  on, and the run logs one warning per entry on the `sushicore.provision.download_verifier` logger. `doctor`
   lists the same entries in its `download digests` row.
 
 These are the downloads the verifier sees, and the entry each one is pinned under.
@@ -122,3 +124,5 @@ naming both owners.
 
 A fragment carries no `format_version`. `sha256` was added on 2026-10-05 as an optional key; a
 fragment without it reads as before, and a `sushicore` older than the key ignores it.
+`[sushi.<name>]` was added in 0.9.1. A reader older than 0.9.1 reads `[sushi]` as a dependency
+named `sushi`.

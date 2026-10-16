@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from sushicore.deps_fragment import pins_at
 from sushicore.provision import sushi_setup
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import InstallContext
@@ -23,19 +24,12 @@ def _ctx(consumer="sushiai"):
     return InstallContext(cfg=ProvisionSettings(platform="linux"), consumer=consumer)
 
 
-def test_own_pins_are_empty_without_a_fragment(tmp_path):
-    """Check that a checkout with no fragment has no pins and no fragment."""
-    assert sushi_setup.own_fragment(tmp_path, "cli/sushistack.deps.toml") is None
-    assert sushi_setup.own_pins(tmp_path, "cli/sushistack.deps.toml") == []
-
-
 def test_the_locator_tries_the_base_first_then_the_fetched_copy(
         tmp_path, provision_home, monkeypatch):
     """Check that the locator falls back to the fetched copy of a pinned library only."""
     monkeypatch.delenv("SUSHILOG_DIR", raising=False)
     root = tmp_path / "ws" / "sushiai"
-    pins = sushi_setup.own_pins(write_fragment(root, {"sushilog": "v1.0.0"}).parents[1],
-                                "cli/sushistack.deps.toml")
+    pins = pins_at(write_fragment(root, {"sushilog": "v1.0.0"}))
     fetched = provision_home / "sources" / "sushilog" / "v1.0.0"
     fetched.mkdir(parents=True)
 
@@ -48,7 +42,7 @@ def test_prepare_fetches_a_chain_that_agrees(tmp_path, provision_home, recording
     """Check that prepare clones the missing pin and succeeds."""
     root = tmp_path / "ws" / "sushiai"
     write_fragment(root, {"sushilog": "v1.0.0"})
-    pins = sushi_setup.own_pins(root, "cli/sushistack.deps.toml")
+    pins = pins_at(root / "cli/sushistack.deps.toml")
     git = FakeGit()
 
     assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
@@ -61,7 +55,7 @@ def test_prepare_stops_on_a_conflict_before_cloning(tmp_path, provision_home, re
     root = ws / "sushiai"
     write_fragment(root, {"sushiruntime": "v3.0.0", "sushilog": "v1.0.0"})
     write_fragment(ws / "sushiruntime", {"sushilog": "v1.1.0"})
-    pins = sushi_setup.own_pins(root, "cli/sushistack.deps.toml")
+    pins = pins_at(root / "cli/sushistack.deps.toml")
     git = FakeGit()
 
     assert not sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)

@@ -20,7 +20,7 @@ runs after this work (`docs/agent/plans/2026-09-25-hub-root-migration.md`, untra
 | --- | --- |
 | Is hub required | No. Every module CLI provisions itself. Hub, when installed, drives the same code for every module at once. |
 | What sushiengine is | The one exception. Users receive a binary through hub and a licence. The owner works from a source checkout, where `se` behaves like `sr`. |
-| A module `depends_on` another | `setup` reads the fragment of every module in the chain whose checkout it can find and installs their third-party dependencies. When a checkout is missing it stops and names where to put it. It never clones. |
+| A module `depends_on` another | `setup` reads the fragment of every module in the chain whose checkout it can find and installs their third-party dependencies. When a pinned Sushi library has no checkout, it clones the pinned tag. When an unpinned one is missing it stops and names where to put it. |
 | What a bare `setup` installs | Enough to build. A `provides` group that something on the machine already satisfies installs nothing; otherwise its first declared member installs. More comes on request. Hub's `install` follows the same rule. |
 | `se` in a binary install | `doctor` only. `setup`, `link` and `unlink` need a source tree and are absent. The fix it names is `hub install`. |
 | Where shared code lives | sushicore. A module CLI keeps only what is its own: its identity, its checks, where its siblings are. |
@@ -87,7 +87,8 @@ for each module's checkout. `shared` fragments come first in `sources`. A cycle 
 `ValueError`, as `fragments.owner_order` does.
 
 `locate` belongs to the caller. A module passes `StackConfig.locate_sibling`: the configured
-`*_dir`, then the sibling directory, which is the same place its CMake build looks. Hub passes
+`*_dir`, then the sibling directory, which is the same place its CMake build looks, then the copy
+`setup` fetched for a pinned library. Hub passes
 its workspace lookup. The brick knows neither.
 
 ### `provision/manifests/base.deps.toml`

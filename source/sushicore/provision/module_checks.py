@@ -51,11 +51,6 @@ class ModuleState:
     missing: Sequence[tuple[str, str]]
 
 
-def present_toolchains(cfg: ProvisionConfig) -> dict[str, bool]:
-    """Return each SYCL toolchain's key mapped to whether this machine holds it."""
-    return {name: present for name, present, _detail in probe.toolchain_status(cfg, False)}
-
-
 def _sushi_checks(state: ModuleState, git: IGitClient, fix: str) -> list[Check]:
     """Return one row per pinned or unpinned Sushi library, and the pin conflict row."""
     if state.own is None:
@@ -78,7 +73,7 @@ def doctor_checks(state: ModuleState, managers: list[IPackageManager],
     clone = "clone it beside this repository"
     return (standard_checks(cfg, fix=fix)
             + [modules_check(state.missing, clone),
-               capability_check(state.source, present_toolchains(cfg), fix),
+               capability_check(state.source, probe.toolchain_presence(cfg), fix),
                fragment_check(state.source, cfg.platform, False, fix,
                               held_by_managers(managers, cfg.platform)),
                stamp_check(home.root()),

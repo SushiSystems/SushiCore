@@ -148,6 +148,25 @@ def read(path: Path) -> Fragment:
     return Fragment(dependencies, depends_on, pins)
 
 
+def read_present(path: Path) -> Fragment | None:
+    """Read the fragment at *path*, or return None when there is no file there.
+
+    Raises:
+        ValueError: As :func:`read`.
+    """
+    return read(path) if path.is_file() else None
+
+
+def pins_at(path: Path) -> list[SushiPin]:
+    """Return the pins of the fragment at *path*, none when there is no file there.
+
+    Raises:
+        ValueError: As :func:`read`.
+    """
+    fragment = read_present(path)
+    return fragment.pins if fragment is not None else []
+
+
 def _read_pin(path: Path, name: str, value: object) -> SushiPin:
     """Return the pin ``[sushi.<name>]`` declares.
 

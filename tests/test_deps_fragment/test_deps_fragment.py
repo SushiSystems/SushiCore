@@ -19,6 +19,8 @@ from sushicore.deps_fragment import (
     Dependency,
     Status,
     install_command,
+    pins_at,
+    read_present,
     read,
     status,
 )
@@ -249,3 +251,9 @@ def test_a_malformed_pin_is_refused(tmp_path, table, expected):
     text = f'[module]\ndepends_on = ["sushilog"]\n[sushi.sushilog]\n{table}\n'
     with pytest.raises(ValueError, match=expected):
         read(_fragment(tmp_path, text))
+
+
+def test_an_absent_fragment_reads_as_none_with_no_pins(tmp_path):
+    """A checkout with no fragment has no fragment and no pins."""
+    assert read_present(tmp_path / "absent.toml") is None
+    assert pins_at(tmp_path / "absent.toml") == []

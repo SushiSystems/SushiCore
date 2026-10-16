@@ -65,7 +65,7 @@ A classic Windows console (`cmd`, a PowerShell window) starts a program with vir
 processing off, and Rich then draws 16 colours. Building a `RichRenderer` turns that mode on for
 stdout and stderr, so true colour and the logo work there too.
 
-If drawing the page fails, `--help` logs one warning under the logger `sushicore.help` and shows
+If drawing the page fails, `--help` logs one warning under the logger `sushicore.typer_help` and shows
 Typer's own screen.
 
 ## Known limits

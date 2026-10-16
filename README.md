@@ -20,9 +20,9 @@ install a checkout in its place.
 | Everything, from one index | [The manual](docs/README.md) |
 | What each module of the package does | [Architecture overview](docs/architecture/OVERVIEW.md) |
 | Wiring a CLI to the shared surfaces | [CLI integration](docs/guides/CLI_INTEGRATION.md) |
-| `setup`, `doctor`, `link` and `unlink` | [`sushicore/provision/README.md`](sushicore/provision/README.md) |
-| Terminal components and tables | [`sushicore/ui/README.md`](sushicore/ui/README.md) |
-| The help screen | [`sushicore/help/README.md`](sushicore/help/README.md) |
+| `setup`, `doctor`, `link` and `unlink` | [`source/sushicore/provision/README.md`](source/sushicore/provision/README.md) |
+| Terminal components and tables | [`source/sushicore/ui/README.md`](source/sushicore/ui/README.md) |
+| The help screen | [`source/sushicore/help/README.md`](source/sushicore/help/README.md) |
 
 ## Licence
 

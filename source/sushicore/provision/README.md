@@ -31,6 +31,13 @@ them. The designs are [`docs/design/PROVISION.md`](../../docs/design/PROVISION.m
 | `doctor.py`, `checks.py` | The doctor framework and the stock checks |
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
 | `_output.py` | The console the package prints through, bound by `bind_console` |
+| `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
+| `pin_chain.py` | Walks the `[sushi.<name>]` pins of a chain and finds a library pinned at two versions |
+| `git_client.py` | Clones one tag of a repository and reads a checkout's HEAD |
+| `sushi_fetch.py` | `FetchSushiSourcesStep`, which clones a pinned library and checks its commit |
+| `sushi_source_check.py` | The doctor rows `sushi <name>` and `sushi pins` |
+| `sushi_setup.py` | The locate fallback, and the pin check, fetch and recheck `setup` runs before the closure |
+| `module_checks.py` | Assembles the rows `doctor` runs for a source checkout |
 | `commands.py` | `ModuleProvision` and `register_provision_commands` |
 
 ## What it depends on
@@ -63,7 +70,7 @@ register_provision_commands(app, module)
 | --- | --- |
 | `extra_checks` | Returns the module's own doctor checks. |
 | `fragment` | The fragment's path below the project root; `cli/sushistack.deps.toml` by default. |
-| `locate` | Finds the checkout of a module `depends_on` names. A `StackConfig` module passes `locate_sibling`. A module it does not find is looked up in `sushi_sources.resolve`. |
+| `locate` | Finds the checkout of a module `depends_on` names. A `StackConfig` module passes `locate_sibling`. When `locate` returns None, `sushi_sources.resolve` looks for the module. |
 | `git` | Builds the git client that fetches pinned Sushi libraries; `GitClient` by default. |
 | `uses_base` | Adds the shared base fragment (gtest, opencl, pkgconf) before the module's own. |
 | `panel` | The help panel the commands are listed under. |
@@ -157,7 +164,8 @@ pin it. `gpu/cuda_toolkit_installer.py` checks each archive against the SHA-256 
 own `redistrib_<version>.json` publishes for it, before unpacking. The design is in
 [`docs/design/GPU_TOOLKIT_SELECTION.md`](../../docs/design/GPU_TOOLKIT_SELECTION.md).
 
-A download that happens inside a shell pipeline, and a git clone, are not verified. The full
+A download that happens inside a shell pipeline, and a git clone of third-party code, are not
+verified. The clone of a pinned Sushi library is checked against its pinned commit. The full
 list is in
 [`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md), under "Installing
 third-party software".
@@ -178,7 +186,7 @@ prints the message and exits 1. The installers catch `Exception` around their do
 re-raise this one error first.
 
 A download whose entry pins no digest for the platform is used as before. The verifier logs one
-warning per entry on the `sushicore.provision` logger and keeps the names in `unverified()`.
+warning per entry on the `sushicore.provision.download_verifier` logger and keeps the names in `unverified()`.
 `doctor` has a `download digests` row from `checks.digest_check`: it warns and lists the entries
 a run on this platform would download with no pin. `K_TOOL_DOWNLOADS` holds the entries Windows
 fetches whatever the fragments say, and `K_DECLARED_DOWNLOADS` those fetched only when a
@@ -193,7 +201,10 @@ backend calls it since CUDA moved to the redistributable archives.
 
 Installs what the module needs to build and then runs `doctor`. It reads the module's fragment
 and, through `[module] depends_on`, the fragment of every module it builds on, found by the
-`locate` callable. `setup` never clones.
+`locate` callable. Before that it clones each library a `[sushi.<name>]` pin names and no
+`<NAME>_DIR` or sibling provides, and refuses a clone whose HEAD is not the pinned commit. It
+never fetches an unpinned module. The pins are described in
+[`DEPENDENCY_FRAGMENT.md`](../../docs/reference/DEPENDENCY_FRAGMENT.md).
 
 A bare `setup` installs one member of each toolchain capability a fragment marks `required`.
 When something on the machine already provides `sycl-toolchain`, nothing downloads; otherwise
@@ -210,19 +221,20 @@ declared dependency is `gpu_only` and a card is detected.
 | Exit code | When |
 | --- | --- |
 | 0 | Everything installed and no required check failed |
-| 1 | `depends_on` forms a cycle, the lock timed out, a step failed, a download did not match its pinned SHA-256, or a required check failed |
+| 1 | A fragment is malformed, `depends_on` forms a cycle, two pins of one library differ, a clone failed, a clone is off its pinned commit, the lock timed out, a step failed, a download did not match its pinned SHA-256, or a required check failed |
 | 2 | A module named in `depends_on` has no checkout, or `--toolchain` names an unknown toolchain |
 
 ### `doctor`
 
 Checks the build tools, the checkouts of the modules this one builds on, the toolchain
-capabilities, the fragments, the toolchain stamps and the download digests, then the module's
-own checks. `--for GROUP` restricts the report to one group: `build`, `test`, `infer` or `eval`.
+capabilities, the fragments, the toolchain stamps and the download digests, a `sushi <name>`
+row per pinned library naming its source, a `sushi <name>` warning per unpinned module, and the
+`sushi pins` row for conflicting pins, then the module's own checks. `--for GROUP` restricts the report to one group: `build`, `test`, `infer` or `eval`.
 
 | Exit code | When |
 | --- | --- |
 | 0 | No required check failed |
-| 1 | A required check failed, or `depends_on` forms a cycle |
+| 1 | A required check failed, a fragment is malformed, or `depends_on` forms a cycle |
 | 2 | `--for` names an unknown group |
 
 ### `link` and `unlink`

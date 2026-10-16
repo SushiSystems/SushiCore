@@ -98,7 +98,8 @@ describes the root and how it is moved to another directory.
 
 `setup` installs what a module needs to build and then runs `doctor`. It reads the module's
 dependency fragment, `cli/sushistack.deps.toml` by default, and through `[module] depends_on`
-the fragment of every module it builds on. It never clones. `--dry-run` shows the run and
+the fragment of every module it builds on. It clones a Sushi library that a `[sushi.<name>]`
+pin names when no `<NAME>_DIR` or sibling provides it, and never fetches an unpinned module. `--dry-run` shows the run and
 changes nothing, `--toolchain NAME` also installs that toolchain, and `--no-gpu` skips the GPU
 toolkit.
 
@@ -167,7 +168,8 @@ meets first:
 - `setup`, `link` and `unlink` end without a `result` event, and `config` and `env` emit no
   `table` or `prompt` event.
 - No fragment entry pins a `sha256` yet, so every download is extracted or run unverified, with
-  a warning. Downloads inside a shell pipeline and git clones are not verified at all.
+  a warning. Downloads inside a shell pipeline and git clones of third-party code are not verified at
+  all; the clone of a pinned Sushi library is checked against its commit.
 - The CUDA toolkit is unpacked from NVIDIA's archives, the oneAPI installer runs with
   `--eula accept`, and winget runs with `--accept-package-agreements`, each on the user's behalf.
 - `link --workspace PATH` does not check the path for the workspace marker and creates
