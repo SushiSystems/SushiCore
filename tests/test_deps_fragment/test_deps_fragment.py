@@ -56,6 +56,10 @@ def test_the_module_table_is_metadata_rather_than_a_dependency(tmp_path):
 [module]
 depends_on = ["sushiruntime"]
 
+[sushi.sushiruntime]
+version = "v1.0.0"
+commit = "0123456789abcdef0123456789abcdef01234567"
+
 [hwloc]
 description = "Topology."
 """))
@@ -205,3 +209,43 @@ sha256 = {value}
         read(path)
 
     assert "cmake" in str(refused.value) and "sha256" in str(refused.value)
+
+
+def test_a_sushi_pin_is_read_with_its_tag_and_commit(tmp_path):
+    """[sushi.<name>] carries a release tag and the full commit, in lower case."""
+    fragment = read(_fragment(tmp_path, """
+[module]
+depends_on = ["sushilog"]
+
+[sushi.sushilog]
+version = "v1.0.0"
+commit = "0123456789ABCDEF0123456789ABCDEF01234567"
+"""))
+
+    assert [(p.name, p.version, p.commit) for p in fragment.pins] == [
+        ("sushilog", "v1.0.0", "0123456789abcdef0123456789abcdef01234567")]
+    assert fragment.dependencies == []
+
+
+def test_a_module_in_depends_on_may_go_unpinned(tmp_path):
+    """A module depends_on names without a pin reads, with no pin."""
+    fragment = read(_fragment(tmp_path, '[module]\ndepends_on = ["sushilog"]\n'))
+    assert fragment.depends_on == ["sushilog"] and fragment.pins == []
+
+
+def test_a_pin_not_in_depends_on_is_refused(tmp_path):
+    """A pin names a module depends_on lists."""
+    text = f'[sushi.sushilog]\nversion = "v1.0.0"\ncommit = "0123456789abcdef0123456789abcdef01234567"\n'
+    with pytest.raises(ValueError, match="which depends_on does not name"):
+        read(_fragment(tmp_path, text))
+
+
+@pytest.mark.parametrize("table, expected", [
+    ('commit = "0123456789abcdef0123456789abcdef01234567"', "no version"),
+    ('version = "v1.0.0"\ncommit = "abc"', "full 40-hex hash"),
+])
+def test_a_malformed_pin_is_refused(tmp_path, table, expected):
+    """A pin without a tag or with a short commit names what is wrong."""
+    text = f'[module]\ndepends_on = ["sushilog"]\n[sushi.sushilog]\n{table}\n'
+    with pytest.raises(ValueError, match=expected):
+        read(_fragment(tmp_path, text))

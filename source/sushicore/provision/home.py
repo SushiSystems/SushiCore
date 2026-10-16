@@ -110,6 +110,11 @@ def ur_dir() -> Path:
     return root() / "ur"
 
 
+def sources_dir() -> Path:
+    """Return ``<root>/sources``, where ``setup`` clones pinned Sushi libraries."""
+    return root() / "sources"
+
+
 def build_dir() -> Path:
     """Return ``<root>/build``."""
     return root() / "build"

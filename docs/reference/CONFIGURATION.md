@@ -63,6 +63,7 @@ Low to high:
 | `SUSHISTACK_HOME` | `module_config.py`, `stack_config.py`, `provision/` | Names the workspace; wins over a module's `[link]` pointer |
 | `SUSHISYSTEMS_HOME` | `provision/home.py` | Names the dependency root; the default is `~/.sushisystems` |
 | `SUSHISTACK_DEPS_DIR` | `provision/home.py`, `stack_config.py` | Names a legacy dependency tree to read |
+| `<NAME>_DIR` | `provision/sushi_sources.py`, `stack_config.py` | Names the checkout of the pinned Sushi library `<name>`, such as `SUSHILOG_DIR`; wins over the sibling and the fetched copy |
 | `<PREFIX>_<TOOL>` | `profile.py` | Overrides one tool path of one CLI, such as `SR_CMAKE`; the prefix is `ModuleProfile.env_prefix` |
 | `<PROGRAM>_NO_DEPRECATION_NOTICE` | `aliases.py` | Set to `1`, silences the notice an old command spelling prints |
 | `CUDA_PATH`, `ROCM_PATH` | `provision/gpu/` | Where the CUDA and ROCm locators look first; each install writes its variable to the user's variables |

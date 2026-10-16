@@ -106,6 +106,13 @@ runs of stacked comment lines, 15 separator lines, and 4 license blocks in the u
 scripts under `.superpowers/`.
 
 - Split `provision/steps.py`, which holds four step classes in about 820 lines (Code C1).
+- Move the setup and doctor command bodies out of `provision/commands.py`, which also registers
+  every command.
+- Declare a module's fragment path once: `StackConfig.fragment` and `ModuleProvision.fragment`
+  now hold it twice.
+- Move the process helper `packages/base.run` below the package managers, so
+  `provision/git_client.py` can sit lower than layer 4.
+- Clone a Sushi library that only a fetched library pins.
 - Dispatch on platform and package manager through the existing contracts where the code now
   switches on a name (Code C2).
 - Remove the consumers' names and commands from the shared code (Code C3, Cli C18).

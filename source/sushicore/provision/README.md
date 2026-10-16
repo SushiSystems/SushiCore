@@ -57,13 +57,14 @@ module = ModuleProvision(
 register_provision_commands(app, module)
 ```
 
-`ModuleProvision` takes six optional fields beside the four above:
+`ModuleProvision` takes seven optional fields beside the four above:
 
 | Field | Meaning |
 | --- | --- |
 | `extra_checks` | Returns the module's own doctor checks. |
 | `fragment` | The fragment's path below the project root; `cli/sushistack.deps.toml` by default. |
-| `locate` | Finds the checkout of a module `depends_on` names. A `StackConfig` module passes `locate_sibling`. |
+| `locate` | Finds the checkout of a module `depends_on` names. A `StackConfig` module passes `locate_sibling`. A module it does not find is looked up in `sushi_sources.resolve`. |
+| `git` | Builds the git client that fetches pinned Sushi libraries; `GitClient` by default. |
 | `uses_base` | Adds the shared base fragment (gtest, opencl, pkgconf) before the module's own. |
 | `panel` | The help panel the commands are listed under. |
 | `is_binary` | Reports a binary install, which gets `doctor` alone. |

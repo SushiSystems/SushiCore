@@ -148,3 +148,8 @@ def test_found_vcpkg_dir_prefers_an_existing_legacy_tree(provision_home, tmp_pat
 def test_found_vcpkg_dir_defaults_to_the_current_root(provision_home):
     """Check that found vcpkg dir defaults to the current root."""
     assert home.found_vcpkg_dir() == home.vcpkg_dir()
+
+
+def test_sources_dir_is_under_the_root(provision_home):
+    """Check that the fetched Sushi sources sit in <root>/sources."""
+    assert home.sources_dir() == home.root() / "sources"
