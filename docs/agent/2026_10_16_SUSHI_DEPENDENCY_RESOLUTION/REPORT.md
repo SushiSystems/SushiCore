@@ -57,10 +57,10 @@ Every behaviour has a test in the file that mirrors its module under `tests/prov
   `setup` no longer depends on the doctor-row module; one fragment reader
   (`deps_fragment.read_present`, `pins_at`) serves `commands`, `sushi_setup` and `StackConfig`;
   `PinConflict` no longer names a consumer command.
+- Unneeded dependencies made: none.
 
 ## Release review
 
 A reviewer read the manual against the code for v0.9.1 and found 17 false or stale sentences,
 six humanizer breaks, a changelog line missing the new public names, and three SOLID breaches.
 All were fixed in a third round; the orchestrator re-checked the changed lines.
-- Unneeded dependencies made: none.
