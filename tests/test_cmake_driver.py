@@ -256,10 +256,11 @@ def test_ctest_run_appends_parallel_and_config_in_order(tmp_path):
         "--repeat", "until-fail:2", "--parallel", "4", "-C", "Debug"]
 
 
-def test_ctest_run_skips_parallel_for_a_single_job(tmp_path):
+def test_ctest_run_passes_parallel_for_a_single_job(tmp_path):
     driver, runner = _driver()
     driver.ctest_run(_cfg(), tmp_path, None, jobs=1)
-    assert "--parallel" not in runner.calls[-1][1]
+    command = runner.calls[-1][1]
+    assert command[command.index("--parallel") + 1] == "1"
 
 
 def _configured_tree(tmp_path, compiler):
