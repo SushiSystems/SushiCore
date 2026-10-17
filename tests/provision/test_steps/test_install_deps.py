@@ -243,3 +243,31 @@ def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine(
     provision_adapters_for_run(ctx)
 
     assert calls == [tmp_path]
+
+
+class _WingetWithoutBuildTools(_FakeAptManager):
+    """A winget that reports the Build Tools missing and records an install."""
+
+    name = "winget"
+
+    def __init__(self) -> None:
+        """Start with no install recorded."""
+        self.installs = []
+
+    def is_installed(self, pkg: str) -> bool:
+        """Report every package as missing."""
+        return False
+
+
+def test_vs_build_tools_are_not_installed_when_a_visual_studio_has_the_cpp_tools(
+        monkeypatch, tmp_path):
+    """Check that an edition other than Build Tools with vcvars64.bat skips the winget install."""
+    monkeypatch.setattr(steps_mod.probe, "find_vcvars", lambda: tmp_path / "vcvars64.bat")
+    ran = []
+    monkeypatch.setattr(steps_mod.subprocess, "run", lambda *a, **k: ran.append(a))
+
+    step = InstallDepsStep(MemorySource(), managers=[])
+    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
+
+    assert step._install_vs_build_tools(ctx, _WingetWithoutBuildTools()) is True
+    assert ran == []

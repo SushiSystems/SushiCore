@@ -607,7 +607,13 @@ class InstallDepsStep(Step):
 
     def _install_vs_build_tools(self, ctx: InstallContext,
                                 winget: IPackageManager | None) -> bool:
-        """Install the Visual Studio 2022 Build Tools (C++ workload) through winget."""
+        """Install the Visual Studio 2022 Build Tools (C++ workload) through winget.
+
+        Any Visual Studio edition whose C++ tools vcvars64.bat is found already supplies the
+        host compiler, so nothing is installed then.
+        """
+        if probe.find_vcvars() is not None:
+            return True
         if not (winget and winget.available()):
             return True
         if winget.is_installed("Microsoft.VisualStudio.2022.BuildTools"):
