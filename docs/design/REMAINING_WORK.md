@@ -1,6 +1,6 @@
 # Remaining work
 
-Next id: RW-50
+Next id: RW-55
 
 ## Decisions waiting for the owner
 
@@ -117,12 +117,32 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 - State: open
 - Done when: `setup` fetches a Sushi library pinned by a fetched library and by no fragment here
 
+### RW-51 Read `use_vcpkg`
+- State: open
+- Done when: `stack_config.resolved_vcpkg` honours the `use_vcpkg` key the hub's defaults set per
+  platform; the change reaches every command line that links this package
+
+### RW-53 Drop the doubled progress line
+- State: open
+- Done when: `InstallPipeline.run` reports each step once to a human; the JSON event stays and the
+  Rich bar goes
+
+### RW-54 Provision every GPU vendor on a machine
+- State: open
+- Done when: `detect_gpu_vendor` returns every vendor present and the registry provisions a
+  backend for each; a machine with an NVIDIA card and an AMD iGPU provisions only CUDA today
+
 ## Continuous integration
 
 ### RW-19 Add `.gitattributes` and `.editorconfig`, and finish `.gitignore`
 - State: open
 - Done when: the root holds both files and `.gitignore` names `.pytest_cache/` and
   `.superpowers/` (Lay L16, Lay L17)
+
+### RW-50 Guard the consumer contract before a tag
+- State: open
+- Done when: CI runs the consumer command lines' suites against the package under test, with a
+  token that reads the private ones, before a release is tagged
 
 ## Command line
 
@@ -147,6 +167,11 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 ### RW-43 Say "removed" only when the build tree is gone
 - State: open
 - Done when: `CMakeDriver.clean_tree` checks the tree after removing it and reports a failure
+
+### RW-52 Take a theme from a file as well as a directory
+- State: open
+- Done when: `LazyConsole` reads a `[cli]` theme from a file it is given, such as a workspace's
+  `workspace.toml`
 
 ## Downloads
 
