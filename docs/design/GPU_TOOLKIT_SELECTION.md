@@ -1,7 +1,6 @@
 # GPU toolkit selection: the hardware picks the release
 
-**Status:** Built on 2026-10-14. CUDA ran end to end on an RTX 4050; ROCm has run only against
-AMD's real listing, not on an AMD card. What is left is in [Remaining work](REMAINING_WORK.md).
+**Status:** Open — built and released in 0.9.0; the real builds of RW-12 to RW-14 are left.
 
 ## The problem
 

@@ -26,6 +26,7 @@ from settings import (  # noqa: E402
     K_INTERNAL_MARK,
     K_MODULE_FUNCTION,
     K_PRIVATE_DEPENDS,
+    K_PRIVATE_DEPENDS_ALSO,
     K_PUBLIC_DEPENDS,
     K_SAME_TIER_EDGES,
     K_TIER_ORDER,
@@ -57,6 +58,7 @@ class Layout:
     public_depends: str = "DEPENDS"
     private_depends: str = "PRIVATE_DEPENDS"
     internal_mark: str = "INTERNAL"
+    private_depends_also: tuple[str, ...] = ()
 
     def rank(self, tier: str) -> int | None:
         """Returns a tier's rank, lowest first and equal for every domain, or None when undeclared."""
@@ -69,7 +71,7 @@ class Layout:
 
 K_LAYOUT = Layout(
     K_TIER_ORDER, K_DOMAIN_TIERS, K_SAME_TIER_EDGES, K_MODULE_FUNCTION,
-    K_PUBLIC_DEPENDS, K_PRIVATE_DEPENDS, K_INTERNAL_MARK,
+    K_PUBLIC_DEPENDS, K_PRIVATE_DEPENDS, K_INTERNAL_MARK, K_PRIVATE_DEPENDS_ALSO,
 )
 
 
@@ -144,7 +146,20 @@ class ModuleTree:
         for candidate in (path, *path.parents):
             if owner := self.owners.get(candidate.as_posix()):
                 return owner
-        return None
+        return self.generated_owners.get(path.parts[1]) if len(path.parts) > 2 else None
+
+    @cached_property
+    def generated_owners(self) -> dict[str, Module]:
+        """Returns each module with no include/ folder by name, when no other module shares the name.
+
+        Such a module ships only headers its build generates, so an include of
+        <Project/module/...> names it although no file below modules/ matches.
+        """
+        counts: dict[str, int] = {}
+        for module in self.modules.values():
+            counts[module.name] = counts.get(module.name, 0) + 1
+        return {module.name: module for module in self.modules.values()
+                if counts[module.name] == 1 and not (module.folder / K_PUBLIC_FOLDER).is_dir()}
 
     def module_includes(self, module: Module, folder: Path) -> Iterator[tuple[Include, Module]]:
         """Yields each include below a folder that names another module, with that module."""
@@ -190,12 +205,15 @@ class ModuleTree:
         return named[0].key if len(named) == 1 else token
 
     def declared(self, module: Module) -> dict[str, frozenset[str]]:
-        """Returns the module keys a build file lists, by public and private keyword."""
+        """Returns the module keys a build file lists, by public and private keyword.
+
+        A keyword in `private_depends_also` lists into the private keyword's set.
+        """
         listed: dict[str, set[str]] = {self.layout.public_depends: set(), self.layout.private_depends: set()}
         keyword = ""
         for token in self.call_tokens(module):
             if K_CMAKE_KEYWORD.fullmatch(token):
-                keyword = token
+                keyword = self.layout.private_depends if token in self.layout.private_depends_also else token
             elif keyword in listed:
                 listed[keyword].add(self.key_of(module, token))
         return {keyword: frozenset(names) for keyword, names in listed.items()}

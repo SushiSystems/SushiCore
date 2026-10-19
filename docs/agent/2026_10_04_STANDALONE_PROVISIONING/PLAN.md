@@ -1,7 +1,6 @@
 # Standalone provisioning Implementation Plan
 
-**Status:** Waves 1 to 3 landed on 2026-10-04. Wave 4, Task 17, is open: the owner's real runs
-and the 0.7.0 release. No checkbox below was ticked as its task landed.
+**Status:** Open — wave 4, task 17.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

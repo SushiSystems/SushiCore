@@ -1,5 +1,7 @@
 # Hub root migration (sub-project 2, phase B) Implementation Plan
 
+**Status:** Open — tasks 5 and 6, the owner's real run.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move hub's dependency tree from `D:\Projects\sushistack\dependencies` to `C:\Users\sushi\.sushisystems`, leave a junction at the old path so every existing absolute path keeps resolving, and make `hub migrate --rollback` undo it instantly.

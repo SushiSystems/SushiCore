@@ -1,5 +1,7 @@
 # Sushi dependency resolution
 
+**Status:** Shipped — 2026-10-17. Released in 0.9.1.
+
 Task 6a of SushiSkills `docs/agent/2026_10_16_SUSHILOG_REPOSITORY/PLAN.md`: a Sushi library a
 repository links resolves without a SushiStack workspace. The contract is SushiSkills
 `skills/dependencies/SKILL.md`, section "A Sushi library as a dependency".

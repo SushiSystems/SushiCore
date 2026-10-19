@@ -1,5 +1,7 @@
 # Documentation Bundle Implementation Plan
 
+**Status:** Shipped — 2026-10-13. Released in 0.8.1.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `sr docs bundle --release X.Y.Z` writes the archive the documentation site compiles

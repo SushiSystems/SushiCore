@@ -1,6 +1,6 @@
 # CLI unification
 
-**Status:** Shipped — seven CLIs adopted the surfaces on 2026-10-05; see `REPORT.md`.
+**Status:** Shipped — 2026-10-05. Seven CLIs adopted the surfaces; see `REPORT.md`.
 
 Programme 3 of 5 in the estate refactor. Seven command line tools (`hub`, `sr`, `se`, `sa`,
 `sb`, `sd`, `st`) grew the same commands separately and drifted. This programme makes the
