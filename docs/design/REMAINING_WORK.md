@@ -17,6 +17,10 @@ It moved from `docs/CLAUDE.md` unchanged and still tells the reader to build wit
 - State: decision
 - Done when: the layout rule names an exception for a Python library, or `pyproject.toml`, the
   package and `tests/` follow the rule (Lay L13, Lay L18)
+- Where: `pyproject.toml`
+
+`pyproject.toml` sits in the repository root. The layout rule forbids the file in the root. Cause:
+the package was laid out as a Python library before the layout rule.
 
 ### RW-3 Keep Python 3.10 or raise the floor to 3.11
 - State: decision
@@ -138,6 +142,11 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 - State: open
 - Done when: the root holds both files and `.gitignore` names `.pytest_cache/` and
   `.superpowers/` (Lay L16, Lay L17)
+- Where: `.gitignore`
+
+The root has no `.gitattributes` or `.editorconfig`, and `.gitignore` has gaps. `.pytest_cache/` and
+`.superpowers/` are ignored only by files their tools write inside them. Cause: the root was never
+brought to the layout rule.
 
 ### RW-50 Guard the consumer contract before a tag
 - State: open
@@ -163,6 +172,10 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 - State: open
 - Done when: `config` names `config.local.toml` or the linked workspace when a value came from
   there (Cli C20)
+- Where: `source/sushicore/diag.py`
+
+`config` names `config.toml` for a value from elsewhere. A value set in `config.local.toml` or the
+linked workspace shows `config.toml`. Cause: `_source_of` knows only `config.toml` and the default.
 
 ### RW-43 Say "removed" only when the build tree is gone
 - State: open
@@ -179,11 +192,24 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 - State: open
 - Done when: every download in `base.deps.toml` and the fragments, `git` and `doxygen` among
   them, has a version key and a `sha256` (Code C6)
+- Where: `source/sushicore/provision/manifests/base.deps.toml`,
+  `source/sushicore/provision/packages/direct_download.py`,
+  `source/sushicore/provision/toolchains/intel_llvm.py`
+
+Downloads run unverified and take the newest release. Setup warns that a download is unverified.
+Cause: no fragment entry pins a `sha256`, `git` and `doxygen` are declared nowhere, and `cmake`,
+`ninja`, `doxygen`, `git` and `intel-llvm` are fetched as the newest release.
 
 ### RW-45 Verify shell pipelines and clones
 - State: open
 - Done when: the oneAPI apt key and the vcpkg, AdaptiveCpp and Unified Runtime clones are
   checked against a pinned key or commit (Code C6)
+- Where: `source/sushicore/provision/system.py`, `source/sushicore/provision/gpu/adapter_builder.py`,
+  `source/sushicore/provision/packages/vcpkg.py`, `source/sushicore/provision/toolchains/adaptivecpp.py`
+
+Shell pipelines and clones are not verified. The code fetches with no digest or commit to compare.
+Cause: the oneAPI apt key is piped from `curl` to `gpg`, and the vcpkg, AdaptiveCpp and Unified
+Runtime clones are taken at a branch.
 
 ### RW-47 Record the failure `probe.py` swallows
 - State: open
@@ -237,6 +263,10 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 - State: open
 - Done when: `Console.console`, `diag.py`, `discovery.py` and the call sites in `provision` reach
   Rich only through `Renderer` (Code C10, Cli C6)
+- Where: `source/sushicore/diag.py`, `source/sushicore/discovery.py`
+
+`config`, `env` and the executable picker emit no `table` or `prompt` event. Machine mode prints a
+drawn table or waits on a prompt. Cause: they build Rich tables and prompts directly.
 
 ### RW-30 Replace the global console and carry the level through `Renderer.line`
 - State: open
@@ -272,10 +302,18 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 ### RW-48 Break the import cycle of `workspace` and `config_base`
 - State: open
 - Done when: neither module imports the other, inside a function or not (Code C4)
+- Where: `source/sushicore/workspace.py`, `source/sushicore/config_base.py`
+
+`workspace` and `config_base` import each other. Lines 153 and 170 of `workspace.py`. Cause:
+`workspace` imports `config_base` inside two functions to hide the cycle.
 
 ### RW-49 Remove `_first_available`
 - State: open
 - Done when: `source/sushicore/provision/steps.py` lacks it (Code C24)
+- Where: `source/sushicore/provision/steps.py`
+
+`_first_available` has no caller. No reference to it outside its definition. Cause: its last caller
+went.
 
 ## Documentation
 

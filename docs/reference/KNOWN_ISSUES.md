@@ -47,14 +47,6 @@ Next id: KI-26
 - Workaround: read the exit code
 - Fix: RW-37
 
-### KI-6 `config`, `env` and the executable picker emit no `table` or `prompt` event
-- Origin: own
-- Where: `source/sushicore/diag.py`, `source/sushicore/discovery.py`
-- Cause: they build Rich tables and prompts directly
-- Recognise: machine mode prints a drawn table or waits on a prompt
-- Workaround: none
-- Fix: RW-29
-
 ## Commands
 
 ### KI-7 A command run outside a checkout prints plain text and no console line
@@ -92,14 +84,6 @@ Next id: KI-26
 - Workaround: keep the command line in `cli/`
 - Fix: RW-25
 
-### KI-11 `config` names `config.toml` for a value from elsewhere
-- Origin: own
-- Where: `source/sushicore/diag.py`
-- Cause: `_source_of` knows only `config.toml` and the default
-- Recognise: a value set in `config.local.toml` or the linked workspace shows `config.toml`
-- Workaround: none
-- Fix: RW-42
-
 ### KI-12 `clean` says "removed" when the build tree is still there
 - Origin: own
 - Where: `source/sushicore/cmake_driver.py`
@@ -118,27 +102,6 @@ Next id: KI-26
 - Fix: RW-5
 
 ## Downloads
-
-### KI-14 Downloads run unverified and take the newest release
-- Origin: own
-- Where: `source/sushicore/provision/manifests/base.deps.toml`,
-  `source/sushicore/provision/packages/direct_download.py`,
-  `source/sushicore/provision/toolchains/intel_llvm.py`
-- Cause: no fragment entry pins a `sha256`, `git` and `doxygen` are declared nowhere, and
-  `cmake`, `ninja`, `doxygen`, `git` and `intel-llvm` are fetched as the newest release
-- Recognise: setup warns that a download is unverified
-- Workaround: none
-- Fix: RW-44
-
-### KI-15 Shell pipelines and clones are not verified
-- Origin: own
-- Where: `source/sushicore/provision/system.py`, `source/sushicore/provision/gpu/adapter_builder.py`,
-  `source/sushicore/provision/packages/vcpkg.py`, `source/sushicore/provision/toolchains/adaptivecpp.py`
-- Cause: the oneAPI apt key is piped from `curl` to `gpg`, and the vcpkg, AdaptiveCpp and Unified
-  Runtime clones are taken at a branch
-- Recognise: the code fetches with no digest or commit to compare
-- Workaround: none
-- Fix: RW-45
 
 ### KI-16 Setup accepts third-party licences on the user's behalf
 - Origin: own
@@ -165,24 +128,6 @@ Next id: KI-26
 - Recognise: doctor reports a tool missing without saying why
 - Workaround: run the tool by hand
 - Fix: RW-47
-
-## Source
-
-### KI-19 `workspace` and `config_base` import each other
-- Origin: own
-- Where: `source/sushicore/workspace.py`, `source/sushicore/config_base.py`
-- Cause: `workspace` imports `config_base` inside two functions to hide the cycle
-- Recognise: lines 153 and 170 of `workspace.py`
-- Workaround: none
-- Fix: RW-48
-
-### KI-20 `_first_available` has no caller
-- Origin: own
-- Where: `source/sushicore/provision/steps.py`
-- Cause: its last caller went
-- Recognise: no reference to it outside its definition
-- Workaround: none
-- Fix: RW-49
 
 ## Documentation and layout
 
@@ -215,20 +160,3 @@ Next id: KI-26
   tags
 - Workaround: read a path from `docs/` on; read the tag's date for a release
 - Fix: none, the archive is frozen
-
-### KI-24 `pyproject.toml` sits in the repository root
-- Origin: own
-- Where: `pyproject.toml`
-- Cause: the package was laid out as a Python library before the layout rule
-- Recognise: the layout rule forbids the file in the root
-- Workaround: none
-- Fix: RW-2
-
-### KI-25 The root has no `.gitattributes` or `.editorconfig`, and `.gitignore` has gaps
-- Origin: own
-- Where: `.gitignore`
-- Cause: the root was never brought to the layout rule
-- Recognise: `.pytest_cache/` and `.superpowers/` are ignored only by files their tools write
-  inside them
-- Workaround: none
-- Fix: RW-19
