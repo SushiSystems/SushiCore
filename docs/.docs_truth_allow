@@ -6,5 +6,4 @@ src/styles/global\.css  # the stylesheet of sushiweb, whose palette the default 
 docs/design/HUB\.md  # SushiStack's design document
 api/xml/index\.xml|pages/guides/.*  # paths inside a documentation bundle
 docs/guides/BUILDING\.md  # an example page of the repository being bundled
-docs/agent/plans/2026-09-25-hub-root-migration\.md  # an untracked plan, the issue the row records
 chore  # a commit type from the commits skill, not a name in the source

@@ -1,15 +1,19 @@
 # Provision: one dependency root, one setup command, one doctor
 
-**Status:** Open — phase A shipped in 0.5.0 to 0.7.0; phase B's engine and `hub migrate` exist since 0.8.0, and the owner's real move, steps 5 and 6, has not run.
+**Status:** Open — phase A shipped; phase B's engine exists, the owner's real move (steps 5 and 6) has not run
+
+## Problem
 
 Every Sushi Systems repository must build after one command on any machine. In SushiStack,
-`hub install` does that. SushiTrack and SushiDSP are deliberately not tied to hub, so today they
-have no such command: `st` has a hand-written `doctor` and no installer, `sd` has a `setup` that
-reads its fragment but installs nothing into a shared place. This spec moves the machinery hub
-already has into sushicore, gives it one dependency root per machine, and lets every module CLI
-expose the same `setup`, `doctor`, `link` and `unlink` commands without depending on hub.
+`hub install` does that. SushiTrack and SushiDSP are deliberately not tied to hub, so they have
+no such command: `st` has a hand-written `doctor` and no installer, `sd` has a `setup` that
+reads its fragment but installs nothing into a shared place.
 
-## Decisions already taken
+## Decision
+
+The machinery hub already has moves into sushicore, gets one dependency root per machine, and lets
+every module CLI expose the same `setup`, `doctor`, `link` and `unlink` commands without
+depending on hub.
 
 | Question | Decision |
 | --- | --- |
@@ -21,7 +25,9 @@ expose the same `setup`, `doctor`, `link` and `unlink` commands without dependin
 | Breaking hub | Only in phase B, announced to the owner first, after SushiEngine work is paused. |
 | Local breakage | None allowed. Old absolute paths keep resolving through a junction until nothing uses them. |
 
-## Sub-projects
+## Design
+
+### Sub-projects
 
 This spec covers sub-project 1 in full and fixes the boundaries sub-projects 2 and 3 build on.
 Each gets its own plan.
@@ -39,7 +45,7 @@ Out of scope, recorded in `docs/design/REMAINING_WORK.md`: the build, test, pack
 scaffold that `sushiai/cli/.../services/project.py` and `sushiblas/cli/.../services/project.py`
 each carry.
 
-## Package layout
+### Package layout
 
 Lower layers never import higher ones. Each file has one job.
 
@@ -74,7 +80,7 @@ Stays in hub: the module catalog, `hub add`/`sync`/`update`, workspace-wide frag
 (hub builds the source list and hands it to `fragments.py`), the per-module readiness report,
 `VerifyStep`, releases, Sushi Account, and hub's composition root in `setup/factory.py`.
 
-## The dependency root
+### The dependency root
 
 ```
 ~/.sushisystems/
@@ -99,7 +105,7 @@ Stays in hub: the module catalog, `hub add`/`sync`/`update`, workspace-wide frag
 6. Each toolchain keeps its `.sushi_toolchain.json` stamp. If the registry is lost, the stamps
    rebuild it. `doctor` reports any disagreement between the two.
 
-## Doctor
+### Doctor
 
 A `Check` has a name, a group, a `required` flag and `run(ctx) -> CheckResult`. A
 `CheckResult` holds a state (`ok`, `warn`, `fail`, `skip`), a detail line and `fix`, the one
@@ -114,7 +120,7 @@ reported when found), git, fragment status and toolchain stamps. A module regist
 SushiTrack adds the `yolox` submodule, `torch`, `torchvision`, `opencv-python` and
 `pycocotools` to `infer`, and TrackEval, `numpy` and `scipy` to `eval`.
 
-## Module commands
+### Module commands
 
 `register_provision_commands(app, profile, extra_checks)` adds four commands, so every module
 CLI has the same ones.
@@ -129,9 +135,9 @@ CLI has the same ones.
 `hub doctor` and `hub install` run the same `Doctor` and pipeline over the workspace-wide
 source list.
 
-## Migration
+### Migration
 
-### Phase A: nothing breaks
+#### Phase A: nothing breaks
 
 Covers sub-projects 1 and 3.
 
@@ -143,7 +149,7 @@ Covers sub-projects 1 and 3.
 - `st` and `sd` gain their four commands. `sr`, `se`, `sa` and `sb` gain `doctor` only; their
   build paths do not change.
 
-### Phase B: hub's tree moves
+#### Phase B: hub's tree moves
 
 The owner is told before this starts and pauses SushiEngine work first.
 
@@ -159,7 +165,7 @@ The owner is told before this starts and pauses SushiEngine work first.
 6. Later and separately: configs are rewritten to the new paths and build trees reconfigured.
    The junction goes only when no file names the old path, with the owner's approval.
 
-What exists since 0.8.0, decided by the owner on 2026-10-07:
+The engine as built:
 
 - The target is any directory: `hub migrate --to PATH`, and `~/.sushisystems` without `--to`.
 - `provision/links.py` makes the link, `provision/migrate.py` holds steps 2 to 4 with
@@ -171,9 +177,7 @@ What exists since 0.8.0, decided by the owner on 2026-10-07:
   The build caches and each module's `config.local.toml` are not rewritten.
 - The module's behaviour is in `sushicore/provision/README.md`, "Moving the dependency root".
 
-Not done: steps 1 and 5 on the owner's machine, and the rest of step 6.
-
-## Testing
+### Testing
 
 `provision` has unit tests with fake package managers and a temporary `SUSHISYSTEMS_HOME`: the
 resolver reuses an installed version, installs a missing one, and keeps two versions apart;
@@ -181,7 +185,15 @@ resolver reuses an installed version, installs a missing one, and keeps two vers
 Migration runs against real temporary directory trees, junction included, with a rollback test
 that interrupts the move halfway.
 
-## Open items for the owner
+## Phases
 
+| Id | Phase | State |
+| --- | --- | --- |
+| A | `sushicore.provision` ships, hub re-exports it at its old paths, `st` and `sd` gain the four commands, `sr`, `se`, `sa` and `sb` gain `doctor` | built |
+| B | Hub's tree moves to the dependency root: `hub migrate` with `plan`, `migrate`, `rollback` and `finalize`; the owner's real move is pending | building |
+
+## Open questions
+
+- Steps 1 and 5 of phase B on the owner's machine, and the rest of step 6, have not run.
 - `sushiruntime/cli/build/lib/` holds a stale copy of an old `setup/` package. It is not ours to
   delete without approval.

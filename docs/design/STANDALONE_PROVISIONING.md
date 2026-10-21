@@ -1,37 +1,15 @@
 # Standalone provisioning: every module sets itself up, hub is optional
 
-**Status:** Open — wave 4 of 4: the owner runs each module's real `setup` and build, then tags
-and publishes sushicore 0.7.0. Plan: `docs/agent/2026_10_04_STANDALONE_PROVISIONING/PLAN.md`.
+**Status:** Open — wave 4 of 4: the owner runs each module's real `setup` and build
+
+## Problem
 
 A person who clones one open-source Sushi module must be able to build it after one command,
-without installing hub. Today that holds for `sd` and `st`. `sr`, `sb` and `sa` have no `setup`
-and no `doctor`, `se` has a hand-written `doctor`, and all four lean on `hub install`. This spec
-gives every module CLI the same four commands from `sushicore.provision`, moves what hub still
-owns alone into sushicore, and leaves hub as the place that runs the same machinery over a whole
-workspace.
+without installing hub. That holds for `sd` and `st`. `sr`, `sb` and `sa` have no `setup` and no
+`doctor`, `se` has a hand-written `doctor`, and all four lean on `hub install`.
 
-It builds on `docs/design/PROVISION.md` and replaces one line of it: "`sr`, `se`, `sa` and
-`sb` gain `doctor` only". Phase B of that spec, the move of hub's tree to `~/.sushisystems`,
-runs after this work (`docs/agent/plans/2026-09-25-hub-root-migration.md`, untracked).
+The gaps this design closes:
 
-## Decisions taken, 2026-10-04
-
-| Question | Decision |
-| --- | --- |
-| Is hub required | No. Every module CLI provisions itself. Hub, when installed, drives the same code for every module at once. |
-| What sushiengine is | The one exception. Users receive a binary through hub and a licence. The owner works from a source checkout, where `se` behaves like `sr`. |
-| A module `depends_on` another | `setup` reads the fragment of every module in the chain whose checkout it can find and installs their third-party dependencies. When a pinned Sushi library has no checkout, it clones the pinned tag. When an unpinned one is missing it stops and names where to put it. |
-| What a bare `setup` installs | Enough to build. A `provides` group that something on the machine already satisfies installs nothing; otherwise its first declared member installs. More comes on request. Hub's `install` follows the same rule. |
-| `se` in a binary install | `doctor` only. `setup`, `link` and `unlink` need a source tree and are absent. The fix it names is `hub install`. |
-| Where shared code lives | sushicore. A module CLI keeps only what is its own: its identity, its checks, where its siblings are. |
-
-## What is wrong today
-
-Measured on 2026-10-04.
-
-- PyPI carries `sushicore` 0.4.0. The working tree is at 0.6.0, and 0.5.0 and 0.6.0 were never
-  tagged. `sd` and `st` require `>=0.6.0` and hub `>=0.5.0`, so none of the three installs from
-  a public clone.
 - `provision/commands.py` hands `setup` an empty `ToolchainSelection`. The rule that derives a
   selection from the fragments is in hub (`cli/sushihub/setup/selection.py`), with its component
   table in hub's `config.py`. A module `setup` therefore installs no SYCL toolchain.
@@ -44,11 +22,32 @@ Measured on 2026-10-04.
   `~/.sushisystems`.
 - `sd` and `st` each repeat a loop that moves the four registered commands into a help panel.
 
-## Bricks in sushicore
+## Decision
+
+Every module CLI gets the same four commands from `sushicore.provision`, what hub still owns
+alone moves into sushicore, and hub stays the place that runs the same machinery over a whole
+workspace.
+
+It builds on `docs/design/PROVISION.md` and replaces one line of it: "`sr`, `se`, `sa` and
+`sb` gain `doctor` only". Phase B of that design, the move of hub's tree to `~/.sushisystems`,
+runs after this work (`docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`).
+
+| Question | Decision |
+| --- | --- |
+| Is hub required | No. Every module CLI provisions itself. Hub, when installed, drives the same code for every module at once. |
+| What sushiengine is | The one exception. Users receive a binary through hub and a licence. The owner works from a source checkout, where `se` behaves like `sr`. |
+| A module `depends_on` another | `setup` reads the fragment of every module in the chain whose checkout it can find and installs their third-party dependencies. When a pinned Sushi library has no checkout, it clones the pinned tag. When an unpinned one is missing it stops and names where to put it. |
+| What a bare `setup` installs | Enough to build. A `provides` group that something on the machine already satisfies installs nothing; otherwise its first declared member installs. More comes on request. Hub's `install` follows the same rule. |
+| `se` in a binary install | `doctor` only. `setup`, `link` and `unlink` need a source tree and are absent. The fix it names is `hub install`. |
+| Where shared code lives | sushicore. A module CLI keeps only what is its own: its identity, its checks, where its siblings are. |
+
+## Design
+
+### Bricks in sushicore
 
 Each is one file with one job. Lower layers do not import higher ones.
 
-### `provision/selection.py`
+#### `provision/selection.py`
 
 Owns which toolchain components a run installs. It holds the component table (key, label,
 `ToolchainSelection` field) that hub's `config.py` holds today, and one function:
@@ -68,7 +67,7 @@ installs a GPU toolkit.
 `present` is a plain mapping, so the rule is a pure function. The caller fills it from
 `probe.toolchain_status`, the probe `DetectStep` already uses.
 
-### `provision/closure.py`
+#### `provision/closure.py`
 
 Owns the fragment list for one module.
 
@@ -91,7 +90,7 @@ for each module's checkout. `shared` fragments come first in `sources`. A cycle 
 `setup` fetched for a pinned library. Hub passes
 its workspace lookup. The brick knows neither.
 
-### `provision/manifests/base.deps.toml`
+#### `provision/manifests/base.deps.toml`
 
 The shared fragment moves here from hub's package, unchanged, with a reader function beside it
 that returns its path. Hub's `dependency_source` reads it from sushicore. `gui.deps.toml` is
@@ -103,7 +102,7 @@ is why `sd` and `st` work without this file. What it adds is gtest, opencl and p
 the SYCL modules need and `sd` and `st` do not. A module therefore asks for it:
 `ModuleProvision.uses_base`.
 
-### `provision/commands.py`
+#### `provision/commands.py`
 
 `ModuleProvision` gains four fields.
 
@@ -121,34 +120,34 @@ closure.
 
 `_warn_unread_depends_on` is deleted.
 
-### `provision/checks.py`
+#### `provision/checks.py`
 
 Two stock checks join `standard_checks`' siblings:
 
 - `module_check(name, locate, fix)`: the checkout of a `depends_on` module exists.
 - `capability_check(source, cfg, fix)`: every `provides` group has a present member.
 
-### `stack_config.py`
+#### `stack_config.py`
 
 `StackConfig` derives from `ProvisionSettings` and resolves the bundled compiler and the vcpkg
 tree across `dependency_roots(root)`: the workspace's tree when the module sits in one, then
 `provision.home.search_roots()`. It gains `locate_sibling(root, name)`. The overrides of
 `standalone_deps_dir` go; the method itself stays one release, deprecated.
 
-### `provision/probe.py`
+#### `provision/probe.py`
 
 The probe finds toolchains and vcpkg across `home.search_roots()`. Today it looks under
 `home.root()` alone, so on a machine whose tree still sits in `<workspace>/dependencies` a
 module `setup` would see nothing and download everything again. `docs/design/PROVISION.md` promised
 this read and the code never did it.
 
-### `profile.py`
+#### `profile.py`
 
 `ModuleProfile.key` is the lower-cased name. It is the fragment owner, the registry consumer and
 the name in a workspace's `[modules]`. Today `commands.py` uses the display name, so `sd link`
 writes `SushiDSP` where `hub link` writes `sushidsp`.
 
-## Module adoption
+### Module adoption
 
 All six CLIs end with the same registration call and no setup code of their own.
 
@@ -162,7 +161,7 @@ All six CLIs end with the same registration call and no setup code of their own.
 
 Each module's README and changelog change in the same commit as its CLI.
 
-## Hub
+### Hub
 
 `cli/sushihub/setup/selection.py` and the component table in `config.py` are deleted;
 `factory.build_pipeline` calls `selection.derive`. `hub install` therefore installs one SYCL
@@ -173,18 +172,7 @@ In the SushiStack repository, `README.md`, `docs/getting_started/INSTALL.md` and
 `docs/design/WORKSPACE_DECOUPLING.md` say that hub is optional and what it adds: one command over several checkouts, and the engine's
 binary.
 
-## Order
-
-1. sushicore 0.7.0: the bricks above, with tests. The owner tags and publishes; 0.5.0 and 0.6.0
-   are skipped.
-2. The six module CLIs. Their file sets are disjoint, so they run as one wave.
-3. Hub.
-4. The dependency-root migration, whose sushicore bump becomes 0.8.0.
-
-Until step 1 is published every CLI keeps running from its editable install on the owner's
-machine, as it does now.
-
-## Breaking changes
+### Breaking changes
 
 - `hub install` with no flags installs fewer toolchains. A machine that already has all three
   keeps them; nothing is removed.
@@ -195,7 +183,7 @@ machine, as it does now.
   deleted.
 - `sd link` and `st link` write the lower-cased module name. `unlink` removes either spelling.
 
-## Testing
+### Testing
 
 Every brick has unit tests with fake package managers and a temporary `SUSHISYSTEMS_HOME`.
 `selection.derive` is tested for a satisfied group, an unsatisfied one, a requested extra and
@@ -206,18 +194,39 @@ changes nothing, and a missing `depends_on` checkout exits 2.
 No task runs a build. The evidence for each module is its pytest run, `setup --dry-run` and
 `doctor`. The owner runs the real `setup` and the builds.
 
-## Out of scope
+### Out of scope
 
 - A module CLI cloning anything, or publishing to PyPI.
 - Installer scripts for the modules.
 - The dependency-root migration itself.
-- The 372 uncommitted files in sushiengine outside `cli/`.
-- sushicore's documentation skeleton, which was built on 2026-10-05 as its own task.
+- The uncommitted files in sushiengine outside `cli/`.
+- sushicore's documentation skeleton, which is its own task.
 
-## Verified while planning
+### Constraints found in the code
 
 - `InstallDepsStep` installs cmake, ninja and git for a module that passes no base fragment.
   The base fragment is therefore opt-in.
 - `se` has no binary command set yet. `ModuleProfile.presence(root)` tells a binary install from
   a checkout by `sushi-release.json`; `se`'s `is_binary` reads it, and returns `False` outside
   any project so `se --help` lists all four commands.
+
+## Phases
+
+The order: sushicore first, because every module and hub read the bricks; the six module CLIs
+next, as one wave, since their file sets are disjoint; hub last. Until the first is published
+every CLI keeps running from its editable install on the owner's machine. The plan is
+`docs/agent/2026_10_04_STANDALONE_PROVISIONING/PLAN.md`.
+
+| Id | Phase | State |
+| --- | --- | --- |
+| S1 | sushicore 0.7.0: the bricks above, with tests; the owner tags and publishes, 0.5.0 and 0.6.0 are skipped | built |
+| S2 | The six module CLIs | built |
+| S3 | Hub reads the selection rule from sushicore | built |
+| S4 | The owner runs each module's real `setup` and build (RW-8) | planned |
+
+The dependency-root migration that follows is phase B of `docs/design/PROVISION.md`; its sushicore
+bump becomes 0.8.0.
+
+## Open questions
+
+None.
