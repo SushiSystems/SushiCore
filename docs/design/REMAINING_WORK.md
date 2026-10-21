@@ -1,6 +1,6 @@
 # Remaining work
 
-Next id: RW-55
+Next id: RW-56
 
 ## Decisions waiting for the owner
 
@@ -326,3 +326,11 @@ went.
 - State: open
 - Done when: one page lists the commands, options and exit codes of every registered command,
   `config`, `env`, `--version` and `--describe` among them (Cli C11)
+
+## Documentation architecture
+
+### RW-55 Write the About line of each design topic by hand
+- State: open
+- Done when: each topic has an `**About:**` line of one sentence written for a cold reader
+
+The topic model generated the lines from the first sentence of each document or from its title.
