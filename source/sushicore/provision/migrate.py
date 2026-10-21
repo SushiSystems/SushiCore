@@ -6,7 +6,7 @@
 """Moves a dependency root to another directory behind a journal, with rollback and finalize.
 
 The old path becomes a directory link to the new root. The steps and their order are in
-``docs/design/PROVISION.md``, "Phase B: hub's tree moves".
+``docs/design/PROVISION/README.md``, "Phase B: hub's tree moves".
 """
 
 from __future__ import annotations

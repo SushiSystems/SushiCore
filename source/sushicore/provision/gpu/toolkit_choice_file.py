@@ -6,7 +6,7 @@
 """Reads and writes the recorded toolkit choice, so a later run with the same cards and driver
 reuses it without reading NVIDIA's index again.
 
-The file format is in docs/design/GPU_TOOLKIT_SELECTION.md, section "The choice file".
+The file format is in docs/design/GPU_TOOLKIT_SELECTION/README.md, section "The choice file".
 """
 
 from __future__ import annotations

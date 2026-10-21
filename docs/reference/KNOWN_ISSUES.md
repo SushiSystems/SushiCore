@@ -6,7 +6,7 @@ Next id: KI-26
 
 ### KI-1 Versions 0.5.0 and 0.6.0 were never tagged or published
 - Origin: own
-- Where: `pyproject.toml`, `docs/archive/changelog`
+- Where: `pyproject.toml`
 - Cause: the versions were raised without a release
 - Recognise: PyPI goes from 0.4.0 to 0.7.0, and no changelog section records 0.5.0 to 0.7.0
 - Workaround: pin 0.4.0 or 0.7.0
@@ -143,20 +143,10 @@ Next id: KI-26
 ### KI-22 The open plans cite old paths and absolute paths
 - Origin: own
 - Where: `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`,
-  `docs/agent/2026_10_04_STANDALONE_PROVISIONING/PLAN.md`, `docs/design/STANDALONE_PROVISIONING.md`
+  `docs/agent/2026_10_04_STANDALONE_PROVISIONING/PLAN.md`, `docs/design/STANDALONE_PROVISIONING/README.md`
 - Cause: the hub root migration plan moved into the tree after it was cited, the provisioning
   design moved on 2026-10-05, and the standalone plan was written with paths on one machine
 - Recognise: citations of the old `plans` and `specs` folders under `docs/agent/`, 43 paths
   starting `D:/`, and 45 unticked boxes in the standalone plan
 - Workaround: find the document by name under `docs/`
 - Fix: RW-38
-
-### KI-23 The archive carries absolute paths and dates a day late
-- Origin: own
-- Where: `docs/archive/agent`, `docs/archive/changelog`
-- Cause: 25 archived plans and reports were written with paths on one machine, and the entries
-  of v0.1.0 to v0.3.0 were dated when the changelog was written
-- Recognise: paths starting `D:/`; v0.1.0 to v0.3.0 entries dated 2026-09-22, a day after the
-  tags
-- Workaround: read a path from `docs/` on; read the tag's date for a release
-- Fix: none, the archive is frozen

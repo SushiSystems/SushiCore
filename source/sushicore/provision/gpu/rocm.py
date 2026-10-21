@@ -6,7 +6,7 @@
 """The ROCm backend: the release chosen for this machine's AMD cards, and its adapter build.
 
 Linux only: intel/llvm ships no HIP adapter on Windows, so nothing there would use the SDK.
-The reasoning is in docs/design/GPU_TOOLKIT_SELECTION.md.
+The reasoning is in docs/design/GPU_TOOLKIT_SELECTION/README.md.
 """
 
 from __future__ import annotations

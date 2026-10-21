@@ -6,7 +6,7 @@
 """The CUDA backend: the release chosen for this machine's cards, and its adapter build.
 
 No CUDA version is written here; :class:`CudaVendor` chooses it from the hardware. The reasoning
-is in docs/design/GPU_TOOLKIT_SELECTION.md.
+is in docs/design/GPU_TOOLKIT_SELECTION/README.md.
 """
 
 from __future__ import annotations

@@ -78,7 +78,7 @@ files a CLI hands it.
   inside the function that needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`
   works without the `typer` extra.
 - Inside `provision`, lower layers do not import higher ones; the layer table is in
-  [`docs/design/PROVISION.md`](../design/PROVISION.md).
+  [`docs/design/PROVISION/README.md`](../design/PROVISION/README.md).
 
 The import cycles that break these rules today are listed in
 [Known issues](../reference/KNOWN_ISSUES.md).

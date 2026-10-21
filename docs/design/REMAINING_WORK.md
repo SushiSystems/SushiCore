@@ -8,7 +8,6 @@ Next id: RW-55
 - State: decision
 - Done when: `AGENTS.md` names this repository's own commands and folders and the skills it
   follows
-- Source: `docs/agent/2026_10_05_ESTATE_AUDIT/REPORT.md`
 
 It moved from `docs/CLAUDE.md` unchanged and still tells the reader to build with `se`
 (Doc D9, Lay L10, Lay L14).
@@ -47,7 +46,7 @@ the package was laid out as a Python library before the layout rule.
 - State: decision
 - Done when: `source/sushicore/provision/gpu/windows_installer.py` is deleted, or kept with a
   caller
-- Source: `docs/design/GPU_TOOLKIT_SELECTION.md`
+- Source: `docs/design/GPU_TOOLKIT_SELECTION/README.md`
 
 No backend here calls it; hub still re-exports it.
 
@@ -62,7 +61,7 @@ No backend here calls it; hub still re-exports it.
 - State: unmeasured
 - Done when: the real `setup` and build of `sr`, `sb`, `sa`, `sd`, `st` and, last, `se` have
   passed
-- Source: `docs/design/STANDALONE_PROVISIONING.md`
+- Source: `docs/design/STANDALONE_PROVISIONING/README.md`
 
 Wave 4, task 17 of `docs/agent/2026_10_04_STANDALONE_PROVISIONING/PLAN.md`.
 
@@ -70,7 +69,7 @@ Wave 4, task 17 of `docs/agent/2026_10_04_STANDALONE_PROVISIONING/PLAN.md`.
 - State: unmeasured
 - Done when: the owner's `hub migrate`, each module's `doctor` and build, then
   `hub migrate --finalize` or `--rollback` have run
-- Source: `docs/design/PROVISION.md`
+- Source: `docs/design/PROVISION/README.md`
 
 Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 
@@ -78,35 +77,35 @@ Tasks 5 and 6 of `docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`.
 - State: open
 - Done when: the migration rewrites the build caches and each module's
   `cli/config.local.toml`, so the link at the old path can go
-- Source: `docs/design/PROVISION.md`
+- Source: `docs/design/PROVISION/README.md`
 
 ### RW-11 Lay toolchains out by version
 - State: open
 - Done when: toolchains install under `toolchains/<name>/<version>/`
-- Source: `docs/design/PROVISION.md`
+- Source: `docs/design/PROVISION/README.md`
 
 ### RW-12 Build `sr` against a CUDA 13 toolkit on an Ada or newer card
 - State: unmeasured
 - Done when: the intel/llvm SYCL code and the Unified Runtime CUDA adapter have built against
   CUDA 13
-- Source: `docs/design/GPU_TOOLKIT_SELECTION.md`
+- Source: `docs/design/GPU_TOOLKIT_SELECTION/README.md`
 
 ### RW-13 Build `sr` on the Pascal machine with the 12.9 toolkit
 - State: unmeasured
 - Done when: the selection gave 12.9.x in place of 12.6.3 and `sr` built
-- Source: `docs/design/GPU_TOOLKIT_SELECTION.md`
+- Source: `docs/design/GPU_TOOLKIT_SELECTION/README.md`
 
 ### RW-14 Install ROCm and build `sr` on an AMD card under Linux
 - State: unmeasured
 - Done when: the tarball's layout past its first 60 MB, `rocm_agent_enumerator` under
   `ROCM_PATH` and the HIP adapter have run
-- Source: `docs/design/GPU_TOOLKIT_SELECTION.md`
+- Source: `docs/design/GPU_TOOLKIT_SELECTION/README.md`
 
 ### RW-15 Move the build, test, package and deploy scaffold here
 - State: open
 - Done when: the scaffold the AI and BLAS command lines each carry in their
   `cli/.../services/project.py` lives in this package
-- Source: `docs/design/PROVISION.md`
+- Source: `docs/design/PROVISION/README.md`
 
 ### RW-16 Remove `StackConfig.standalone_deps_dir`
 - State: open
@@ -319,7 +318,7 @@ went.
 
 ### RW-38 Correct the plans' paths
 - State: open
-- Done when: `docs/design/STANDALONE_PROVISIONING.md` and the two open plans cite the hub root
+- Done when: `docs/design/STANDALONE_PROVISIONING/README.md` and the two open plans cite the hub root
   migration plan and the provisioning design at their paths in this tree, and the standalone
   plan carries no absolute path and ticks its landed tasks
 

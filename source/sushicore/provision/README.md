@@ -2,8 +2,8 @@
 
 The dependency root, the registry and the doctor every module CLI shares, and the four commands
 that drive them: `setup`, `doctor`, `link` and `unlink`. No module needs hub installed to use
-them. The designs are [`docs/design/PROVISION.md`](../../docs/design/PROVISION.md) and
-[`docs/design/STANDALONE_PROVISIONING.md`](../../docs/design/STANDALONE_PROVISIONING.md).
+them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROVISION/README.md) and
+[`docs/design/STANDALONE_PROVISIONING/README.md`](../../docs/design/STANDALONE_PROVISIONING/README.md).
 
 ## What it owns
 
@@ -162,7 +162,7 @@ before it extracts or runs the file. `name` is the fragment entry: `cmake`, `nin
 The CUDA toolkit is not a fragment entry. Its release is chosen per machine, so no fragment can
 pin it. `gpu/cuda_toolkit_installer.py` checks each archive against the SHA-256 that NVIDIA's
 own `redistrib_<version>.json` publishes for it, before unpacking. The design is in
-[`docs/design/GPU_TOOLKIT_SELECTION.md`](../../docs/design/GPU_TOOLKIT_SELECTION.md).
+[`docs/design/GPU_TOOLKIT_SELECTION/README.md`](../../docs/design/GPU_TOOLKIT_SELECTION/README.md).
 
 A download that happens inside a shell pipeline, and a git clone of third-party code, are not
 verified. The clone of a pinned Sushi library is checked against its pinned commit. The full

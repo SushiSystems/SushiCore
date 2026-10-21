@@ -79,4 +79,4 @@ Typer's own screen.
   Typer itself, for the whole root screen. `help_group` logs its warning and hands over to
   Typer, which raises the same error, so `--help` still fails for that input.
 
-The design is archived as `docs/archive/agent/specs/2026-09-21-terminal-components-design.md`.
+The design is archived as the terminal components design spec in the version history.

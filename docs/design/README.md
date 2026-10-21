@@ -3,16 +3,20 @@
 One topic, one document. Look the topic up here before writing; extend the document that holds
 it.
 
-| Topic | Document | State |
+## Topics
+
+<!-- topics:begin -->
+| Topic | State | About |
 | --- | --- | --- |
-| The dependency root, the registry, the doctor, the four module commands, and the move of hub's tree | [Provision](PROVISION.md) | Open: phase B has not started |
-| Every module provisioning itself without hub: the selection rule, the `depends_on` closure, the base fragment | [Standalone provisioning](STANDALONE_PROVISIONING.md) | Open: wave 4 of 4 |
-| Which CUDA or ROCm release a machine gets, chosen from its cards and driver | [GPU toolkit selection](GPU_TOOLKIT_SELECTION.md) | Built; checks on hardware remain |
+| [GPU_TOOLKIT_SELECTION](GPU_TOOLKIT_SELECTION/README.md) | Open | The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas... |
+| [PROVISION](PROVISION/README.md) | Open | Every Sushi Systems repository must build after one command on any machine. |
+| [STANDALONE_PROVISIONING](STANDALONE_PROVISIONING/README.md) | Open | A person who clones one open-source Sushi module must be able to build it after one command, without installing hub. |
+<!-- topics:end -->
 
 The backlog is [Remaining work](REMAINING_WORK.md).
 
 Shipped designs are in the archive. The terminal components, the logo and the help screen are
-described in `docs/archive/agent/specs/2026-09-21-terminal-components-design.md`.
+described in the terminal components design spec in the version history.
 
 The JSON event stream and `--describe` were designed for hub, and their design document is in
 the SushiStack repository. What this package implements of them is in

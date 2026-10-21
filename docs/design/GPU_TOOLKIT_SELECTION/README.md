@@ -1,6 +1,8 @@
 # GPU toolkit selection: the hardware picks the release
 
 **Status:** Open — built and released in 0.9.0; the real builds of RW-12 to RW-14 are left
+**About:** The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas...
+**Modules:** none
 
 ## Problem
 
@@ -135,6 +137,12 @@ file is rewritten.
 | G1 | The shared locator, the CUDA rule and its installer | built |
 | G2 | The ROCm rule and installer, Linux only | built |
 | G3 | Real builds on hardware: `sr` against CUDA 13 (RW-12), on the Pascal machine with 12.9 (RW-13) and on an AMD card under Linux (RW-14) | planned |
+
+### Work
+
+<!-- work:begin -->
+No open work.
+<!-- work:end -->
 
 ## Open questions
 

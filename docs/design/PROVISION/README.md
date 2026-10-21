@@ -1,6 +1,8 @@
 # Provision: one dependency root, one setup command, one doctor
 
 **Status:** Open — phase A shipped; phase B's engine exists, the owner's real move (steps 5 and 6) has not run
+**About:** Every Sushi Systems repository must build after one command on any machine.
+**Modules:** none
 
 ## Problem
 
@@ -191,6 +193,12 @@ that interrupts the move halfway.
 | --- | --- | --- |
 | A | `sushicore.provision` ships, hub re-exports it at its old paths, `st` and `sd` gain the four commands, `sr`, `se`, `sa` and `sb` gain `doctor` | built |
 | B | Hub's tree moves to the dependency root: `hub migrate` with `plan`, `migrate`, `rollback` and `finalize`; the owner's real move is pending | building |
+
+### Work
+
+<!-- work:begin -->
+No open work.
+<!-- work:end -->
 
 ## Open questions
 

@@ -5,7 +5,7 @@
 # Commercial use requires a licence from Sushi Systems.
 """What one GPU vendor answers so that a toolkit release can be chosen from the hardware.
 
-The reasoning is in docs/design/GPU_TOOLKIT_SELECTION.md.
+The reasoning is in docs/design/GPU_TOOLKIT_SELECTION/README.md.
 """
 
 from __future__ import annotations

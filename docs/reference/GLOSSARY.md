@@ -34,3 +34,12 @@
 | Theme | The style tokens of the console, as data; a preset or a registered one |
 | Work folder | `docs/agent/<YYYY_MM_DD>_<WORK_NAME>/`, holding the `SPEC.md`, `PLAN.md` and `REPORT.md` of one piece of agent work |
 | Workspace | A folder holding `.sushistack/workspace.toml`, which records the modules linked to it and the tools they share |
+
+## Design topics
+
+A topic is a module or a subject that spans modules, and it has one design document.
+The list is generated in `docs/design/README.md`.
+
+**GPU_TOOLKIT_SELECTION**: The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas... See [the design](../design/GPU_TOOLKIT_SELECTION/README.md).
+
+**STANDALONE_PROVISIONING**: A person who clones one open-source Sushi module must be able to build it after one command, without installing hub. See [the design](../design/STANDALONE_PROVISIONING/README.md).

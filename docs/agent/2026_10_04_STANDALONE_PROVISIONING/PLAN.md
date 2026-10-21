@@ -1,6 +1,7 @@
 # Standalone provisioning Implementation Plan
 
 **Status:** Open — wave 4, task 17.
+**Designs:** PROVISION, STANDALONE_PROVISIONING
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +11,7 @@
 
 **Tech Stack:** Python 3.10+, Typer, pytest, `tomllib`, `sushicore` installed editable from `D:/Projects/sushicore`.
 
-**Spec:** `D:/Projects/sushicore/docs/design/STANDALONE_PROVISIONING.md`
+**Spec:** `D:/Projects/sushicore/docs/design/STANDALONE_PROVISIONING/README.md`
 
 ## Global Constraints
 
@@ -1068,7 +1069,7 @@ Acceptance: every suite green and the three `config` outputs unchanged.
 - Modify: `D:/Projects/sushicore/pyproject.toml` (version `0.7.0`)
 - Modify: `D:/Projects/sushicore/README.md` (Provisioning section)
 - Modify: `D:/Projects/sushicore/docs/reference/CHANGELOG.md`
-- Modify: `D:/Projects/sushicore/docs/design/STANDALONE_PROVISIONING.md` (status line)
+- Modify: `D:/Projects/sushicore/docs/design/STANDALONE_PROVISIONING/README.md` (status line)
 
 - [ ] **Step 1:** README's Provisioning section gains: what `setup` installs by default and how `--toolchain` and `--no-gpu` change it; that `depends_on` is followed to sibling checkouts and what happens when one is missing; the four `ModuleProvision` fields; the search order of the dependency roots. Run the `humanizer` pass.
 - [ ] **Step 2:** Bump the version. Do not tag.

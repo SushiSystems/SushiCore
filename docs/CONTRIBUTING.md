@@ -56,15 +56,15 @@ sibling repository's build.
 ## Agent work
 
 An agent's spec, plan and report go in one folder, `docs/agent/<YYYY_MM_DD>_<WORK_NAME>/`, as
-`SPEC.md`, `PLAN.md` and `REPORT.md`. Finished work moves to `docs/archive/` keeping its path
-below `docs/`, and is not edited there.
+`SPEC.md`, `PLAN.md` and `REPORT.md`. Finished work is deleted once its decisions are in the design; the version history
+keeps it.
 
 ## Releases
 
 The version is the `version` field of `pyproject.toml`. It changes in a commit of its own,
 `chore(release): vX.Y.Z`, and that commit gets the annotated tag `vX.Y.Z`; pushing the tag
 publishes to PyPI. At a release the `## Unreleased` section is renamed to the tag and its date,
-and every older release section moves to `docs/archive/changelog/`.
+and every older release section is deleted; the tag of its release holds it.
 
 ## Contributions from outside
 

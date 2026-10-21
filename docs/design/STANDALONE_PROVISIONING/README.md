@@ -1,6 +1,8 @@
 # Standalone provisioning: every module sets itself up, hub is optional
 
 **Status:** Open — wave 4 of 4: the owner runs each module's real `setup` and build
+**About:** A person who clones one open-source Sushi module must be able to build it after one command, without installing hub.
+**Modules:** none
 
 ## Problem
 
@@ -28,7 +30,7 @@ Every module CLI gets the same four commands from `sushicore.provision`, what hu
 alone moves into sushicore, and hub stays the place that runs the same machinery over a whole
 workspace.
 
-It builds on `docs/design/PROVISION.md` and replaces one line of it: "`sr`, `se`, `sa` and
+It builds on `docs/design/PROVISION/README.md` and replaces one line of it: "`sr`, `se`, `sa` and
 `sb` gain `doctor` only". Phase B of that design, the move of hub's tree to `~/.sushisystems`,
 runs after this work (`docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`).
 
@@ -138,7 +140,7 @@ tree across `dependency_roots(root)`: the workspace's tree when the module sits 
 
 The probe finds toolchains and vcpkg across `home.search_roots()`. Today it looks under
 `home.root()` alone, so on a machine whose tree still sits in `<workspace>/dependencies` a
-module `setup` would see nothing and download everything again. `docs/design/PROVISION.md` promised
+module `setup` would see nothing and download everything again. `docs/design/PROVISION/README.md` promised
 this read and the code never did it.
 
 #### `profile.py`
@@ -224,8 +226,14 @@ every CLI keeps running from its editable install on the owner's machine. The pl
 | S3 | Hub reads the selection rule from sushicore | built |
 | S4 | The owner runs each module's real `setup` and build (RW-8) | planned |
 
-The dependency-root migration that follows is phase B of `docs/design/PROVISION.md`; its sushicore
+The dependency-root migration that follows is phase B of `docs/design/PROVISION/README.md`; its sushicore
 bump becomes 0.8.0.
+
+### Work
+
+<!-- work:begin -->
+No open work.
+<!-- work:end -->
 
 ## Open questions
 

@@ -8,7 +8,7 @@
 The flow is the same for every vendor: read the cards, reuse the release recorded for them or
 choose one, install it under the user's home, and name its root in the vendor's variable. The
 vendor answers each step; this class owns only the order. The reasoning is in
-docs/design/GPU_TOOLKIT_SELECTION.md.
+docs/design/GPU_TOOLKIT_SELECTION/README.md.
 """
 
 from __future__ import annotations
