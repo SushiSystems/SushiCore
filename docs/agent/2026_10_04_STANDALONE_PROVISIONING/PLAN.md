@@ -1406,7 +1406,7 @@ Acceptance: every build passes. The dependency-root migration (`docs/agent/plans
   installed no toolchain skipped the GPU adapter build; the four commands carried no examples.
 - Task 10 also changed `sr toolchain`'s install hint to `sr setup --toolchain <name>`.
 - Task 13 also updated `docs/guides/COMMAND_LINE_INTERFACE.md` and
-  `docs/design/COMMAND_LINE_TAXONOMY.md` in sushiengine, outside `cli/`: both described the old
+  `docs/design/COMMAND_LINE_TAXONOMY/README.md` in sushiengine, outside `cli/`: both described the old
   `se doctor`. `is_binary` reads `PROFILE.presence(root)`; the binary fix is `hub add sushiengine`.
 - `sb`'s fragment declares no dependency of its own, so the inventory prints no `sushiblas`
   heading; the acceptance lines of Tasks 11 and 12 that name that owner describe the closure.
