@@ -180,7 +180,29 @@ def test_sushi_definitions_skip_a_packaged_library(tmp_path, provision_home, mon
             """Return the packaged names."""
             return ["sushiruntime"]
 
+        left_out = ()
+
     assert _Config(platform="linux").sushi_definitions(root, _Packaged()) == []
+
+
+def test_sushi_definitions_skip_a_library_the_package_set_left_out(
+        tmp_path, provision_home, monkeypatch):
+    """Check that a library left out of the set gets no -D<NAME>_DIR either."""
+    monkeypatch.delenv("SUSHIRUNTIME_DIR", raising=False)
+    root = tmp_path / "sushiblas"
+    _pin(root, "sushiruntime")
+    (tmp_path / "sushiruntime").mkdir()
+
+    class _Filtered:
+        """A set that resolved nothing and left the runtime out."""
+
+        left_out = ("sushiruntime",)
+
+        def names(self):
+            """Return the packaged names."""
+            return []
+
+    assert _Config(platform="linux").sushi_definitions(root, _Filtered()) == []
 
 
 def test_sushi_packages_hands_the_resolver_the_consumer_request(

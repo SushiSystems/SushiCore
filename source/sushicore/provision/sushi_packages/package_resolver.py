@@ -81,7 +81,9 @@ class PackageResolver:
                 was built with another compiler.
             PackageConflictError: One library would appear at two keys.
         """
-        nodes = self._walk.walk(request)
+        walked = self._walk.walk(request)
+        nodes = self._select(walked, request)
+        left_out = tuple(node.name for node in walked if node not in nodes)
         state = _Resolution(request, {node.name: node for node in nodes})
         forced = self._forced.read([node.name for node in nodes],
                                    self._keys.toolchain(request.compiler),
@@ -93,7 +95,31 @@ class PackageResolver:
                 item = self._obtain(node, state)
             state.resolved[node.name] = item
             self._report(item.line())
-        return PackageSet(tuple(state.resolved.values()))
+        return PackageSet(tuple(state.resolved.values()), left_out)
+
+    @staticmethod
+    def _select(nodes: list[LibraryNode], request: PackageRequest) -> list[LibraryNode]:
+        """Return the nodes *request* names and what they depend on, in the order of *nodes*.
+
+        Raises:
+            PackageError: A requested library is not in the closure.
+        """
+        if request.libraries is None:
+            return nodes
+        by_name = {node.name: node for node in nodes}
+        for name in request.libraries:
+            if name not in by_name:
+                raise PackageError(
+                    f"{name} is not in the closure of {request.owner}, which is "
+                    f"{', '.join(by_name) or 'empty'}.")
+        wanted: set[str] = set()
+        pending = list(request.libraries)
+        while pending:
+            name = pending.pop()
+            if name not in wanted:
+                wanted.add(name)
+                pending.extend(by_name[name].depends_on)
+        return [node for node in nodes if node.name in wanted]
 
     def _take_forced(self, node: LibraryNode, package: Package,
                      state: _Resolution) -> ResolvedPackage:

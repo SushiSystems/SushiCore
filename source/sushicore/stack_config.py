@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Callable, ClassVar, Mapping
+from typing import Callable, ClassVar, Collection, Mapping
 
 from . import deps_fragment
 from .provision import home as provision_home
@@ -81,13 +81,15 @@ class StackConfig(ProvisionSettings):
         """Return ``-D<NAME>_DIR=<path>`` for each pinned Sushi library that resolves.
 
         A library in *packaged* is consumed as a built package and is skipped: its
-        ``-D<Package>_DIR`` comes from :meth:`PackageSet.definitions`. The CLI hands these to
+        ``-D<Package>_DIR`` comes from :meth:`PackageSet.definitions`. A library the package
+        set left out is skipped as well, since the consumer asked not to link it. The CLI hands these to
         the CMake configure; CMake never downloads.
 
         @param root This module's project root.
         @param packaged The packages :meth:`sushi_packages` resolved, or None.
         """
-        skipped = set(packaged.names()) if packaged is not None else set()
+        skipped = ({*packaged.names(), *packaged.left_out}
+                   if packaged is not None else set())
         definitions = []
         for pin in self.sushi_pins(root):
             found = self.resolve_sushi(root, pin.name)
@@ -100,8 +102,9 @@ class StackConfig(ProvisionSettings):
                        options: Mapping[str, tuple[str, ...]] | None = None,
                        report: Callable[[str], None] = print,
                        warn: Callable[[str], None] = print,
-                       compiler: str = "") -> PackageSet:
-        """Return a built package of every Sushi library this module's chain links.
+                       compiler: str = "",
+                       libraries: Collection[str] | None = None) -> PackageSet:
+        """Return a built package of every Sushi library this module's chain links, or of *libraries*.
 
         A package that the store lacks is built through the library's own CLI. One line per
         library goes to *report*: ``reused <short>`` or ``built <short> in <s>s``.
@@ -112,6 +115,8 @@ class StackConfig(ProvisionSettings):
         @param report    Receives one line per library.
         @param warn      Receives the warnings.
         @param compiler  The compiler of this build; :meth:`resolved_compiler` when empty.
+        @param libraries The libraries to resolve, with what each depends on; None resolves every
+                         library of the closure. The package key of a library does not change.
         @raises sushicore.provision.sushi_packages.PackageError A package cannot be chosen.
         """
         vcpkg = self.resolved_vcpkg(root)
@@ -122,7 +127,7 @@ class StackConfig(ProvisionSettings):
             owner=root.name.lower(), root=root, compiler=compiler or self.resolved_compiler(root),
             build_type=build_type, options=dict(options or {}), configured=configured,
             fragment=self.fragment, vcpkg_root=Path(vcpkg) if vcpkg else None,
-            triplet=self.vcpkg_triplet)
+            triplet=self.vcpkg_triplet, libraries=libraries)
         cmake = self.expand(self.cmake_exe) if self.cmake_exe else "cmake"
         return default_resolver(self.package_keep, report, warn, cmake=cmake).resolve(request)
 

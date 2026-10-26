@@ -157,3 +157,46 @@ def test_a_cycle_is_refused(rig):
     make_library(rig.workspace, "sushilog", ("sushiruntime",))
     with pytest.raises(PackageError, match="cycle"):
         rig.resolver.resolve(rig.request())
+
+
+def test_a_filter_to_one_leaf_resolves_only_that_library(rig):
+    """Naming the log builds the log alone and leaves the others out."""
+    result = rig.resolver.resolve(rig.request(libraries=["sushilog"]))
+    assert result.names() == ["sushilog"]
+    assert result.left_out == ("sushiruntime", "sushiblas")
+    assert [request.key.name for request in rig.builder.requests] == ["sushilog"]
+    assert len(result.definitions()) == 1
+
+
+def test_a_filter_to_a_library_with_a_dependency_resolves_both_in_order(rig):
+    """Naming the runtime resolves the log below it first, and leaves the BLAS out."""
+    result = rig.resolver.resolve(rig.request(libraries=["sushiruntime"]))
+    assert result.names() == ["sushilog", "sushiruntime"]
+    assert result.left_out == ("sushiblas",)
+
+
+def test_a_filter_name_outside_the_closure_is_refused(rig):
+    """The refusal names the library and the closure."""
+    with pytest.raises(PackageError, match="sushifoo.*sushilog, sushiruntime, sushiblas"):
+        rig.resolver.resolve(rig.request(libraries=["sushifoo"]))
+
+
+def test_no_filter_equals_the_whole_closure(rig):
+    """None and the full list of names give the same set."""
+    whole = rig.resolver.resolve(rig.request())
+    named = rig.resolver.resolve(rig.request(libraries=["sushiblas"]))
+    assert named.names() == whole.names()
+    assert [_digest(named, n) for n in named.names()] == [_digest(whole, n) for n in whole.names()]
+    assert named.left_out == ()
+    assert whole.left_out == ()
+
+
+def test_the_key_of_a_library_is_the_same_with_and_without_the_filter(tmp_path):
+    """A filtered resolution picks the package the whole one built."""
+    rig = Rig(tmp_path)
+    whole = rig.resolver.resolve(rig.request())
+    filtered = rig.resolver.resolve(rig.request(libraries=["sushiruntime"]))
+    for name in filtered.names():
+        assert _digest(filtered, name) == _digest(whole, name)
+        assert filtered.get(name).key == whole.get(name).key
+    assert len(rig.builder.requests) == 3

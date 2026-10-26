@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
+from typing import Collection, Mapping
 
 from ..closure import DEFAULT_FRAGMENT
 
@@ -28,6 +28,8 @@ class PackageRequest:
         fragment: The consumer's fragment, below *root*.
         vcpkg_root: The vcpkg tree the consumer uses, or None.
         triplet: The vcpkg triplet the consumer uses.
+        libraries: The libraries to resolve, with what each depends on; None resolves the
+            whole closure of the consumer's fragment.
     """
 
     owner: str
@@ -39,3 +41,4 @@ class PackageRequest:
     fragment: str = DEFAULT_FRAGMENT
     vcpkg_root: Path | None = None
     triplet: str = ""
+    libraries: Collection[str] | None = None

@@ -50,9 +50,11 @@ class ResolvedPackage:
 
 @dataclass(frozen=True, slots=True)
 class PackageSet:
-    """The resolved packages of a closure, in dependency order."""
+    """The resolved packages of a closure, in dependency order, and the libraries left out."""
 
     packages: tuple[ResolvedPackage, ...]
+    #: Libraries of the closure that the consumer asked not to resolve.
+    left_out: tuple[str, ...] = ()
 
     def names(self) -> list[str]:
         """Return the library names in dependency order."""

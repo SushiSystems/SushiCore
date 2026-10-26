@@ -29,3 +29,8 @@ def test_two_requests_do_not_share_their_default_mappings():
     first = PackageRequest("a", Path("."), "c", "release")
     second = PackageRequest("b", Path("."), "c", "release")
     assert first.options is not second.options
+
+
+def test_a_request_resolves_every_library_unless_it_names_some():
+    """Check that the library filter defaults to None."""
+    assert PackageRequest("a", Path("."), "c", "release").libraries is None

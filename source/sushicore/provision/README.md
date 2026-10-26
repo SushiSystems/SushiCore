@@ -128,7 +128,8 @@ not a link to the new root, and when there is no aside copy and the link was not
 ## Sushi libraries as packages
 
 A consumer links a Sushi library as a built package, never as a subdirectory of its own tree.
-`StackConfig.sushi_packages(root, build_type, options)` returns a `PackageSet`; the CLI uses
+`StackConfig.sushi_packages(root, build_type, options)` returns a `PackageSet`; its `libraries`
+keyword limits the resolution to the named libraries and what they depend on; the CLI uses
 its `lines()`, `definitions()` and `run_dirs(platform)`. The design and its decisions are in
 [`docs/agent/2026_10_26_PREBUILT_SUSHI_PACKAGES/SPEC.md`](../../docs/agent/2026_10_26_PREBUILT_SUSHI_PACKAGES/SPEC.md).
 
