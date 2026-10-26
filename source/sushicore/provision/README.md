@@ -139,6 +139,7 @@ its `lines()`, `definitions()` and `run_dirs(platform)`. The design and its deci
 | `source_state.py`, `configure_inputs.py`, `toolchain_identity.py`, `key_factory.py`, `package_key.py` | The key: source content, configure inputs, compiler identity, build type, options, recipe and the packages below |
 | `build_tree.py`, `compiler_check.py`, `package_environment.py`, `package_builder.py` | The build in `build/pkg-<id>` through `<cli> build` and `<cli> package`, its environment and its compiler check |
 | `package.py`, `package_store.py`, `package_locks.py`, `stable_link.py`, `link_publisher.py` | The store under `<home>/packages`, its three locks and the consumer's link |
+| `consumer_build.py` | What a consumer CLI takes from a `PackageSet`: `configure_arguments`, and `RunDirs`, which keeps the run-time folders in the build tree for the commands that run it |
 | `forced_packages.py`, `package_choices.py`, `package_resolver.py`, `package_set.py`, `default_resolver.py` | Packages handed to a nested build, the one-key-per-library check, the resolver, its result and its assembly |
 
 The source part of the key is the SHA-256 of the path and bytes of every tracked and every

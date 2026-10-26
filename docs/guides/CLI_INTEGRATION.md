@@ -85,7 +85,9 @@ it calls `cfg.sushi_packages(root, build_type, options)`, which returns a `Packa
 prints `package_set.lines()`, appends `cfg.sushi_definitions(root, package_set)` and
 `package_set.definitions()` to the configure arguments, and prepends
 `package_set.run_dirs(cfg.platform)` to `PATH` or `LD_LIBRARY_PATH` with
-`build_env.prepend_path`. `options` maps a library name to the extra `build` arguments that
+`build_env.prepend_path`. `sushi_packages.configure_arguments` builds that argument list, and
+`sushi_packages.RunDirs(file_name)` keeps the run-time folders in the build tree, so `test` and `run`
+prepend them without resolving again. `options` maps a library name to the extra `build` arguments that
 library takes; a flag such as `--distributed` is the consumer's to map. A CLI that is also a
 library takes `--build-dir <path>` and `--lean` on `build`, which sushicore passes when it
 builds the library's package, and honours `SUSHISTACK_CXX` over its configured compiler.

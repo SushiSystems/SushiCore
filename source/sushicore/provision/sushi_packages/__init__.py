@@ -8,6 +8,7 @@
 See ``docs/agent/2026_10_26_PREBUILT_SUSHI_PACKAGES/SPEC.md``.
 """
 
+from .consumer_build import RunDirs, configure_arguments, search_path_variable
 from .default_resolver import default_resolver, effective_keep
 from .package_error import PackageConflictError, PackageError
 from .package_request import PackageRequest
@@ -15,12 +16,15 @@ from .package_resolver import PackageResolver
 from .package_set import PackageSet, ResolvedPackage
 
 __all__ = [
+    "RunDirs",
     "PackageConflictError",
     "PackageError",
     "PackageRequest",
     "PackageResolver",
     "PackageSet",
     "ResolvedPackage",
+    "configure_arguments",
     "default_resolver",
     "effective_keep",
+    "search_path_variable",
 ]

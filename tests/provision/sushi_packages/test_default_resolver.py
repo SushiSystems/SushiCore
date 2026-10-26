@@ -21,7 +21,8 @@ def test_the_public_surface_is_exactly_the_documented_names():
     """Check the names the package re-exports."""
     assert sorted(sushi_packages.__all__) == [
         "PackageConflictError", "PackageError", "PackageRequest", "PackageResolver",
-        "PackageSet", "ResolvedPackage", "default_resolver", "effective_keep"]
+        "PackageSet", "ResolvedPackage", "RunDirs", "configure_arguments", "default_resolver",
+        "effective_keep", "search_path_variable"]
 
 
 def test_default_resolver_starts_no_process(provision_home, monkeypatch):
