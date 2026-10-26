@@ -30,9 +30,9 @@ installers.
 | --- | --- |
 | `depends_on` | The modules this one builds on. `setup` reads the fragment of each one it can find |
 
-## The `[sushi.<name>]` pins
+## The `[sushisystems.<name>]` pins
 
-A module `depends_on` names is pinned in a `[sushi.<name>]` table, and each pin names a
+A module `depends_on` names is pinned in a `[sushisystems.<name>]` table, and each pin names a
 module in `depends_on`. A module left unpinned is found through `<NAME>_DIR` and the sibling
 only and is never fetched. `setup` exits 2 when neither exists, and `doctor` shows a warning
 row `sushi <name>` saying the module is not pinned.
@@ -41,13 +41,15 @@ row `sushi <name>` saying the module is not pinned.
 [module]
 depends_on = ["sushilog"]
 
-[sushi.sushilog]
+[sushisystems.sushilog]
 version = "v1.0.0"                                   # the release tag
 commit  = "<the 40-hex hash the tag points at>"
 ```
 
-The reader raises `ValueError` and names the file in three cases: a pin names a module
-`depends_on` does not, `version` is empty, or `commit` is not 40 hex digits.
+The reader raises `ValueError` and names the file in four cases: a pin names a module
+`depends_on` does not, `version` is empty, `commit` is not 40 hex digits, or the file holds pins
+under both `[sushisystems.<name>]` and the deprecated `[sushi.<name>]`. A file with only
+`[sushi.<name>]` tables reads the same pins and raises a `DeprecationWarning` naming the file.
 
 `sushicore/provision/sushi_sources.py` finds a pinned library's checkout. It takes the first of
 these that exists:
@@ -124,5 +126,6 @@ naming both owners.
 
 A fragment carries no `format_version`. `sha256` was added on 2026-10-05 as an optional key; a
 fragment without it reads as before, and a `sushicore` older than the key ignores it.
-`[sushi.<name>]` was added in 0.9.1. A reader older than 0.9.1 reads `[sushi]` as a dependency
-named `sushi`.
+The pin tables are `[sushisystems.<name>]` from 0.9.3, and `[sushi.<name>]` from 0.9.1 to 0.9.2.
+A reader from 0.9.3 still reads `[sushi.<name>]`, with a `DeprecationWarning`. A reader older than
+0.9.3 reads `[sushisystems]` as a dependency named `sushisystems`.

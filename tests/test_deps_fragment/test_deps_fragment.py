@@ -58,7 +58,7 @@ def test_the_module_table_is_metadata_rather_than_a_dependency(tmp_path):
 [module]
 depends_on = ["sushiruntime"]
 
-[sushi.sushiruntime]
+[sushisystems.sushiruntime]
 version = "v1.0.0"
 commit = "0123456789abcdef0123456789abcdef01234567"
 
@@ -214,12 +214,12 @@ sha256 = {value}
 
 
 def test_a_sushi_pin_is_read_with_its_tag_and_commit(tmp_path):
-    """[sushi.<name>] carries a release tag and the full commit, in lower case."""
+    """[sushisystems.<name>] carries a release tag and the full commit, in lower case."""
     fragment = read(_fragment(tmp_path, """
 [module]
 depends_on = ["sushilog"]
 
-[sushi.sushilog]
+[sushisystems.sushilog]
 version = "v1.0.0"
 commit = "0123456789ABCDEF0123456789ABCDEF01234567"
 """))
@@ -227,6 +227,42 @@ commit = "0123456789ABCDEF0123456789ABCDEF01234567"
     assert [(p.name, p.version, p.commit) for p in fragment.pins] == [
         ("sushilog", "v1.0.0", "0123456789abcdef0123456789abcdef01234567")]
     assert fragment.dependencies == []
+
+
+def test_the_deprecated_sushi_table_reads_with_a_warning(tmp_path):
+    """[sushi.<name>] reads the same pins and warns that the table is now [sushisystems.<name>]."""
+    path = _fragment(tmp_path, f"""
+[module]
+depends_on = ["sushilog"]
+
+[sushi.sushilog]
+version = "v1.0.0"
+commit = "{"0" * 40}"
+""")
+
+    with pytest.warns(DeprecationWarning, match=r"\[sushisystems\.<name>\]"):
+        fragment = read(path)
+
+    assert [(p.name, p.version) for p in fragment.pins] == [("sushilog", "v1.0.0")]
+
+
+def test_pins_under_both_table_names_are_refused(tmp_path):
+    """A file keeps its pins under one table name."""
+    text = f"""
+[module]
+depends_on = ["sushilog"]
+
+[sushisystems.sushilog]
+version = "v1.0.0"
+commit = "{"0" * 40}"
+
+[sushi.sushilog]
+version = "v1.0.0"
+commit = "{"0" * 40}"
+"""
+
+    with pytest.raises(ValueError, match="both"):
+        read(_fragment(tmp_path, text))
 
 
 def test_a_module_in_depends_on_may_go_unpinned(tmp_path):
@@ -237,7 +273,7 @@ def test_a_module_in_depends_on_may_go_unpinned(tmp_path):
 
 def test_a_pin_not_in_depends_on_is_refused(tmp_path):
     """A pin names a module depends_on lists."""
-    text = f'[sushi.sushilog]\nversion = "v1.0.0"\ncommit = "0123456789abcdef0123456789abcdef01234567"\n'
+    text = f'[sushisystems.sushilog]\nversion = "v1.0.0"\ncommit = "0123456789abcdef0123456789abcdef01234567"\n'
     with pytest.raises(ValueError, match="which depends_on does not name"):
         read(_fragment(tmp_path, text))
 
@@ -248,7 +284,7 @@ def test_a_pin_not_in_depends_on_is_refused(tmp_path):
 ])
 def test_a_malformed_pin_is_refused(tmp_path, table, expected):
     """A pin without a tag or with a short commit names what is wrong."""
-    text = f'[module]\ndepends_on = ["sushilog"]\n[sushi.sushilog]\n{table}\n'
+    text = f'[module]\ndepends_on = ["sushilog"]\n[sushisystems.sushilog]\n{table}\n'
     with pytest.raises(ValueError, match=expected):
         read(_fragment(tmp_path, text))
 

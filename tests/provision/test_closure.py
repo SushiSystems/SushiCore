@@ -24,7 +24,7 @@ def _module(tmp_path, name, depends_on=()):
     fragment = root / DEFAULT_FRAGMENT
     fragment.parent.mkdir(parents=True)
     names = ", ".join(f'"{dep}"' for dep in depends_on)
-    pins = "".join(f'[sushi.{dep}]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n'
+    pins = "".join(f'[sushisystems.{dep}]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n'
                    for dep in depends_on)
     fragment.write_text(f"[module]\ndepends_on = [{names}]\n{pins}", encoding="utf-8")
     return root

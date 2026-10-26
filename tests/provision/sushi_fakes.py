@@ -48,7 +48,7 @@ def write_fragment(checkout: Path, pins: dict[str, str]) -> Path:
     path = checkout / "cli" / "sushistack.deps.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     names = ", ".join(f'"{name}"' for name in pins)
-    tables = "".join(f'[sushi.{name}]\nversion = "{version}"\ncommit = "{K_PINNED}"\n'
+    tables = "".join(f'[sushisystems.{name}]\nversion = "{version}"\ncommit = "{K_PINNED}"\n'
                      for name, version in pins.items())
     path.write_text(f"[module]\ndepends_on = [{names}]\n{tables}", encoding="utf-8")
     return path

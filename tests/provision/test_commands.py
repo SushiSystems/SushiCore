@@ -323,7 +323,7 @@ def _depending_fragment(root, depends_on):
     """Write a fragment under *root* that depends on *depends_on* and declares a widget."""
     fragment = _write_fragment(root)
     names = ", ".join(f'"{name}"' for name in depends_on)
-    pins = "".join(f'[sushi.{name}]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n'
+    pins = "".join(f'[sushisystems.{name}]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n'
                    for name in depends_on)
     fragment.write_text(f"[module]\ndepends_on = [{names}]\n{pins}"
                         + fragment.read_text(encoding="utf-8"), encoding="utf-8")
@@ -547,11 +547,11 @@ def test_setup_stops_before_fetching_when_two_pins_conflict(
     fragment = root / "cli" / "sushistack.deps.toml"
     text = fragment.read_text(encoding="utf-8")
     text = text.replace('depends_on = ["sushiruntime"]', 'depends_on = ["sushiruntime", "sushilog"]')
-    fragment.write_text(text + f'[sushi.sushilog]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n',
+    fragment.write_text(text + f'[sushisystems.sushilog]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n',
                         encoding="utf-8")
     runtime = tmp_path / "sushiruntime" / "cli" / "sushistack.deps.toml"
     runtime.parent.mkdir(parents=True)
-    runtime.write_text(f'[module]\ndepends_on = ["sushilog"]\n[sushi.sushilog]\n'
+    runtime.write_text(f'[module]\ndepends_on = ["sushilog"]\n[sushisystems.sushilog]\n'
                        f'version = "v1.1.0"\ncommit = "{K_COMMIT}"\n', encoding="utf-8")
     clones = []
 
@@ -629,4 +629,4 @@ def test_doctor_warns_on_an_unpinned_module(
 
     rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
     by_name = {row[0]: row for row in rows}
-    assert "not pinned; pin it in [sushi.sushiruntime]" in by_name["sushi sushiruntime"][3]
+    assert "not pinned; pin it in [sushisystems.sushiruntime]" in by_name["sushi sushiruntime"][3]

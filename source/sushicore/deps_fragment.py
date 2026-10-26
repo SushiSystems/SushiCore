@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -25,8 +26,11 @@ except ModuleNotFoundError:  # Python 3.10
 #: Reserved table name carrying module metadata rather than a dependency.
 MODULE_TABLE = "module"
 
-#: Reserved table holding one ``[sushi.<name>]`` pin per Sushi library the module links.
-SUSHI_TABLE = "sushi"
+#: Reserved table holding one ``[sushisystems.<name>]`` pin per Sushi library the module links.
+SUSHI_TABLE = "sushisystems"
+
+#: The table's deprecated name, read as :data:`SUSHI_TABLE` with a ``DeprecationWarning``.
+K_DEPRECATED_SUSHI_TABLE = "sushi"
 
 #: The shape of a full git commit hash.
 K_COMMIT_HEX = re.compile(r"[0-9a-f]{40}")
@@ -111,8 +115,8 @@ def read(path: Path) -> Fragment:
             of ``[[dependency]]`` tables reads as a list here, and skipping it is
             how a fragment goes unread; the shape is named rather than ignored.
             Or an entry's ``sha256`` is not a table of platform to hex digest.
-            Or a ``[sushi.<name>]`` pin is malformed or names a module ``depends_on``
-            does not. A module in ``depends_on`` may go unpinned; it is then never
+            Or a ``[sushisystems.<name>]`` pin is malformed or names a module
+            ``depends_on`` does not, or the file holds the pins under both table names. A module in ``depends_on`` may go unpinned; it is then never
             fetched.
     """
     with path.open("rb") as handle:
@@ -121,6 +125,10 @@ def read(path: Path) -> Fragment:
     depends_on: list[str] = []
     pins: list[SushiPin] = []
     dependencies: list[Dependency] = []
+    if SUSHI_TABLE in document and K_DEPRECATED_SUSHI_TABLE in document:
+        raise ValueError(
+            f"{path}: the pins sit under both [{SUSHI_TABLE}.<name>] and "
+            f"[{K_DEPRECATED_SUSHI_TABLE}.<name>]; keep [{SUSHI_TABLE}.<name>] alone.")
     for name, table in document.items():
         if not isinstance(table, dict):
             raise ValueError(
@@ -130,7 +138,11 @@ def read(path: Path) -> Fragment:
         if name == MODULE_TABLE:
             depends_on = [str(module) for module in table.get("depends_on", [])]
             continue
-        if name == SUSHI_TABLE:
+        if name in (SUSHI_TABLE, K_DEPRECATED_SUSHI_TABLE):
+            if name == K_DEPRECATED_SUSHI_TABLE:
+                warnings.warn(
+                    f"{path}: [{K_DEPRECATED_SUSHI_TABLE}.<name>] is deprecated; rename the pin "
+                    f"tables [{SUSHI_TABLE}.<name>].", DeprecationWarning, stacklevel=2)
             pins = [_read_pin(path, pin_name, pin) for pin_name, pin in table.items()]
             continue
         dependencies.append(Dependency(
@@ -168,7 +180,7 @@ def pins_at(path: Path) -> list[SushiPin]:
 
 
 def _read_pin(path: Path, name: str, value: object) -> SushiPin:
-    """Return the pin ``[sushi.<name>]`` declares.
+    """Return the pin ``[sushisystems.<name>]`` declares.
 
     Raises:
         ValueError: *value* is not a table, ``version`` is empty, or ``commit`` is
@@ -176,15 +188,16 @@ def _read_pin(path: Path, name: str, value: object) -> SushiPin:
     """
     if not isinstance(value, dict):
         raise ValueError(
-            f"{path}: sushi.{name} is a {type(value).__name__}, and it is a table such as "
+            f"{path}: {SUSHI_TABLE}.{name} is a {type(value).__name__}, and it is a table such as "
             f"{{ version = \"v1.0.0\", commit = \"<40 hex digits>\" }}.")
     version = value.get("version", "")
     commit = value.get("commit", "")
     if not isinstance(version, str) or not version:
-        raise ValueError(f"{path}: sushi.{name} has no version; it is the release tag to fetch.")
+        raise ValueError(
+            f"{path}: {SUSHI_TABLE}.{name} has no version; it is the release tag to fetch.")
     if not isinstance(commit, str) or not K_COMMIT_HEX.fullmatch(commit.lower()):
         raise ValueError(
-            f"{path}: commit of sushi.{name} is {commit!r}, and a commit is the full "
+            f"{path}: commit of {SUSHI_TABLE}.{name} is {commit!r}, and a commit is the full "
             f"40-hex hash the tag {version} points at.")
     return SushiPin(name, version, commit.lower())
 
@@ -198,7 +211,7 @@ def _match_pins(path: Path, depends_on: list[str], pins: list[SushiPin]) -> None
     unlisted = sorted({pin.name for pin in pins} - set(depends_on))
     if unlisted:
         raise ValueError(
-            f"{path}: [sushi.<name>] pins {', '.join(unlisted)}, which depends_on does not "
+            f"{path}: [{SUSHI_TABLE}.<name>] pins {', '.join(unlisted)}, which depends_on does not "
             f"name; add it to depends_on or remove the pin.")
 
 

@@ -98,7 +98,7 @@ describes the root and how it is moved to another directory.
 
 `setup` installs what a module needs to build and then runs `doctor`. It reads the module's
 dependency fragment, `cli/sushistack.deps.toml` by default, and through `[module] depends_on`
-the fragment of every module it builds on. It clones a Sushi library that a `[sushi.<name>]`
+the fragment of every module it builds on. It clones a Sushi library that a `[sushisystems.<name>]`
 pin names when no `<NAME>_DIR` or sibling provides it, and never fetches an unpinned module. `--dry-run` shows the run and
 changes nothing, `--toolchain NAME` also installs that toolchain, and `--no-gpu` skips the GPU
 toolkit.

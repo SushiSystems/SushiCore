@@ -65,7 +65,7 @@ def pin_conflict_check(owner: str, root: Path, pins: Sequence[SushiPin]) -> Func
 
 
 def unpinned_check(root: Path, name: str) -> FunctionCheck:
-    """Return a row warning that *name* is in ``depends_on`` with no ``[sushi.<name>]`` pin.
+    """Return a row warning that *name* is in ``depends_on`` with no ``[sushisystems.<name>]`` pin.
 
     Args:
         root: The checkout of the module that builds on *name*.
@@ -75,6 +75,6 @@ def unpinned_check(root: Path, name: str) -> FunctionCheck:
         """Name where the unpinned module was found, if anywhere."""
         found = resolve(root, name)
         where = f"{found.kind.value} {found.path}" if found is not None else "no checkout found"
-        return CheckResult(State.WARN, f"not pinned; pin it in [sushi.{name}] ({where})",
-                           f"add [sushi.{name}] with version and commit")
+        return CheckResult(State.WARN, f"not pinned; pin it in [sushisystems.{name}] ({where})",
+                           f"add [sushisystems.{name}] with version and commit")
     return FunctionCheck(f"sushi {name}", "build", False, fn)

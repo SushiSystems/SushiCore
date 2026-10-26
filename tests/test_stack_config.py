@@ -118,7 +118,7 @@ def _pin(root, name, version="v1.0.0"):
     """Write *root*'s fragment pinning *name* at *version*."""
     path = root / "cli" / "sushistack.deps.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f'[module]\ndepends_on = ["{name}"]\n[sushi.{name}]\n'
+    path.write_text(f'[module]\ndepends_on = ["{name}"]\n[sushisystems.{name}]\n'
                     f'version = "{version}"\ncommit = "0123456789abcdef0123456789abcdef01234567"\n', encoding="utf-8")
 
 

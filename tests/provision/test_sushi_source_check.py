@@ -91,5 +91,5 @@ def test_an_unpinned_module_warns_and_names_where_it_was_found(root):
     result = check.run()
     assert not check.required
     assert result.state is State.WARN
-    assert result.detail.startswith("not pinned; pin it in [sushi.sushilog]")
+    assert result.detail.startswith("not pinned; pin it in [sushisystems.sushilog]")
     assert "sibling" in result.detail

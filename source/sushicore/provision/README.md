@@ -32,7 +32,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
 | `_output.py` | The console the package prints through, bound by `bind_console` |
 | `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
-| `pin_chain.py` | Walks the `[sushi.<name>]` pins of a chain and finds a library pinned at two versions |
+| `pin_chain.py` | Walks the `[sushisystems.<name>]` pins of a chain and finds a library pinned at two versions |
 | `git_client.py` | Clones one tag of a repository and reads a checkout's HEAD |
 | `sushi_fetch.py` | `FetchSushiSourcesStep`, which clones a pinned library and checks its commit |
 | `sushi_source_check.py` | The doctor rows `sushi <name>` and `sushi pins` |
@@ -201,7 +201,7 @@ backend calls it since CUDA moved to the redistributable archives.
 
 Installs what the module needs to build and then runs `doctor`. It reads the module's fragment
 and, through `[module] depends_on`, the fragment of every module it builds on, found by the
-`locate` callable. Before that it clones each library a `[sushi.<name>]` pin names and no
+`locate` callable. Before that it clones each library a `[sushisystems.<name>]` pin names and no
 `<NAME>_DIR` or sibling provides, and refuses a clone whose HEAD is not the pinned commit. It
 never fetches an unpinned module. The pins are described in
 [`DEPENDENCY_FRAGMENT.md`](../../docs/reference/DEPENDENCY_FRAGMENT.md).
