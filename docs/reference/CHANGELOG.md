@@ -2,12 +2,9 @@
 
 ## Unreleased
 
-## v0.9.4 — 2026-10-26
+## v0.9.5 — 2026-10-26
 
-- 2026-10-26 — tools: Took the shared tools from SushiSkills, so the design-topic tests pass on a Windows runner and the release reaches PyPI; 0.9.3 was tagged and never published (`tools/`).
-
-## v0.9.3 — 2026-10-26
-
+- 2026-10-26 — tools: Took the shared tools from SushiSkills, so the design-topic tests pass on a Windows runner and the release reaches PyPI (`tools/`).
 - 2026-10-26 — provision: Renamed the pin tables of a dependency fragment to `[sushisystems.<name>]`; `[sushi.<name>]` still reads, with a `DeprecationWarning`, and a file holding both is refused (`deps_fragment.py`).
 - 2026-10-21 — docs: Gave the three design documents the five design sections and a phase table, moved the GPU run evidence to a work folder, and took the design format checker (`GPU_TOOLKIT_SELECTION.md`).
 - 2026-10-20 — docs: Moved 8 known issues with a scheduled fix and no workaround into the backlog entries that fix them (`KNOWN_ISSUES.md`, `REMAINING_WORK.md`).
