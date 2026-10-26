@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.9.4 — 2026-10-26
+
+- 2026-10-26 — tools: Took the shared tools from SushiSkills, so the design-topic tests pass on a Windows runner and the release reaches PyPI; 0.9.3 was tagged and never published (`tools/`).
+
 ## v0.9.3 — 2026-10-26
 
 - 2026-10-26 — provision: Renamed the pin tables of a dependency fragment to `[sushisystems.<name>]`; `[sushi.<name>]` still reads, with a `DeprecationWarning`, and a file holding both is refused (`deps_fragment.py`).
