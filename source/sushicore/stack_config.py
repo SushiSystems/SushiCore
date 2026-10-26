@@ -11,13 +11,14 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `stack_config`.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import ClassVar
+from typing import Callable, ClassVar, Mapping
 
 from . import deps_fragment
 from .provision import home as provision_home
 from .provision import sushi_sources
+from .provision.sushi_packages import PackageRequest, PackageSet, default_resolver
 from .provision.closure import DEFAULT_FRAGMENT
 from .provision.config import ProvisionSettings
 
@@ -76,20 +77,54 @@ class StackConfig(ProvisionSettings):
         return sushi_sources.resolve(root, name, versions.get(name, ""),
                                      self.expand(configured) if configured else "")
 
-    def sushi_definitions(self, root: Path) -> list[str]:
+    def sushi_definitions(self, root: Path, packaged: PackageSet | None = None) -> list[str]:
         """Return ``-D<NAME>_DIR=<path>`` for each pinned Sushi library that resolves.
 
-        The CLI hands these to the CMake configure; CMake never downloads.
+        A library in *packaged* is consumed as a built package and is skipped: its
+        ``-D<Package>_DIR`` comes from :meth:`PackageSet.definitions`. The CLI hands these to
+        the CMake configure; CMake never downloads.
 
         @param root This module's project root.
+        @param packaged The packages :meth:`sushi_packages` resolved, or None.
         """
+        skipped = set(packaged.names()) if packaged is not None else set()
         definitions = []
         for pin in self.sushi_pins(root):
             found = self.resolve_sushi(root, pin.name)
-            if found is not None:
+            if found is not None and pin.name not in skipped:
                 variable = sushi_sources.directory_variable(pin.name)
                 definitions.append(f"-D{variable}={found.path}")
         return definitions
+
+    def sushi_packages(self, root: Path, build_type: str,
+                       options: Mapping[str, tuple[str, ...]] | None = None,
+                       report: Callable[[str], None] = print,
+                       warn: Callable[[str], None] = print,
+                       compiler: str = "") -> PackageSet:
+        """Return a built package of every Sushi library this module's chain links.
+
+        A package that the store lacks is built through the library's own CLI. One line per
+        library goes to *report*: ``reused <short>`` or ``built <short> in <s>s``.
+
+        @param root      This module's project root.
+        @param build_type The build type of this configure, such as ``release``.
+        @param options   The extra ``build`` arguments of a library, by library name.
+        @param report    Receives one line per library.
+        @param warn      Receives the warnings.
+        @param compiler  The compiler of this build; :meth:`resolved_compiler` when empty.
+        @raises sushicore.provision.sushi_packages.PackageError A package cannot be chosen.
+        """
+        vcpkg = self.resolved_vcpkg(root)
+        configured = {item.name[:-len("_dir")]: self.expand(getattr(self, item.name))
+                      for item in fields(self)
+                      if item.name.endswith("_dir") and getattr(self, item.name)}
+        request = PackageRequest(
+            owner=root.name.lower(), root=root, compiler=compiler or self.resolved_compiler(root),
+            build_type=build_type, options=dict(options or {}), configured=configured,
+            fragment=self.fragment, vcpkg_root=Path(vcpkg) if vcpkg else None,
+            triplet=self.vcpkg_triplet)
+        cmake = self.expand(self.cmake_exe) if self.cmake_exe else "cmake"
+        return default_resolver(self.package_keep, report, warn, cmake=cmake).resolve(request)
 
     def standalone_deps_dir(self, root: Path) -> Path:
         """Return the machine's dependency root.

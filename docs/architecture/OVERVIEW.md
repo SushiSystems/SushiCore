@@ -309,6 +309,19 @@ selects between toolchains (acpp, clang++, icpx) and resolves dependencies with 
 signature. Forcing it into this shape would bend the base class around a case it does not
 describe.
 
+### `provision/sushi_packages`
+
+A Sushi library compiled inside every consumer's build tree costs each consumer the SYCL
+runtime. The sub-package gives every consumer a built package. One
+file holds one job, so a rule changes in one place: the key (`package_key`), the source hash
+(`source_state`), the configure inputs, the toolchain identity, the store with its locks and
+its pruning, the per-consumer link, the builder that drives the library's own CLI, and the
+resolver that composes them bottom-up. The resolver takes every collaborator through its
+constructor, so each is replaced in a test and none starts a process there. The source hash is
+of content and not of a commit, so a commit that touches only documentation changes no key.
+The key lists the packages below it, so a library never links a dependency built against
+another one than the closure's.
+
 ### `theme`
 
 `rule_line` styles the dashes either side of a `console.rule()` title and, through Rich's

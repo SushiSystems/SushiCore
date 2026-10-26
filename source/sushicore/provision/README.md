@@ -39,6 +39,8 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sushi_setup.py` | The locate fallback, and the pin check, fetch and recheck `setup` runs before the closure |
 | `module_checks.py` | Assembles the rows `doctor` runs for a source checkout |
 | `commands.py` | `ModuleProvision` and `register_provision_commands` |
+| `sushi_packages/` | Builds each Sushi library once through its own CLI and keeps the result under `<home>/packages`: the key, the source hash, the store, the locks, the builder and the resolver. See "Sushi libraries as packages" below |
+| `package_install.py`, `package_command.py` | `PackageInstaller` and `register_package_command`: the shared `package` command, which installs a built tree to a prefix and runs CPack |
 
 ## What it depends on
 
@@ -122,6 +124,58 @@ not a link to the new root, and when there is no aside copy and the link was not
 `Registry.seed_from_tree(root, consumer)` records what a moved tree holds: each child of
 `toolchains`, `tools` and `ur`, and `vcpkg`. The version is the `tag` of the component's
 `.sushi_toolchain.json`, else `unversioned`.
+
+## Sushi libraries as packages
+
+A consumer links a Sushi library as a built package, never as a subdirectory of its own tree.
+`StackConfig.sushi_packages(root, build_type, options)` returns a `PackageSet`; the CLI uses
+its `lines()`, `definitions()` and `run_dirs(platform)`. The design and its decisions are in
+[`docs/agent/2026_10_26_PREBUILT_SUSHI_PACKAGES/SPEC.md`](../../docs/agent/2026_10_26_PREBUILT_SUSHI_PACKAGES/SPEC.md).
+
+| File | Job |
+| --- | --- |
+| `package_request.py`, `library_node.py` | The consumer's request and one library of its chain |
+| `source_locator.py`, `closure_walk.py` | Finds each library's checkout and lists the chain, dependencies first, each once |
+| `source_state.py`, `configure_inputs.py`, `toolchain_identity.py`, `key_factory.py`, `package_key.py` | The key: source content, configure inputs, compiler identity, build type, options, recipe and the packages below |
+| `build_tree.py`, `compiler_check.py`, `package_environment.py`, `package_builder.py` | The build in `build/pkg-<id>` through `<cli> build` and `<cli> package`, its environment and its compiler check |
+| `package.py`, `package_store.py`, `package_locks.py`, `stable_link.py`, `link_publisher.py` | The store under `<home>/packages`, its three locks and the consumer's link |
+| `forced_packages.py`, `package_choices.py`, `package_resolver.py`, `package_set.py`, `default_resolver.py` | Packages handed to a nested build, the one-key-per-library check, the resolver, its result and its assembly |
+
+The source part of the key is the SHA-256 of the path and bytes of every tracked and every
+untracked, not ignored file, without `docs/`, `build/`, `build-*/`, `*.md` and the module's
+`package_exclude`. A commit that changes only documentation changes no key. The other parts are
+the SYCL compiler's identity (the hash of its `--version` and its toolchain tag), the build type,
+the extra `build` arguments, the recipe (`lean-1` and the SushiCore version), the configure inputs
+(`cli/config.local.toml`, `vcpkg.json`, `vcpkg-configuration.json`, the vcpkg HEAD and triplet,
+the CMake major and minor version) and the key digests of the packages below. So a library's key
+contains its dependencies' keys, and a changed SushiRuntime gives SushiBLAS a new key.
+
+`<home>/packages/<name>/<digest>/` holds `prefix/`, `package.stamp.json` and `.used`. The stamp is
+written last; a folder without one is never used. An install goes to `<digest>.partial` and is
+renamed, with retries on Windows. The store keeps the `package_keep` packages of a library chosen
+most recently, and never removes one that the run chose, that a consumer's link points at, or
+that a package of another library lists as built against. A removal renames the folder to
+`<digest>.trash` first; one that fails is skipped with a warning and retried at the next prune. A
+`.partial` folder of another process is removed only after a day.
+
+Three locks, taken in this order and never in another: the checkout lock while a build runs in
+that checkout, the key lock while a key is installed, and the consumer's link lock while its link
+changes. After the key lock is taken an existing package is reused and nothing is built.
+
+Each consumer has its own link, `<home>/packages/<name>/@<config>-<consumer>`: a directory
+junction on Windows, a symlink elsewhere. It is set to the chosen package on every resolution, so
+the paths in the consumer's flags do not change when a library's source changes.
+
+The library CLI is the only door. In the library's checkout the builder runs
+`<cli> build --type <t> --build-dir build/pkg-<id> --lean <options>` and
+`<cli> package --build-dir build/pkg-<id> --prefix <staging> --no-archive --force`. The
+environment carries `SUSHISTACK_CXX`, one `<NAME>_PACKAGE` per package below the library and
+`SUSHISTACK_PACKAGE_NESTED=1`. A CLI reads `<NAME>_PACKAGE` only beside the marker, and refuses a
+package of another toolchain or build type. Before each step the compiler check probes the
+`CMAKE_CXX_COMPILER` of the tree and refuses one whose identity differs from the key's.
+
+A library with no package and no `cli` in its fragment is refused. A closure in which one library
+would appear at two keys is refused naming both digests and both choosers.
 
 ## The user's environment
 

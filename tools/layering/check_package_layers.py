@@ -73,10 +73,11 @@ K_LAYERED = (
             "steps": 5, "commands": 6, "sushi_sources": 1, "git_client": 4,
             "sushi_fetch": 5, "pin_chain": 2, "sushi_setup": 5, "module_checks": 5, "sushi_source_check": 5,
             "links": 0, "user_environment": 0, "migrate": 2,
+            "sushi_packages": 2, "package_install": 1, "package_command": 7,
         },
         strict=False,
         nested=True,
-        grouped=frozenset({"packages"}),
+        grouped=frozenset({"packages", "sushi_packages"}),
         forbidden=frozenset({"sushihub"}),
     ),
 )

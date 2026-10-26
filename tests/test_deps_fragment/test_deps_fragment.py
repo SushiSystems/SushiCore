@@ -293,3 +293,27 @@ def test_an_absent_fragment_reads_as_none_with_no_pins(tmp_path):
     """A checkout with no fragment has no fragment and no pins."""
     assert read_present(tmp_path / "absent.toml") is None
     assert pins_at(tmp_path / "absent.toml") == []
+
+
+def test_the_module_table_names_the_cli_and_the_package_exclusions(tmp_path):
+    """The cli command and the package exclusions of a library read from [module]."""
+    text = '[module]\ncli = "sr"\npackage_exclude = ["bench/", "*.txt"]\n'
+    fragment = read(_fragment(tmp_path, text))
+    assert (fragment.cli, fragment.package_exclude) == ("sr", ["bench/", "*.txt"])
+
+
+def test_a_module_table_without_the_keys_reads_them_empty(tmp_path):
+    """A fragment that names no cli and no exclusions reads empty values."""
+    fragment = read(_fragment(tmp_path, '[module]\ndepends_on = []\n'))
+    assert (fragment.cli, fragment.package_exclude) == ("", [])
+
+
+@pytest.mark.parametrize("line, expected", [
+    ("cli = 3", "cli is a int"),
+    ('package_exclude = "docs"', "package_exclude"),
+    ("package_exclude = [1]", "package_exclude"),
+])
+def test_a_malformed_cli_or_exclusion_is_refused(tmp_path, line, expected):
+    """A cli that is not a string and an exclusion that is not a list of strings raise."""
+    with pytest.raises(ValueError, match=expected):
+        read(_fragment(tmp_path, f"[module]\n{line}\n"))

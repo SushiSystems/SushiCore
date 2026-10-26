@@ -64,6 +64,10 @@ Low to high:
 | `SUSHISYSTEMS_HOME` | `provision/home.py` | Names the dependency root; the default is `~/.sushisystems` |
 | `SUSHISTACK_DEPS_DIR` | `provision/home.py`, `stack_config.py` | Names a legacy dependency tree to read |
 | `<NAME>_DIR` | `provision/sushi_sources.py`, `stack_config.py` | Names the checkout of the Sushi library `<name>`, pinned or not, such as `SUSHILOG_DIR`; wins over the sibling and the fetched copy when the folder exists |
+| `SUSHISTACK_PACKAGE_KEEP` | `provision/sushi_packages/default_resolver.py` | How many built packages of one Sushi library the store keeps; wins over the `package_keep` config field, whose default is 3. A value below 1 is refused |
+| `SUSHISTACK_PACKAGE_NESTED` | `provision/sushi_packages/package_environment.py` | Set to `1` by sushicore in the environment of a library build it runs; a `<NAME>_PACKAGE` variable is honoured only beside it |
+| `<NAME>_PACKAGE` | `provision/sushi_packages/forced_packages.py` | The install prefix of the built package of the Sushi library `<name>`, handed to a nested library build; ignored with a warning without `SUSHISTACK_PACKAGE_NESTED` |
+| `SUSHISTACK_CXX` | `provision/sushi_packages/package_environment.py` | The consumer's compiler, handed to a library CLI that builds a package; the CLI uses it in place of its configured compiler |
 | `<PREFIX>_<TOOL>` | `profile.py` | Overrides one tool path of one CLI, such as `SR_CMAKE`; the prefix is `ModuleProfile.env_prefix` |
 | `<PROGRAM>_NO_DEPRECATION_NOTICE` | `aliases.py` | Set to `1`, silences the notice an old command spelling prints |
 | `CUDA_PATH`, `ROCM_PATH` | `provision/gpu/` | Where the CUDA and ROCm locators look first; each install writes its variable to the user's variables |

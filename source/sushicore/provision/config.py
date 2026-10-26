@@ -46,3 +46,5 @@ class ProvisionSettings(ToolConfig):
     icx_compiler: str = ""
     llvm_root: str = ""
     acpp_exe: str = ""
+    #: How many built packages of one Sushi library the store keeps.
+    package_keep: int = 3

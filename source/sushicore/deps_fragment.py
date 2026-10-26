@@ -98,6 +98,10 @@ class Fragment:
     dependencies: list[Dependency]
     depends_on: list[str]
     pins: list[SushiPin] = field(default_factory=list)
+    #: The command of the module's own CLI, such as ``sr``; empty when the module names none.
+    cli: str = ""
+    #: Git pathspecs the source hash of a package build leaves out, besides the built-in ones.
+    package_exclude: list[str] = field(default_factory=list)
 
 
 def read(path: Path) -> Fragment:
@@ -116,13 +120,16 @@ def read(path: Path) -> Fragment:
             how a fragment goes unread; the shape is named rather than ignored.
             Or an entry's ``sha256`` is not a table of platform to hex digest.
             Or a ``[sushisystems.<name>]`` pin is malformed or names a module
-            ``depends_on`` does not, or the file holds the pins under both table names. A module in ``depends_on`` may go unpinned; it is then never
+            ``depends_on`` does not, or the file holds the pins under both table names. Or ``[module] cli`` is not a
+            string, or ``[module] package_exclude`` is not a list of strings. A module in ``depends_on`` may go unpinned; it is then never
             fetched.
     """
     with path.open("rb") as handle:
         document = tomllib.load(handle)
 
     depends_on: list[str] = []
+    cli = ""
+    package_exclude: list[str] = []
     pins: list[SushiPin] = []
     dependencies: list[Dependency] = []
     if SUSHI_TABLE in document and K_DEPRECATED_SUSHI_TABLE in document:
@@ -137,6 +144,8 @@ def read(path: Path) -> Fragment:
                 f"and a reader that skips it loses everything the file declared.")
         if name == MODULE_TABLE:
             depends_on = [str(module) for module in table.get("depends_on", [])]
+            cli = _read_text(path, "cli", table.get("cli", ""))
+            package_exclude = _read_texts(path, "package_exclude", table.get("package_exclude", []))
             continue
         if name in (SUSHI_TABLE, K_DEPRECATED_SUSHI_TABLE):
             if name == K_DEPRECATED_SUSHI_TABLE:
@@ -157,7 +166,7 @@ def read(path: Path) -> Fragment:
             sha256=_read_digests(path, name, table.get("sha256", {})),
         ))
     _match_pins(path, depends_on, pins)
-    return Fragment(dependencies, depends_on, pins)
+    return Fragment(dependencies, depends_on, pins, cli, package_exclude)
 
 
 def read_present(path: Path) -> Fragment | None:
@@ -200,6 +209,30 @@ def _read_pin(path: Path, name: str, value: object) -> SushiPin:
             f"{path}: commit of {SUSHI_TABLE}.{name} is {commit!r}, and a commit is the full "
             f"40-hex hash the tag {version} points at.")
     return SushiPin(name, version, commit.lower())
+
+
+def _read_text(path: Path, key: str, value: object) -> str:
+    """Return the string a ``[module]`` key holds.
+
+    Raises:
+        ValueError: *value* is not a string.
+    """
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{path}: [{MODULE_TABLE}] {key} is a {type(value).__name__}, and it is a string.")
+    return value
+
+
+def _read_texts(path: Path, key: str, value: object) -> list[str]:
+    """Return the list of strings a ``[module]`` key holds.
+
+    Raises:
+        ValueError: *value* is not a list of strings.
+    """
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(
+            f"{path}: [{MODULE_TABLE}] {key} is {value!r}, and it is a list of strings.")
+    return list(value)
 
 
 def _match_pins(path: Path, depends_on: list[str], pins: list[SushiPin]) -> None:

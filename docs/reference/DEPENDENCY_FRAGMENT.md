@@ -29,6 +29,8 @@ installers.
 | Key | Meaning |
 | --- | --- |
 | `depends_on` | The modules this one builds on. `setup` reads the fragment of each one it can find |
+| `cli` | The command of the module's own CLI, such as `sr`. A consumer that needs a built package of this module has sushicore run `<cli> build` and `<cli> package` in its checkout |
+| `package_exclude` | Git pathspecs the source hash of a package build leaves out, besides `docs/`, `*.md`, `build/` and `build-*/`. A pathspec ending in `/` is a folder prefix; any other is a glob |
 
 ## The `[sushisystems.<name>]` pins
 
@@ -44,6 +46,16 @@ depends_on = ["sushilog"]
 [sushisystems.sushilog]
 version = "v1.0.0"                                   # the release tag
 commit  = "<the 40-hex hash the tag points at>"
+```
+
+A module that other modules consume as a package names its CLI in `cli`; without it a missing
+package cannot be built and the consumer's `setup` stops naming the key to add. The reader raises
+`ValueError` naming the file when `cli` is not a string or `package_exclude` is not a list of strings.
+
+```toml
+[module]
+cli             = "sr"
+package_exclude = ["bench/"]
 ```
 
 The reader raises `ValueError` and names the file in four cases: a pin names a module
@@ -71,9 +83,11 @@ library, the URL, the tag and the `<NAME>_DIR` that hands it a checkout instead.
 sibling's HEAD is not the pinned commit. Its `sushi pins` row fails on a conflicting pin.
 
 `StackConfig.sushi_pins(root)` reads the fragment at `StackConfig.fragment`, the path the
-module also hands `ModuleProvision.fragment`. `StackConfig.sushi_definitions(root)` returns
-`-D<NAME>_DIR=<path>` for each pin that resolves. The CLI adds these to the CMake configure, and
-CMake never downloads.
+module also hands `ModuleProvision.fragment`. `StackConfig.sushi_packages(root, build_type)` resolves a built package for every library the
+chain links, and `StackConfig.sushi_definitions(root, packaged)` returns `-D<NAME>_DIR=<path>` for
+each pin that resolves and is not in `packaged`. The CLI adds these and
+`PackageSet.definitions()` to the CMake configure, and CMake never downloads. The packages are in
+[`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
 
 ## `sha256`
 
@@ -126,6 +140,7 @@ naming both owners.
 
 A fragment carries no `format_version`. `sha256` was added on 2026-10-05 as an optional key; a
 fragment without it reads as before, and a `sushicore` older than the key ignores it.
+`cli` and `package_exclude` are optional keys of `[module]` that a reader without them ignores.
 The pin tables are `[sushisystems.<name>]` from 0.9.3, and `[sushi.<name>]` from 0.9.1 to 0.9.2.
 A reader from 0.9.3 still reads `[sushi.<name>]`, with a `DeprecationWarning`. A reader older than
 0.9.3 reads `[sushisystems]` as a dependency named `sushisystems`.

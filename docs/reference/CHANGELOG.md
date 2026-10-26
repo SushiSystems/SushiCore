@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 2026-10-26 — provision: Added `register_package_command`, the shared `package` command that installs a built tree to a prefix and archives it (`package_command.py`, `package_install.py`).
+- 2026-10-26 — provision: Added `StackConfig.sushi_packages` and `package_keep`; `sushi_definitions` skips a packaged library (`stack_config.py`, `provision/config.py`).
+- 2026-10-26 — provision: Added the package resolver, which builds each Sushi library once through its own CLI and reuses it from `<home>/packages` for every consumer (`provision/sushi_packages/`).
+- 2026-10-26 — provision: Added `cli` and `package_exclude` to the `[module]` table of a dependency fragment (`deps_fragment.py`).
+
 ## v0.9.5 — 2026-10-26
 
 - 2026-10-26 — tools: Took the shared tools from SushiSkills, so the design-topic tests pass on a Windows runner and the release reaches PyPI (`tools/`).

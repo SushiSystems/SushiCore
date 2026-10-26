@@ -164,3 +164,55 @@ def test_sushi_pins_read_the_fragment_the_module_declares(tmp_path, provision_ho
     moved.write_text((root / "cli" / "sushistack.deps.toml").read_text(encoding="utf-8"),
                      encoding="utf-8")
     assert [pin.name for pin in _Moved(platform="linux").sushi_pins(root)] == ["sushiruntime"]
+
+
+def test_sushi_definitions_skip_a_packaged_library(tmp_path, provision_home, monkeypatch):
+    """Check that a library in the package set gets no -D<NAME>_DIR."""
+    monkeypatch.delenv("SUSHIRUNTIME_DIR", raising=False)
+    root = tmp_path / "sushiblas"
+    _pin(root, "sushiruntime")
+    (tmp_path / "sushiruntime").mkdir()
+
+    class _Packaged:
+        """Names one packaged library."""
+
+        def names(self):
+            """Return the packaged names."""
+            return ["sushiruntime"]
+
+    assert _Config(platform="linux").sushi_definitions(root, _Packaged()) == []
+
+
+def test_sushi_packages_hands_the_resolver_the_consumer_request(
+        tmp_path, provision_home, monkeypatch):
+    """Check the request built from the config: owner, compiler, build type and directories."""
+    import sushicore.stack_config as stack_config
+
+    seen = {}
+
+    class _Resolver:
+        """Records the request it resolves."""
+
+        def resolve(self, request):
+            """Keep *request* and return a marker."""
+            seen["request"] = request
+            return "resolved"
+
+    def assemble(keep, report, warn, cmake="cmake"):
+        """Record the keep count and the cmake path."""
+        seen["keep"], seen["cmake"] = keep, cmake
+        return _Resolver()
+
+    monkeypatch.setattr(stack_config, "default_resolver", assemble)
+    root = tmp_path / "sushiai"
+    root.mkdir()
+    cfg = _Config(platform="linux", cxx="/x/clang++", sushiruntime_dir="/r", package_keep=5,
+                  cmake_exe="/c/cmake")
+    result = cfg.sushi_packages(root, "release", {"sushiruntime": ("--distributed",)})
+    request = seen["request"]
+    assert result == "resolved"
+    assert (request.owner, request.compiler, request.build_type) == ("sushiai", "/x/clang++",
+                                                                     "release")
+    assert request.configured == {"sushiruntime": "/r"}
+    assert request.options == {"sushiruntime": ("--distributed",)}
+    assert (seen["keep"], seen["cmake"]) == (5, "/c/cmake")

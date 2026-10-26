@@ -34,3 +34,10 @@ def test_every_config_attribute_provision_reads_is_declared():
     for path in _ROOT.rglob("*.py"):
         read.update(_CFG_ATTRIBUTE.findall(path.read_text(encoding="utf-8")))
     assert read - _declared() == set()
+
+
+def test_the_package_keep_count_defaults_to_three():
+    """Check that a provision settings object keeps three packages per library."""
+    from sushicore.provision.config import ProvisionSettings
+
+    assert ProvisionSettings().package_keep == 3

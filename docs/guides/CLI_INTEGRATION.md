@@ -61,6 +61,7 @@ Every Sushi CLI registers the same surfaces, each with one call.
 | `sushicore.root_options.register_root_options(app, distribution=...)` | `--version` and `--describe`, the command catalogue as JSON |
 | `sushicore.diag_commands.register_diagnostic_commands(app, diagnostics, program=..., panel=...)` | `config` and `env` |
 | `sushicore.provision.commands.register_provision_commands(app, module)` | `setup`, `doctor`, `link`, `unlink` |
+| `sushicore.provision.package_command.register_package_command(app, module)` | `package`, which installs a built tree to a prefix; every library CLI registers it |
 | `sushicore.aliases.AliasTable(program, aliases)` | Old spellings that still run, hidden, and name their replacement |
 | `sushicore.entry.run(app, report)` | An entry point that turns a `SushiCoreError` into one line and exit code 1 |
 
@@ -73,6 +74,21 @@ own and is declared there.
 
 `AliasTable` prints one notice per process, to a terminal only. Setting
 `<PROGRAM>_NO_DEPRECATION_NOTICE=1` silences it, for example `SR_NO_DEPRECATION_NOTICE=1`.
+
+`package` takes `--build-dir` (default `build`), `--prefix` (default `build/dist`), `--no-archive`
+and `--force`. It runs `cmake --install` of the tree into the prefix and CPack unless
+`--no-archive` is given. It stops when the tree is not configured, and clears a prefix it did
+not stage only with `--force`.
+
+A CLI whose project links Sushi libraries consumes them as built packages. Before the configure
+it calls `cfg.sushi_packages(root, build_type, options)`, which returns a `PackageSet`. The CLI
+prints `package_set.lines()`, appends `cfg.sushi_definitions(root, package_set)` and
+`package_set.definitions()` to the configure arguments, and prepends
+`package_set.run_dirs(cfg.platform)` to `PATH` or `LD_LIBRARY_PATH` with
+`build_env.prepend_path`. `options` maps a library name to the extra `build` arguments that
+library takes; a flag such as `--distributed` is the consumer's to map. A CLI that is also a
+library takes `--build-dir <path>` and `--lean` on `build`, which sushicore passes when it
+builds the library's package, and honours `SUSHISTACK_CXX` over its configured compiler.
 
 The provisioning commands and the `ModuleProvision` value they are registered from are in
 [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).

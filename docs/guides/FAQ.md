@@ -94,6 +94,19 @@ the folder `SUSHISTACK_DEPS_DIR` names and in a legacy `<workspace>/dependencies
 tree is read and never written. [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md)
 describes the root and how it is moved to another directory.
 
+## How does a build get the Sushi libraries it links?
+
+As built packages. For each library in the chain, `[module] depends_on` through every
+fragment, sushicore finds the checkout, computes a key from the library's source content,
+compiler, build type, options and the packages below it, and looks for a package of that key
+under `<home>/packages/<name>/`. A match is reused and compiles nothing. A miss is built through
+the library's own CLI, named by `[module] cli`, in its own tree `build/pkg-<id>`, and installed.
+The build prints one line per library, `reused <short>` or `built <short> in <s>s`. The store
+keeps the three packages of a library that were chosen most recently; `package_keep` or
+`SUSHISTACK_PACKAGE_KEEP` changes the count. A change under `docs/` or in a `*.md` file does
+not change the key. The key, the store and the locks are in
+[`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
+
 ## What do `setup` and `doctor` do?
 
 `setup` installs what a module needs to build and then runs `doctor`. It reads the module's
