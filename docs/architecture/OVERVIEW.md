@@ -115,7 +115,10 @@ snapshot dumps the whole environment of the shell that produced it, so a variabl
 one debugging session would be frozen into the cache and replayed into every later build and
 run. A fresh terminal would not escape it, because the snapshot is merged over the current
 environment. These variables name a run-time choice and never a toolchain fact, so they are
-dropped when the cache is written and again when it is read.
+dropped when the cache is written and again when it is read. `CALLER_TEMP_VARS`, `TMP` and `TEMP`,
+are dropped the same way: they name the folder a compiler writes its temporaries to, so a caller
+that points them at another drive is obeyed and the snapshot does not pin them to the drive it
+was taken on.
 
 `tests/test_build_env.py` guards both sides. The defect behind
 `test_a_cache_written_before_this_existed_heals_on_read` was a snapshot taken while a session

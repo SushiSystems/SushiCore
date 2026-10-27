@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-27 — build_env: Dropped `TMP` and `TEMP` from the vcvars snapshot, so a build honours the caller's scratch folder (`build_env.py`).
+
 ## v0.9.7 — 2026-10-26
 
 - 2026-10-26 — provision: Added the `libraries` keyword to `StackConfig.sushi_packages`, which resolves only the named libraries and their closure (`stack_config.py`).

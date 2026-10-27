@@ -73,6 +73,16 @@ def without_device_selection(env: Mapping[str, str]) -> dict[str, str]:
     return {k: v for k, v in env.items() if k.upper() not in RUNTIME_DEVICE_VARS}
 
 
+#: The scratch folder a process writes into; the caller's, never a snapshot's.
+CALLER_TEMP_VARS = frozenset({"TMP", "TEMP"})
+
+
+def without_caller_choices(env: Mapping[str, str]) -> dict[str, str]:
+    """Copy *env* without the device selection and the scratch folder, both the caller's choice."""
+    return {k: v for k, v in without_device_selection(env).items()
+            if k.upper() not in CALLER_TEMP_VARS}
+
+
 def parse_windows_set(output: str) -> dict[str, str]:
     """Parse the KEY=VALUE lines that cmd.exe's ``set`` prints."""
     env: dict[str, str] = {}
@@ -115,7 +125,7 @@ def _snapshot(vcvars: str, console, *, redirect: str, loading: str,
     if result.returncode != 0:
         console.warn(failed)
         return None
-    return without_device_selection(parse_windows_set(result.stdout))
+    return without_caller_choices(parse_windows_set(result.stdout))
 
 
 def read_cache(cache_file: Path, key: str) -> dict[str, str] | None:
@@ -129,7 +139,7 @@ def read_cache(cache_file: Path, key: str) -> dict[str, str] | None:
     if not isinstance(cached, dict) or cached.get("key") != key:
         return None
     env = cached.get("env")
-    return without_device_selection(env) if isinstance(env, dict) else None
+    return without_caller_choices(env) if isinstance(env, dict) else None
 
 
 def write_cache(cache_file: Path, key: str, env: Mapping[str, str]) -> None:

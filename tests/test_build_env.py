@@ -10,8 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.build_env import (RUNTIME_DEVICE_VARS, merge_env, parse_windows_set,
-                                 read_cache, without_device_selection, write_cache)
+from sushicore.build_env import (CALLER_TEMP_VARS, RUNTIME_DEVICE_VARS, merge_env,
+                                 parse_windows_set, read_cache, without_caller_choices,
+                                 without_device_selection, write_cache)
 
 
 pytestmark = pytest.mark.medium
@@ -41,6 +42,19 @@ def test_a_dumped_shell_environment_loses_only_the_device_choice():
     dumped = parse_windows_set("PATH=C:/msvc/bin\nONEAPI_DEVICE_SELECTOR=opencl:cpu\n")
     assert dumped["ONEAPI_DEVICE_SELECTOR"] == "opencl:cpu"
     assert without_device_selection(dumped) == {"PATH": "C:/msvc/bin"}
+
+
+def test_without_caller_choices_drops_the_scratch_folder_and_the_device():
+    env = {name: "C:/Users/me/AppData/Local/Temp" for name in CALLER_TEMP_VARS}
+    env.update({"PATH": "C:/msvc/bin", "ONEAPI_DEVICE_SELECTOR": "opencl:cpu"})
+    assert without_caller_choices(env) == {"PATH": "C:/msvc/bin"}
+
+
+def test_a_callers_scratch_folder_survives_a_cached_snapshot(tmp_path):
+    # A snapshot's TMP must not send every compile's temporaries to the drive it was taken on.
+    cache_file = _cache(tmp_path, {"PATH": "C:/msvc/bin", "TMP": "C:/Temp"})
+    cached = read_cache(cache_file, "k")
+    assert merge_env({"TMP": "D:/build/tmp"}, cached)["TMP"] == "D:/build/tmp"
 
 
 def test_a_cache_written_before_this_existed_heals_on_read(tmp_path):
