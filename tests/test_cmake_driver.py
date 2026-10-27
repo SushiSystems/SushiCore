@@ -294,3 +294,40 @@ def test_configure_keeps_the_cache_when_no_compiler_is_named(tmp_path):
     driver, _ = _driver()
     driver.configure(["cmake", "-B", str(build), "-DSUSHI_OPTION=ON"], tmp_path)
     assert (build / "CMakeCache.txt").exists()
+
+
+class _ScratchRunner(_Runner):
+    """Records the scratch folder a build was given and writes a leftover into it."""
+
+    def __init__(self, fail=False):
+        super().__init__()
+        self.fail = fail
+        self.scratch = None
+
+    def run(self, cmd, cwd, env=None):
+        self.scratch = Path(env["TMP"])
+        assert env["TEMP"] == env["TMP"]
+        (self.scratch / "main-sm_86-65cff7.s").write_text("leftover")
+        if self.fail:
+            raise RuntimeError("the build broke")
+        return 0
+
+
+def test_compile_hands_the_compilers_a_scratch_folder_in_the_tree(tmp_path):
+    runner = _ScratchRunner()
+    driver = CMakeDriver(_Console(), runner)
+    driver.compile(_cfg(), tmp_path, tmp_path, {"TMP": "C:/Temp", "PATH": "x"}, config="Release")
+    assert runner.scratch == tmp_path / "compiler_tmp"
+
+
+def test_compile_empties_the_scratch_folder_when_the_build_ends(tmp_path):
+    runner = _ScratchRunner()
+    CMakeDriver(_Console(), runner).compile(_cfg(), tmp_path, tmp_path, None, config="Release")
+    assert not runner.scratch.exists()
+
+
+def test_compile_empties_the_scratch_folder_when_the_build_fails(tmp_path):
+    runner = _ScratchRunner(fail=True)
+    with pytest.raises(RuntimeError):
+        CMakeDriver(_Console(), runner).compile(_cfg(), tmp_path, tmp_path, None, config="Release")
+    assert not runner.scratch.exists()

@@ -158,6 +158,12 @@ tree with default options: targets go missing and the build type is lost. This h
 every build tree after the dependency root moves. The comparison ignores case and separators
 as the platform does, and an argv that names no compiler leaves the cache alone.
 
+`compile` points `TMP` and `TEMP` at `compiler_tmp` inside the build tree and deletes that
+folder when the build ends, whether it passed, failed or raised. A SYCL link that targets CUDA
+leaves its device-split files, about 150 MB per executable, in the temp folder and never removes
+them; in the shared `%TEMP%` they reached half a million files. The scratch folder belongs to one
+tree, so two trees building at once never empty each other's.
+
 In `doxygen`, the child resolves its argument against `cwd`, and every module passes a path
 relative to the project root, not an absolute one. The method derives that path from the
 Doxyfile so a caller does not give it twice. It needs `as_posix()` on Windows, where

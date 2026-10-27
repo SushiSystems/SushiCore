@@ -10,6 +10,7 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `cmake_driver`.
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -41,6 +42,19 @@ _DEFAULT_DOXYGEN_HINT = (
     "  - macOS:   brew install doxygen graphviz\n"
     "  - or set doxygen_exe in config.local.toml to an existing doxygen binary.")
 
+
+
+def compiler_scratch(build_dir: Path) -> Path:
+    """The folder a build of *build_dir* gives its compilers for temporaries."""
+    return Path(build_dir) / "compiler_tmp"
+
+
+def with_scratch(env: Mapping[str, str] | None, scratch: Path) -> dict[str, str]:
+    """Copy *env*, or the live environment when None, with TMP and TEMP set to *scratch*."""
+    merged = {k: v for k, v in (os.environ if env is None else env).items()
+              if k.upper() not in ("TMP", "TEMP")}
+    merged["TMP"] = merged["TEMP"] = str(scratch)
+    return merged
 
 class CMakeDriver:
     """The cmake and ctest half of what five project.py copies shared.
@@ -117,6 +131,10 @@ class CMakeDriver:
             tree's own cache, because a caller that did not configure this tree
             has no business choosing one.
         @param jobs When set, passed as --parallel before the targets.
+
+        The compilers write their temporaries to the tree's own scratch folder, which is emptied
+        when the build ends, whatever its result: a SYCL device link leaves its split files
+        behind, and in the shared temp folder they are never removed.
         """
         if config is None:
             config = cached_value(build_dir, "CMAKE_BUILD_TYPE") or "Release"
@@ -125,7 +143,12 @@ class CMakeDriver:
             cmd += ["--parallel", str(jobs)]
         for target in targets:
             cmd += ["--target", target]
-        return self._runner.run(cmd, cwd, env)
+        scratch = compiler_scratch(build_dir)
+        scratch.mkdir(parents=True, exist_ok=True)
+        try:
+            return self._runner.run(cmd, cwd, with_scratch(env, scratch))
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
 
     def ctest_run(self, cfg, build_dir: Path, env, *,
                   label_regex: str | None = None, exclude_label_regex: str | None = None,
