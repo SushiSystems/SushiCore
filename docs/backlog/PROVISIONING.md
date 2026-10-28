@@ -18,7 +18,6 @@
 | RW-51 | P2 | open | Read `use_vcpkg` | `stack_config.resolved_vcpkg` honours the `use_vcpkg` key the hub's defaults set per platform; the change reaches every command line that links this package |  |  | 2026-10-19 |
 | RW-53 | P2 | open | Drop the doubled progress line | `InstallPipeline.run` reports each step once to a human; the JSON event stays and the Rich bar goes |  |  | 2026-10-19 |
 | RW-54 | P2 | open | Provision every GPU vendor on a machine | `detect_gpu_vendor` returns every vendor present and the registry provisions a backend for each; a machine with an NVIDIA card and an AMD iGPU provisions only… |  |  | 2026-10-19 |
-| RW-56 | P2 | open | Summarise cmake --install output in one line | a package install prints its command and one line counting the files it installed; a failed install prints cmake's whole output |  |  | 2026-10-29 |
 
 ## Known issues
 
