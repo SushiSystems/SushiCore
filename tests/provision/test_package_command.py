@@ -15,6 +15,7 @@ from sushicore.profile import ModuleProfile
 from sushicore.provision.commands import ModuleProvision
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.package_command import register_package_command
+from sushicore.provision.package_install import CapturedRun
 
 pytestmark = pytest.mark.medium
 
@@ -32,7 +33,8 @@ def _app(root, runner, console):
     register_package_command(app, ModuleProvision(
         profile=profile, project_root=lambda: root,
         load_config=lambda: ProvisionSettings(platform="linux", cmake_exe="/c/cmake"),
-        console=lambda: console), run=runner)
+        console=lambda: console), run=runner,
+        capture=lambda command, cwd, env=None: CapturedRun(runner(command, cwd, env), ""))
     return app
 
 

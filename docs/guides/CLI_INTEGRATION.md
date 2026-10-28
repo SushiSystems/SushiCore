@@ -77,8 +77,10 @@ own and is declared there.
 
 `package` takes `--build-dir` (default `build`), `--prefix` (default `build/dist`), `--no-archive`
 and `--force`. It runs `cmake --install` of the tree into the prefix and CPack unless
-`--no-archive` is given. It stops when the tree is not configured, and clears a prefix it did
-not stage only with `--force`.
+`--no-archive` is given. The install prints its command and one line counting the files it
+copied and the ones already up to date; cmake's own lines appear only when the install fails.
+It stops when the tree is not configured, and clears a prefix it did not stage only with
+`--force`.
 
 A CLI whose project links Sushi libraries consumes them as built packages. Before the configure
 it calls `cfg.sushi_packages(root, build_type, options)`, which returns a `PackageSet`. The CLI

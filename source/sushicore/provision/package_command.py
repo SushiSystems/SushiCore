@@ -13,7 +13,7 @@ from typing import Callable, Optional
 from ..build_tree import K_DEFAULT_BUILD_TYPE, tree_dir
 from ._output import bind_console
 from .commands import ModuleProvision
-from .package_install import PackageInstaller, run_command
+from .package_install import CapturedRun, PackageInstaller, capture_command, run_command
 
 #: The name of the tree the command installs from unless told otherwise; its type is the CLI default.
 K_DEFAULT_TREE = "default"
@@ -23,7 +23,8 @@ K_DEFAULT_PREFIX = "build/dist"
 
 
 def register_package_command(app: "typer.Typer", module: ModuleProvision,
-                             run: Callable[..., int] = run_command) -> None:
+                             run: Callable[..., int] = run_command,
+                             capture: Callable[..., CapturedRun] = capture_command) -> None:
     """Add ``package`` to *app*: install a built tree to a prefix, then archive it with CPack.
 
     The command installs; it does not check what it installs.
@@ -31,7 +32,8 @@ def register_package_command(app: "typer.Typer", module: ModuleProvision,
     Args:
         app: The CLI's Typer application.
         module: What the CLI hands the shared commands; its config names the cmake executable.
-        run: Runs a command in a folder; replaced in tests.
+        run: Runs a command in a folder with its output shown; replaced in tests.
+        capture: Runs a command in a folder with its output held back; replaced in tests.
     """
     import typer
 
@@ -60,7 +62,7 @@ def register_package_command(app: "typer.Typer", module: ModuleProvision,
         bind_console(module.console)
         cfg = module.load_config()
         cmake = cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else "cmake"
-        installer = PackageInstaller(module.console(), cmake, run)
+        installer = PackageInstaller(module.console(), cmake, run, capture)
         root = module.project_root()
         tree = Path(build_dir) if build_dir else tree_dir(root, K_DEFAULT_TREE, K_DEFAULT_BUILD_TYPE)
         raise typer.Exit(installer.install(

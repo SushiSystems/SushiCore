@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
@@ -21,15 +22,32 @@ K_STAGE_MARKER = ".sushi_package_stage"
 #: The build type used when the tree's cache names none.
 K_DEFAULT_CONFIG = "Release"
 
+#: The line ``cmake --install`` prints for a file it copied.
+K_INSTALLED_LINE = "-- Installing: "
+
+#: The line ``cmake --install`` prints for a file it left as it was.
+K_UP_TO_DATE_LINE = "-- Up-to-date: "
+
 
 class _Console(Protocol):
-    """The two console calls the installer makes."""
+    """The three console calls the installer makes."""
 
     def error(self, text: str) -> None:
         """Print an error line."""
 
     def command(self, text: str) -> None:
         """Print a command line."""
+
+    def info(self, text: str) -> None:
+        """Print an information line."""
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedRun:
+    """The exit code and the combined output of a command run with its output held back."""
+
+    code: int
+    output: str
 
 
 def run_command(command: list[str], cwd: Path, env: Mapping[str, str] | None = None) -> int:
@@ -40,21 +58,51 @@ def run_command(command: list[str], cwd: Path, env: Mapping[str, str] | None = N
         return 127
 
 
+def capture_command(command: list[str], cwd: Path,
+                    env: Mapping[str, str] | None = None) -> CapturedRun:
+    """Run *command* in *cwd* with stdout and stderr held together; 127 when it cannot start."""
+    try:
+        done = subprocess.run(command, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, errors="replace")
+    except OSError as error:
+        return CapturedRun(127, str(error))
+    return CapturedRun(done.returncode, done.stdout or "")
+
+
+def install_summary(output: str, prefix: Path) -> str:
+    """Return one line counting the files a ``cmake --install`` *output* copied and kept.
+
+    cmake prints a folder with the same prefix as a file, so a line counts only when its path
+    is a file once the install is done.
+    """
+    def files(marker: str) -> int:
+        """Return how many lines start with *marker* and name a file."""
+        return sum(1 for line in output.splitlines()
+                   if line.startswith(marker) and Path(line[len(marker):].strip()).is_file())
+
+    return (f"Installed {files(K_INSTALLED_LINE)} files, {files(K_UP_TO_DATE_LINE)} up to date, "
+            f"into {prefix}")
+
+
 class PackageInstaller:
     """Runs ``cmake --install`` of a built tree into a prefix, then CPack when asked."""
 
     def __init__(self, console: _Console, cmake: str = "cmake",
-                 run: Callable[..., int] = run_command) -> None:
+                 run: Callable[..., int] = run_command,
+                 capture: Callable[..., CapturedRun] = capture_command) -> None:
         """Bind the installer to its console and the commands it runs.
 
         Args:
-            console: Receives the error and the command lines.
+            console: Receives the error, command and summary lines.
             cmake: The cmake executable; CPack is looked for beside it.
-            run: Runs a command in a folder; replaced in tests.
+            run: Runs a command in a folder with its output shown; runs CPack; replaced in tests.
+            capture: Runs a command in a folder with its output held back; runs the install;
+                replaced in tests.
         """
         self._console = console
         self._cmake = cmake
         self._run = run
+        self._capture = capture
 
     def install(self, root: Path, build_dir: Path, prefix: Path, *, archive: bool,
                 force: bool) -> int:
@@ -81,8 +129,8 @@ class PackageInstaller:
             return 1
         self._clear(target)
         config = cached_value(tree, "CMAKE_BUILD_TYPE") or K_DEFAULT_CONFIG
-        code = self._step([self._cmake, "--install", str(tree), "--prefix", str(target),
-                           "--config", config], root)
+        code = self._install_step([self._cmake, "--install", str(tree), "--prefix", str(target),
+                                   "--config", config], root, target)
         if code != 0:
             return code
         (target / K_STAGE_MARKER).write_text("", encoding="utf-8")
@@ -115,6 +163,16 @@ class PackageInstaller:
         """Print and run one command; return its exit code."""
         self._console.command(" ".join(command))
         return self._run(command, cwd)
+
+    def _install_step(self, command: list[str], cwd: Path, target: Path) -> int:
+        """Print and run the install; print one summary line, or all of cmake's output on failure."""
+        self._console.command(" ".join(command))
+        result = self._capture(command, cwd)
+        if result.code != 0:
+            self._console.error(f"cmake --install exited {result.code}:\n{result.output.rstrip()}")
+            return result.code
+        self._console.info(install_summary(result.output, target))
+        return 0
 
     def _cpack(self) -> str:
         """Return the cpack executable beside the configured cmake, else ``cpack``."""
