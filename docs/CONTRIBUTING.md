@@ -11,7 +11,7 @@ SushiCore follows the Sushi Systems skills: `documentation`, `source-comments`,
 2. Write the test with the change. `tests/` mirrors the package: `tests/provision/` covers
    `sushicore/provision/`, `tests/ui/` covers `sushicore/ui/`.
 3. Update what the change made false, in the same commit: the module README, the manual page,
-   the design document's status line and [Remaining work](design/REMAINING_WORK.md).
+   the design document's status line and [Remaining work](backlog/README.md).
 4. Add one line under `## Unreleased` in [the changelog](reference/CHANGELOG.md).
 5. Run the checks below.
 
@@ -25,7 +25,7 @@ SushiCore follows the Sushi Systems skills: `documentation`, `source-comments`,
 | Adds or changes a JSON event | [JSON events](reference/JSON_EVENTS.md); the keys are a contract with the desktop application |
 | Changes a field of `bundle.json` or a key of `docs/publish.toml` | [Documentation bundle](reference/DOCS_BUNDLE.md) and `K_SCHEMA_VERSION`; the documentation site reads both |
 | Finishes a phase of a design | The status line of the document under `docs/design/` and the row in [the design map](design/README.md) |
-| Fixes a recorded defect | Its row removed from [Known issues](reference/KNOWN_ISSUES.md) |
+| Fixes a recorded defect | Its row removed from [Known issues](backlog/README.md) |
 | Introduces a word a reader has to learn | [The glossary](reference/GLOSSARY.md) |
 
 ## Checks
@@ -40,9 +40,9 @@ python -m unittest discover -s tools/tests
 ```
 
 `check_changelog.py` prints nothing. `check_docs_layout.py` prints only the entries recorded
-under "Documentation and layout" in [Known issues](reference/KNOWN_ISSUES.md), and
+under "Documentation and layout" in [Known issues](backlog/README.md), and
 `check_source_comments.py` only the findings counted in
-[Remaining work](design/REMAINING_WORK.md). A change adds to neither. A claim that a check
+[Remaining work](backlog/README.md). A change adds to neither. A claim that a check
 passed carries the command and its output.
 
 Every test carries exactly one size: `small`, `medium` or `large`, set by a module-level

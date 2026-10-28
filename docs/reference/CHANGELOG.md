@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 2026-10-28 — docs: Moved the backlog and the known issues into `docs/backlog/` with `backlog import` (`docs/backlog/`).
+- 2026-10-28 — design: Added the `design` group, which opens topics, pages and phases, refuses a module another topic owns, and lists and merges overlapping topics (`sushicore.design`).
+- 2026-10-28 — backlog: Added the `backlog` group, which keeps remaining work and known issues as tables in `docs/backlog/` and computes the order of `next` (`sushicore.backlog`).
+- 2026-10-28 — citations: Added the finding and rewriting of citations of a moved document or a renamed ID (`citations.py`).
 ## v0.9.8 — 2026-10-28
 
 - 2026-10-28 — test: Made the path and the link-swap tests of provision hold on every runner, after v0.9.7 failed its gate (`test_consumer_build.py`, `test_stable_link.py`).

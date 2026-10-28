@@ -13,7 +13,7 @@ it.
 | [STANDALONE_PROVISIONING](STANDALONE_PROVISIONING/README.md) | Open | A person who clones one open-source Sushi module must be able to build it after one command, without installing hub. |
 <!-- topics:end -->
 
-The backlog is [Remaining work](REMAINING_WORK.md).
+The backlog is [Remaining work](../backlog/README.md).
 
 Shipped designs are in the archive. The terminal components, the logo and the help screen are
 described in the terminal components design spec in the version history.

@@ -1,0 +1,7 @@
+[work]
+next = 56
+closed = ""
+
+[issue]
+next = 26
+closed = "6,11,14-15,19-20,23-25"

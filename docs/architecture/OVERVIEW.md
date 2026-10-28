@@ -86,7 +86,7 @@ files a CLI hands it.
   [`docs/design/PROVISION/README.md`](../design/PROVISION/README.md).
 
 The import cycles that break these rules today are listed in
-[Known issues](../reference/KNOWN_ISSUES.md).
+[Known issues](../backlog/README.md).
 
 ## Why each module is shaped as it is
 

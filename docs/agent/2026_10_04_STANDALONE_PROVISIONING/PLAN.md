@@ -1306,7 +1306,7 @@ Acceptance: `st` suite green; `st --help` unchanged.
 - Delete: `cli/sushihub/setup/selection.py`, `cli/sushihub/manifests/base.deps.toml`
 - Modify: `cli/sushihub/setup/factory.py`, `cli/sushihub/setup/dependency_source.py`, `cli/sushihub/config.py` (delete `CUSTOMIZABLE_COMPONENTS`; `TOOLCHAINS` becomes `selection.toolchain_keys()`), `cli/sushihub/cli.py` (the `--customize` defaults), `cli/sushihub/services/customize.py`, `cli/sushihub/gui_config.py` (delete `standalone_deps_dir`), `cli/pyproject.toml` (`sushicore>=0.7.0`)
 - Modify: every test importing `setup.selection` or `CUSTOMIZABLE_COMPONENTS` (`grep -rn "selection_from_source\|CUSTOMIZABLE_COMPONENTS\|MACHINE_COMPONENTS" cli`)
-- Docs: `README.md`, `docs/getting_started/INSTALL.md`, `docs/design/WORKSPACE_DECOUPLING.md` (a dated paragraph in §2), `docs/design/REMAINING_WORK.md`, `docs/reference/CHANGELOG.md`, `cli/README.md`
+- Docs: `README.md`, `docs/getting_started/INSTALL.md`, `docs/design/WORKSPACE_DECOUPLING.md` (a dated paragraph in §2), `docs/backlog/README.md`, `docs/reference/CHANGELOG.md`, `cli/README.md`
 
 **Interfaces:**
 - Consumes: `selection.derive`, `selection.COMPONENTS`, `manifests.base_fragment`, `manifests.BASE_OWNER`.

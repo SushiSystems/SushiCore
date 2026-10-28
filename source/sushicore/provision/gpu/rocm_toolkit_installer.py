@@ -41,7 +41,7 @@ class RocmTarballInstaller:
     """Downloads and unpacks ROCm SDK tarballs under one folder.
 
     AMD publishes no digest for these tarballs, so a download is trusted on HTTPS alone; the
-    gap is recorded in docs/reference/KNOWN_ISSUES.md.
+    gap is a known issue in docs/backlog/.
 
     Args:
         target_dir: The folder releases are installed under; ``<home>/rocm`` when None.

@@ -29,10 +29,12 @@ from this page. The front door is [`README.md`](../README.md).
 | [Configuration](reference/CONFIGURATION.md) | The `[cli]` table, its precedence and the environment variables the package reads |
 | [Dependency fragment](reference/DEPENDENCY_FRAGMENT.md) | The keys of a `sushistack.deps.toml` entry, the pinned SHA-256 among them, and the `[sushi.<name>]` pins of the Sushi libraries a module links |
 | [JSON events](reference/JSON_EVENTS.md) | The event stream a console writes in machine mode |
+| [Backlog](reference/BACKLOG.md) | The store of remaining work and known issues in `docs/backlog/`, the order of `next` and the `backlog` commands |
+| [Design topics](reference/DESIGN.md) | One topic per subject and one owner per module, and the `design` commands |
 | [Documentation bundle](reference/DOCS_BUNDLE.md) | The archive a repository publishes to the documentation site, its `bundle.json` and `docs/publish.toml` |
 | [Changelog](reference/CHANGELOG.md) | What changed, by release |
 | [Glossary](reference/GLOSSARY.md) | The words these documents use |
-| [Known issues](reference/KNOWN_ISSUES.md) | Defects that are recorded and not yet fixed |
+| [Known issues](backlog/README.md) | Defects that are recorded and not yet fixed |
 
 ## Module READMEs
 
@@ -47,7 +49,7 @@ from this page. The front door is [`README.md`](../README.md).
 | Document | Holds |
 | --- | --- |
 | [Design map](design/README.md) | Which design document covers which topic |
-| [Remaining work](design/REMAINING_WORK.md) | The backlog |
+| [Remaining work](backlog/README.md) | The backlog |
 
 ## Changing this repository
 
@@ -55,6 +57,6 @@ from this page. The front door is [`README.md`](../README.md).
 | --- | --- |
 | [Contributing](CONTRIBUTING.md) | How a change lands and what it must carry |
 | [Documentation style guide](DOCUMENTATION_STYLE_GUIDE.md) | How prose is written here |
-| [Agent instructions](../AGENTS.md) | The agent instruction file at the repository root; see [Known issues](reference/KNOWN_ISSUES.md) |
+| [Agent instructions](../AGENTS.md) | The agent instruction file at the repository root; see [Known issues](backlog/README.md) |
 
 Agent work folders are under `agent/`. Finished material is under `archive/` and is not edited.

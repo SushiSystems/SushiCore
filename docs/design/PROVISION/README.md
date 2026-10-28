@@ -43,7 +43,7 @@ Each gets its own plan.
    `services/tests.py`, and the vcvars snapshot in `env.py`, for the sushicore equivalents
    `sd` already uses. `sr`, `se`, `sa` and `sb` gain `doctor`.
 
-Out of scope, recorded in `docs/design/REMAINING_WORK.md`: the build, test, package and deploy
+Out of scope, recorded in `docs/backlog/README.md`: the build, test, package and deploy
 scaffold that `sushiai/cli/.../services/project.py` and `sushiblas/cli/.../services/project.py`
 each carry.
 

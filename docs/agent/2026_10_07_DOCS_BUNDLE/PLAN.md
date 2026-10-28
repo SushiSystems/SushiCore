@@ -2268,7 +2268,7 @@ git commit -m "feat(docs-bundle): register the docs group and the module entry"
 - Create: `sushicore/docs_bundle/README.md`, `docs/reference/DOCS_BUNDLE.md`
 - Modify: `docs/README.md` (reference table), `docs/architecture/OVERVIEW.md` (the surfaces
   table and the Typer rule), `docs/reference/GLOSSARY.md`, `docs/reference/CHANGELOG.md`,
-  `docs/design/REMAINING_WORK.md`, `docs/CONTRIBUTING.md` (the "must carry" table)
+  `docs/backlog/README.md`, `docs/CONTRIBUTING.md` (the "must carry" table)
 
 **Interfaces:** none; this task makes the manual true. Load the `documentation` and
 `humanizer` skills before writing.
@@ -2320,7 +2320,7 @@ and SPEC.md here, restated as fact and not as plan:
   and `| Publish list | `docs/publish.toml`, where a repository says which sections it publishes |`.
 - `docs/CONTRIBUTING.md`: add to "What a change must carry"
   `| Changes a field of `bundle.json` or a key of `docs/publish.toml` | [Documentation bundle](reference/DOCS_BUNDLE.md) and `K_SCHEMA_VERSION`; the site reads both |`.
-- `docs/design/REMAINING_WORK.md`: add under "Open programmes" a section
+- `docs/backlog/README.md`: add under "Open programmes" a section
   `### Documentation site, sub-project 1` that names `docs/agent/2026_10_07_DOCS_BUNDLE/SPEC.md`
   and lists what stays open after this plan: the release that carries `docs_bundle`, and the
   seven repositories of sub-project 3.
@@ -2348,7 +2348,7 @@ before this plan (record the output of both before step 1 and compare); unittest
 - [ ] **Step 5: Commit**
 
 ```bash
-git add sushicore/docs_bundle/README.md docs/reference/DOCS_BUNDLE.md docs/README.md docs/architecture/OVERVIEW.md docs/reference/GLOSSARY.md docs/reference/CHANGELOG.md docs/design/REMAINING_WORK.md docs/CONTRIBUTING.md docs/agent/2026_10_07_DOCS_BUNDLE
+git add sushicore/docs_bundle/README.md docs/reference/DOCS_BUNDLE.md docs/README.md docs/architecture/OVERVIEW.md docs/reference/GLOSSARY.md docs/reference/CHANGELOG.md docs/backlog/README.md docs/CONTRIBUTING.md docs/agent/2026_10_07_DOCS_BUNDLE
 git commit -m "docs(docs-bundle): describe the bundle, its contract and its commands"
 ```
 
@@ -2629,7 +2629,7 @@ the file with `git checkout -- docs/guides/INTEGRATION.md` only after confirming
 
 Write `docs/agent/2026_10_07_DOCS_BUNDLE/REPORT.md` in the SushiCore repository: what each task
 changed, the output of every command above, pasted, and what was not done. Update the status
-line of `SPEC.md` here and the table in SushiStack's `docs/design/REMAINING_WORK.md`.
+line of `SPEC.md` here and the table in SushiStack's `docs/backlog/README.md`.
 
 ---
 

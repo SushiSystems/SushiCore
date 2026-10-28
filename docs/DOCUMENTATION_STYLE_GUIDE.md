@@ -10,7 +10,7 @@ a document goes follows the `documentation` skill. Neither is restated here.
 - No absolute path from one machine, such as a drive letter or a home folder. This repository
   is public; such a path resolves in no clone and names its owner.
 - A document of another repository is cited by naming the repository in the sentence, for
-  example "SushiStack's `docs/design/REMAINING_WORK.md`". A bare path means a path here.
+  example "SushiStack's `docs/backlog/README.md`". A bare path means a path here.
 - An example path that need not exist is in a code block or in backticks, never a link.
 
 ## Names

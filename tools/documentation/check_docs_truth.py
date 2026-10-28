@@ -390,8 +390,8 @@ class Manual:
                 continue
             if path.relative_to(self.root).as_posix() in K_UNCHECKED_DOCUMENTS:
                 continue
-            design = docs / "design" in path.parents
-            found.append((path, PageKind.DESIGN_DOCUMENT if design else PageKind.MANUAL_PAGE))
+            intent = bool({docs / "design", docs / "backlog"} & set(path.parents))
+            found.append((path, PageKind.DESIGN_DOCUMENT if intent else PageKind.MANUAL_PAGE))
         for folder in self.source.folders:
             if folder.name in K_RULE_FOLDERS:
                 continue

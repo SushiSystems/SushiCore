@@ -223,7 +223,7 @@ own `redistrib_<version>.json` publishes for it, before unpacking. The design is
 A download that happens inside a shell pipeline, and a git clone of third-party code, are not
 verified. The clone of a pinned Sushi library is checked against its pinned commit. The full
 list is in
-[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md), under "Installing
+[`docs/backlog/README.md`](../../docs/reference/KNOWN_ISSUES.md), under "Installing
 third-party software".
 
 The call
@@ -311,4 +311,4 @@ project root that holds `.sushistack`.
 | 2 | No workspace was found |
 
 The defects of these commands that are still open are in
-[`docs/reference/KNOWN_ISSUES.md`](../../docs/reference/KNOWN_ISSUES.md).
+[`docs/backlog/README.md`](../../docs/reference/KNOWN_ISSUES.md).

@@ -172,7 +172,7 @@ commit boundary, and `NOTICE.md` lists the third-party software.
 
 ## What is known not to work?
 
-[Known issues](../reference/KNOWN_ISSUES.md) records the open defects. Those a user of a CLI
+[Known issues](../backlog/README.md) records the open defects. Those a user of a CLI
 meets first:
 
 - With the `emoji`, `minimal` or `none` icon set, every warning and error in the JSON stream is

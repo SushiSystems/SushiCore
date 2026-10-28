@@ -130,7 +130,7 @@ These are the downloads the verifier sees, and the entry each one is pinned unde
 A fragment has no key for the version of a download. Six of the eight rows resolve the newest
 release, so a digest pinned for one of them stops matching on the day upstream publishes, and
 the install stops there until the pin is renewed.
-[Known issues](KNOWN_ISSUES.md) carries this.
+[Known issues](../backlog/README.md) carries this.
 
 When two fragments declare one entry, their `sha256` tables are joined. Where both pin the same
 platform with different digests the first fragment read wins, and the merge prints a warning

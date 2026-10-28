@@ -34,7 +34,7 @@ python -m pytest
 ## Status
 
 Used by all seven CLIs, which need 0.7.0 or later. Planned work is in
-[`docs/design/REMAINING_WORK.md`](docs/design/REMAINING_WORK.md).
+[`docs/backlog/README.md`](docs/backlog/README.md).
 
 ## Documentation
 

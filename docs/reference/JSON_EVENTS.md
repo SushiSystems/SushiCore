@@ -48,7 +48,7 @@ line returns the default, and so does end of input.
 Anything printed through `console.console`, the raw Rich console, goes to stderr without colour.
 
 Three defects break the contract today, and each is listed in
-[Known issues](KNOWN_ISSUES.md): the `level` of a `line` event is read from the icon prefix, a
+[Known issues](../backlog/README.md): the `level` of a `line` event is read from the icon prefix, a
 child process inherits stdout, and `doctor` puts Rich markup in its `table` rows.
 
 ## Where the design is

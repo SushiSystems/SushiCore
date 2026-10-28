@@ -83,7 +83,7 @@ name = "sushiruntime"
 title = "SushiRuntime"
 summary = "The task runtime the SushiStack applications schedule their work on."
 sections = ["getting_started", "guides", "architecture", "reference"]
-exclude = ["reference/KNOWN_ISSUES.md"]
+exclude = ["reference/GLOSSARY.md"]
 api = true
 source_url = "https://github.com/SushiSystems/SushiRuntime"
 ```
