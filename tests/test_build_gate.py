@@ -117,8 +117,15 @@ def test_a_stopped_gate_fails_the_edge_without_running_it(tmp_path):
     assert code == 1 and not marker.exists()
 
 
-def test_only_a_host_compile_runs_through_the_compiler_cache(tmp_path):
+def test_a_cache_setting_the_environment_makes_is_kept(tmp_path, monkeypatch):
+    monkeypatch.setenv("CCACHE_DIR", "D:/ci/ccache")
+    _, env = build_gate.cached(["clang++", "-c", "a.cpp"], "host_compile", "ccache", tmp_path / "g")
+    assert env["CCACHE_DIR"] == "D:/ci/ccache" and env["CCACHE_COMPILERCHECK"] == "content"
+
+
+def test_only_a_host_compile_runs_through_the_compiler_cache(tmp_path, monkeypatch):
     """Checks a device object never comes from the cache, where a stale one loses its kernels."""
+    monkeypatch.delenv("CCACHE_DIR", raising=False)
     state = tmp_path / "build_gate"
     host = ["clang++", "-c", "a.cpp"]
     command, env = build_gate.cached(host, "host_compile", "ccache", state)

@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type, tree_dir
+from sushicore.build_tree import (K_DEFAULT_BUILD_TYPE, package_build_type,
+                                  refuse_another_build_type, tree_dir)
 from sushicore.errors import ConfigError
 
 pytestmark = pytest.mark.small
@@ -33,3 +34,11 @@ def test_a_tree_of_one_type_refuses_another(tmp_path):
 def test_the_type_is_never_set_through_a_define(tmp_path):
     with pytest.raises(ConfigError):
         refuse_another_build_type(tmp_path, "Debug", ("CMAKE_BUILD_TYPE:STRING=Release",))
+
+
+def test_a_debug_or_sanitized_consumer_links_release_packages():
+    assert package_build_type("Debug") == "release"
+    assert package_build_type("MinSizeRel") == "release"
+    assert package_build_type("Release") == "release"
+    assert package_build_type("RelWithDebInfo") == "relwithdebinfo"
+    assert package_build_type("RelWithDebInfo", sanitized=True) == "release"

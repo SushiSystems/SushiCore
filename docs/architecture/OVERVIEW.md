@@ -110,6 +110,10 @@ keeps its objects. `refuse_another_build_type` stops a configure that would give
 other than the one its cache holds, and any `-D CMAKE_BUILD_TYPE` passed beside `--type`, since
 either would recompile the whole tree under the other type's flags while its name says otherwise.
 
+`package_build_type` gives the type of the library packages a consumer links: Release for a
+Debug, MinSizeRel or sanitized consumer, which runs against the release runtime and the Release
+packages beneath it, and RelWithDebInfo for its own kind.
+
 ### `build_admission`
 
 A CLI passes `launcher_defines` to its configure and compiles at `hardware_threads`. Every compile
@@ -139,9 +143,10 @@ together. While `stop` exists, each waiting or new edge fails and the running on
 stops a build without killing a process.
 
 With `--cache`, a host compile runs through ccache, capped at 5 GB in `build/ccache` and checking
-the compiler by its content. A compile with `-fsycl` never does: its object carries device
-images, and a stale one is a kernel missing at run time that no build step would report. The
-gate writes to standard error, which Ninja shows as the edge's output, so it has no logger.
+the compiler by its content, unless the environment already sets those, as a CI job does. A compile
+with `-fsycl` never does: its object carries device images, and a stale one is a kernel missing at
+run time that no build step would report. The gate writes to standard error, which Ninja shows as
+the edge's output, so it has no logger.
 
 ### `build_report`
 

@@ -19,10 +19,26 @@ from .errors import ConfigError
 #: The build type every Sushi CLI builds unless told otherwise.
 K_DEFAULT_BUILD_TYPE = "Debug"
 
+#: The package build type a Debug, MinSizeRel or sanitized consumer links.
+K_RELEASE_PACKAGE_TYPE = "release"
+
 
 def tree_dir(root: Path, name: str, build_type: str) -> Path:
     """Returns `build/<name>-<type>` under *root*, the one tree of *name* for *build_type*."""
     return Path(root) / "build" / f"{name}-{build_type.lower()}"
+
+
+def package_build_type(build_type: str, sanitized: bool = False) -> str:
+    """Returns the build type of the library packages a consumer of *build_type* links.
+
+    A Debug consumer is unoptimised host code against the release runtime and the Release
+    packages beneath it, and a sanitized one instruments only its own code, so both link Release
+    packages; so does MinSizeRel, which no library CLI builds. RelWithDebInfo links its own kind.
+    """
+    lowered = build_type.lower()
+    if sanitized or lowered != "relwithdebinfo":
+        return K_RELEASE_PACKAGE_TYPE
+    return lowered
 
 
 def refuse_another_build_type(build_dir: Path, build_type: str,

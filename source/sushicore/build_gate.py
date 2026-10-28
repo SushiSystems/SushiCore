@@ -222,14 +222,15 @@ def cached(command: list[str], kind: str, cache: str, state: Path) -> tuple[list
     """Returns *command* run through the compiler cache *cache*, and the environment it needs.
 
     Only a host compile is cached. A device compile's object carries device images, and a stale
-    one is a kernel missing at run time that no build step reports. The cache sits beside the
-    gate's state folder and checks the compiler by its content, not its time stamp.
+    one is a kernel missing at run time that no build step reports. Unless the environment says
+    otherwise, the cache sits beside the gate's state folder and checks the compiler by content.
     """
     if not cache or kind != "host_compile":
         return command, None
-    env = dict(os.environ, CCACHE_DIR=str(state.parent / "ccache"), CCACHE_MAXSIZE=K_CACHE_SIZE,
-               CCACHE_COMPILERCHECK="content", CCACHE_SLOPPINESS="pch_defines,time_macros")
-    return [cache, *command], env
+    defaults = {"CCACHE_DIR": str(state.parent / "ccache"), "CCACHE_MAXSIZE": K_CACHE_SIZE,
+                "CCACHE_COMPILERCHECK": "content", "CCACHE_SLOPPINESS": "pch_defines,time_macros"}
+    # A setting the environment already makes, such as a CI job's cache folder, is kept.
+    return [cache, *command], {**defaults, **os.environ}
 
 
 def run(state: Path, command: list[str], cache: str = "") -> int:

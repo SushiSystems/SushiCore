@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-28 — build_tree: Added `package_build_type`, the Release packages a Debug, MinSizeRel or sanitized consumer links (`build_tree.py`).
 - 2026-10-28 — build_gate: Added the memory gate every compile and link of a tree runs through, with host compiles cached by ccache (`build_gate.py`, `build_admission.py`).
 - 2026-10-28 — build_tree: Added one tree per build type, `build/<name>-<type>`, Debug by default, refusing any other type in a tree (`build_tree.py`).
 - 2026-10-28 — build_report: Added the report of one build's time and peak memory per kind of edge (`build_report.py`).
