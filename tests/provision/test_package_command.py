@@ -36,15 +36,15 @@ def _app(root, runner, console):
     return app
 
 
-def _built(root):
-    """Create a configured build tree under *root*."""
-    (root / "build").mkdir(parents=True)
-    (root / "build" / "CMakeCache.txt").write_text(
+def _built(root, tree="build/default-debug"):
+    """Create a configured build tree *tree* under *root*."""
+    (root / tree).mkdir(parents=True)
+    (root / tree / "CMakeCache.txt").write_text(
         f"CMAKE_HOME_DIRECTORY:INTERNAL={root}\n", encoding="utf-8")
 
 
 def test_the_command_installs_the_default_tree_to_the_default_prefix(tmp_path, recording_console):
-    """Check that package with no argument installs build/ into build/dist."""
+    """Check that package with no argument installs the default Debug tree into build/dist."""
     root = tmp_path / "lib"
     _built(root)
     calls = []
@@ -56,8 +56,25 @@ def test_the_command_installs_the_default_tree_to_the_default_prefix(tmp_path, r
 
     result = CliRunner().invoke(_app(root, runner, recording_console), ["package", "--no-archive"])
     assert result.exit_code == 0
-    assert calls[0][:3] == ["/c/cmake", "--install", str(root / "build")]
+    assert calls[0][:3] == ["/c/cmake", "--install", str(root / "build" / "default-debug")]
     assert calls[0][4] == str((root / "build" / "dist").resolve())
+
+
+def test_the_command_installs_the_tree_it_is_told_to(tmp_path, recording_console):
+    """Check that --build-dir overrides the default tree."""
+    root = tmp_path / "lib"
+    _built(root, "build/pkg-x")
+    calls = []
+
+    def runner(command, cwd, env=None):
+        """Record the command and succeed."""
+        calls.append(command)
+        return 0
+
+    result = CliRunner().invoke(_app(root, runner, recording_console),
+                                ["package", "--no-archive", "--build-dir", "build/pkg-x"])
+    assert result.exit_code == 0
+    assert calls[0][:3] == ["/c/cmake", "--install", str(root / "build" / "pkg-x")]
 
 
 def test_the_command_exits_non_zero_for_a_tree_that_is_not_built(tmp_path, recording_console):

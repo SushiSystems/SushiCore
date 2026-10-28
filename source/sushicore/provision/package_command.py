@@ -10,12 +10,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Optional
 
+from ..build_tree import K_DEFAULT_BUILD_TYPE, tree_dir
 from ._output import bind_console
 from .commands import ModuleProvision
 from .package_install import PackageInstaller, run_command
 
-#: The build tree the command installs from unless told otherwise.
-K_DEFAULT_BUILD_DIR = "build"
+#: The name of the tree the command installs from unless told otherwise; its type is the CLI default.
+K_DEFAULT_TREE = "default"
 
 #: Where the install goes unless told otherwise, below the checkout.
 K_DEFAULT_PREFIX = "build/dist"
@@ -43,8 +44,10 @@ def register_package_command(app: "typer.Typer", module: ModuleProvision,
 
     @app.command("package", rich_help_panel=module.panel, epilog=epilog)
     def package(
-        build_dir: str = typer.Option(
-            K_DEFAULT_BUILD_DIR, "--build-dir", help="The built tree to install from."),
+        build_dir: Optional[str] = typer.Option(
+            None, "--build-dir",
+            help=f"The built tree to install from. Defaults to the {K_DEFAULT_TREE} tree of the "
+                 f"{K_DEFAULT_BUILD_TYPE} build type."),
         prefix: Optional[str] = typer.Option(
             None, "--prefix",
             help=f"Where to install; the folder is emptied first. Defaults to {K_DEFAULT_PREFIX}."),
@@ -58,6 +61,7 @@ def register_package_command(app: "typer.Typer", module: ModuleProvision,
         cfg = module.load_config()
         cmake = cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else "cmake"
         installer = PackageInstaller(module.console(), cmake, run)
+        root = module.project_root()
+        tree = Path(build_dir) if build_dir else tree_dir(root, K_DEFAULT_TREE, K_DEFAULT_BUILD_TYPE)
         raise typer.Exit(installer.install(
-            module.project_root(), Path(build_dir), Path(prefix or K_DEFAULT_PREFIX),
-            archive=not no_archive, force=force))
+            root, tree, Path(prefix or K_DEFAULT_PREFIX), archive=not no_archive, force=force))
