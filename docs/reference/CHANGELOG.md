@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-28 — backlog: Made `import` rewrite only Markdown pages, the docs-relative citations among them, and list the source files that name a retired file (`importer.py`).
+
 ## v0.10.0 — 2026-10-28
 
 - 2026-10-28 — docs: Moved the backlog and the known issues into `docs/backlog/` with `backlog import` (`docs/backlog/`).

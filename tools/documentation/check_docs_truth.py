@@ -78,7 +78,7 @@ K_MACRO_PREFIX_FLOOR = 20
 K_ALLOW_LIST = Path("docs/.docs_truth_allow")
 K_UNCHECKED_DOCUMENTS = frozenset({"docs/reference/CHANGELOG.md", ".github/CODE_OF_CONDUCT.md"})
 K_UNCHECKED_DOCS_FOLDERS = frozenset({"agent", "archive"})
-K_HISTORY_EXEMPT_NAMES = frozenset({"KNOWN_ISSUES.md"})
+K_HISTORY_EXEMPT_FOLDER = Path("docs") / "backlog"
 K_PASSAGE_FLOOR = 300
 K_RULE_FOLDERS = ("skills", "claude")
 K_RULE_SKIPPED_FOLDERS = frozenset({"research"})
@@ -583,7 +583,7 @@ def rule_example_source(manual: Manual) -> Iterator[Issue]:
 def rule_history_words(manual: Manual) -> Iterator[Issue]:
     """Yields an issue for each prose line that narrates what the code was before."""
     for page in manual.pages:
-        if page.path.name in K_HISTORY_EXEMPT_NAMES:
+        if (manual.root / K_HISTORY_EXEMPT_FOLDER) in page.path.parents:
             continue
         for number, line in page.plain():
             match = K_HISTORY.search(K_QUOTED.sub("", line))

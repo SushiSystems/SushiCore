@@ -82,6 +82,7 @@ def _repository(tmp_path: Path) -> Path:
         "docs/reference/KNOWN_ISSUES.md": K_ISSUES,
         "docs/design/PHYSICS/README.md": "# Physics\n",
         "docs/README.md": "See docs/design/REMAINING_WORK.md and docs/reference/KNOWN_ISSUES.md.\n",
+        "docs/guides/BUILD.md": "Read reference/KNOWN_ISSUES.md first.\n",
         "modules/physics/README.md": "# Physics\n",
         "tools/run.py": "K_BACKLOG = 'docs/design/REMAINING_WORK.md'\n",
     }.items():
@@ -110,6 +111,7 @@ def test_import_writes_a_clean_store_and_deletes_the_retired_files(tmp_path: Pat
     assert result.left == (root / "tools" / "run.py",)
     assert "REMAINING_WORK" in (root / "tools" / "run.py").read_text(encoding="utf-8")
     assert "docs/backlog/README.md and docs/backlog/README.md" in (root / "docs/README.md").read_text(encoding="utf-8")
+    assert (root / "docs/guides/BUILD.md").read_text(encoding="utf-8") == "Read backlog/README.md first.\n"
     work = store.find("RW-4").entry
     assert (work.priority, work.state) == ("P1", "open")
     detail = store.detail_path("RW-4").read_text(encoding="utf-8")

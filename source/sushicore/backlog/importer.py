@@ -218,9 +218,11 @@ class BacklogImporter:
         for path in (work_path, issue_path):
             if path.is_file():
                 path.unlink()
+        index = (K_FOLDER / K_INDEX).as_posix()
         moves = {
-            K_LEGACY_WORK.as_posix(): (K_FOLDER / K_INDEX).as_posix(),
-            K_LEGACY_ISSUES.as_posix(): (K_FOLDER / K_INDEX).as_posix(),
+            K_LEGACY_WORK.as_posix(): index,
+            K_LEGACY_ISSUES.as_posix(): index,
+            K_LEGACY_ISSUES.relative_to("docs").as_posix(): index.removeprefix("docs/"),
         }
         rewrites = repair_citations(self.root, {}, moves, apply=True, suffixes=K_PAGE_SUFFIXES)
         left = files_citing(self.root, list(moves), K_EXTENSIONS - K_PAGE_SUFFIXES)
