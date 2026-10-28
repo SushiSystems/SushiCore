@@ -41,6 +41,25 @@ class LayeredPackage:
 
 K_LAYERED = (
     LayeredPackage(
+        name="sushicore.backlog",
+        layers={
+            "errors": 0, "model": 1, "store": 2, "order": 2,
+            "check": 3, "importer": 3, "editor": 3, "commands": 4, "__main__": 5,
+        },
+        strict=True,
+        nested=False,
+        forbidden=frozenset({"typer", "click"}),
+    ),
+    LayeredPackage(
+        name="sushicore.design",
+        layers={
+            "errors": 0, "model": 1, "store": 2, "check": 3, "merge": 3, "commands": 4, "__main__": 5,
+        },
+        strict=True,
+        nested=False,
+        forbidden=frozenset({"typer", "click"}),
+    ),
+    LayeredPackage(
         name="sushicore.docs_bundle",
         layers={
             "errors": 0, "markdown_scan": 0,
