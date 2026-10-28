@@ -45,6 +45,7 @@ def test_the_windows_link_follows_the_newest_package(folders):
     assert first.is_dir() and second.is_dir()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows cannot rename a directory link over another")
 def test_the_posix_link_is_replaced_beside_the_old_one(folders, tmp_path):
     """Check that the symlink is swapped by rename and leaves no .new file."""
     if not _symlinks_work(tmp_path):

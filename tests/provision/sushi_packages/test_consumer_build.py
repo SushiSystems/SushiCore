@@ -73,6 +73,6 @@ def test_the_folders_lead_the_path_of_the_platform():
     posix = {"LD_LIBRARY_PATH": "/old"}
     RunDirs(K_FILE).prepend(posix, ["/one"], windows=False)
     assert posix["LD_LIBRARY_PATH"].split(os.pathsep) == ["/one", "/old"]
-    windows = {"PATH": "C:/old"}
-    RunDirs(K_FILE).prepend(windows, ["C:/one"], windows=True)
-    assert windows["PATH"].split(os.pathsep) == ["C:/one", "C:/old"]
+    windows = {"PATH": "/old"}
+    RunDirs(K_FILE).prepend(windows, ["/one"], windows=True)
+    assert windows["PATH"].split(os.pathsep) == ["/one", "/old"]
