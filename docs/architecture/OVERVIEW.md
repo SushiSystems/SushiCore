@@ -51,6 +51,10 @@ files a CLI hands it.
 | `cmake_driver` | `CMakeDriver`, the cmake and ctest command lines |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree |
+| `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |
+| `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
+| `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
+| `build_report` | What each kind of edge of one build cost in time and peak memory |
 
 ### The surfaces every CLI registers
 
@@ -97,6 +101,54 @@ reads `CMakeCache.txt`, `cmake_driver.CMakeDriver` writes the cmake and ctest in
 `toolchain_args` derives the compiler and the vcpkg prefix. Each consumer's own
 `services/project.py` keeps its build policy and calls into these. Each piece can be
 registered, overridden or swapped on its own.
+
+### `build_tree`
+
+Every build type has a tree of its own, `build/<name>-<type>`, and Debug is the type a CLI builds
+unless told otherwise. Switching between Debug and Release then recompiles nothing: each tree
+keeps its objects. `refuse_another_build_type` stops a configure that would give a tree a type
+other than the one its cache holds, and any `-D CMAKE_BUILD_TYPE` passed beside `--type`, since
+either would recompile the whole tree under the other type's flags while its name says otherwise.
+
+### `build_admission`
+
+A CLI passes `launcher_defines` to its configure and compiles at `hardware_threads`. Every compile
+and link of the tree then runs as `python -I build_gate.py <state> [--cache <ccache>] -- <command>`.
+The state folder, `build/build_gate`, sits beside the trees and every tree of a checkout shares
+it, so two builds at once share one memory budget and a unit measured in one build type is known
+to the others. `refuse_a_stopped_gate` refuses a build while the folder holds a file named `stop`.
+
+`compiler_cache` gives the ccache executable from the CLI's `ccache_exe` setting, or from `PATH`
+when the setting is empty; a configured path that does not exist gives none.
+
+### `build_gate`
+
+The gate runs on its own, with the standard library only: it starts once per edge, and importing
+the package would cost more than most host compiles. It admits an edge when the edge's measured
+peak, added to the peaks reserved by the edges already running, fits in the larger of the memory
+free when the build started and the memory free now, each less 1.5 GB. Edges are admitted in
+arrival order. A lighter edge may pass a waiting one for up to 10 s, then the queue drains, so a
+heavy unit is never starved and Ninja can run at the hardware thread count without a pool sized
+for the worst unit.
+
+Each edge's peak is measured as it runs, through a job object on Windows and the children's peak
+resident set on Linux, and the largest is kept per unit and optimisation level in
+`unit_peaks.json`. A unit not seen before is reserved at the larger of its kind's default and the
+largest peak of its kind, so light units measured first never let two unmeasured heavy ones in
+together. While `stop` exists, each waiting or new edge fails and the running ones finish, which
+stops a build without killing a process.
+
+With `--cache`, a host compile runs through ccache, capped at 5 GB in `build/ccache` and checking
+the compiler by its content. A compile with `-fsycl` never does: its object carries device
+images, and a stale one is a kernel missing at run time that no build step would report. The
+gate writes to standard error, which Ninja shows as the edge's output, so it has no logger.
+
+### `build_report`
+
+`of_build` reads the edges one build ran from the records `.ninja_log` gained during it, tells
+host and device compiles and links apart from `compile_commands.json` and `build.ninja`, and joins
+the gate's peaks. The report gives, per kind of edge, the count, the total and longest time and
+the peak memory, with the lowest free memory, the slowest edges and the heaviest units.
 
 ### `build_env`
 

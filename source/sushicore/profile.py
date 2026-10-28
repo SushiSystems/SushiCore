@@ -29,6 +29,7 @@ _TOOL_ENV_SUFFIXES: Mapping[str, str] = {
     "rc_exe": "RC",
     "pkgconf_exe": "PKGCONF",
     "doxygen_exe": "DOXYGEN",
+    "ccache_exe": "CCACHE",
     "vcpkg_triplet": "VCPKG_TRIPLET",
     "target_bin": "TARGET_BIN",
 }

@@ -23,6 +23,7 @@ K_MACRO_PREFIXES: tuple[str, ...] = ()
 K_LOG_PREFIX = ""
 K_CONSOLE_PATHS: tuple[str, ...] = (
     "source/sushicore/aliases.py",
+    "source/sushicore/build_gate.py",
     "source/sushicore/docs_bundle/__main__.py",
     "source/sushicore/entry.py",
     "source/sushicore/renderer.py",

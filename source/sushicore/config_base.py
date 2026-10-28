@@ -44,6 +44,8 @@ class ToolConfig:
     pkgconf_exe: str = ""
     # Resolved from PATH when empty; see docs/architecture/OVERVIEW.md, config_base.
     doxygen_exe: str = ""
+    # The compiler cache host compiles run through; see docs/architecture/OVERVIEW.md, build_admission.
+    ccache_exe: str = ""
     vcpkg_triplet: str = "x64-windows"
 
     # Run defaults. Subclasses override the default for their primary binary.
