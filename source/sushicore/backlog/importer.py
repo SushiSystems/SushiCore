@@ -13,6 +13,7 @@ branches that took the same ID. Both rewrite the citations they change.
 from __future__ import annotations
 
 import datetime
+import posixpath
 import re
 import subprocess
 from dataclasses import dataclass, field, fields
@@ -72,6 +73,8 @@ K_FENCE = re.compile(r"^(`{3,}|~{3,})")
 K_WORD = re.compile(r"[A-Za-z0-9]+")
 K_ELLIPSIS = "…"
 K_PAGE_SUFFIXES = frozenset({".md"})
+K_LINK = re.compile(r"(\]\()([^)\s#:]+)((?:#[^)\s]*)?\))")
+K_DETAIL_FOLDER = "docs/backlog/detail"
 
 
 @dataclass(slots=True)
@@ -410,7 +413,8 @@ def _detail_text(item: LegacyEntry, area: str) -> str:
         "",
     ]
     lines += [f"- {name}: {item.fields[name]}" for name in item.order]
-    prose = list(item.prose)
+    legacy = (K_LEGACY_WORK if item.ident.startswith(K_WORK_PREFIX) else K_LEGACY_ISSUES).parent.as_posix()
+    prose = [_rebased_links(line, legacy) for line in item.prose]
     while prose and not prose[-1].strip():
         prose.pop()
     while prose and not prose[0].strip():
@@ -418,6 +422,16 @@ def _detail_text(item: LegacyEntry, area: str) -> str:
     if prose:
         lines += ["", *prose]
     return "\n".join(lines) + "\n"
+
+
+def _rebased_links(line: str, origin: str) -> str:
+    """Returns a line whose relative Markdown links, written from *origin*, resolve from the detail folder."""
+
+    def rebase(match: re.Match[str]) -> str:
+        target = posixpath.normpath(posixpath.join(origin, match.group(2)))
+        return f"{match.group(1)}{posixpath.relpath(target, K_DETAIL_FOLDER)}{match.group(3)}"
+
+    return K_LINK.sub(rebase, line)
 
 
 def _blame_dates(path: Path) -> dict[int, datetime.date]:

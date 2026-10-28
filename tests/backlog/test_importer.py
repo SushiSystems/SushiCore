@@ -47,7 +47,7 @@ Next id: RW-9
 - Done when: the step test passes
 - Where: `modules/physics`
 
-The step reads the old buffer; the figures are in the report.
+The step reads the old buffer; the figures are in [the report](PHYSICS/README.md#step).
 
 ### RW-5 Bind the late operand
 - State: blocked
@@ -116,6 +116,7 @@ def test_import_writes_a_clean_store_and_deletes_the_retired_files(tmp_path: Pat
     assert (work.priority, work.state) == ("P1", "open")
     detail = store.detail_path("RW-4").read_text(encoding="utf-8")
     assert "- Where: `modules/physics`" in detail and "old buffer" in detail
+    assert "[the report](../../design/PHYSICS/README.md#step)" in detail
     assert store.find("RW-2").entry.source == "`docs/design/PHYSICS/README.md`"
     assert store.find("KI-2").entry.origin == "sushiruntime KI-4"
     ledger = store.ledger()
