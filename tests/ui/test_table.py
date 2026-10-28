@@ -19,6 +19,12 @@ from tests.ui.capture import capture, capture_ansi
 
 pytestmark = pytest.mark.small
 
+
+@pytest.fixture(autouse=True)
+def _colour_allowed(monkeypatch):
+    """Clears NO_COLOR, which Rich honours on a forced terminal, so the shell cannot strip the styles."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
 K_ROWS = (("sushiruntime", "cloned"), ("sushiengine", "linked"))
 
 K_INVENTORY_COLUMNS = ("Owner", "Component", "Status", "Detail")

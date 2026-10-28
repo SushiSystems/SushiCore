@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 
@@ -59,7 +60,8 @@ def test_phase_commands_and_check(store):
     root = store.root
     _invoke(root, "new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air.")
     assert _invoke(root, "phase", "ATMOSPHERE", "A1", "Scatter light") == (0, ["ATMOSPHERE#A1 planned"])
-    assert _invoke(root, "phase-state", "ATMOSPHERE", "A1", "built") == (0, ["Shipped — 2026-10-28"])
+    shipped = f"Shipped — {datetime.date.today().isoformat()}"
+    assert _invoke(root, "phase-state", "ATMOSPHERE", "A1", "built") == (0, [shipped])
     assert _invoke(root, "check") == (0, ["clean"])
     _invoke(root, "new", "CLOUDS", "--modules", "modules/clouds", "--about", "Clouds.")
     path = store.topic("CLOUDS").path
