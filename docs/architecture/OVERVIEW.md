@@ -154,6 +154,12 @@ When the state folder holds `time_trace.txt`, one unit key per line (`request_ti
 compile of each listed unit, host or device, and runs it without the cache, which would answer
 with no trace.
 
+A host compile that succeeds has its object read for a SYCL kernel submission it instantiates,
+`handler::parallel_for` or `single_task` as MSVC or Itanium mangle them. A unit compiled without a
+device pass that instantiates one defines a copy with no device image behind it; the linker may keep
+that copy over a device unit's, and the kernel is then missing at run time with nothing in the build
+to say so. The gate deletes such an object and fails the edge, naming the symbol.
+
 ### `build_report`
 
 `of_build` reads the edges one build ran from the records `.ninja_log` gained during it, tells

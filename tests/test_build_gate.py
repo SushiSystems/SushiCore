@@ -164,3 +164,30 @@ def test_a_requested_compile_runs_with_the_time_trace_flag_and_skips_the_cache(t
     build_gate.run(state, ["clang++", "-O0", "-c", "b.cpp"], cache="ccache")
     assert seen[0] == ["clang++", "-O0", "-c", "a.cpp", "-ftime-trace"]
     assert seen[1][0] == "ccache" and "-ftime-trace" not in seen[1]
+
+
+@pytest.mark.parametrize("name", [
+    b"??$parallel_for@V<lambda_1>@@@handler@_V1@sycl@@QEAAXV?$range@$00@12@@Z",
+    b"??$single_task@VKernel@@V<lambda_2>@@@handler@_V1@sycl@@QEAAXV<lambda_2>@@@Z",
+    b"_ZN4sycl3_V17handler12parallel_forI6KernelLi1EZ4stepvEUlNS0_4itemILi1ELb1EEEE_EEvNS0_5rangeIXT0_EEET1_",
+])
+def test_a_host_object_that_instantiates_a_kernel_submission_is_found(tmp_path, name):
+    obj = tmp_path / "a.obj"
+    obj.write_bytes(b"\x00junk\x00" + name + b"\x00tail")
+    assert build_gate.kernel_submission_in(obj)
+
+
+def test_a_host_object_without_one_passes(tmp_path):
+    obj = tmp_path / "a.obj"
+    obj.write_bytes(b"\x00?submit_impl@queue@_V1@sycl@@\x00?host_task@handler@_V1@sycl@@\x00")
+    assert build_gate.kernel_submission_in(obj) == ""
+    assert build_gate.kernel_submission_in(tmp_path / "missing.obj") == ""
+
+
+def test_a_host_compile_that_instantiates_a_kernel_fails_and_loses_its_object(tmp_path):
+    state = tmp_path / "gate"
+    obj = tmp_path / "a.obj"
+    writer = (f"open(r'{obj}', 'wb').write(b'??$parallel_for@V<l>@@@handler@_V1@sycl@@Q')")
+    code = build_gate.main(["gate", str(state), "--", sys.executable, "-c", writer,
+                            "-o", str(obj), "-c", "a.cpp"])
+    assert code == 1 and not obj.exists()

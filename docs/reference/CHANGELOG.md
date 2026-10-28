@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-28 — build_gate: Failed a host compile whose object instantiates a SYCL kernel submission, which would lose its kernel at run time (`build_gate.py`).
 - 2026-10-28 — build_trace: Added the summary of the clang time traces a build leaves beside its objects: costliest headers, templates and units (`build_trace.py`).
 - 2026-10-28 — build_gate: Added `-ftime-trace` to the compiles of the units a build requests through `request_time_traces` (`build_gate.py`).
 - 2026-10-28 — provision: Made the package command install the default Debug tree when no build directory is given; it read a tree named build, which no CLI creates now (`package_command.py`).

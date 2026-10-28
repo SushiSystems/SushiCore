@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -243,6 +244,34 @@ class PeakMeter:
         return int(buffer[17]) >> 20 if ok else 0  # PeakJobMemoryUsed
 
 
+#: A SYCL kernel submission instantiated in an object, as MSVC and Itanium mangle it.
+K_KERNEL_SUBMISSION = re.compile(
+    rb"\?\?\$(parallel_for|single_task)@[^\x00]{0,4096}?@handler@_V1@sycl@@"
+    rb"|_ZN4sycl3_V17handler(12parallel_for|11single_task)")
+
+
+def kernel_submission_in(obj: Path) -> str:
+    """Returns the first SYCL kernel submission a host-only object instantiates, or "".
+
+    A unit compiled without a device pass that instantiates a kernel submission defines a copy
+    with no device image behind it. The linker may keep that copy over a device unit's, and the
+    kernel is then missing at run time with nothing in the build to say so.
+    """
+    try:
+        data = obj.read_bytes()
+    except OSError:
+        return ""
+    found = K_KERNEL_SUBMISSION.search(data)
+    return found.group(0)[:160].decode("ascii", "replace") if found else ""
+
+
+def object_of(command: list[str]) -> Path | None:
+    """Returns the object a compile *command* writes, from its `-o`, or None."""
+    if "-o" in command and command.index("-o") + 1 < len(command):
+        return Path(command[command.index("-o") + 1])
+    return None
+
+
 def cached(command: list[str], kind: str, cache: str, state: Path) -> tuple[list[str], dict | None]:
     """Returns *command* run through the compiler cache *cache*, and the environment it needs.
 
@@ -289,6 +318,13 @@ def run(state: Path, command: list[str], cache: str = "") -> int:
     command, env = cached(command, kind, cache, state)
     try:
         code = subprocess.call(command, env=env)
+        obj = object_of(command) if code == 0 and kind == "host_compile" else None
+        if obj is not None and (submission := kernel_submission_in(obj)):
+            print(f"build_gate: {key} is compiled without a device pass but instantiates a "
+                  f"kernel submission ({submission}); list it among the device sources or move "
+                  f"the instantiation into the module that owns the kernel.", file=sys.stderr)
+            obj.unlink(missing_ok=True)
+            code = 1
     finally:
         peak = meter.peak_mb()
         with Locked(state):
