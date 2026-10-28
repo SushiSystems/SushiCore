@@ -55,6 +55,7 @@ files a CLI hands it.
 | `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
 | `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
 | `build_report` | What each kind of edge of one build cost in time and peak memory |
+| `build_trace` | What the clang time traces of a build say: the costliest headers and templates, and each unit's frontend and backend time |
 
 ### The surfaces every CLI registers
 
@@ -148,12 +149,27 @@ with `-fsycl` never does: its object carries device images, and a stale one is a
 run time that no build step would report. The gate writes to standard error, which Ninja shows as
 the edge's output, so it has no logger.
 
+When the state folder holds `time_trace.txt`, one unit key per line (`request_time_traces` in
+`build_admission` writes it, `clear_time_traces` removes it), the gate adds `-ftime-trace` to the
+compile of each listed unit, host or device, and runs it without the cache, which would answer
+with no trace.
+
 ### `build_report`
 
 `of_build` reads the edges one build ran from the records `.ninja_log` gained during it, tells
 host and device compiles and links apart from `compile_commands.json` and `build.ninja`, and joins
 the gate's peaks. The report gives, per kind of edge, the count, the total and longest time and
 the peak memory, with the lowest free memory, the slowest edges and the heaviest units.
+
+### `build_trace`
+
+`summarise_time_traces` reads every clang `<object stem>.json` that sits beside an object under a
+tree and sums, over all units, the `Source` events (a header, by path), the `InstantiateClass`
+and `InstantiateFunction` events (a template, by name) and each unit's `Total Frontend` and
+`Total Backend`. `TraceSummary.lines()` prints the top headers and templates with the number of
+units that paid for each, then the units slowest first. A header's time includes the headers it
+includes, so the totals overlap by design; the ranking tells which header to trim, not what a
+build would save. Traces come from `build_gate` on the units `build_admission` requests.
 
 ### `build_env`
 

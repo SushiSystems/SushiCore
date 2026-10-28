@@ -3,7 +3,7 @@
 ## Unreleased
 
 - 2026-10-28 — build_trace: Added the summary of the clang time traces a build leaves beside its objects: costliest headers, templates and units (`build_trace.py`).
-- 2026-10-28 — build_gate: Added `-ftime-trace` for the units listed in `time_trace.txt`, written by `request_time_traces` in `build_admission` (`build_gate.py`, `build_admission.py`).
+- 2026-10-28 — build_gate: Added `-ftime-trace` to the compiles of the units a build requests through `request_time_traces` (`build_gate.py`).
 - 2026-10-28 — provision: Made the package command install the default Debug tree when no build directory is given; it read a tree named build, which no CLI creates now (`package_command.py`).
 - 2026-10-28 — build_tree: Added `package_build_type`, the Release packages a Debug, MinSizeRel or sanitized consumer links (`build_tree.py`).
 - 2026-10-28 — build_gate: Added the memory gate every compile and link of a tree runs through, with host compiles cached by ccache (`build_gate.py`, `build_admission.py`).

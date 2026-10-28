@@ -143,3 +143,24 @@ def test_a_cache_option_reaches_the_gated_command(tmp_path, monkeypatch):
     assert build_gate.main(["gate", "s", "--cache", "ccache", "--", "clang++", "-c", "a.cpp"]) == 0
     assert seen == {"state": Path("s"), "command": ["clang++", "-c", "a.cpp"], "cache": "ccache"}
     assert build_gate.main(["gate", "s", "--cache"]) == 2
+
+
+def test_only_a_compile_of_a_requested_unit_is_traced():
+    requested = {"d:/src/a.cpp", "b.cpp"}
+    assert build_gate.wants_time_trace("device_compile", "d:/src/a.cpp", requested)
+    assert build_gate.wants_time_trace("host_compile", "b.cpp -O0", requested)
+    assert not build_gate.wants_time_trace("host_compile", "c.cpp -O0", requested)
+    assert not build_gate.wants_time_trace("host_link", "b.cpp", requested)
+    assert not build_gate.wants_time_trace("host_compile", "b.cpp", set())
+
+
+def test_a_requested_compile_runs_with_the_time_trace_flag_and_skips_the_cache(tmp_path, monkeypatch):
+    state = tmp_path / "gate"
+    state.mkdir()
+    (state / build_gate.K_TIME_TRACE).write_text("a.cpp\n", encoding="utf-8")
+    seen: list[list[str]] = []
+    monkeypatch.setattr(build_gate.subprocess, "call", lambda command, env=None: seen.append(command) or 0)
+    build_gate.run(state, ["clang++", "-O0", "-c", "a.cpp"], cache="ccache")
+    build_gate.run(state, ["clang++", "-O0", "-c", "b.cpp"], cache="ccache")
+    assert seen[0] == ["clang++", "-O0", "-c", "a.cpp", "-ftime-trace"]
+    assert seen[1][0] == "ccache" and "-ftime-trace" not in seen[1]

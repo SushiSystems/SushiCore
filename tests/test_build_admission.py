@@ -50,3 +50,14 @@ def test_a_configured_cache_that_is_missing_is_not_used(tmp_path):
     present = tmp_path / "ccache.exe"
     present.touch()
     assert build_admission.compiler_cache(str(present)) == str(present)
+
+
+def test_time_trace_requests_are_written_as_the_gate_keys_a_unit_and_cleared(tmp_path):
+    build_dir = tmp_path / "default-debug"
+    path = build_admission.request_time_traces(build_dir, [r"D:\Src\A.cpp", "b/C.cpp"])
+    assert path.name == build_gate.K_TIME_TRACE == build_admission.K_TIME_TRACE_FILE
+    assert build_gate._requested_units(build_admission.state_dir(build_dir)) == {
+        "d:/src/a.cpp", "b/c.cpp"}
+    build_admission.clear_time_traces(build_dir)
+    build_admission.clear_time_traces(build_dir)
+    assert not path.exists()

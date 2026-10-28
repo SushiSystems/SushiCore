@@ -14,6 +14,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from typing import Sequence
 
 from .errors import SushiCoreError
 
@@ -22,6 +23,10 @@ K_STATE_FOLDER = "build_gate"
 
 #: The file in the state folder that stops every build of the checkout.
 K_STOP_FILE = "stop"
+
+
+#: The file in the state folder that lists the units whose compiles are time-traced.
+K_TIME_TRACE_FILE = "time_trace.txt"
 
 
 class BuildStoppedError(SushiCoreError):
@@ -63,6 +68,23 @@ def compiler_cache(configured: str = "") -> str:
     if configured:
         return configured if Path(configured).is_file() else ""
     return shutil.which("ccache") or ""
+
+
+def request_time_traces(build_dir: Path, sources: Sequence[str]) -> Path:
+    """Asks the gate of *build_dir* to time-trace the compiles of *sources* and returns the file.
+
+    Keys are written as the gate keys a unit: forward slashes, lower case.
+    """
+    path = state_dir(build_dir) / K_TIME_TRACE_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    keys = [source.replace("\\", "/").lower() for source in sources]
+    path.write_text("".join(f"{key}\n" for key in keys), encoding="utf-8")
+    return path
+
+
+def clear_time_traces(build_dir: Path) -> None:
+    """Removes the time-trace request of *build_dir*'s gate, if there is one."""
+    (state_dir(build_dir) / K_TIME_TRACE_FILE).unlink(missing_ok=True)
 
 
 def launcher_defines(build_dir: Path, cache: str = "") -> tuple[str, ...]:

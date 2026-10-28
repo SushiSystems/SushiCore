@@ -43,6 +43,11 @@ K_LOCK = "gate.lock"
 #: While this file exists in the state folder, the gate admits nothing.
 K_STOP = "stop"
 
+#: The units a build traces, one key per line; the gate adds `-ftime-trace` to their compiles.
+K_TIME_TRACE = "time_trace.txt"
+
+K_LEVELS = ("-O0", "-O1", "-O2", "-O3", "-Os")
+
 
 def edge_of(command: list[str]) -> tuple[str, str]:
     """Returns the kind of the edge *command* runs and the key its peak is kept under."""
@@ -56,8 +61,28 @@ def edge_of(command: list[str]) -> tuple[str, str]:
         key = command[command.index("-c") + 1] if command.index("-c") + 1 < len(command) else ""
     kind = ("device_" if device else "host_") + ("link" if link else "compile")
     # The same unit peaks differently at another optimisation level, so the level is in its key.
-    level = next((arg for arg in reversed(command) if arg in ("-O0", "-O1", "-O2", "-O3", "-Os")), "")
+    level = next((arg for arg in reversed(command) if arg in K_LEVELS), "")
     return kind, key.replace("\\", "/").lower() + (f" {level}" if level else "")
+
+
+def wants_time_trace(kind: str, key: str, requested: set[str]) -> bool:
+    """Returns whether the edge *key* of *kind* is a compile whose unit is in *requested*.
+
+    The unit is the key without its trailing optimisation level.
+    """
+    if not kind.endswith("compile"):
+        return False
+    unit, _, level = key.rpartition(" ")
+    return (unit if level in K_LEVELS else key) in requested
+
+
+def _requested_units(state: Path) -> set[str]:
+    """Returns the unit keys the state folder's `time_trace.txt` lists, none when it is absent."""
+    try:
+        lines = (state / K_TIME_TRACE).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return set()
+    return {line.strip() for line in lines if line.strip()}
 
 
 def free_memory_mb() -> int:
@@ -257,6 +282,10 @@ def run(state: Path, command: list[str], cache: str = "") -> int:
         time.sleep(K_POLL)
 
     meter = PeakMeter()
+    traced = wants_time_trace(kind, key, _requested_units(state))
+    if traced:
+        # A cache hit writes no trace, so a traced compile runs the compiler itself.
+        command, cache = [*command, "-ftime-trace"], ""
     command, env = cached(command, kind, cache, state)
     try:
         code = subprocess.call(command, env=env)
