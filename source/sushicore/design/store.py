@@ -111,9 +111,14 @@ class DesignStore:
         return [topic.path for topic in self.topics() if topic.document.is_open() and not topic.is_under_revision()]
 
     def owners(self) -> dict[str, list[str]]:
-        """Returns each module path a topic names, with every topic that names it."""
+        """Returns each module path a topic names, with every topic that names it.
+
+        A topic under revision is frozen until it is rewritten, so it owns nothing.
+        """
         found: dict[str, list[str]] = {}
         for topic in self.topics():
+            if topic.is_under_revision():
+                continue
             for module in topic.document.modules() or []:
                 found.setdefault(_normal(module), []).append(topic.name)
         return found

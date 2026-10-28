@@ -32,7 +32,7 @@ design format of the SushiSkills `documentation` skill.
 Every topic names its modules on a `**Modules:**` line, or the word `none` for a subject with no
 code, such as a release; a topic of no module carries an `**About:**` line. A module path is named
 by at most one topic. A path inside a module belongs to the topic that names the deepest module
-holding it.
+holding it. A topic under `_REVISION/` is frozen until it is rewritten, so it owns no module.
 
 `design new` refuses a module that another topic names, or one that lies inside or around a
 module another topic names, and names that topic. A subject such as clouds, inside the

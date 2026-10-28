@@ -68,3 +68,13 @@ def test_open_documents_leave_out_topics_under_revision(store):
     held.write_text("# Old\n\n**Status:** Open — held\n", encoding="utf-8")
     assert [path.parent.name for path in store.open_documents()] == ["ATMOSPHERE"]
     assert "OLD" in store.topic_paths()
+
+
+def test_a_topic_under_revision_owns_no_module(store):
+    """A frozen topic does not stop a live one from owning its module."""
+    held = store.design / "_REVISION" / "OLD" / "README.md"
+    held.parent.mkdir(parents=True)
+    held.write_text("# Old\n\n**Status:** Open — held\n**Modules:** `modules/atmosphere`\n", encoding="utf-8")
+    assert store.owners() == {}
+    store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
+    assert store.owner("modules/atmosphere") == "ATMOSPHERE"

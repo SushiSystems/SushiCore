@@ -68,7 +68,7 @@ def register_backlog_commands(
     def emit(payload: object, lines: list[str], as_json: bool) -> None:
         """Prints the result as JSON or as lines."""
         if as_json:
-            report(json.dumps(payload, ensure_ascii=False, indent=2))
+            report(json.dumps(payload, indent=2))
         else:
             for line in lines:
                 report(line)

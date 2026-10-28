@@ -73,7 +73,7 @@ def register_design_commands(
             for topic in topics
         ]
         if as_json:
-            report(json.dumps(payload, ensure_ascii=False, indent=2))
+            report(json.dumps(payload, indent=2))
             return
         for item in payload:
             modules = ", ".join(item["modules"] or []) or "none"
