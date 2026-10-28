@@ -26,7 +26,7 @@ K_RESERVE_MB = 1536
 
 #: Peaks assumed for an edge of a kind no build has measured, in megabytes.
 K_DEFAULT_PEAK_MB = {"device_compile": 8400, "host_compile": 1000,
-                     "device_link": 3000, "host_link": 1500}
+                     "device_link": 1500, "host_link": 1500}
 
 #: The compiler cache's size cap, which ccache reads as CCACHE_MAXSIZE.
 K_CACHE_SIZE = "5G"
