@@ -44,6 +44,11 @@ class Package:
         """Return the build type the stamp records."""
         return str(self.stamp.get("parts", {}).get("build_type", ""))
 
+    @property
+    def options(self) -> tuple[str, ...]:
+        """Return the extra ``build`` arguments the stamp records, in order."""
+        return tuple(str(option) for option in self.stamp.get("parts", {}).get("options", []))
+
     def below(self) -> list[tuple[str, str]]:
         """Return the ``(name, digest)`` of the packages this one was built against."""
         return [(str(name), str(digest))

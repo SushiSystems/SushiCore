@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from sushicore.provision import links
 from sushicore.provision.sushi_packages.package_environment import K_MARKER
 from sushicore.provision.sushi_packages.package_error import (
     PackageConflictError,
@@ -150,6 +151,18 @@ def test_a_forced_package_is_taken_without_building(rig):
     assert _digest(second, "sushiblas") == _digest(first, "sushiblas")
     assert second.get("sushiblas").key is None
     assert len(rig.builder.requests) == builds
+
+
+def test_a_forced_package_is_named_through_the_nested_build_link(rig):
+    """A handed-down package reaches the flags through a link of its own, not its digest."""
+    first = rig.resolver.resolve(rig.request())
+    rig.nested({K_MARKER: "1", "SUSHIBLAS_PACKAGE": str(first.get("sushiblas").package.prefix)})
+    blas = rig.resolver.resolve(rig.request()).get("sushiblas")
+    assert blas.link is not None
+    assert blas.link.name.startswith("@") and blas.link.name.endswith("-package")
+    assert blas.link != first.get("sushiblas").link
+    assert links.link_target(blas.link).name == blas.package.digest
+    assert str(blas.config_folder()).startswith(str(blas.link))
 
 
 def test_a_cycle_is_refused(rig):

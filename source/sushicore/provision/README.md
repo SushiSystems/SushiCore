@@ -166,7 +166,10 @@ changes. After the key lock is taken an existing package is reused and nothing i
 
 Each consumer has its own link, `<home>/packages/<name>/@<config>-<consumer>`: a directory
 junction on Windows, a symlink elsewhere. It is set to the chosen package on every resolution, so
-the paths in the consumer's flags do not change when a library's source changes.
+the paths in the consumer's flags do not change when a library's source changes. A nested build
+reaches each package its parent hands down through a link of its own,
+`@<config>-<library>-package`, so a new package below it recompiles only the files whose headers
+changed, and it never moves a link of the library's own trees.
 
 The library CLI is the only door. In the library's checkout the builder runs
 `<cli> build --type <t> --build-dir build/pkg-<id> --lean <options>` and

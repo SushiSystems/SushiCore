@@ -32,6 +32,9 @@ from .package_store import PackageStore
 #: The owner recorded for a package chosen from the source tree.
 K_SOURCE_OWNER = "the source tree"
 
+#: The end of a nested build's link name, so it never moves a link of the library's own trees.
+K_NESTED_LINK = "-package"
+
 
 @dataclass
 class _Resolution:
@@ -123,12 +126,18 @@ class PackageResolver:
 
     def _take_forced(self, node: LibraryNode, package: Package,
                      state: _Resolution) -> ResolvedPackage:
-        """Choose the package a parent handed down, with the packages it was built against."""
+        """Choose the package a parent handed down and publish the nested build's link to it.
+
+        The flags name the link, not the digest folder, so a new digest below leaves every
+        include path of the nested build as it was and only what changed is compiled again.
+        """
         state.choices.add(node.name, package.digest, package_variable(node.name))
         for below_name, below_digest in package.below():
             state.choices.add(below_name, below_digest, f"the {node.name} package")
         self._store.touch(package)
-        return ResolvedPackage(package, None, built=False)
+        tree = BuildTree(package.build_type, package.options, package.toolchain)
+        link = self._publisher.publish(package, tree.id, f"{state.request.owner}{K_NESTED_LINK}")
+        return ResolvedPackage(package, None, built=False, link=link)
 
     def _obtain(self, node: LibraryNode, state: _Resolution) -> ResolvedPackage:
         """Reuse the package of *node*'s key, or build it, and publish the consumer's link."""
