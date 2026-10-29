@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import struct
 import sys
 from pathlib import Path
 
@@ -182,6 +183,59 @@ def test_a_host_object_without_one_passes(tmp_path):
     obj.write_bytes(b"\x00?submit_impl@queue@_V1@sycl@@\x00?host_task@handler@_V1@sycl@@\x00")
     assert build_gate.kernel_submission_in(obj) == ""
     assert build_gate.kernel_submission_in(tmp_path / "missing.obj") == ""
+
+
+K_ITANIUM_SINGLE_TASK = b"_ZN4sycl3_V17handler11single_taskI6KernelZ4stepvEUlvE_EEvT0_"
+
+
+def _elf_object(symbol: bytes, shndx: int, debug: bytes = b"") -> bytes:
+    """Returns an ELF64 object whose symbol table holds *symbol* in section *shndx*."""
+    strtab = b"\x00" + symbol + b"\x00"
+    symtab = bytes(24) + struct.pack("<IBBHQQ", 1, 0x12, 0, shndx, 0, 0)
+    blobs = [strtab, symtab, debug]
+    offset = 64
+    headers = [bytes(64)]
+    for kind, blob, link, entsize in ((3, strtab, 0, 0), (2, symtab, 1, 24), (1, debug, 0, 0)):
+        headers.append(struct.pack("<IIQQQQIIQQ", 0, kind, 0, 0, offset, len(blob), link, 0, 1,
+                                   entsize))
+        offset += len(blob)
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    head = ident + struct.pack("<HHIQQQIHHHHHH", 1, 62, 1, 0, 0, offset, 0, 64, 0, 0, 64, 4, 0)
+    return head + b"".join(blobs) + b"".join(headers)
+
+
+def _coff_object(symbol: bytes, section: int) -> bytes:
+    """Returns an AMD64 COFF object whose one symbol names *symbol* in *section*."""
+    record = struct.pack("<IIIhHBB", 0, 4, 0, section, 0x20, 2, 0)
+    strings = struct.pack("<I", 4 + len(symbol) + 1) + symbol + b"\x00"
+    return struct.pack("<HHIIIHH", 0x8664, 0, 0, 20, 1, 0, 0) + record + strings
+
+
+def test_an_elf_object_that_defines_a_kernel_submission_is_found(tmp_path):
+    obj = tmp_path / "a.o"
+    obj.write_bytes(_elf_object(K_ITANIUM_SINGLE_TASK, shndx=2))
+    assert build_gate.kernel_submission_in(obj)
+
+
+def test_an_elf_object_whose_debug_information_names_a_submission_passes(tmp_path):
+    obj = tmp_path / "a.o"
+    obj.write_bytes(_elf_object(b"_Z4stepv", shndx=2, debug=K_ITANIUM_SINGLE_TASK + b"\x00"))
+    assert build_gate.kernel_submission_in(obj) == ""
+
+
+def test_an_elf_object_that_only_references_a_submission_passes(tmp_path):
+    obj = tmp_path / "a.o"
+    obj.write_bytes(_elf_object(K_ITANIUM_SINGLE_TASK, shndx=0))
+    assert build_gate.kernel_submission_in(obj) == ""
+
+
+def test_a_coff_object_is_judged_by_the_symbols_it_defines(tmp_path):
+    name = b"??$single_task@VKernel@@V<lambda_2>@@@handler@_V1@sycl@@QEAAXV<lambda_2>@@@Z"
+    defined, referenced = tmp_path / "a.obj", tmp_path / "b.obj"
+    defined.write_bytes(_coff_object(name, section=1))
+    referenced.write_bytes(_coff_object(name, section=0))
+    assert build_gate.kernel_submission_in(defined)
+    assert build_gate.kernel_submission_in(referenced) == ""
 
 
 def test_a_host_compile_that_instantiates_a_kernel_fails_and_loses_its_object(tmp_path):

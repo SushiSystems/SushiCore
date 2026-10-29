@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -250,19 +251,96 @@ K_KERNEL_SUBMISSION = re.compile(
     rb"|_ZN4sycl3_V17handler(12parallel_for|11single_task)")
 
 
+K_ELF_MAGIC = b"\x7fELF"
+K_COFF_MACHINES = (0x014C, 0x8664, 0xAA64)  # i386, AMD64, ARM64
+K_BIGOBJ_SIGNATURE = (0x0000, 0xFFFF)
+
+
+def _c_string(data: bytes, start: int) -> bytes:
+    """Returns the NUL-terminated string at *start* in *data*."""
+    end = data.find(b"\x00", start)
+    return data[start:end if end >= 0 else len(data)]
+
+
+def _elf64_defined(data: bytes) -> list[bytes]:
+    """Returns the names an ELF64 little-endian object's symbol tables define."""
+    shoff, = struct.unpack_from("<Q", data, 0x28)
+    shentsize, shnum = struct.unpack_from("<HH", data, 0x3A)
+    if shnum == 0 and shoff:
+        # Extended numbering: the count is the first section header's sh_size.
+        shnum = struct.unpack_from("<Q", data, shoff + 32)[0]
+    sections = [struct.unpack_from("<IIQQQQIIQQ", data, shoff + i * shentsize)
+                for i in range(shnum)]
+    names: list[bytes] = []
+    for _, kind, _, _, offset, size, link, _, _, entsize in sections:
+        if kind != 2 or not entsize:  # SHT_SYMTAB
+            continue
+        strtab = sections[link][4]
+        for at in range(offset, offset + size, entsize):
+            name, _, _, shndx = struct.unpack_from("<IBBH", data, at)
+            if shndx != 0 and name:  # SHN_UNDEF names a reference, not a definition
+                names.append(_c_string(data, strtab + name))
+    return names
+
+
+def _coff_defined(data: bytes, symbols: int, count: int, record: int, section_format: str,
+                  section_at: int) -> list[bytes]:
+    """Returns the names a COFF symbol table of *count* records of *record* bytes defines."""
+    strings = symbols + count * record
+    names: list[bytes] = []
+    index = 0
+    while index < count:
+        at = symbols + index * record
+        section, = struct.unpack_from(section_format, data, at + section_at)
+        aux = data[at + record - 1]
+        if section > 0:
+            if data[at:at + 4] == b"\x00\x00\x00\x00":
+                names.append(_c_string(data, strings + struct.unpack_from("<I", data, at + 4)[0]))
+            else:
+                names.append(data[at:at + 8].rstrip(b"\x00"))
+        index += 1 + aux
+    return names
+
+
+def defined_symbols(data: bytes) -> list[bytes] | None:
+    """Returns the symbol names the object *data* defines, or None when it is not ELF64 or COFF.
+
+    A name only an undefined entry or the debug information carries is not returned.
+    """
+    try:
+        if data[:4] == K_ELF_MAGIC:
+            if data[4:6] != b"\x02\x01":  # ELFCLASS64, ELFDATA2LSB
+                return None
+            return _elf64_defined(data)
+        if struct.unpack_from("<HH", data, 0) == K_BIGOBJ_SIGNATURE and len(data) >= 56:
+            symbols, count = struct.unpack_from("<II", data, 48)
+            return _coff_defined(data, symbols, count, 20, "<i", 12)
+        machine, = struct.unpack_from("<H", data, 0)
+        if machine in K_COFF_MACHINES:
+            symbols, count = struct.unpack_from("<II", data, 8)
+            return _coff_defined(data, symbols, count, 18, "<h", 12)
+    except (struct.error, IndexError):
+        return None
+    return None
+
+
 def kernel_submission_in(obj: Path) -> str:
     """Returns the first SYCL kernel submission a host-only object instantiates, or "".
 
     A unit compiled without a device pass that instantiates a kernel submission defines a copy
     with no device image behind it. The linker may keep that copy over a device unit's, and the
-    kernel is then missing at run time with nothing in the build to say so.
+    kernel is then missing at run time with nothing in the build to say so. Only the symbols the
+    object defines count: debug information names the submissions it merely references.
     """
     try:
         data = obj.read_bytes()
     except OSError:
         return ""
-    found = K_KERNEL_SUBMISSION.search(data)
-    return found.group(0)[:160].decode("ascii", "replace") if found else ""
+    names = defined_symbols(data)
+    for name in [data] if names is None else names:
+        if found := K_KERNEL_SUBMISSION.search(name):
+            return found.group(0)[:160].decode("ascii", "replace")
+    return ""
 
 
 def object_of(command: list[str]) -> Path | None:

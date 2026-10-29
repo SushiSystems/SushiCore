@@ -158,7 +158,10 @@ A host compile that succeeds has its object read for a SYCL kernel submission it
 `handler::parallel_for` or `single_task` as MSVC or Itanium mangle them. A unit compiled without a
 device pass that instantiates one defines a copy with no device image behind it; the linker may keep
 that copy over a device unit's, and the kernel is then missing at run time with nothing in the build
-to say so. The gate deletes such an object and fails the edge, naming the symbol.
+to say so. Only the symbols the object defines count, read from an ELF64 or COFF symbol table:
+the debug information of a `-g` build names submissions the unit only references. An object in
+another format is searched whole. The gate deletes such an object and fails the edge, naming the
+symbol.
 
 ### `build_report`
 
