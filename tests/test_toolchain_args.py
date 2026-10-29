@@ -24,6 +24,21 @@ def test_a_clangxx_gets_its_sibling_clang(tmp_path):
     assert c_compiler_for(str(cxx)) == str(tmp_path / "clang")
 
 
+def test_an_icpx_gets_its_sibling_icx(tmp_path):
+    """icpx is oneAPI's C++ driver; CMake's C-language probe needs the icx beside it."""
+    (tmp_path / "icx").write_text("")
+    cxx = tmp_path / "icpx"
+    cxx.write_text("")
+    assert c_compiler_for(str(cxx)) == str(tmp_path / "icx")
+
+
+def test_a_bare_icpx_gets_icx_from_the_path(tmp_path, monkeypatch):
+    """A package build hands over the name the PATH resolves, not a path."""
+    (tmp_path / "icx").write_text("")
+    monkeypatch.setattr("shutil.which", lambda name: str(tmp_path / name) if name == "icx" else None)
+    assert c_compiler_for("icpx") == str(tmp_path / "icx")
+
+
 def test_a_clangxx_without_a_sibling_is_left_alone(tmp_path):
     cxx = tmp_path / "clang++"
     cxx.write_text("")
