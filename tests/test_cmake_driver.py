@@ -101,6 +101,13 @@ def test_ctest_run_leaves_out_the_excluded_labels(tmp_path):
                      exclude_label_regex="^quarantined$")
     assert runner.calls[0][1][-4:] == ["-L", "^(small|medium)$", "-LE", "^quarantined$"]
 
+def test_ctest_run_writes_a_junit_file_when_asked(tmp_path):
+    driver, runner = _driver()
+    report = tmp_path / "junit.xml"
+    driver.ctest_run(_cfg(), tmp_path, None, label_regex="^small$", output_junit=report)
+    assert runner.calls[0][1][-2:] == ["--output-junit", str(report)]
+
+
 def test_ctest_run_omits_absent_knobs(tmp_path):
     driver, runner = _driver()
     driver.ctest_run(_cfg(), tmp_path, None)
