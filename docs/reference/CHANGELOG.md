@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-30 — commands: Let the CMake driver write a CTest JUnit file (RW-60, `5d304e5`).
 - 2026-10-30 — provisioning: Read a module's fragment path from its manifest, declared once, with the module and the config able to override it (RW-17, RW-22, `dce5238`).
 - 2026-10-30 — provisioning: Stopped the shared code defaulting to hub or naming its commands; a consumer now supplies its program and wording (RW-25, KI-10, `825cb86`).
 - 2026-10-30 — documentation: Kept the single-package Python layout and the Python 3.10 floor, and stated both in AGENTS.md (RW-2, RW-3, `2af06be`).
