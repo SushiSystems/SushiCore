@@ -199,3 +199,36 @@ def test_binary_works_does_not_report_a_defect_as_a_broken_binary(monkeypatch):
     _failing_run(monkeypatch, TypeError("defect"))
     with pytest.raises(TypeError):
         probe.binary_works("cmake")
+
+
+def _fake_vswhere(monkeypatch, tmp_path):
+    """Put a vswhere.exe file where the probe looks and make Windows the platform."""
+    vswhere = tmp_path / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+    vswhere.parent.mkdir(parents=True)
+    vswhere.write_text("")
+    monkeypatch.setattr(probe.sys, "platform", "win32")
+    monkeypatch.setenv("ProgramFiles(x86)", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles", raising=False)
+
+
+def test_find_vcvars_logs_a_vswhere_that_did_not_run(monkeypatch, tmp_path, caplog):
+    """Check that a vswhere which cannot start is recorded with its error, and nothing is found."""
+    _fake_vswhere(monkeypatch, tmp_path)
+
+    def refuse(*arguments, **keywords):
+        raise OSError("access denied")
+
+    monkeypatch.setattr(probe.subprocess, "run", refuse)
+    with caplog.at_level("WARNING", logger=probe.__name__):
+        assert probe.find_vcvars() is None
+    assert "vswhere did not run (OSError: access denied)" in caplog.text
+
+
+def test_find_vcvars_logs_a_vswhere_that_failed(monkeypatch, tmp_path, caplog):
+    """Check that a vswhere exiting non-zero is recorded with its status."""
+    _fake_vswhere(monkeypatch, tmp_path)
+    failed = subprocess.CompletedProcess([], 3, stdout="", stderr="")
+    monkeypatch.setattr(probe.subprocess, "run", lambda *arguments, **keywords: failed)
+    with caplog.at_level("WARNING", logger=probe.__name__):
+        assert probe.find_vcvars() is None
+    assert "vswhere exited with status 3" in caplog.text

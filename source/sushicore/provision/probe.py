@@ -80,9 +80,18 @@ def _vcvars_from_vswhere() -> Path | None:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, errors="replace",
                                 timeout=30)
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as error:
+        _log.warning(
+            "vswhere did not run (%s: %s); no Visual Studio install is reported",
+            type(error).__name__,
+            error,
+        )
         return None
     if result.returncode != 0:
+        _log.warning(
+            "vswhere exited with status %d; no Visual Studio install is reported",
+            result.returncode,
+        )
         return None
     for line in result.stdout.splitlines():
         candidate = Path(line.strip()) / _VCVARS_REL
