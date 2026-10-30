@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-30 — machine_output: Sent the table event as plain text, so a program no longer strips Rich tags from the doctor's cells (RW-41, KI-3, `a268415`).
 - 2026-10-30 — command_line: Ended every provisioning command with one result event, through the outcome the commands return (RW-37, KI-5, `d63deb6`).
 - 2026-10-30 — command_line: Made link refuse a path without the workspace marker and put the old link back when the registry write fails (RW-39, KI-8, `d63deb6`).
 - 2026-10-30 — code: Moved the bodies of the four provisioning commands out of the module that registers them (RW-21, `d63deb6`).
