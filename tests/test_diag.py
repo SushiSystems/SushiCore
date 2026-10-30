@@ -75,3 +75,78 @@ def test_env_shows_only_build_relevant_variables_unless_asked(tmp_path):
     assert console.lines[-1] == ("info", "1 of 2 variables shown (build-relevant; use --all for everything)")
     assert diagnostics.env_dump(show_all=True) == 0
     assert console.lines[-1] == ("info", "2 of 2 variables shown")
+
+
+from dataclasses import dataclass
+
+
+@dataclass
+class _Settings:
+    cxx: str = ""
+    generator: str = "Ninja"
+    vcpkg_root: str = ""
+
+
+class _LayeredConfig:
+    """A config module whose files sit in a directory and in a linked workspace."""
+
+    Config = _Settings
+    _ENV_OVERRIDES = {"vcpkg_root": "ST_TEST_VCPKG"}
+
+    def __init__(self, root, with_sources):
+        self._root = root
+        if with_sources:
+            self.sources = lambda: [root / "cli" / "config.toml", root.parent / "ws" / "workspace.toml",
+                                    root / "cli" / "config.local.toml"]
+
+    def find_project_root(self, start=None):
+        return self._root
+
+    def config_dir(self, root=None):
+        return self._root / "cli"
+
+    def load_config(self):
+        return _Settings(cxx="clang", generator="Ninja", vcpkg_root="/v")
+
+
+def _write(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _source_column(console):
+    table = console.console.printed[0]
+    names = table.columns[0]._cells
+    sources = table.columns[2]._cells
+    return dict(zip(names, sources))
+
+
+def _show(tmp_path, with_sources):
+    root = tmp_path / "module"
+    _write(root / "cli" / "config.toml", '[tool]\ngenerator = "Ninja"\ncxx = "gcc"\n')
+    _write(root / "cli" / "config.local.toml", '[tool]\ncxx = "clang"\n')
+    _write(tmp_path / "ws" / "workspace.toml", '[tool]\ngenerator = "Make"\nvcpkg_root = "/w"\n')
+    console = _Console()
+    profile = ModuleProfile(name="SushiTest", program="st", env_prefix="ST")
+    Diagnostics(profile=profile, console=console,
+                config=_LayeredConfig(root, with_sources)).config_show()
+    return _source_column(console)
+
+
+def test_a_value_set_in_the_local_file_names_the_local_file(tmp_path):
+    assert _show(tmp_path, with_sources=False)["cxx"] == "config.local.toml"
+
+
+def test_a_value_from_the_linked_workspace_names_the_workspace(tmp_path):
+    column = _show(tmp_path, with_sources=True)
+    assert column["generator"] == "workspace"
+    assert column["cxx"] == "config.local.toml"
+
+
+def test_a_value_set_nowhere_is_the_default(tmp_path):
+    assert _show(tmp_path, with_sources=True)["vcpkg_root"] == "workspace"
+    root = tmp_path / "other"
+    console = _Console()
+    profile = ModuleProfile(name="SushiTest", program="st", env_prefix="ST")
+    Diagnostics(profile=profile, console=console, config=_LayeredConfig(root, False)).config_show()
+    assert _source_column(console)["generator"] == "default"

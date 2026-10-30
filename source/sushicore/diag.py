@@ -29,10 +29,14 @@ class ConfigModule(Protocol):
     def find_project_root(self, start: Path | None = ...) -> Path: ...
     def config_dir(self, root: Path | None = ...) -> Path: ...
     def load_config(self): ...
+    def sources(self) -> list[Path]: ...  # optional: every config file, lowest precedence first
 
 
 #: Config files a module layers, in the order they are reported.
 _CONFIG_FILES = ("config.toml", "config.local.toml")
+
+#: What the Source column calls a file that is not in the module's own config directory.
+_WORKSPACE_LABEL = "workspace"
 
 
 class Diagnostics:
@@ -68,22 +72,35 @@ class Diagnostics:
         self._build_env = build_env
         self._build_dir = build_dir
 
-    def _toml_keys(self, root: Path, plat: str) -> set[str]:
-        """Field names explicitly present in this module's config files."""
-        cfg_dir = self._config.config_dir(root)
-        keys: set[str] = set()
-        for fname in _CONFIG_FILES:
-            doc = read_toml(cfg_dir / fname)
-            if doc:
-                keys.update(merge_platform_table(doc, plat).keys())
-        return keys
+    def _config_files(self, root: Path) -> list[Path]:
+        """The config files this module layers, lowest precedence first.
 
-    def _source_of(self, field_name: str, toml_keys: set[str]) -> str:
+        A config module that offers ``sources()`` names them all, the linked workspace's among
+        them; one that does not is read as the two files of its config directory.
+        """
+        sources = getattr(self._config, "sources", None)
+        if callable(sources):
+            return list(sources())
+        cfg_dir = self._config.config_dir(root)
+        return [cfg_dir / name for name in _CONFIG_FILES]
+
+    def _origins(self, root: Path, plat: str) -> dict[str, str]:
+        """For each field a config file sets, the label of the highest-precedence file that sets it."""
+        cfg_dir = self._config.config_dir(root)
+        origins: dict[str, str] = {}
+        for path in self._config_files(root):
+            doc = read_toml(path)
+            if doc:
+                label = path.name if path.parent == cfg_dir else _WORKSPACE_LABEL
+                origins.update(dict.fromkeys(merge_platform_table(doc, plat), label))
+        return origins
+
+    def _source_of(self, field_name: str, origins: dict[str, str]) -> str:
         """Where a resolved value came from, highest-precedence answer first."""
         env_var = self._config._ENV_OVERRIDES.get(field_name)
         if env_var and env_var in os.environ:
             return f"env:{env_var}"
-        return "config.toml" if field_name in toml_keys else "default"
+        return origins.get(field_name, "default")
 
     def _resolved_paths(self, cfg, root: Path) -> list[tuple[str, str]]:
         """The runtime-resolved paths worth reporting, as label/value pairs.
@@ -112,7 +129,7 @@ class Diagnostics:
         console.header("Resolved Configuration")
         root = self._config.find_project_root()
         cfg = self._config.load_config()
-        toml_keys = self._toml_keys(root, platform.system().lower())
+        origins = self._origins(root, platform.system().lower())
 
         table = Table(show_header=True, header_style=console.accent)
         table.add_column("Setting")
@@ -120,7 +137,7 @@ class Diagnostics:
         table.add_column("Source")
         for f in fields(self._config.Config):
             table.add_row(f.name, str(getattr(cfg, f.name)),
-                          self._source_of(f.name, toml_keys))
+                          self._source_of(f.name, origins))
         console.console.print(table)
 
         rows = self._resolved_paths(cfg, root)
