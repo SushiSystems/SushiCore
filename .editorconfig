@@ -1,0 +1,22 @@
+# .editorconfig
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+[*.{yml,yaml,toml,json}]
+indent_style = space
+indent_size = 2
