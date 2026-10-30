@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from .errors import ConfigError, SushiCoreError
+from .toml_writer import write_toml_document
 
 try:
     import tomllib  # Python 3.11+
@@ -150,8 +151,6 @@ def write_module(root: Path, name: str, path: Path) -> Path:
     @param root The workspace root, passed in explicitly; this never walks up.
     @return     The path written.
     """
-    from .config_base import write_toml_document
-
     target = workspace_file(root)
     document = dict(read_toml(target))
     registry = dict(document.get("modules", {}))
@@ -167,8 +166,6 @@ def remove_module(root: Path, name: str) -> bool:
 
     @param root The workspace root, passed in explicitly; this never walks up.
     """
-    from .config_base import write_toml_document
-
     target = workspace_file(root)
     document = dict(read_toml(target))
     registry = dict(document.get("modules", {}))
