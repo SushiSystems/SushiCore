@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from ..command_groups import K_DESIGN
 from .check import check_design
 from .merge import TopicMerger, find_overlap
 from .model import K_CLOSED_PHASE_STATES, split_values
@@ -180,7 +181,7 @@ def register_design_commands(
             raise typer.Exit(K_EXIT_FINDINGS)
         report("clean")
 
-    app.add_typer(design_app, name="design", rich_help_panel=panel)
+    app.add_typer(design_app, name=K_DESIGN, rich_help_panel=panel)
 
 
 def _shown(path: Path, root: Path) -> str:

@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
 
+from ..command_groups import K_BACKLOG
 from .check import check_backlog, late_entries
 from .editor import BacklogEditor
 from .importer import BacklogImporter, BacklogRenumberer
@@ -298,7 +299,7 @@ def register_backlog_commands(
 
     backlog_app.add_typer(add_app, name="add")
     backlog_app.add_typer(area_app, name="area")
-    app.add_typer(backlog_app, name="backlog", rich_help_panel=panel)
+    app.add_typer(backlog_app, name=K_BACKLOG, rich_help_panel=panel)
 
 
 def _open_designs(root: Path) -> list[Path]:
