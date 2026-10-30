@@ -112,14 +112,6 @@ def held_by_managers(managers: list[IPackageManager],
     return lambda dep: _manager_holds(dep, mgr, platform, vcpkg)
 
 
-def _first_available(managers: list[IPackageManager]) -> IPackageManager | None:
-    """Return the first manager in *managers* that reports itself available."""
-    for mgr in managers:
-        if mgr.available():
-            return mgr
-    return None
-
-
 #: The three statuses an inventory row can carry.
 _OK = "OK"
 _MISSING = "MISSING"
