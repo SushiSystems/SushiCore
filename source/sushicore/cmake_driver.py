@@ -185,14 +185,24 @@ class CMakeDriver:
             cmd += ["-C", config]
         return self._runner.run_drained(cmd, build_dir, env)
 
-    def clean_tree(self, build_dir: Path) -> None:
-        """Remove *build_dir* and say what happened either way."""
-        if build_dir.is_dir():
-            self._console.info(f"Removing {build_dir}...")
-            shutil.rmtree(build_dir, ignore_errors=True)
-            self._console.success(f"{build_dir} removed.")
-        else:
+    def clean_tree(self, build_dir: Path) -> bool:
+        """Remove *build_dir*, say what happened either way, and return whether it is gone.
+
+        A tree that is still there after the removal, such as one holding a file another program has
+        open, is reported as a failure and not as removed.
+        """
+        if not build_dir.is_dir():
             self._console.info(f"{build_dir} does not exist, nothing to clean.")
+            return True
+        self._console.info(f"Removing {build_dir}...")
+        shutil.rmtree(build_dir, ignore_errors=True)
+        if build_dir.exists():
+            self._console.error(
+                f"{build_dir} could not be removed completely; close any program that holds a file "
+                "in it and clean again.")
+            return False
+        self._console.success(f"{build_dir} removed.")
+        return True
 
     def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *,
                 install_hint: str = _DEFAULT_DOXYGEN_HINT) -> int:

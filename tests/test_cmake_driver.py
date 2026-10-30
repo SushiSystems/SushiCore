@@ -193,6 +193,25 @@ def test_clean_tree_removes_only_that_directory(tmp_path):
     assert tmp_path.is_dir()
 
 
+def test_clean_tree_reports_a_tree_that_is_still_there(tmp_path, monkeypatch):
+    """A tree a program holds open survives the removal and must not be reported as removed."""
+    build = tmp_path / "build"
+    build.mkdir()
+    monkeypatch.setattr("sushicore.cmake_driver.shutil.rmtree", lambda *arguments, **keywords: None)
+    console = _Console()
+    assert CMakeDriver(console, _Runner()).clean_tree(build) is False
+    assert any("could not be removed completely" in line for line in console.lines)
+    assert not any(line.endswith("removed.") for line in console.lines)
+
+
+def test_clean_tree_returns_true_for_a_removed_and_for_an_absent_tree(tmp_path):
+    build = tmp_path / "build"
+    build.mkdir()
+    driver = CMakeDriver(_Console(), _Runner())
+    assert driver.clean_tree(build) is True
+    assert driver.clean_tree(build) is True
+
+
 def _installed_doxygen(tmp_path: Path):
     """A doxygen_exe pointing at a file that exists, so the driver's own
     not-installed check passes and execution reaches the run() call."""
