@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-30 — provisioning: Reported each setup step once to a human and dropped the progress bar that repeated the progress line (RW-53, `388f822`).
+- 2026-10-30 — command_line: Named the file a configuration value came from, the local file or the linked workspace (RW-42, `e31dd5a`).
+- 2026-10-30 — provisioning: Resolved no vcpkg when a config turns use_vcpkg off, and kept the lookup for a config that never sets it (RW-51, `467b823`).
 - 2026-10-30 — command_line: Accepted the short form of yes in setup, listed the check groups in the doctor help and let a module add its own groups (RW-6, KI-9, `a83e983`).
 - 2026-10-30 — code: Broke the import cycle of the workspace and config modules by moving the TOML writer into its own module (RW-48, `24dcfff`).
 - 2026-10-30 — code: Removed a helper in the provisioning steps that nothing called (RW-49, `c5844c3`).

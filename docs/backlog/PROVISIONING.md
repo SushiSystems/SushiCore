@@ -15,8 +15,6 @@
 | RW-16 | P2 | open | Remove `StackConfig.standalone_deps_dir` | `source/sushicore/stack_config.py` lacks it, one release after its last override is gone |  |  | 2026-10-19 |
 | RW-17 | P2 | open | Read a module's `fragment` key from `sushi-module.toml` | `setup` takes the fragment path a module declares instead of `DEFAULT_FRAGMENT` |  |  | 2026-10-19 |
 | RW-18 | P2 | open | Clone a Sushi library that only a fetched library pins | `setup` fetches a Sushi library pinned by a fetched library and by no fragment here |  |  | 2026-10-19 |
-| RW-51 | P2 | open | Read `use_vcpkg` | `stack_config.resolved_vcpkg` honours the `use_vcpkg` key the hub's defaults set per platform; the change reaches every command line that links this package |  |  | 2026-10-19 |
-| RW-53 | P2 | open | Drop the doubled progress line | `InstallPipeline.run` reports each step once to a human; the JSON event stays and the Rich bar goes |  |  | 2026-10-19 |
 | RW-54 | P2 | open | Provision every GPU vendor on a machine | `detect_gpu_vendor` returns every vendor present and the registry provisions a backend for each; a machine with an NVIDIA card and an AMD iGPU provisions only… |  |  | 2026-10-19 |
 
 ## Known issues
