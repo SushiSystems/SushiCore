@@ -49,9 +49,7 @@ Low to high:
 | Value | Result |
 | --- | --- |
 | A config file that is not valid TOML | `ConfigError`, which the entry point prints as one line with exit code 1 |
-| An unknown `theme` or `icons` name | `ConfigError`, the same way |
-| An unknown `color` | Falls back to `auto` without a message |
-| An unknown `background` | Falls back to `auto` without a message |
+| An unknown `theme`, `icons`, `color` or `background` value, from a file or from the environment | Falls back to `default`, `text`, `auto` or `auto`, and the console prints one warning that names the value and the known ones |
 
 ## Environment variables
 
