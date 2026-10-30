@@ -1,6 +1,6 @@
 # GPU toolkit selection: the hardware picks the release
 
-**Status:** Open — built and released in 0.9.0; the real builds of RW-12 to RW-14 are left
+**Status:** Shipped — 2026-10-30
 **About:** Setup installs the CUDA or ROCm release that this machine's own graphics card supports, instead of one release pinned for every machine.
 **Modules:** none
 
@@ -136,7 +136,7 @@ file is rewritten.
 | --- | --- | --- |
 | G1 | The shared locator, the CUDA rule and its installer | built |
 | G2 | The ROCm rule and installer, Linux only | built |
-| G3 | Real builds on hardware: `sr` against CUDA 13 (RW-12), on the Pascal machine with 12.9 (RW-13) and on an AMD card under Linux (RW-14) | planned |
+| G3 | Real builds on hardware: `sr` against CUDA 13, on the Pascal machine with 12.9 and on an AMD card under Linux; the owner keeps these runs outside the repository | withdrawn |
 
 ### Work
 
@@ -148,4 +148,4 @@ No open work.
 
 - Do the intel/llvm SYCL toolchain and the Unified Runtime CUDA adapter build against a 13.x
   toolkit? CUDA 13 changed parts of the driver API, so this is the first thing to check on
-  hardware. Settled by RW-12.
+  hardware. Answered by the owner's own run, outside the repository.

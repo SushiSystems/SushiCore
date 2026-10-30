@@ -1,6 +1,6 @@
 # Standalone provisioning: every module sets itself up, hub is optional
 
-**Status:** Open — wave 4 of 4: the owner runs each module's real `setup` and build
+**Status:** Shipped — 2026-10-30
 **About:** A person who clones one Sushi module can set it up and build it with that module's own setup command, without installing the hub.
 **Modules:** none
 
@@ -224,7 +224,7 @@ every CLI keeps running from its editable install on the owner's machine. The pl
 | S1 | sushicore 0.7.0: the bricks above, with tests; the owner tags and publishes, 0.5.0 and 0.6.0 are skipped | built |
 | S2 | The six module CLIs | built |
 | S3 | Hub reads the selection rule from sushicore | built |
-| S4 | The owner runs each module's real `setup` and build (RW-8) | planned |
+| S4 | The owner runs each module's real `setup` and build; kept outside the repository | withdrawn |
 
 The dependency-root migration that follows is phase B of `docs/design/PROVISION/README.md`; its sushicore
 bump becomes 0.8.0.

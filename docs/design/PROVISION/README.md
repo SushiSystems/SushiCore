@@ -1,6 +1,6 @@
 # Provision: one dependency root, one setup command, one doctor
 
-**Status:** Open — phase A shipped; phase B's engine exists, the owner's real move (steps 5 and 6) has not run
+**Status:** Shipped — 2026-10-30
 **About:** A Sushi module installs its build tools into one dependency root with setup and checks them with doctor, on any machine.
 **Modules:** none
 
@@ -192,7 +192,7 @@ that interrupts the move halfway.
 | Id | Phase | State |
 | --- | --- | --- |
 | A | `sushicore.provision` ships, hub re-exports it at its old paths, `st` and `sd` gain the four commands, `sr`, `se`, `sa` and `sb` gain `doctor` | built |
-| B | Hub's tree moves to the dependency root: `hub migrate` with `plan`, `migrate`, `rollback` and `finalize`; the owner's real move is pending | building |
+| B | Hub's tree moves to the dependency root: `hub migrate` with `plan`, `migrate`, `rollback` and `finalize`; the owner's real move is kept outside the repository | built |
 
 ### Work
 
