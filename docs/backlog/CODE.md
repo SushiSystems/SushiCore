@@ -5,7 +5,6 @@
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-20 | P2 | open | Split `provision/steps.py` | the four step classes of `source/sushicore/provision/steps.py`, 839 lines, sit in files of their own (Code C1) |  |  | 2026-10-19 |
-| RW-21 | P2 | open | Move the setup and doctor command bodies out of `provision/commands.py` | `commands.py` registers commands and holds no command body |  |  | 2026-10-19 |
 | RW-22 | P2 | open | Declare a module's fragment path once | one of `StackConfig.fragment` and `ModuleProvision.fragment` holds it |  |  | 2026-10-19 |
 | RW-23 | P2 | open | Move the process helper below the package managers | `packages/base.run` sits low enough for `provision/git_client.py` to sit below layer 4 |  |  | 2026-10-19 |
 | RW-24 | P2 | open | Dispatch on platform and package manager through the contracts | no code switches on a platform or manager name where a contract exists (Code C2) |  |  | 2026-10-19 |
