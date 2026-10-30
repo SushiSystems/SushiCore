@@ -1,6 +1,6 @@
 # Architecture overview
 
-SushiCore is one Python package, `sushicore`, with four sub-packages. Seven CLIs import it:
+SushiCore is one Python package, `sushicore`, with six sub-packages. Seven CLIs import it:
 `hub`, `sr`, `se`, `sa`, `sb`, `sd` and `st`. It registers commands on their Typer applications
 and has no application of its own.
 
@@ -293,8 +293,8 @@ Three of the fields exist because of where Windows installs the tools:
 ### `deps_fragment`
 
 A fragment is one table per dependency, keyed by its name, and two reserved tables that carry
-metadata instead of a dependency: `[module]`, and `[sushi]` with the pins of the Sushi libraries
-the module links. No dependency can be named `module` or `sushi`. Several CLIs read the format, so it is read here
+metadata instead of a dependency: `[module]`, and `[sushisystems]` with the pins of the Sushi libraries
+the module links. No dependency can be named `module` or `sushisystems`. Several CLIs read the format, so it is read here
 once. Two readers of one file is how a required dependency goes missing without a word, which
 is what happened to sushidsp's fragment until 2026-09-22.
 
@@ -342,8 +342,8 @@ Every Sushi CLI is installed outside the repository it builds, because pip or pi
 venv, so the package's own location says nothing about where the project lives. The invocation
 directory does. Each CLI therefore walks up from the working directory looking for one of its
 markers: the checkout's marker file, or the release manifest an unpacked binary install
-carries. It then layers `config.toml`, the workspace-shared `config.local.toml` that
-`hub install` writes, and the repository's own `config.local.toml`, in that order.
+carries. It then layers `config.toml`, the workspace-shared `.sushistack/workspace.toml` in the workspace home
+that `hub install` writes (the older `config.local.toml` in the hub checkout is read when it is absent), and the repository's own `config.local.toml`, in that order.
 
 That is the same procedure five times over. It differs only in the marker, the project's name
 in the error message and the prefix on the environment overrides, and a `ModuleProfile` already

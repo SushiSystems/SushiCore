@@ -60,7 +60,7 @@ Low to high:
 | `COLORFGBG` | `terminal_background.py` | Tells a dark terminal from a light one when `background` is `auto` |
 | `SUSHISTACK_HOME` | `module_config.py`, `stack_config.py`, `provision/` | Names the workspace; wins over a module's `[link]` pointer |
 | `SUSHISYSTEMS_HOME` | `provision/home.py` | Names the dependency root; the default is `~/.sushisystems` |
-| `SUSHISTACK_DEPS_DIR` | `provision/home.py`, `stack_config.py` | Names a legacy dependency tree to read |
+| `SUSHISTACK_DEPS_DIR` | `provision/home.py`, `stack_config.py` | Names a legacy dependency tree to read; for a build it is the only dependency root while set |
 | `<NAME>_DIR` | `provision/sushi_sources.py`, `stack_config.py` | Names the checkout of the Sushi library `<name>`, pinned or not, such as `SUSHILOG_DIR`; wins over the sibling and the fetched copy when the folder exists |
 | `SUSHISTACK_PACKAGE_KEEP` | `provision/sushi_packages/default_resolver.py` | How many built packages of one Sushi library the store keeps; wins over the `package_keep` config field, whose default is 3. A value below 1 is refused |
 | `SUSHISTACK_PACKAGE_NESTED` | `provision/sushi_packages/package_environment.py` | Set to `1` by sushicore in the environment of a library build it runs; a `<NAME>_PACKAGE` variable is honoured only beside it |

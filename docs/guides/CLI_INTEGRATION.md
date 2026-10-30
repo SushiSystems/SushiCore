@@ -75,7 +75,7 @@ own and is declared there.
 `AliasTable` prints one notice per process, to a terminal only. Setting
 `<PROGRAM>_NO_DEPRECATION_NOTICE=1` silences it, for example `SR_NO_DEPRECATION_NOTICE=1`.
 
-`package` takes `--build-dir` (default `build`), `--prefix` (default `build/dist`), `--no-archive`
+`package` takes `--build-dir` (default `build/default-debug`), `--prefix` (default `build/dist`), `--no-archive`
 and `--force`. It runs `cmake --install` of the tree into the prefix and CPack unless
 `--no-archive` is given. The install prints its command and one line counting the files it
 copied and the ones already up to date; cmake's own lines appear only when the install fails.

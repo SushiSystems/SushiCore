@@ -102,7 +102,7 @@ prose that cites the renamed ID is the caller's to rewrite.
 
 ## Import
 
-`backlog import` reads `docs/backlog/README.md` and `docs/backlog/README.md`, the
+`backlog import` reads `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md`, the
 form the store replaced, and deletes them:
 
 - Each `## <Area>` section becomes an area: its words in upper case, small words dropped. The

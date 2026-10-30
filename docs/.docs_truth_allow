@@ -7,3 +7,4 @@ docs/design/HUB\.md  # SushiStack's design document
 api/xml/index\.xml|pages/guides/.*  # paths inside a documentation bundle
 docs/guides/BUILDING\.md  # an example page of the repository being bundled
 chore  # a commit type from the commits skill, not a name in the source
+docs/design/REMAINING_WORK\.md|docs/reference/KNOWN_ISSUES\.md  # the retired files that `backlog import` reads in a repository not yet migrated

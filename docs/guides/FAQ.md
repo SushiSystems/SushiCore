@@ -91,7 +91,8 @@ is the folder `SUSHISYSTEMS_HOME` names, and `~/.sushisystems` when that variabl
 
 New installs go to the dependency root. Toolchains and vcpkg are looked up there first, then in
 the folder `SUSHISTACK_DEPS_DIR` names and in a legacy `<workspace>/dependencies` tree; a legacy
-tree is read and never written. [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md)
+tree is read and never written. A build resolves differently: while `SUSHISTACK_DEPS_DIR` is set it is the only
+dependency root. [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md)
 describes the root and how it is moved to another directory.
 
 ## How does a build get the Sushi libraries it links?
@@ -110,7 +111,7 @@ not change the key. The key, the store and the locks are in
 ## What do `setup` and `doctor` do?
 
 `setup` installs what a module needs to build and then runs `doctor`. It reads the module's
-dependency fragment, `cli/sushistack.deps.toml` by default, and through `[module] depends_on`
+dependency fragment, `cli/sushistack.deps.toml` unless `[module] fragment` in `sushi-module.toml` names another, and through `[module] depends_on`
 the fragment of every module it builds on. It clones a Sushi library that a `[sushisystems.<name>]`
 pin names when no `<NAME>_DIR` or sibling provides it, and never fetches an unpinned module. `--dry-run` shows the run and
 changes nothing, `--toolchain NAME` also installs that toolchain, and `--no-gpu` skips the GPU
@@ -178,15 +179,12 @@ meets first:
 - With the `emoji`, `minimal` or `none` icon set, every warning and error in the JSON stream is
   reported with `level` `info`.
 - A child process inherits stdout, so in machine mode stdout carries more than events.
-- `setup`, `link` and `unlink` end without a `result` event, and `config` and `env` emit no
-  `table` or `prompt` event.
+- `config` and `env` emit no `table` or `prompt` event.
 - No fragment entry pins a `sha256` yet, so every download is extracted or run unverified, with
   a warning. Downloads inside a shell pipeline and git clones of third-party code are not verified at
   all; the clone of a pinned Sushi library is checked against its commit.
 - The CUDA toolkit is unpacked from NVIDIA's archives, the oneAPI installer runs with
   `--eula accept`, and winget runs with `--accept-package-agreements`, each on the user's behalf.
-- `link --workspace PATH` does not check the path for the workspace marker and creates
-  `.sushistack/workspace.toml` there.
 
 The limits of the help screen are in [`sushicore/help/README.md`](../../source/sushicore/help/README.md).
 

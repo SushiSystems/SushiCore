@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-30 — documentation: Corrected fourteen manual sentences that a read against the code found false, among them the `result` event, the `[sushisystems]` table and the `package` default.
 - 2026-10-30 — commands: Let the CMake driver write a CTest JUnit file (RW-60, `5d304e5`).
 - 2026-10-30 — provisioning: Read a module's fragment path from its manifest, declared once, with the module and the config able to override it (RW-17, RW-22, `dce5238`).
 - 2026-10-30 — provisioning: Stopped the shared code defaulting to hub or naming its commands; a consumer now supplies its program and wording (RW-25, KI-10, `825cb86`).

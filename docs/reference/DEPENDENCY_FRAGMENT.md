@@ -1,8 +1,8 @@
 # Dependency fragment
 
 A fragment is a `sushistack.deps.toml` file. It holds one table per dependency, keyed by the
-dependency's name, and two reserved tables, `[module]` and `[sushi]`; no dependency can be
-named `module` or `sushi`. `sushicore/deps_fragment.py` is its one
+dependency's name, and two reserved tables, `[module]` and `[sushisystems]`; no dependency can be
+named `module` or `sushisystems`. The old name `[sushi]` is read as `[sushisystems]` with a deprecation warning. `sushicore/deps_fragment.py` is its one
 reader; `sushicore/provision/fragments.py` merges several fragments into one list. The shared
 base fragment is `sushicore/provision/manifests/base.deps.toml`.
 
@@ -83,7 +83,8 @@ library, the URL, the tag and the `<NAME>_DIR` that hands it a checkout instead.
 sibling's HEAD is not the pinned commit. Its `sushi pins` row fails on a conflicting pin.
 
 `StackConfig.sushi_pins(root)` reads the fragment at `StackConfig.fragment`, the path the
-module also hands `ModuleProvision.fragment`. `StackConfig.sushi_packages(root, build_type)` resolves a built package for every library the
+module also hands `ModuleProvision.fragment`. A module names its fragment in `[module] fragment` of `sushi-module.toml`;
+without it the path is `cli/sushistack.deps.toml`. `StackConfig.sushi_packages(root, build_type)` resolves a built package for every library the
 chain links, and `StackConfig.sushi_definitions(root, packaged)` returns `-D<NAME>_DIR=<path>` for
 each pin that resolves and is not in `packaged`. The CLI adds these and
 `PackageSet.definitions()` to the CMake configure, and CMake never downloads. The packages are in

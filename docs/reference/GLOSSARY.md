@@ -15,7 +15,7 @@
 | Documentation bundle | The archive `docs bundle` writes: the published pages, their assets, the Doxygen XML and `bundle.json` |
 | Doctor | The read-only report of a module's checks; exit code 1 when a required check fails |
 | Event | One JSON object on one line of stdout in machine mode |
-| Fragment | A `sushistack.deps.toml` file: one table per dependency a repository needs, plus the reserved `[module]` and `[sushi]` tables |
+| Fragment | A `sushistack.deps.toml` file: one table per dependency a repository needs, plus the reserved `[module]` and `[sushisystems]` tables |
 | Group | The job a check guards: `build`, `test`, `infer` or `eval` |
 | Help model | `HelpModel`, a help screen as data, read from a Click or Typer command by `build_model` |
 | Icon set | The prefixes printed before a line, as data; a preset or a registered one |

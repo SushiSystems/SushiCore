@@ -40,8 +40,9 @@ pip install -e ".[test]"
 python -m pytest tests -q
 ```
 
-The `test` extra adds pytest, Typer and Click. CI runs the same two commands on Ubuntu and
-Windows with Python 3.10 and 3.11 (`.github/workflows/ci.yml`).
+The `test` extra adds pytest, pytest-timeout, Typer and Click. CI runs the tests job,
+`python -m pytest -q -m "(small or medium) and not quarantined"`, on Ubuntu and Windows with Python 3.10 and 3.11,
+and the checkers job, `python tools/check_all.py .`, on Python 3.11 (`.github/workflows/ci.yml`).
 
 ## Running the checkers
 

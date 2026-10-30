@@ -14,7 +14,9 @@ whole surface of a CLI, its own commands included, as one JSON document.
 | `1` | The command ran and failed: a step failed, a check found a fault, a file could not be written |
 | `2` | The command could not act on the request: an unknown group, an unknown toolchain, no workspace, a path that is not a workspace, a missing module |
 
-A provisioning command ends with one `result` event in machine mode, whatever its code.
+`setup`, `link`, `unlink` and `doctor` end with one `result` event in machine mode, whatever their code, except
+`doctor` with a `--for` group it does not know, which exits `2` without one. `package` emits no `result` event; its
+exit code is the installer's.
 
 ## Before any command
 
@@ -25,7 +27,8 @@ A provisioning command ends with one `result` event in machine mode, whatever it
 
 ## Provisioning
 
-Declared once by `register_provision_commands`. A binary install carries `doctor` alone.
+`setup`, `doctor`, `link` and `unlink` are declared once by `register_provision_commands`, and `package` by
+`register_package_command`. A binary install carries `doctor` alone.
 
 | Command | Options | Does |
 | --- | --- | --- |
@@ -44,7 +47,8 @@ Declared once by `register_provision_commands`. A binary install carries `doctor
 
 ## Groups
 
-Named once in `command_groups`; a test checks a CLI carries them with `missing_groups`.
+`backlog` and `design` are named once in `command_groups`, and a test checks a CLI carries them with
+`missing_groups`. `docs bundle` is declared by `docs_bundle/commands.py`.
 
 | Group | Does | Reference |
 | --- | --- | --- |
