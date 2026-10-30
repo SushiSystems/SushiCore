@@ -30,8 +30,11 @@ def test_plain_text_is_unchanged():
 
 
 def test_importing_the_module_does_not_load_rich():
+    import os
     import subprocess
     import sys
 
     code = "import sys, sushicore.plain_text; sys.exit(1 if 'rich' in sys.modules else 0)"
-    assert subprocess.run([sys.executable, "-c", code], env={"PYTHONPATH": "source"}).returncode == 0
+    # Windows needs SYSTEMROOT to seed hash randomisation, so the parent environment is kept.
+    env = {**os.environ, "PYTHONPATH": "source"}
+    assert subprocess.run([sys.executable, "-c", code], env=env).returncode == 0
