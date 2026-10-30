@@ -4,7 +4,6 @@
 
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RW-1 | P2 | decision | Correct `AGENTS.md` and name the skills this repository follows | `AGENTS.md` names this repository's own commands and folders and the skills it follows |  |  | 2026-10-19 |
 | RW-2 | P2 | decision | Choose a Python-library exception to the layout, or move to it | the layout rule names an exception for a Python library, or `pyproject.toml`, the package and `tests/` follow the rule (Lay L13, Lay L18) |  |  | 2026-10-19 |
 | RW-3 | P2 | decision | Keep Python 3.10 or raise the floor to 3.11 | `pyproject.toml` and the test matrix of `.github/workflows/ci.yml` name one floor (Code C18) |  |  | 2026-10-19 |
 | RW-4 | P2 | decision | Decide what becomes of the provisioning reviews | the reviews in the untracked `.superpowers/` are written into tracked reports or discarded, and the owner has ruled whether the provisioning, module adoption… |  |  | 2026-10-19 |

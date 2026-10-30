@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-30 — documentation: Named this repository's commands, folders and skills in AGENTS.md, which had told the reader to build with the engine's command (RW-1, KI-21, `9e77d3e`).
+- 2026-10-30 — documentation: Cited the plans and designs at their paths, dropped the machine paths from the standalone plan and ticked its landed tasks (RW-38, KI-22, `a90c168`).
+- 2026-10-30 — documentation: Wrote the About line of each design topic for a cold reader (RW-55, `fe53e70`).
 - 2026-10-30 — provisioning: Reported each setup step once to a human and dropped the progress bar that repeated the progress line (RW-53, `388f822`).
 - 2026-10-30 — command_line: Named the file a configuration value came from, the local file or the linked workspace (RW-42, `e31dd5a`).
 - 2026-10-30 — provisioning: Resolved no vcpkg when a config turns use_vcpkg off, and kept the lookup for a config that never sets it (RW-51, `467b823`).
