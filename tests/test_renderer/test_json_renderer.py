@@ -122,3 +122,20 @@ def test_a_stream_that_refuses_utf8_is_recorded(monkeypatch, caplog):
     warnings = [r for r in caplog.records if r.name == "sushicore.renderer"]
     assert [r.levelname for r in warnings] == ["WARNING", "WARNING"]
     assert "detached" in warnings[0].getMessage()
+
+
+def test_the_table_event_carries_plain_text_with_no_markup():
+    """A cell the human table colours with markup reaches a program as the bare word."""
+    r, out, _ = _renderer()
+    r.table("[bold]Doctor[/bold]", ["Check", "[dim]Result[/dim]"],
+            [["cmake", "[success]ok[/success]"], ["ninja", "[error]FAIL[/error]"]], "bold")
+    event = _events(out)[0]
+    assert event["title"] == "Doctor"
+    assert event["columns"] == ["Check", "Result"]
+    assert event["rows"] == [["cmake", "ok"], ["ninja", "FAIL"]]
+
+
+def test_a_cell_with_a_bracket_that_is_no_markup_keeps_it():
+    r, out, _ = _renderer()
+    r.table("T", ["Detail"], [["found [1, 2] in path"]], "bold")
+    assert _events(out)[0]["rows"] == [["found [1, 2] in path"]]

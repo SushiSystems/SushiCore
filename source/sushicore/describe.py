@@ -15,8 +15,8 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Sequence
 
-from rich.errors import MarkupError
-from rich.text import Text
+from sushicore.plain_text import plain_text
+
 
 if TYPE_CHECKING:
     import click
@@ -29,14 +29,6 @@ K_TYPE_NAMES = {"choice": "choice", "path": "path", "boolean": "boolean",
                 "integer": "integer", "float": "number"}
 
 
-def _plain(text: str) -> str:
-    """Returns *text* with its Rich markup tags removed."""
-    try:
-        return Text.from_markup(text).plain
-    except MarkupError:
-        return text
-
-
 def _first_paragraph(help_text: str | None) -> str:
     """Returns the first paragraph of *help_text* as one markup-free line."""
     lines: list[str] = []
@@ -44,7 +36,7 @@ def _first_paragraph(help_text: str | None) -> str:
         if not line.strip():
             break
         lines.append(line.strip())
-    return _plain(" ".join(lines))
+    return plain_text(" ".join(lines))
 
 
 def _type_name(param_type: "click.ParamType") -> str:
@@ -82,7 +74,7 @@ def _param(param: "click.Parameter") -> dict:
         "default": _default(param),
         "choices": _choices(param.type),
         "flags": [] if argument else list(param.opts),
-        "help": _plain(getattr(param, "help", "") or ""),
+        "help": plain_text(getattr(param, "help", "") or ""),
     }
 
 

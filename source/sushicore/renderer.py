@@ -15,6 +15,7 @@ import sys
 from typing import Protocol
 
 from .events import event_line
+from .plain_text import plain_text
 from .theme import Theme
 
 _log = logging.getLogger(__name__)
@@ -301,8 +302,9 @@ class JsonRenderer:
         header_style: str,
         group_by: str | None = None,
     ) -> None:
-        """Emit a ``table`` event, which carries no grouping because the reader is a program."""
-        self._emit("table", title=title, columns=list(columns), rows=[list(row) for row in rows])
+        """Emit a ``table`` event of plain text, with no grouping because the reader is a program."""
+        self._emit("table", title=plain_text(title), columns=[plain_text(column) for column in columns],
+                   rows=[[plain_text(cell) for cell in row] for row in rows])
 
     def progress(self, label: str, index: int, count: int, fraction: float | None) -> None:
         """Emit a ``progress`` event."""
