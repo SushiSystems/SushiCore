@@ -30,4 +30,7 @@ command line.
 | `tools/` | The checkers and the hooks, copied from SushiSkills; `tools/layering/check_package_layers.py` holds the layer table of each package |
 | `docs/` | The manual, the backlog, the design topics and the work folders |
 
+The layout is the single-package Python layout of `python-code-style`: `pyproject.toml` at the root, the package
+under `source/` and the tests in `tests/`. The package supports Python 3.10 and later, and the tests run on 3.10 and 3.11.
+
 Every public name the manual describes is changed with its page in the same commit.
