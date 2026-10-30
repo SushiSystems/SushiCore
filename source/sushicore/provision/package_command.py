@@ -12,7 +12,7 @@ from typing import Callable, Optional
 
 from ..build_tree import K_DEFAULT_BUILD_TYPE, tree_dir
 from ._output import bind_console
-from .commands import ModuleProvision
+from .module_provision import ModuleProvision
 from .package_install import CapturedRun, PackageInstaller, capture_command, run_command
 
 #: The name of the tree the command installs from unless told otherwise; its type is the CLI default.

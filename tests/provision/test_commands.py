@@ -15,11 +15,12 @@ from typer.testing import CliRunner
 import pytest
 
 from sushicore.profile import ModuleProfile
-from sushicore.provision import commands, module_checks, probe
+from sushicore.provision import module_checks, module_plan, probe, setup_command
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.git_client import IGitClient
 from sushicore.provision.lock import ProvisionLock
+from sushicore.provision.pipeline import InstallPipeline
 from sushicore.provision.packages import LinuxPackageManager
 from sushicore.workspace import read_link, registered_modules, write_module
 
@@ -84,9 +85,9 @@ def _quiet_setup(monkeypatch, provision_home, managers):
     machine's real toolchain) and turns off the progress bar (which needs a real Rich
     console, not the recording fake).
     """
-    monkeypatch.setattr(commands, "_managers_for", lambda cfg: managers)
+    monkeypatch.setattr(module_plan, "managers_for", lambda cfg: managers)
     monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
-    monkeypatch.setattr(commands, "_SHOW_PROGRESS", False)
+    monkeypatch.setattr(setup_command, "K_SHOW_PROGRESS", False)
 
 
 def _app(tmp_path, recording_console, **overrides):
@@ -233,7 +234,7 @@ def test_setup_exits_one_when_the_lock_is_held(
         tmp_path, recording_console, provision_home, monkeypatch):
     """Check that setup exits one when the lock is held."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
-    monkeypatch.setattr(commands, "_LOCK_TIMEOUT", 0.2)
+    monkeypatch.setattr(setup_command, "K_LOCK_TIMEOUT", 0.2)
     root = tmp_path / "dsp"
     _write_fragment(root)
 
@@ -264,7 +265,7 @@ def test_setup_builds_the_package_managers_once(
     """Check that setup builds the package managers once."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     built = []
-    monkeypatch.setattr(commands, "_managers_for", lambda cfg: built.append(cfg) or [])
+    monkeypatch.setattr(module_plan, "managers_for", lambda cfg: built.append(cfg) or [])
     _write_fragment(tmp_path / "dsp")
 
     CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
@@ -419,7 +420,7 @@ def test_setup_selects_the_first_declared_toolchain_when_none_is_present(
     """Check that setup selects the first declared toolchain when none is present."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     seen = []
-    monkeypatch.setattr(commands.InstallPipeline, "run",
+    monkeypatch.setattr(InstallPipeline, "run",
                         lambda self, ctx, show_progress=True: seen.append(ctx.selection) or True)
     monkeypatch.setattr(probe, "toolchain_status", lambda cfg, gpu: [
         ("intel-llvm", False, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")])
@@ -439,7 +440,7 @@ def test_setup_selects_nothing_when_a_toolchain_is_present(
     """Check that setup selects nothing when a toolchain is present."""
     _quiet_setup(monkeypatch, provision_home, managers=[])
     seen = []
-    monkeypatch.setattr(commands.InstallPipeline, "run",
+    monkeypatch.setattr(InstallPipeline, "run",
                         lambda self, ctx, show_progress=True: seen.append(ctx.selection) or True)
     monkeypatch.setattr(probe, "toolchain_status", lambda cfg, gpu: [
         ("intel-llvm", True, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")])
@@ -499,7 +500,7 @@ def test_doctor_agrees_with_the_inventory_on_a_package_the_manager_holds(
         tmp_path, recording_console, provision_home, monkeypatch):
     """Check that doctor passes a dependency whose check cmd fails but whose package is held."""
     monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
-    monkeypatch.setattr(commands, "_managers_for", lambda cfg: [_FakeAptManager()])
+    monkeypatch.setattr(module_plan, "managers_for", lambda cfg: [_FakeAptManager()])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
     fragment.write_text(
@@ -630,3 +631,44 @@ def test_doctor_warns_on_an_unpinned_module(
     rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
     by_name = {row[0]: row for row in rows}
     assert "not pinned; pin it in [sushisystems.sushiruntime]" in by_name["sushi sushiruntime"][3]
+
+
+def _results(console):
+    """Return the arguments of every ``result`` event the recording console took."""
+    return [args for name, args in console.calls if name == "result"]
+
+
+def test_link_and_unlink_each_end_with_one_result_event(tmp_path, recording_console):
+    ws = tmp_path / "ws"
+    (ws / ".sushistack").mkdir(parents=True)
+    (tmp_path / "dsp" / "cli").mkdir(parents=True)
+    app = _app(tmp_path, recording_console)
+    runner = CliRunner()
+    assert runner.invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
+    assert _results(recording_console) == [(True, {})]
+    assert runner.invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
+    assert _results(recording_console) == [(True, {}), (True, {})]
+
+
+def test_a_failed_link_still_ends_with_a_failing_result_event(tmp_path, recording_console, monkeypatch):
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["link"])
+    assert result.exit_code == 2
+    assert _results(recording_console) == [(False, {})]
+
+
+def test_setup_that_stops_early_ends_with_a_failing_result_event(tmp_path, recording_console, provision_home):
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--toolchain", "nonesuch"])
+    assert result.exit_code == 2
+    assert _results(recording_console) == [(False, {})]
+
+
+def test_doctor_ends_with_exactly_one_result_event_carrying_its_checks(
+        tmp_path, recording_console, monkeypatch):
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+    _write_fragment(tmp_path / "dsp")
+    CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
+    results = _results(recording_console)
+    assert len(results) == 1
+    assert results[0][1]["checks"]

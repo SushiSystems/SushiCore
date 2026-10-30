@@ -38,7 +38,11 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sushi_source_check.py` | The doctor rows `sushi <name>` and `sushi pins` |
 | `sushi_setup.py` | The locate fallback, and the pin check, fetch and recheck `setup` runs before the closure |
 | `module_checks.py` | Assembles the rows `doctor` runs for a source checkout |
-| `commands.py` | `ModuleProvision` and `register_provision_commands` |
+| `commands.py` | `register_provision_commands`: declares the options of the four commands and ends each with one `result` event; re-exports `ModuleProvision` |
+| `module_provision.py` | `ModuleProvision`: what one module CLI hands the shared commands, its config folder among it |
+| `module_plan.py` | The package managers, the fragment closure and the dependency source of a module |
+| `setup_command.py`, `doctor_command.py`, `link_command.py` | The bodies of `setup`, `doctor`, and `link` with `unlink`; each returns an `Outcome` |
+| `outcome.py` | `Outcome`, the way a command ended, and `finish`, which sends its one `result` event |
 | `sushi_packages/` | Builds each Sushi library once through its own CLI and keeps the result under `<home>/packages`: the key, the source hash, the store, the locks, the builder and the resolver. See "Sushi libraries as packages" below |
 | `package_install.py`, `package_command.py` | `PackageInstaller` and `register_package_command`: the shared `package` command, which installs a built tree to a prefix and runs CPack |
 

@@ -89,6 +89,22 @@ class Report:
         """Return ``1`` when any required check failed, ``0`` otherwise."""
         return 1 if self.failures() else 0
 
+    def payload(self) -> dict:
+        """Return the payload of the report's result event: one record per check."""
+        return {
+            "checks": [
+                {
+                    "name": check.name,
+                    "group": check.group,
+                    "required": self.is_required(check),
+                    "state": self.shown_state(check, result).value,
+                    "detail": result.detail,
+                    "fix": result.fix,
+                }
+                for check, result in self.rows
+            ]
+        }
+
 
 _STATE_MARKUP = {
     State.OK: "[success]ok[/success]",
@@ -127,24 +143,15 @@ class Doctor:
             rows.append((check, result))
         return Report(tuple(rows), None if groups is None else frozenset(groups))
 
-    def render(self, report: Report, console: object) -> None:
-        """Print *report* as a table followed by a result, through *console*."""
+    def render_table(self, report: Report, console: object) -> None:
+        """Print *report* as a table through *console*, without the closing result event."""
         rows = [
             [check.name, check.group, _markup(report, check, result), result.detail, result.fix]
             for check, result in report.rows
         ]
         console.table(["Check", "Group", "Result", "Detail", "Fix"], rows, title="Doctor")
-        payload = {
-            "checks": [
-                {
-                    "name": check.name,
-                    "group": check.group,
-                    "required": report.is_required(check),
-                    "state": report.shown_state(check, result).value,
-                    "detail": result.detail,
-                    "fix": result.fix,
-                }
-                for check, result in report.rows
-            ]
-        }
-        console.result(report.exit_code() == 0, payload)
+
+    def render(self, report: Report, console: object) -> None:
+        """Print *report* as a table followed by its result event, through *console*."""
+        self.render_table(report, console)
+        console.result(report.exit_code() == 0, report.payload())

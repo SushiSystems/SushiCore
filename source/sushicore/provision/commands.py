@@ -3,240 +3,27 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""The ``setup``, ``doctor``, ``link`` and ``unlink`` commands shared by every module CLI."""
+"""Registers the ``setup``, ``doctor``, ``link`` and ``unlink`` commands every module CLI shares.
+
+Each command body lives in its own module; this one declares their options and ends every command
+with one ``result`` event.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Optional
 
-from ..deps_fragment import pins_at, read_present
-from ..profile import ModuleProfile
-from ..workspace import (
-    WORKSPACE_MARKER,
-    LinkEditError,
-    clear_link,
-    has_marker,
-    remove_module,
-    resolve_env_path,
-    walk_up,
-    write_link,
-    write_module,
-)
-from . import closure as closure_module
-from . import home, manifests, probe, selection, sushi_setup
+from . import selection
 from ._output import bind_console
-from .checks import python_check
-from .closure import Closure, Locate
-from .config import ProvisionConfig
-from .doctor import GROUPS, Check, Doctor
-from .fragments import TomlDependencySource
-from .git_client import GitClient, IGitClient
-from .lock import LockTimeout, ProvisionLock
-from .packages import (
-    AptManager,
-    DirectDownloadWindowsManager,
-    DnfManager,
-    IPackageManager,
-    PacmanManager,
-    VcpkgManager,
-    WingetManager,
-    YumManager,
-    ZypperManager,
-)
-from .module_checks import ModuleState, doctor_checks
-from .pipeline import InstallContext, InstallPipeline
-from .sinks import ModuleSink
-from .steps import ConfigureStep, DetectStep, InstallDepsStep
+from .doctor import GROUPS
+from .doctor_command import run_doctor
+from .link_command import run_link, run_unlink
+from .module_provision import ModuleProvision
+from .outcome import K_EXIT_USAGE, finish
+from .setup_command import run_setup
 
-#: Header written atop a module's ``config.local.toml``.
-_MODULE_SINK_HEADER = [
-    "# Auto-generated. Machine-specific tool paths for this module.",
-    "# Safe to edit; re-running `setup` backs this up first.",
-]
-
-#: Seconds ``setup`` waits for another process's ``ProvisionLock`` before giving up.
-_LOCK_TIMEOUT = 600.0
-
-#: Whether ``setup`` draws a progress bar around the pipeline.
-_SHOW_PROGRESS = True
-
-
-def _locate_nothing(name: str) -> Optional[Path]:
-    """Report that the module *name* has no checkout."""
-    del name
-    return None
-
-
-@dataclass(frozen=True)
-class ModuleProvision:
-    """What one module CLI hands the shared commands.
-
-    Args:
-        locate: Finds the checkout of a module the fragment's ``depends_on`` names.
-        panel: The help panel the commands are listed under, or None for the default.
-        is_binary: Reports a binary install, which registers ``doctor`` alone.
-        uses_base: Whether the shared base fragment joins the module's own.
-        git: Builds the git client that fetches and inspects pinned Sushi libraries.
-    """
-
-    profile: ModuleProfile
-    project_root: Callable[[], Path]
-    load_config: Callable[[], ProvisionConfig]
-    console: Callable[[], object]
-    extra_checks: Callable[[], list[Check]] = lambda: []
-    fragment: str = closure_module.DEFAULT_FRAGMENT
-    locate: Locate = _locate_nothing
-    panel: Optional[str] = None
-    is_binary: Callable[[], bool] = lambda: False
-    uses_base: bool = False
-    git: Callable[[], IGitClient] = GitClient
-
-
-#: Exit code for a request ``setup`` cannot act on: an unknown toolchain, a missing module.
-_EXIT_USAGE = 2
-
-
-def _managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
-    """Return the package managers this platform provisions dependencies through."""
-    if cfg.is_windows:
-        return [WingetManager(), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
-    return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
-            VcpkgManager(cfg)]
-
-
-def _closure(module: ModuleProvision, root: Path) -> Closure:
-    """Return the fragments *module* needs: the base when asked for, its modules', its own.
-
-    Raises:
-        ValueError: The modules depend on one another in a cycle, or a fragment is malformed.
-    """
-    shared = [(manifests.base_fragment(), manifests.BASE_OWNER)] if module.uses_base else []
-    locate = sushi_setup.locator(module.locate, root, pins_at(root / module.fragment))
-    return closure_module.resolve(module.profile.key, root, locate,
-                                  fragment=module.fragment, shared=shared)
-
-
-def _source(module: ModuleProvision, root: Path, found: Closure) -> TomlDependencySource:
-    """Return the dependency source over *found*, or over the module's own fragment path."""
-    sources = list(found.sources) or [(root / module.fragment, module.profile.key)]
-    return TomlDependencySource(sources)
-
-
-def _missing_module_message(module: str, wanted_by: str) -> str:
-    """Return the line that tells a user where the checkout of *module* belongs."""
-    return (f"{wanted_by} builds on {module}, and no checkout of it was found. "
-            f"Clone it beside this repository or set {module.upper()}_DIR.")
-
-
-def _report(checks: Sequence[Check], groups: Optional[set[str]], console: object) -> int:
-    """Run *checks*, render the report on *console*, and return the process exit code."""
-    doctor = Doctor(checks)
-    report = doctor.run(groups)
-    doctor.render(report, console)
-    return report.exit_code()
-
-
-def _run_doctor(module: ModuleProvision, groups: Optional[set[str]],
-                managers: list[IPackageManager] | None = None) -> int:
-    """Run this module's checks, render the report, and return its process exit code.
-
-    Args:
-        managers: The package managers a ``setup`` run already built; built here when None.
-    """
-    console = module.console()
-    if module.is_binary():
-        return _report([python_check()] + module.extra_checks(), groups, console)
-    cfg = module.load_config()
-    root = module.project_root()
-    try:
-        found = _closure(module, root)
-        own = read_present(root / module.fragment)
-    except ValueError as exc:
-        console.error(str(exc))
-        return 1
-    if managers is None:
-        managers = _managers_for(cfg)
-    state = ModuleState(cfg=cfg, root=root, owner=module.profile.key,
-                        program=module.profile.program, own=own,
-                        source=_source(module, root, found), missing=found.missing)
-    checks = doctor_checks(state, managers, module.git()) + module.extra_checks()
-    return _report(checks, groups, console)
-
-
-def _run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
-               toolchains: Sequence[str], gpu: bool) -> int:
-    """Provision *module*'s closure, then report readiness, and return the exit code."""
-    console = module.console()
-    root = module.project_root()
-    cfg = module.load_config()
-    try:
-        pins = pins_at(root / module.fragment)
-    except ValueError as exc:
-        console.error(str(exc))
-        return 1
-    fetch = InstallContext(cfg=cfg, consumer=module.profile.key,
-                           program=module.profile.program, dry_run=dry_run)
-    if not sushi_setup.prepare(fetch, root, pins, module.git(), _LOCK_TIMEOUT):
-        return 1
-    try:
-        found = _closure(module, root)
-    except ValueError as exc:
-        console.error(str(exc))
-        return 1
-    if found.missing:
-        for name, wanted_by in found.missing:
-            console.error(_missing_module_message(name, wanted_by))
-        return _EXIT_USAGE
-    source = _source(module, root, found)
-    try:
-        chosen = selection.derive(source, probe.toolchain_presence(cfg),
-                                  requested=toolchains, gpu=gpu)
-    except ValueError as exc:
-        console.error(str(exc))
-        return _EXIT_USAGE
-    managers = _managers_for(cfg)
-    pipeline = InstallPipeline([
-        DetectStep(source, managers),
-        InstallDepsStep(source, managers),
-        ConfigureStep(ModuleSink(root / "cli", _MODULE_SINK_HEADER)),
-    ])
-    ctx = InstallContext(
-        cfg=cfg,
-        selection=chosen,
-        consumer=module.profile.key,
-        program=module.profile.program,
-        dry_run=dry_run,
-        assume_acpp_llvm=yes,
-    )
-    try:
-        with ProvisionLock(home.root() / ".lock", timeout=_LOCK_TIMEOUT):
-            ok = pipeline.run(ctx, show_progress=_SHOW_PROGRESS)
-    except LockTimeout as exc:
-        console.error(str(exc))
-        return 1
-    if not ok:
-        return 1
-    return _run_doctor(module, None, managers)
-
-
-def _resolve_workspace(explicit: Optional[Path], project_root: Path) -> Optional[Path]:
-    """Return the workspace root: ``--workspace``, then ``SUSHISTACK_HOME``, then a walk-up."""
-    if explicit is not None:
-        return explicit
-    env = resolve_env_path("SUSHISTACK_HOME")
-    if env is not None:
-        return env
-    return walk_up(project_root, has_marker(WORKSPACE_MARKER))
-
-
-def _no_workspace_message() -> str:
-    """Return the error shown when no workspace can be resolved."""
-    return (
-        "No workspace found: pass --workspace, set SUSHISTACK_HOME, or run inside a "
-        f"directory with a {WORKSPACE_MARKER} ancestor."
-    )
+__all__ = ["ModuleProvision", "register_provision_commands"]
 
 
 def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> None:
@@ -268,8 +55,8 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         ) -> None:
             """Provision what this module needs to build, then report readiness."""
             bind_console(module.console)
-            raise typer.Exit(_run_setup(module, dry_run=dry_run, yes=yes,
-                                        toolchains=toolchain or (), gpu=not no_gpu))
+            raise typer.Exit(finish(module.console(), run_setup(
+                module, dry_run=dry_run, yes=yes, toolchains=toolchain or (), gpu=not no_gpu)))
 
     @command("doctor", "doctor --for build  # Only the checks a build needs")
     def doctor(
@@ -278,12 +65,13 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
     ) -> None:
         """Report on this machine's readiness to build the module."""
         bind_console(module.console)
+        console = module.console()
         if for_group is not None and for_group not in GROUPS:
-            module.console().error(
+            console.error(
                 f"Unknown check group '{for_group}'; choose one of: {', '.join(GROUPS)}.")
-            raise typer.Exit(2)
+            raise typer.Exit(K_EXIT_USAGE)
         groups = {for_group} if for_group else None
-        raise typer.Exit(_run_doctor(module, groups))
+        raise typer.Exit(finish(console, run_doctor(module, groups)))
 
     if binary:
         return
@@ -295,19 +83,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
     ) -> None:
         """Record this module's location in a workspace's module registry."""
         bind_console(module.console)
-        console = module.console()
-        root = module.project_root()
-        target = _resolve_workspace(workspace, root)
-        if target is None:
-            console.error(_no_workspace_message())
-            raise typer.Exit(2)
-        try:
-            write_link(root / "cli", target)
-        except LinkEditError as exc:
-            console.error(str(exc))
-            raise typer.Exit(1)
-        write_module(target, module.profile.key, root)
-        console.success(f"Linked {module.profile.name} into {target}.")
+        raise typer.Exit(finish(module.console(), run_link(module, workspace)))
 
     @command("unlink")
     def unlink(
@@ -316,20 +92,4 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
     ) -> None:
         """Remove this module's entry from a workspace's module registry."""
         bind_console(module.console)
-        console = module.console()
-        root = module.project_root()
-        target = _resolve_workspace(workspace, root)
-        if target is None:
-            console.error(_no_workspace_message())
-            raise typer.Exit(2)
-        try:
-            clear_link(root / "cli")
-        except LinkEditError as exc:
-            console.error(str(exc))
-            raise typer.Exit(1)
-        removed = [remove_module(target, name)
-                   for name in dict.fromkeys((module.profile.key, module.profile.name))]
-        if any(removed):
-            console.success(f"Unlinked {module.profile.name} from {target}.")
-        else:
-            console.info(f"{module.profile.name} was not linked into {target}.")
+        raise typer.Exit(finish(module.console(), run_unlink(module, workspace)))
