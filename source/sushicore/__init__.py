@@ -69,4 +69,7 @@ def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False) -
         renderer = JsonRenderer()
     else:
         renderer = RichRenderer(theme, no_color=not _use_color(spec.color))
-    return Console(renderer, theme, icons, is_dark_background(spec.background, os.environ))
+    console = Console(renderer, theme, icons, is_dark_background(spec.background, os.environ))
+    for warning in spec.warnings:
+        console.warn(warning)
+    return console

@@ -17,7 +17,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .errors import ConfigError
+from .icons import known_icon_sets
 from .terminal_background import K_AUTO, K_VALUES
+from .theme import known_themes
 
 try:
     import tomllib  # Python 3.11+
@@ -35,6 +37,7 @@ class AppearanceSpec:
     background: str = "auto"  # auto | dark | light
     color_overrides: dict = field(default_factory=dict)
     icon_overrides: dict = field(default_factory=dict)
+    warnings: list = field(default_factory=list)
 
 
 def _read_toml(path: Path) -> dict:
@@ -100,9 +103,22 @@ def load_appearance(config_paths: list[Path]) -> AppearanceSpec:
     if "NO_COLOR" in env:  # https://no-color.org — always wins when set
         spec.color = "never"
 
-    if spec.color not in ("auto", "always", "never"):
-        spec.color = "auto"
-    if spec.background not in K_VALUES:
-        spec.background = K_AUTO
-
+    _settle(spec, "theme", known_themes(), "default")
+    _settle(spec, "icons", known_icon_sets(), "text")
+    _settle(spec, "color", ("auto", "always", "never"), "auto")
+    _settle(spec, "background", K_VALUES, K_AUTO)
     return spec
+
+
+def _settle(spec: AppearanceSpec, name: str, allowed: tuple[str, ...], default: str) -> None:
+    """Replace an unknown value of *name* by *default*, and record one warning that says so.
+
+    One policy covers every appearance setting: a wrong value never stops a command, and it is never
+    ignored in silence.
+    """
+    value = getattr(spec, name)
+    if value in allowed:
+        return
+    spec.warnings.append(
+        f"Unknown CLI {name} '{value}'; using '{default}'. Known: {', '.join(sorted(allowed))}.")
+    setattr(spec, name, default)

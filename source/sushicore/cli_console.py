@@ -33,13 +33,19 @@ class LazyConsole:
 
     *machine* selects the JSON renderer. It is read once, at the first build,
     so a CLI sets it while parsing its command line, before anything prints.
+
+    *extra_sources* returns config files that are not in that directory, such as a
+    workspace's ``workspace.toml``. They sit below the directory's own files, so a
+    module's setting wins over the workspace's.
     """
 
-    __slots__ = ("_config_dir", "_console", "machine")
+    __slots__ = ("_config_dir", "_console", "_extra_sources", "machine")
 
-    def __init__(self, config_dir: Callable[[], Path]) -> None:
-        """Remember the config-dir resolver; nothing is built yet."""
+    def __init__(self, config_dir: Callable[[], Path],
+                 extra_sources: Callable[[], Sequence[Path]] | None = None) -> None:
+        """Remember the config-dir resolver and any extra files; nothing is built yet."""
         self._config_dir = config_dir
+        self._extra_sources = extra_sources
         self._console = None
         self.machine = False
 
@@ -49,12 +55,13 @@ class LazyConsole:
         return self._console is not None
 
     def sources(self) -> Sequence[Path]:
-        """The config files to layer, or an empty list outside a checkout."""
+        """The config files to layer, lowest precedence first; the extra files only outside a checkout."""
+        extra = list(self._extra_sources()) if self._extra_sources is not None else []
         try:
             cfg_dir = self._config_dir()
         except SystemExit:
-            return []
-        return [cfg_dir / "config.toml", cfg_dir / "config.local.toml"]
+            return extra
+        return [*extra, cfg_dir / "config.toml", cfg_dir / "config.local.toml"]
 
     def get(self):
         """Return the console, building it once on first call."""

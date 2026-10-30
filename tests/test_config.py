@@ -80,3 +80,44 @@ def test_build_console_falls_back_to_colorfgbg(monkeypatch):
 
 def test_build_console_without_a_setting_or_colorfgbg_is_not_dark():
     assert not build_console([]).dark_background
+
+
+@pytest.fixture
+def _clean_appearance_environment(monkeypatch):
+    for name in ("SUSHI_CLI_THEME", "SUSHI_CLI_ICONS", "SUSHI_CLI_COLOR", "NO_COLOR"):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.mark.parametrize("key, bad, fallback", [
+    ("theme", "neon", "default"),
+    ("icons", "sparkly", "text"),
+    ("color", "rainbow", "auto"),
+    ("background", "sepia", "auto"),
+])
+def test_every_unknown_appearance_value_falls_back_and_warns_once(
+        tmp_path, _clean_appearance_environment, key, bad, fallback):
+    spec = load_appearance([_config(tmp_path, f'[cli]\n{key} = "{bad}"\n')])
+    assert getattr(spec, key) == fallback
+    assert len(spec.warnings) == 1
+    assert f"Unknown CLI {key} '{bad}'" in spec.warnings[0]
+    assert f"using '{fallback}'" in spec.warnings[0]
+
+
+def test_known_values_raise_no_warning(tmp_path, _clean_appearance_environment):
+    spec = load_appearance([_config(tmp_path, '[cli]\ntheme = "muted"\nicons = "minimal"\ncolor = "never"\n')])
+    assert (spec.theme, spec.icons, spec.color, spec.warnings) == ("muted", "minimal", "never", [])
+
+
+def test_a_bad_value_from_the_environment_is_handled_the_same_way(monkeypatch, _clean_appearance_environment):
+    monkeypatch.setenv("SUSHI_CLI_THEME", "neon")
+    spec = load_appearance([])
+    assert spec.theme == "default"
+    assert "Unknown CLI theme 'neon'" in spec.warnings[0]
+
+
+def test_a_console_built_from_a_bad_theme_works_and_says_so(tmp_path, _clean_appearance_environment, capsys):
+    console = build_console([_config(tmp_path, '[cli]\ntheme = "neon"\n')], machine=True)
+    assert console is not None
+    out = capsys.readouterr().out
+    assert '"level":"warn"' in out
+    assert "Unknown CLI theme 'neon'" in out
