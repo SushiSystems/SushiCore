@@ -51,3 +51,5 @@ K_MODULE_MANIFEST = 'sushi-module.toml'
 K_MODULE_DEPENDENCY_FILE = 'cli/sushistack.deps.toml'
 K_MODULE_HEADINGS = ('## Standalone', '## With SushiHub')
 K_MODULE_WORKSPACE_READ = '\\bhub (?:install|add|link|doctor|status|pin)\\b|SUSHISTACK_HOME|\\.sushistack\\b|workspace\\.toml'
+K_TRAILER_SINCE = "56ddb6fd3199ff0b7995d7a62127f89b5c84b55f"
+K_DOCS_FOLLOW_SINCE = "56ddb6fd3199ff0b7995d7a62127f89b5c84b55f"
