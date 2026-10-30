@@ -1,49 +1,33 @@
-# CLAUDE.md
+# Agent instructions
 
-## Getting oriented
+SushiCore is the Python package behind the command lines of the Sushi stack: workspace resolution,
+layered configuration, the console, the CMake driver and dependency provisioning. It has no program of
+its own beyond the three modules it runs with `python -m`: `sushicore.backlog`, `sushicore.design` and
+`sushicore.docs_bundle`.
 
-When starting work on this project:
+Load `sushiskills` before working here; it names the skill each task needs. This repository follows
+`python-code-style`, `testing`, `documentation`, `backlog`, `design`, `commits` and `source-comments`.
 
-1. Read sushiruntime's `docs/CONTRIBUTING.md` (the stack's style authority; this repo has no CONTRIBUTING.md of its own) first and follow its rules exactly.
-2. Then read every top-level `.md` file directly under `docs/` (not its subdirectories — skip `docs/slop/`, the internal design-plan corpus, and `docs/api/`, the generated Doxygen page) to build context before making changes.
+## Commands
 
-## How to work
+```
+python -m pytest                          the tests; small and medium run anywhere
+python tools/check_all.py .               every checker and the checker tests
+python -m sushicore.backlog next          what to do next
+python -m sushicore.design owner <path>   which design topic owns a path
+python tools/hooks/install_hooks.py       once per clone, so git runs the checks before a commit
+```
 
-Act as an expert in whatever role the task requires, and work with real engineering discipline — not a quick hack that happens to pass.
+A build tool of another repository is never run from here; a repository is built through its own
+command line.
 
-### Priority 1: Maintainability
+## Folders
 
-Everything must be SOLID and heavily encapsulated within its own boundaries. Every module should be so well-isolated that:
+| Path | Holds |
+| --- | --- |
+| `source/sushicore/` | The package; `provision/` is the dependency provisioning, `backlog/`, `design/` and `docs_bundle/` are the documentation tools |
+| `tests/` | A tree that mirrors the source, one test file per source file |
+| `tools/` | The checkers and the hooks, copied from SushiSkills; `tools/layering/check_package_layers.py` holds the layer table of each package |
+| `docs/` | The manual, the backlog, the design topics and the work folders |
 
-- Changes stay local instead of rippling across the codebase.
-- Anything can be found quickly by someone looking for it.
-
-This is the single biggest determinant of the project's long-term fate, which is why it comes before everything else — including performance.
-
-### Priority 2: Performance
-
-No one wants their machine to turn into a space heater. Treat wasted cycles as a real cost: every watt saved is both a cost saving and a smaller environmental footprint. The guiding principle is "engineer it once carefully, run it a thousand times cheaply" — invest the effort up front so the result is efficient every time it runs afterward.
-
-### Quality bar
-
-Hold an extremely high, borderline obsessive standard of quality and correctness. Sloppy or "good enough for now" work is not acceptable.
-
-### Honesty
-
-Always be honest, never lie. Mutual honesty between us is what lets us actually make progress.
-
-If a task turns out to be too large to finish, never quietly cut corners and claim it's done, or claim things were done that were not. Say plainly what was completed and what wasn't.
-
-If a task requires making a choice, ask the user rather than picking arbitrarily out of laziness — laziness in place of asking is never acceptable.
-
-### Building
-
-Never invoke the underlying build system (ninja, cmake, etc.) directly. All builds and program actions must go through this project's dedicated CLI tools — e.g. `se build`, `se editor`. Learn and use the CLI; it is not optional.
-
-### Task tracking
-
-For every implementation, create tasks up front and diligently update the task list as work progresses. Manage the project's implementation carefully through that to-do list, not from memory.
-
----
-
-love you boss, kolay gelsin.
+Every public name the manual describes is changed with its page in the same commit.
