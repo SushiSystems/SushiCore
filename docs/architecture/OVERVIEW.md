@@ -421,9 +421,8 @@ the terminal's own foreground colour: white on a dark terminal, black on a light
 colour would be chosen without knowing the user's background.
 
 `as_rich_styles` also sets the `bar.*` and `progress.*` keys. The built-in columns of
-`rich.progress.Progress` (`SpinnerColumn`, `BarColumn` and the `[progress.*]` `TextColumn`
-templates) read those theme keys directly. Overriding them themes `rich.progress`'s `track` function and
-any bare `Progress(...)` in a downstream CLI with no change at the call site.
+`rich.progress.Progress` read those theme keys directly. Overriding them themes `rich.progress`'s
+`track` function and any bare `Progress(...)` in a downstream CLI with no change at the call site.
 
 The preset registered as `default` and `sushiweb` is lifted from the palette in sushiweb's
 `src/styles/global.css`. It is

@@ -87,7 +87,6 @@ def _quiet_setup(monkeypatch, provision_home, managers):
     """
     monkeypatch.setattr(module_plan, "managers_for", lambda cfg: managers)
     monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
-    monkeypatch.setattr(setup_command, "K_SHOW_PROGRESS", False)
 
 
 def _app(tmp_path, recording_console, **overrides):
@@ -421,7 +420,7 @@ def test_setup_selects_the_first_declared_toolchain_when_none_is_present(
     _quiet_setup(monkeypatch, provision_home, managers=[])
     seen = []
     monkeypatch.setattr(InstallPipeline, "run",
-                        lambda self, ctx, show_progress=True: seen.append(ctx.selection) or True)
+                        lambda self, ctx: seen.append(ctx.selection) or True)
     monkeypatch.setattr(probe, "toolchain_status", lambda cfg, gpu: [
         ("intel-llvm", False, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")])
     fragment = _write_fragment(tmp_path / "dsp")
@@ -441,7 +440,7 @@ def test_setup_selects_nothing_when_a_toolchain_is_present(
     _quiet_setup(monkeypatch, provision_home, managers=[])
     seen = []
     monkeypatch.setattr(InstallPipeline, "run",
-                        lambda self, ctx, show_progress=True: seen.append(ctx.selection) or True)
+                        lambda self, ctx: seen.append(ctx.selection) or True)
     monkeypatch.setattr(probe, "toolchain_status", lambda cfg, gpu: [
         ("intel-llvm", True, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")])
     fragment = _write_fragment(tmp_path / "dsp")

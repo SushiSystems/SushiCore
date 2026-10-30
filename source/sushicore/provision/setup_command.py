@@ -28,9 +28,6 @@ K_SINK_HEADER = [
 #: Seconds ``setup`` waits for another process's ``ProvisionLock`` before giving up.
 K_LOCK_TIMEOUT = 600.0
 
-#: Whether ``setup`` draws a progress bar around the pipeline.
-K_SHOW_PROGRESS = True
-
 
 def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
               toolchains: Sequence[str], gpu: bool) -> Outcome:
@@ -79,7 +76,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
     )
     try:
         with ProvisionLock(home.root() / ".lock", timeout=K_LOCK_TIMEOUT):
-            ok = pipeline.run(ctx, show_progress=K_SHOW_PROGRESS)
+            ok = pipeline.run(ctx)
     except LockTimeout as exc:
         console.error(str(exc))
         return failed()

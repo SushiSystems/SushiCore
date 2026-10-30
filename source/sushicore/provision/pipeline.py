@@ -106,53 +106,27 @@ class InstallPipeline:
     def run(self, ctx: InstallContext, show_progress: bool = True) -> bool:
         """Execute every step in order. Return True if none failed.
 
+        Each step is reported once to a human, as a header and a progress line, and once to a
+        program as a ``progress`` event.
+
         Args:
             ctx: The shared context steps read and populate.
-            show_progress: Whether to draw the setup progress bar.
+            show_progress: Ignored. It once drew a bar that repeated the progress line; callers that
+                still pass it keep working.
         """
+        del show_progress
         total = len(self._steps)
-        if not show_progress:
-            for index, step in enumerate(self._steps, start=1):
-                console.progress(step.name, index, total, index / total)
-                result = step.run(ctx)
-                if result is StepResult.FAILED:
-                    console.error(f"Step '{step.name}' failed; stopping.")
-                    return False
-            self._report_warnings(ctx)
-            return True
-
-        from rich.progress import (
-            BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn)
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeElapsedColumn(),
-            console=console.console,
-            transient=False,
-        ) as progress:
-            task = progress.add_task("[header]Starting Setup...", total=total)
-
-            for index, step in enumerate(self._steps, start=1):
-                progress.update(
-                    task,
-                    description=f"[header]Running Setup...[/header] [warn]({step.name})[/warn]")
-                console.header(f"setup: {step.name}")
-                console.progress(step.name, index, total, index / total)
-                result = step.run(ctx)
-                if result is StepResult.FAILED:
-                    progress.update(task, description=f"[error]Setup failed at '{step.name}'[/error]")
-                    console.error(f"Step '{step.name}' failed; stopping pipeline.")
-                    return False
-                if result is StepResult.SKIPPED:
-                    console.info(f"Step '{step.name}' skipped (nothing to do).")
-                else:
-                    console.success(f"Step '{step.name}' done.")
-                progress.advance(task)
-
-            progress.update(task, description="[success]Setup Complete![/success]")
+        for index, step in enumerate(self._steps, start=1):
+            console.header(f"setup: {step.name}")
+            console.progress(step.name, index, total, index / total)
+            result = step.run(ctx)
+            if result is StepResult.FAILED:
+                console.error(f"Step '{step.name}' failed; stopping pipeline.")
+                return False
+            if result is StepResult.SKIPPED:
+                console.info(f"Step '{step.name}' skipped (nothing to do).")
+            else:
+                console.success(f"Step '{step.name}' done.")
         self._report_warnings(ctx)
         return True
 

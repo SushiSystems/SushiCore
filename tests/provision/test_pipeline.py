@@ -50,3 +50,29 @@ def test_gpu_reads_through_the_selection():
     """Check that the GPU setting reads through the selection."""
     ctx = InstallContext(cfg=ProvisionSettings(), selection=ToolchainSelection(gpu=True))
     assert ctx.gpu is True
+
+
+def test_each_step_is_reported_once_with_a_header_a_progress_event_and_an_outcome(recording_console):
+    log = []
+    steps = [_Step("a", StepResult.OK, log), _Step("b", StepResult.SKIPPED, log)]
+    assert InstallPipeline(steps).run(InstallContext(cfg=ProvisionSettings())) is True
+    names = [name for name, _ in recording_console.calls]
+    assert names.count("header") == 2
+    assert names.count("progress") == 2
+    assert names.count("success") == 1
+    assert names.count("info") == 1
+
+
+def test_the_pipeline_reaches_for_no_rich_progress_bar():
+    """The pipeline reports through the console seam alone, so Rich stays behind the renderer."""
+    import inspect
+
+    from sushicore.provision import pipeline
+
+    assert "rich" not in inspect.getsource(pipeline)
+
+
+def test_a_caller_that_still_passes_show_progress_is_served(recording_console):
+    ok = InstallPipeline([_Step("a", StepResult.OK, [])]).run(
+        InstallContext(cfg=ProvisionSettings()), show_progress=True)
+    assert ok is True
