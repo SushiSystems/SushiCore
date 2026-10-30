@@ -238,3 +238,28 @@ def test_sushi_packages_hands_the_resolver_the_consumer_request(
     assert request.configured == {"sushiruntime": "/r"}
     assert request.options == {"sushiruntime": ("--distributed",)}
     assert (seen["keep"], seen["cmake"]) == (5, "/c/cmake")
+
+
+def test_a_config_that_turns_vcpkg_off_resolves_none_even_with_a_tree_present(provision_home, tmp_path):
+    (provision_home / "vcpkg").mkdir(parents=True)
+    config = _Config(platform="linux", use_vcpkg=False)
+    assert config.resolved_vcpkg(tmp_path) == ""
+
+
+def test_a_config_that_turns_vcpkg_off_ignores_an_explicit_root_too(tmp_path):
+    config = _Config(platform="linux", use_vcpkg=False, vcpkg_root=str(tmp_path / "v"))
+    assert config.resolved_vcpkg(tmp_path) == ""
+
+
+def test_a_config_that_turns_vcpkg_on_resolves_the_tree(provision_home, tmp_path):
+    (provision_home / "vcpkg").mkdir(parents=True)
+    config = _Config(platform="windows", use_vcpkg=True)
+    assert config.resolved_vcpkg(tmp_path) == str(provision_home / "vcpkg")
+
+
+def test_a_config_that_never_sets_the_key_keeps_resolving_the_tree(provision_home, tmp_path):
+    """A module config without use_vcpkg must not lose the vcpkg it had before the key was read."""
+    (provision_home / "vcpkg").mkdir(parents=True)
+    config = _Config(platform="windows")
+    assert config.use_vcpkg is None
+    assert config.resolved_vcpkg(tmp_path) == str(provision_home / "vcpkg")

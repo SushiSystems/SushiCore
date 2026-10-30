@@ -31,7 +31,8 @@ class ToolConfig:
     # The C++ compiler driving the build. Empty means "discover it".
     cxx: str = ""
     generator: str = "Ninja"
-    use_vcpkg: bool = False
+    #: Whether the build uses vcpkg. None means the config never said, which keeps today's lookup.
+    use_vcpkg: bool | None = None
 
     # Tool roots / paths (mostly Windows-specific absolutes).
     vcpkg_root: str = ""

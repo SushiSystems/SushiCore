@@ -210,7 +210,13 @@ class StackConfig(ProvisionSettings):
         return self.bundled_clang(root) or "clang++"
 
     def resolved_vcpkg(self, root: Path) -> str:
-        """The vcpkg root: explicit, then the first tree a dependency root holds, else ''."""
+        """The vcpkg root: explicit, then the first tree a dependency root holds, else ''.
+
+        A config that sets ``use_vcpkg`` to false resolves none, whatever tree is present: the hub's
+        defaults turn vcpkg off on Linux, where apt holds the libraries.
+        """
+        if self.use_vcpkg is False:
+            return ""
         if self.vcpkg_root:
             return self.expand(self.vcpkg_root)
         for tree in self.dependency_roots(root):
