@@ -82,12 +82,52 @@ def test_a_measured_unit_is_reserved_at_its_own_peak():
     assert build_gate.expected_peak(peaks, "device_compile", "a.cpp") == 700
 
 
-def test_a_new_unit_is_reserved_at_the_larger_of_its_kinds_default_and_largest_peak():
+def _measured(kind, units, largest):
+    """Returns a peaks table in which *units* units of *kind* are measured, the heaviest at *largest*."""
+    peaks = {f"u{index}.cpp": 100 for index in range(units)}
+    peaks[f"u{units}.cpp"] = largest
+    peaks["@" + kind] = largest
+    peaks["#" + kind] = units + 1
+    return peaks
+
+
+def test_a_new_unit_is_reserved_at_the_larger_of_its_kinds_default_and_largest_peak_while_few_are_measured():
     """Checks light units measured first never lower the guess for the heavy ones not seen yet."""
     default = build_gate.K_DEFAULT_PEAK_MB["device_compile"]
-    assert build_gate.expected_peak({"@device_compile": 251}, "device_compile", "b.cpp") == default
-    assert build_gate.expected_peak({"@device_compile": default + 1}, "device_compile", "b.cpp") == default + 1
+    few = build_gate.K_ENOUGH_UNITS - 1
+    assert build_gate.expected_peak(_measured("device_compile", few - 1, 251), "device_compile", "new.cpp") == default
+    assert build_gate.expected_peak({"@device_compile": default + 1}, "device_compile", "new.cpp") == default + 1
     assert build_gate.expected_peak({}, "host_link", "t.exe") == build_gate.K_DEFAULT_PEAK_MB["host_link"]
+
+
+def test_a_well_measured_kind_reserves_headroom_over_its_largest_peak_not_the_default():
+    default = build_gate.K_DEFAULT_PEAK_MB["device_compile"]
+    enough = build_gate.K_ENOUGH_UNITS
+    floor = int(build_gate.K_FLOOR_SHARE * default)
+    assert build_gate.expected_peak(_measured("device_compile", enough, 393), "device_compile", "new.cpp") == floor
+    heavier = floor
+    assert (build_gate.expected_peak(_measured("device_compile", enough, heavier), "device_compile", "new.cpp")
+            == int(build_gate.K_HEADROOM * heavier))
+
+
+def test_headroom_never_exceeds_the_default_and_never_falls_below_the_largest_peak():
+    default = build_gate.K_DEFAULT_PEAK_MB["device_compile"]
+    enough = build_gate.K_ENOUGH_UNITS
+    assert build_gate.expected_peak(_measured("device_compile", enough, default - 1), "device_compile", "n.cpp") == default
+    assert build_gate.expected_peak(_measured("device_compile", enough, default + 500), "device_compile", "n.cpp") == default + 500
+
+
+def test_a_unit_measured_before_keeps_its_own_peak_whatever_the_kind_shows():
+    peaks = _measured("device_compile", build_gate.K_ENOUGH_UNITS, 9000)
+    assert build_gate.expected_peak({**peaks, "a.cpp": 700}, "device_compile", "a.cpp") == 700
+
+
+def test_a_peak_counts_its_unit_once_and_keeps_the_largest():
+    peaks: dict = {}
+    build_gate.record_peak(peaks, "host_compile", "a.cpp", 300)
+    build_gate.record_peak(peaks, "host_compile", "a.cpp", 500)
+    build_gate.record_peak(peaks, "host_compile", "b.cpp", 200)
+    assert peaks == {"a.cpp": 500, "b.cpp": 200, "@host_compile": 500, "#host_compile": 2}
 
 
 def test_a_gated_command_runs_returns_its_code_and_leaves_the_ledger_empty(tmp_path):

@@ -29,6 +29,17 @@ K_RESERVE_MB = 1536
 K_DEFAULT_PEAK_MB = {"device_compile": 8400, "host_compile": 1000,
                      "device_link": 1500, "host_link": 1500}
 
+#: Prefix of the key that holds the largest peak a kind has shown, and of the one that counts its units.
+K_KIND_PREFIX = "@"
+K_COUNT_PREFIX = "#"
+
+#: Units of a kind that must be measured before its measurements bound a unit not seen yet.
+K_ENOUGH_UNITS = 10
+
+#: An unseen unit of a well measured kind is reserved at this multiple of its largest peak, at least this share of the default.
+K_HEADROOM = 2.0
+K_FLOOR_SHARE = 0.25
+
 #: The compiler cache's size cap, which ccache reads as CCACHE_MAXSIZE.
 K_CACHE_SIZE = "5G"
 
@@ -174,12 +185,30 @@ def expected_peak(peaks: dict, kind: str, key: str) -> int:
     """Returns the peak to reserve for the edge *key* of *kind*.
 
     A unit measured before is reserved at its own peak. A unit not seen yet is reserved at the
-    larger of its kind's default and the largest peak its kind has shown: the units measured so
-    far may be the light ones, and a guess below the heavy ones runs the machine out of memory.
+    larger of its kind's default and the largest peak its kind has shown, because the few units
+    measured so far may be the light ones and a guess below the heavy ones runs the machine out of
+    memory. Once K_ENOUGH_UNITS of the kind are measured, that stops being a guess about the whole
+    kind: the reservation falls to K_HEADROOM times the largest peak, never below K_FLOOR_SHARE of
+    the default, never above the default and never below the largest peak seen.
     """
     if key in peaks:
         return int(peaks[key])
-    return max(K_DEFAULT_PEAK_MB[kind], int(peaks.get("@" + kind, 0)))
+    default = K_DEFAULT_PEAK_MB[kind]
+    largest = int(peaks.get(K_KIND_PREFIX + kind, 0))
+    if int(peaks.get(K_COUNT_PREFIX + kind, 0)) < K_ENOUGH_UNITS:
+        return max(default, largest)
+    headroom = max(K_HEADROOM * largest, K_FLOOR_SHARE * default)
+    return max(largest, int(min(default, headroom)))
+
+
+def record_peak(peaks: dict, kind: str, key: str, peak: int) -> None:
+    """Records the peak of one edge in *peaks*: the largest for its unit, the largest for its kind
+    and, the first time the unit is seen, one more unit of the kind."""
+    if key not in peaks:
+        peaks[K_COUNT_PREFIX + kind] = int(peaks.get(K_COUNT_PREFIX + kind, 0)) + 1
+    # The largest seen across build types: a unit's host pass is heavier at -O3.
+    peaks[key] = max(peak, int(peaks.get(key, 0)))
+    peaks[K_KIND_PREFIX + kind] = max(peak, int(peaks.get(K_KIND_PREFIX + kind, 0)))
 
 
 def admit(ledger: dict, me: int, expected: int, free_mb: int, now: float) -> bool:
@@ -411,9 +440,7 @@ def run(state: Path, command: list[str], cache: str = "") -> int:
             _write(state / K_LEDGER, ledger)
             if peak:
                 peaks = _read(state / K_PEAKS, {})
-                # The largest seen across build types: a unit's host pass is heavier at -O3.
-                peaks[key] = max(peak, int(peaks.get(key, 0)))
-                peaks["@" + kind] = max(peak, int(peaks.get("@" + kind, 0)))
+                record_peak(peaks, kind, key, peak)
                 _write(state / K_PEAKS, peaks)
     return code
 

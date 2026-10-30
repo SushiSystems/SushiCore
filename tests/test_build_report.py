@@ -37,3 +37,16 @@ def test_edges_are_read_from_the_offset_once_per_command(tmp_path):
 def test_link_outputs_and_stamps_are_told_apart():
     assert classify("bin/tool.exe", set(), set()) is EdgeKind.host_link
     assert classify("CMakeFiles/stamp", set(), set()) is EdgeKind.other
+
+
+def test_the_count_of_a_kinds_units_is_neither_a_unit_nor_a_kind():
+    report = summarise([], {"a.cpp": 400, "@device_compile": 400, "#device_compile": 9}, 2500)
+    assert report.heaviest == [(400, "a.cpp")]
+    assert set(report.kinds) == {"device_compile"}
+
+
+def test_the_reserved_prefixes_equal_those_of_the_gate():
+    from sushicore import build_gate, build_report
+
+    assert (build_report.K_KIND_PREFIX, build_report.K_COUNT_PREFIX) == (
+        build_gate.K_KIND_PREFIX, build_gate.K_COUNT_PREFIX)

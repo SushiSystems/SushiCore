@@ -23,6 +23,11 @@ K_REPORT_NAME = "build_report.json"
 #: How many of the slowest edges a report lists.
 K_SLOWEST = 20
 
+#: Prefixes of the non-unit keys of `unit_peaks.json`; build_gate.py repeats them and a test keeps them equal.
+K_KIND_PREFIX = "@"
+K_COUNT_PREFIX = "#"
+K_RESERVED_PREFIXES = (K_KIND_PREFIX, K_COUNT_PREFIX)
+
 
 class EdgeKind(str, Enum):
     """The kinds of build edge whose costs differ enough to be scheduled apart."""
@@ -194,11 +199,11 @@ def summarise(edges: list[Edge], peaks: dict[str, int], lowest_free_mb: int | No
         totals.total_seconds += edge.seconds
         totals.longest_seconds = max(totals.longest_seconds, edge.seconds)
     for key, peak in peaks.items():
-        if key.startswith("@"):
+        if key.startswith(K_KIND_PREFIX):
             report.kinds.setdefault(key[1:], KindTotals()).peak_mb = int(peak)
     report.lowest_free_mb = lowest_free_mb
     report.heaviest = sorted(((int(peak), key) for key, peak in peaks.items()
-                              if not key.startswith("@")), reverse=True)[:K_SLOWEST]
+                              if not key.startswith(K_RESERVED_PREFIXES)), reverse=True)[:K_SLOWEST]
     if edges:
         report.wall_seconds = (max(e.started + e.seconds for e in edges)
                                - min(e.started for e in edges))

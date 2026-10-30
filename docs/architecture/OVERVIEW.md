@@ -140,7 +140,9 @@ Each edge's peak is measured as it runs, through a job object on Windows and the
 resident set on Linux, and the largest is kept per unit and optimisation level in
 `unit_peaks.json`. A unit not seen before is reserved at the larger of its kind's default and the
 largest peak of its kind, so light units measured first never let two unmeasured heavy ones in
-together. While `stop` exists, each waiting or new edge fails and the running ones finish, which
+together. Once ten units of a kind are measured, it is reserved at twice the largest peak instead,
+no lower than a quarter of the default and no higher than the default; the file keeps the count of a
+kind's units beside its largest peak, and a file written before the count counts again from zero. While `stop` exists, each waiting or new edge fails and the running ones finish, which
 stops a build without killing a process.
 
 With `--cache`, a host compile runs through ccache, capped at 5 GB in `build/ccache` and checking
