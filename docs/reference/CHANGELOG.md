@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-31 — testing: Added the shared test command, which writes a JUnit file, prints the budget line and refuses an unfiltered large run (`sushicore.testing`).
+
 ## v0.10.6 — 2026-10-30
 
 - 2026-10-30 — build_gate: Reserved headroom, not a floor, for a unit it has not met once ten units of its kind are measured, so a build of light files runs in parallel (RW-61, `6bff342`).

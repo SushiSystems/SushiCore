@@ -62,6 +62,7 @@ Every Sushi CLI registers the same surfaces, each with one call.
 | `sushicore.diag_commands.register_diagnostic_commands(app, diagnostics, program=..., panel=...)` | `config` and `env` |
 | `sushicore.provision.commands.register_provision_commands(app, module)` | `setup`, `doctor`, `link`, `unlink` |
 | `sushicore.provision.package_command.register_package_command(app, module)` | `package`, which installs a built tree to a prefix; every library CLI registers it |
+| `sushicore.testing.register_test_command(app, module)` | `test`, which runs the CTest tests by size label, writes a JUnit file and prints the budget line; every CLI with CTest tests registers it |
 | `sushicore.aliases.AliasTable(program, aliases)` | Old spellings that still run, hidden, and name their replacement |
 | `sushicore.entry.run(app, report)` | An entry point that turns a `SushiCoreError` into one line and exit code 1 |
 

@@ -1,0 +1,56 @@
+# commands.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
+# Commercial use requires a licence from Sushi Systems.
+"""Registers the shared ``test`` command that every Sushi CLI with CTest tests offers."""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from .labels import TestLabel, select_labels
+from .module_tests import ModuleTests
+from .session import run_tests
+
+
+def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
+    """Add ``test`` to *app*: run the tests of the build tree by size label and print the budget line.
+
+    Args:
+        app: The CLI's Typer application.
+        module: What the CLI hands the command: its tree, its CTest call and its checkout.
+    """
+    import typer
+
+    program = module.profile.program
+    epilog = "\n".join((
+        f"{program} test  # small and medium",
+        f"{program} test --label small -f 'RectTest'",
+        f"{program} test --label medium --repeat 3",
+        f"{program} test --label large -f 'Gpu'  # Needs real hardware",
+        f"{program} test --all  # Every size; the owner's machine runs this",
+    ))
+
+    @app.command("test", rich_help_panel=module.panel, epilog=epilog)
+    def test(
+        label: Optional[List[TestLabel]] = typer.Option(
+            None, "--label", "-l", case_sensitive=False,
+            help="Size label to run, repeatable: small, medium, large or quarantined. "
+                 "Default: small and medium; large needs --filter or --all."),
+        filter: Optional[str] = typer.Option(
+            None, "--filter", "-f", metavar="REGEX",
+            help="ctest -R regex over 'Suite.Case' test names."),
+        repeat: int = typer.Option(
+            0, "--repeat", "-r", min=0, metavar="N",
+            help="Re-run each test up to N times, stopping on the first failure."),
+        jobs: Optional[int] = typer.Option(
+            None, "--jobs", "-j", metavar="N",
+            help="Run up to N tests concurrently (ctest --parallel)."),
+        all_sizes: bool = typer.Option(
+            False, "--all", help="Run every size, the large tests included."),
+    ) -> None:
+        """Run the tests of the build tree by size label, then print the budget line."""
+        selection = select_labels(label, every_size=all_sizes)
+        raise typer.Exit(run_tests(module, selection, name_filter=filter, repeat=repeat,
+                                   jobs=jobs, every_size=all_sizes))

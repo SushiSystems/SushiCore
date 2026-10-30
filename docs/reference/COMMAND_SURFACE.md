@@ -1,6 +1,6 @@
 # Command surface
 
-**Describes:** `source/sushicore/provision/commands.py`, `source/sushicore/provision/package_command.py`, `source/sushicore/diag_commands.py`, `source/sushicore/root_options.py`, `source/sushicore/command_groups.py`
+**Describes:** `source/sushicore/provision/commands.py`, `source/sushicore/provision/package_command.py`, `source/sushicore/diag_commands.py`, `source/sushicore/root_options.py`, `source/sushicore/command_groups.py`, `source/sushicore/testing/commands.py`, `source/sushicore/testing/session.py`
 
 Every command line built on this package answers to the commands below. A module's own commands, such
 as `build` and `test`, are declared by the module and are not listed here. `--describe` prints the
@@ -37,6 +37,17 @@ exit code is the installer's.
 | `link` | `--workspace PATH` | Records the module in a workspace, which must carry its marker, as one operation |
 | `unlink` | `--workspace PATH` | Removes the module's entry and its link |
 | `package` | `--build-dir`, `--prefix`, `--no-archive`, `--force` | Installs a built tree to a prefix and archives it with CPack |
+
+## Tests
+
+`test` is declared once by `register_test_command`, for a CLI whose tests run under CTest.
+
+| Command | Options | Does |
+| --- | --- | --- |
+| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j`, `--all` | Runs the tests of the build tree, `small` and `medium` unless a label is named, writes a JUnit file, then prints the budget line when the repository carries the budget reader. The labels are `small`, `medium`, `large` and `quarantined` |
+
+`--label large` without `--filter` exits `2` before anything runs; `--all` runs every size. The budget line
+is a report and never changes the exit code, which is CTest's. A tree that is absent or stale also exits `2`.
 
 ## Diagnostics
 
