@@ -4,8 +4,6 @@
 
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RW-2 | P2 | decision | Choose a Python-library exception to the layout, or move to it | the layout rule names an exception for a Python library, or `pyproject.toml`, the package and `tests/` follow the rule (Lay L13, Lay L18) |  |  | 2026-10-19 |
-| RW-3 | P2 | decision | Keep Python 3.10 or raise the floor to 3.11 | `pyproject.toml` and the test matrix of `.github/workflows/ci.yml` name one floor (Code C18) |  |  | 2026-10-19 |
 | RW-4 | P2 | decision | Decide what becomes of the provisioning reviews | the reviews in the untracked `.superpowers/` are written into tracked reports or discarded, and the owner has ruled whether the provisioning, module adoption… |  |  | 2026-10-19 |
 | RW-7 | P2 | decision | Decide whether the Windows GPU installer is deleted | `source/sushicore/provision/gpu/windows_installer.py` is deleted, or kept with a caller |  | `docs/design/GPU_TOOLKIT_SELECTION/README.md` | 2026-10-19 |
 | RW-46 | P2 | decision | Decide how a third-party licence is shown and accepted | the owner has ruled how the oneAPI, winget and CUDA licences reach the user before setup accepts them (Lic L9, Lic L10) |  |  | 2026-10-19 |

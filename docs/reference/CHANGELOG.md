@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-10-30 — documentation: Kept the single-package Python layout and the Python 3.10 floor, and stated both in AGENTS.md (RW-2, RW-3, `2af06be`).
 - 2026-10-30 — commands: Named the backlog and design command groups once and added a check that a CLI exposes them, so repositories stop listing them in tests (RW-57, RW-58, `20ebfdb`).
 - 2026-10-30 — documentation: Listed the commands, options and exit codes every Sushi CLI shares on one reference page (RW-40, `47f4861`).
 - 2026-10-30 — documentation: Named this repository's commands, folders and skills in AGENTS.md, which had told the reader to build with the engine's command (RW-1, KI-21, `9e77d3e`).
