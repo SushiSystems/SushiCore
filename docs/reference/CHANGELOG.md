@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-30 — provisioning: Read a module's fragment path from its manifest, declared once, with the module and the config able to override it (RW-17, RW-22, `dce5238`).
+- 2026-10-30 — provisioning: Stopped the shared code defaulting to hub or naming its commands; a consumer now supplies its program and wording (RW-25, KI-10, `825cb86`).
 - 2026-10-30 — documentation: Kept the single-package Python layout and the Python 3.10 floor, and stated both in AGENTS.md (RW-2, RW-3, `2af06be`).
 - 2026-10-30 — commands: Named the backlog and design command groups once and added a check that a CLI exposes them, so repositories stop listing them in tests (RW-57, RW-58, `20ebfdb`).
 - 2026-10-30 — documentation: Listed the commands, options and exit codes every Sushi CLI shares on one reference page (RW-40, `47f4861`).

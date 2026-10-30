@@ -13,7 +13,6 @@
 | RW-14 | P2 | unmeasured | Install ROCm and build `sr` on an AMD card under Linux | the tarball's layout past its first 60 MB, `rocm_agent_enumerator` under `ROCM_PATH` and the HIP adapter have run |  | `docs/design/GPU_TOOLKIT_SELECTION/README.md` | 2026-10-19 |
 | RW-15 | P2 | open | Move the build, test, package and deploy scaffold here | the scaffold the AI and BLAS command lines each carry in their `cli/.../services/project.py` lives in this package |  | `docs/design/PROVISION/README.md` | 2026-10-19 |
 | RW-16 | P2 | open | Remove `StackConfig.standalone_deps_dir` | `source/sushicore/stack_config.py` lacks it, one release after its last override is gone |  |  | 2026-10-19 |
-| RW-17 | P2 | open | Read a module's `fragment` key from `sushi-module.toml` | `setup` takes the fragment path a module declares instead of `DEFAULT_FRAGMENT` |  |  | 2026-10-19 |
 | RW-18 | P2 | open | Clone a Sushi library that only a fetched library pins | `setup` fetches a Sushi library pinned by a fetched library and by no fragment here |  |  | 2026-10-19 |
 | RW-54 | P2 | open | Provision every GPU vendor on a machine | `detect_gpu_vendor` returns every vendor present and the registry provisions a backend for each; a machine with an NVIDIA card and an AMD iGPU provisions only… |  |  | 2026-10-19 |
 
