@@ -13,5 +13,4 @@
 | ID | Origin | Symptom | Workaround | Fix | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- |
 | KI-7 | own | A command run outside a checkout prints plain text and no console line | run the command inside a checkout | RW-26 |  | 2026-10-19 |
-| KI-9 | own | `doctor --for` hides its groups and `--yes` has no `-y` | read `GROUPS` in `doctor.py`; spell `--yes` | RW-6 |  | 2026-10-19 |
 | KI-10 | own | The provisioning commands assume a `cli/` folder and the `hub` program | keep the command line in `cli/` | RW-25 |  | 2026-10-19 |

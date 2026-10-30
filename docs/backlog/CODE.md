@@ -20,8 +20,6 @@
 | RW-34 | P2 | open | Type the untyped seams on the build side | the build-side seams the audit named carry types (Code C16) |  |  | 2026-10-19 |
 | RW-35 | P2 | open | Stop tests reaching into private names | no test imports or calls a name with a leading underscore (Code C19) |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Remove hidden module state and apply the class-shape rules | no module keeps state outside an object, and classes outside `ui` and `help` follow the class-shape rules (Code C20, Code C22) |  |  | 2026-10-19 |
-| RW-48 | P2 | open | Break the import cycle of `workspace` and `config_base` | neither module imports the other, inside a function or not (Code C4) |  |  | 2026-10-19 |
-| RW-49 | P2 | open | Remove `_first_available` | `source/sushicore/provision/steps.py` lacks it (Code C24) |  |  | 2026-10-19 |
 
 ## Known issues
 

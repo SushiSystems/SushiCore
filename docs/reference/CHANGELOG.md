@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-10-30 — command_line: Accepted the short form of yes in setup, listed the check groups in the doctor help and let a module add its own groups (RW-6, KI-9, `a83e983`).
+- 2026-10-30 — code: Broke the import cycle of the workspace and config modules by moving the TOML writer into its own module (RW-48, `24dcfff`).
+- 2026-10-30 — code: Removed a helper in the provisioning steps that nothing called (RW-49, `c5844c3`).
 - 2026-10-30 — config: Handled an unknown theme, icon set, colour or background the same way: it falls back to the default and the console prints one warning (RW-5, KI-13, `21eb93e`).
 - 2026-10-30 — command_line: Let the console take a theme from extra config files, such as a workspace file (RW-52, `21eb93e`).
 - 2026-10-30 — machine_output: Sent the table event as plain text, so a program no longer strips Rich tags from the doctor's cells (RW-41, KI-3, `a268415`).
