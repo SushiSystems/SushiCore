@@ -1,7 +1,7 @@
 # Standalone provisioning: every module sets itself up, hub is optional
 
 **Status:** Open — wave 4 of 4: the owner runs each module's real `setup` and build
-**About:** A person who clones one open-source Sushi module must be able to build it after one command, without installing hub.
+**About:** A person who clones one Sushi module can set it up and build it with that module's own setup command, without installing the hub.
 **Modules:** none
 
 ## Problem

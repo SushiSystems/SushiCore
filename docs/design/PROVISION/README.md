@@ -1,7 +1,7 @@
 # Provision: one dependency root, one setup command, one doctor
 
 **Status:** Open — phase A shipped; phase B's engine exists, the owner's real move (steps 5 and 6) has not run
-**About:** Every Sushi Systems repository must build after one command on any machine.
+**About:** A Sushi module installs its build tools into one dependency root with setup and checks them with doctor, on any machine.
 **Modules:** none
 
 ## Problem

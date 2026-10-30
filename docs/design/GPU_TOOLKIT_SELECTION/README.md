@@ -1,7 +1,7 @@
 # GPU toolkit selection: the hardware picks the release
 
 **Status:** Open — built and released in 0.9.0; the real builds of RW-12 to RW-14 are left
-**About:** The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas...
+**About:** Setup installs the CUDA or ROCm release that this machine's own graphics card supports, instead of one release pinned for every machine.
 **Modules:** none
 
 ## Problem

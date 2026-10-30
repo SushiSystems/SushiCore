@@ -8,9 +8,9 @@ it.
 <!-- topics:begin -->
 | Topic | State | About |
 | --- | --- | --- |
-| [GPU_TOOLKIT_SELECTION](GPU_TOOLKIT_SELECTION/README.md) | Open | The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas... |
-| [PROVISION](PROVISION/README.md) | Open | Every Sushi Systems repository must build after one command on any machine. |
-| [STANDALONE_PROVISIONING](STANDALONE_PROVISIONING/README.md) | Open | A person who clones one open-source Sushi module must be able to build it after one command, without installing hub. |
+| [GPU_TOOLKIT_SELECTION](GPU_TOOLKIT_SELECTION/README.md) | Open | Setup installs the CUDA or ROCm release that this machine's own graphics card supports, instead of one release pinned for every machine. |
+| [PROVISION](PROVISION/README.md) | Open | A Sushi module installs its build tools into one dependency root with setup and checks them with doctor, on any machine. |
+| [STANDALONE_PROVISIONING](STANDALONE_PROVISIONING/README.md) | Open | A person who clones one Sushi module can set it up and build it with that module's own setup command, without installing the hub. |
 <!-- topics:end -->
 
 The backlog is [Remaining work](../backlog/README.md).
