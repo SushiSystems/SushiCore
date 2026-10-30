@@ -36,7 +36,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
     root = module.project_root()
     cfg = module.load_config()
     try:
-        pins = pins_at(root / module.fragment)
+        pins = pins_at(root / module_plan.fragment_of(module, root))
     except ValueError as exc:
         console.error(str(exc))
         return failed()

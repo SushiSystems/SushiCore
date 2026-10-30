@@ -89,7 +89,7 @@ K_LAYERED = (
             "gpu.level_zero": 2, "gpu.registry": 2, "gpu.provisioning": 2, "gpu.adapter_builder": 2,
             "gpu": 2, "checks": 2, "packages": 3, "toolchains": 4, "toolchains.intel_llvm": 4,
             "toolchains.adaptivecpp": 4, "toolchains.oneapi": 4, "toolchains._process": 1,
-            "steps": 5, "outcome": 0, "module_provision": 5, "link_command": 6, "module_plan": 6,
+            "steps": 5, "outcome": 0, "module_manifest": 2, "module_provision": 5, "link_command": 6, "module_plan": 6,
             "doctor_command": 7, "setup_command": 8, "commands": 9, "sushi_sources": 1, "git_client": 4,
             "sushi_fetch": 5, "pin_chain": 2, "sushi_setup": 5, "module_checks": 5, "sushi_source_check": 5,
             "links": 0, "user_environment": 0, "migrate": 2,

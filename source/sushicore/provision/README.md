@@ -40,6 +40,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `module_checks.py` | Assembles the rows `doctor` runs for a source checkout |
 | `commands.py` | `register_provision_commands`: declares the options of the four commands and ends each with one `result` event; re-exports `ModuleProvision` |
 | `module_provision.py` | `ModuleProvision`: what one module CLI hands the shared commands, its config folder among it |
+| `module_manifest.py` | The dependency fragment a module declares in its manifest, with the default when it declares none |
 | `module_plan.py` | The package managers, the fragment closure and the dependency source of a module |
 | `setup_command.py`, `doctor_command.py`, `link_command.py` | The bodies of `setup`, `doctor`, and `link` with `unlink`; each returns an `Outcome` |
 | `outcome.py` | `Outcome`, the way a command ended, and `finish`, which sends its one `result` event |

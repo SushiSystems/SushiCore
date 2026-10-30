@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 
 from sushicore.profile import ModuleProfile
-from sushicore.provision.closure import DEFAULT_FRAGMENT
 from sushicore.provision.module_provision import ModuleProvision
 
 
@@ -23,9 +22,9 @@ def _module(**overrides):
                            console=lambda: None, **overrides)
 
 
-def test_a_module_takes_the_default_fragment_and_the_cli_folder():
+def test_a_module_names_no_fragment_and_takes_the_cli_folder_by_default():
     module = _module()
-    assert module.fragment == DEFAULT_FRAGMENT
+    assert module.fragment is None
     assert module.config_dir == "cli"
 
 

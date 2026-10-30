@@ -41,7 +41,7 @@ def run_doctor(module: ModuleProvision, groups: Optional[set[str]],
     root = module.project_root()
     try:
         found = module_plan.closure_for(module, root)
-        own = read_present(root / module.fragment)
+        own = read_present(root / module_plan.fragment_of(module, root))
     except ValueError as exc:
         console.error(str(exc))
         return failed()

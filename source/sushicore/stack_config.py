@@ -19,7 +19,7 @@ from . import deps_fragment
 from .provision import home as provision_home
 from .provision import sushi_sources
 from .provision.sushi_packages import PackageRequest, PackageSet, default_resolver
-from .provision.closure import DEFAULT_FRAGMENT
+from .provision.module_manifest import fragment_path
 from .provision.config import ProvisionSettings
 
 
@@ -31,8 +31,8 @@ class StackConfig(ProvisionSettings):
     the same for all of them.
     """
 
-    #: The fragment below the project root, the value handed to ``ModuleProvision.fragment``.
-    fragment: ClassVar[str] = DEFAULT_FRAGMENT
+    #: The fragment below the project root when a subclass names one; None reads the module's manifest.
+    fragment: ClassVar[str | None] = None
 
     def sibling_dir(self, root: Path, name: str, configured: str = "") -> Path:
         """Resolve a sibling module checkout.
@@ -64,7 +64,7 @@ class StackConfig(ProvisionSettings):
 
         @param root This module's project root.
         """
-        return deps_fragment.pins_at(root / self.fragment)
+        return deps_fragment.pins_at(root / (self.fragment or fragment_path(root)))
 
     def resolve_sushi(self, root: Path, name: str) -> sushi_sources.ResolvedSource | None:
         """Return the checkout of the Sushi library *name* and where it was found.
@@ -126,7 +126,7 @@ class StackConfig(ProvisionSettings):
         request = PackageRequest(
             owner=root.name.lower(), root=root, compiler=compiler or self.resolved_compiler(root),
             build_type=build_type, options=dict(options or {}), configured=configured,
-            fragment=self.fragment, vcpkg_root=Path(vcpkg) if vcpkg else None,
+            fragment=self.fragment or fragment_path(root), vcpkg_root=Path(vcpkg) if vcpkg else None,
             triplet=self.vcpkg_triplet, libraries=libraries)
         cmake = self.expand(self.cmake_exe) if self.cmake_exe else "cmake"
         return default_resolver(self.package_keep, report, warn, cmake=cmake).resolve(request)

@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from ..profile import ModuleProfile
-from . import closure as closure_module
 from .closure import Locate
 from .config import ProvisionConfig
 from .doctor import Check
@@ -35,6 +34,7 @@ class ModuleProvision:
         is_binary: Reports a binary install, which registers ``doctor`` alone.
         uses_base: Whether the shared base fragment joins the module's own.
         git: Builds the git client that fetches and inspects pinned Sushi libraries.
+        fragment: The dependency fragment below the project root; None reads the module's manifest.
         config_dir: The folder below the project root that holds the local configuration and the
             workspace link.
         groups: Check groups beyond the stock ones that this module's extra checks belong to; they
@@ -46,7 +46,7 @@ class ModuleProvision:
     load_config: Callable[[], ProvisionConfig]
     console: Callable[[], object]
     extra_checks: Callable[[], list[Check]] = lambda: []
-    fragment: str = closure_module.DEFAULT_FRAGMENT
+    fragment: Optional[str] = None
     locate: Locate = _locate_nothing
     panel: Optional[str] = None
     is_binary: Callable[[], bool] = lambda: False

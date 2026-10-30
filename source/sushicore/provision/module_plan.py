@@ -15,6 +15,7 @@ from . import manifests, sushi_setup
 from .closure import Closure
 from .config import ProvisionConfig
 from .fragments import TomlDependencySource
+from .module_manifest import fragment_path
 from .module_provision import ModuleProvision
 from .packages import (
     AptManager,
@@ -37,6 +38,11 @@ def managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
             VcpkgManager(cfg)]
 
 
+def fragment_of(module: ModuleProvision, root: Path) -> str:
+    """Returns the dependency fragment of *module*: the one it names, else the one its manifest declares."""
+    return module.fragment or fragment_path(root)
+
+
 def closure_for(module: ModuleProvision, root: Path) -> Closure:
     """Returns the fragments *module* needs: the base when asked for, its modules', its own.
 
@@ -44,14 +50,14 @@ def closure_for(module: ModuleProvision, root: Path) -> Closure:
         ValueError: The modules depend on one another in a cycle, or a fragment is malformed.
     """
     shared = [(manifests.base_fragment(), manifests.BASE_OWNER)] if module.uses_base else []
-    locate = sushi_setup.locator(module.locate, root, pins_at(root / module.fragment))
+    locate = sushi_setup.locator(module.locate, root, pins_at(root / fragment_of(module, root)))
     return closure_module.resolve(module.profile.key, root, locate,
-                                  fragment=module.fragment, shared=shared)
+                                  fragment=fragment_of(module, root), shared=shared)
 
 
 def source_for(module: ModuleProvision, root: Path, found: Closure) -> TomlDependencySource:
     """Returns the dependency source over *found*, or over the module's own fragment path."""
-    sources = list(found.sources) or [(root / module.fragment, module.profile.key)]
+    sources = list(found.sources) or [(root / fragment_of(module, root), module.profile.key)]
     return TomlDependencySource(sources)
 
 
