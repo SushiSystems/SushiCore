@@ -45,7 +45,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
         def setup(
             dry_run: bool = typer.Option(False, "--dry-run", help="Show, don't change."),
             yes: bool = typer.Option(
-                False, "--yes", help="Assume yes on the LLVM-download prompt, for unattended runs."),
+                False, "--yes", "-y", help="Assume yes on the LLVM-download prompt, for unattended runs."),
             toolchain: Optional[list[str]] = typer.Option(
                 None, "--toolchain",
                 help="Also install this toolchain: "
@@ -58,17 +58,19 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             raise typer.Exit(finish(module.console(), run_setup(
                 module, dry_run=dry_run, yes=yes, toolchains=toolchain or (), gpu=not no_gpu)))
 
+    known_groups = (*GROUPS, *(name for name in module.groups if name not in GROUPS))
+
     @command("doctor", "doctor --for build  # Only the checks a build needs")
     def doctor(
         for_group: Optional[str] = typer.Option(
-            None, "--for", help="Restrict the report to one check group."),
+            None, "--for", help="Restrict the report to one check group: " + " | ".join(known_groups) + "."),
     ) -> None:
         """Report on this machine's readiness to build the module."""
         bind_console(module.console)
         console = module.console()
-        if for_group is not None and for_group not in GROUPS:
+        if for_group is not None and for_group not in known_groups:
             console.error(
-                f"Unknown check group '{for_group}'; choose one of: {', '.join(GROUPS)}.")
+                f"Unknown check group '{for_group}'; choose one of: {', '.join(known_groups)}.")
             raise typer.Exit(K_EXIT_USAGE)
         groups = {for_group} if for_group else None
         raise typer.Exit(finish(console, run_doctor(module, groups)))

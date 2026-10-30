@@ -37,6 +37,8 @@ class ModuleProvision:
         git: Builds the git client that fetches and inspects pinned Sushi libraries.
         config_dir: The folder below the project root that holds the local configuration and the
             workspace link.
+        groups: Check groups beyond the stock ones that this module's extra checks belong to; they
+            join the groups ``doctor --for`` accepts and lists.
     """
 
     profile: ModuleProfile
@@ -51,3 +53,4 @@ class ModuleProvision:
     uses_base: bool = False
     git: Callable[[], IGitClient] = GitClient
     config_dir: str = "cli"
+    groups: tuple[str, ...] = ()

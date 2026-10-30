@@ -672,3 +672,29 @@ def test_doctor_ends_with_exactly_one_result_event_carrying_its_checks(
     results = _results(recording_console)
     assert len(results) == 1
     assert results[0][1]["checks"]
+
+
+def _option(app, command, name):
+    """Return the Click option *name* of *command* in the Typer *app*."""
+    import typer.main
+
+    return next(param for param in typer.main.get_command(app).commands[command].params
+                if param.name == name)
+
+
+def test_the_doctor_help_lists_the_check_groups(tmp_path, recording_console):
+    option = _option(_app(tmp_path, recording_console), "doctor", "for_group")
+    assert "build | test | infer | eval" in option.help
+
+
+def test_a_group_a_module_contributes_is_accepted_and_listed(tmp_path, recording_console, monkeypatch):
+    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+    _write_fragment(tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, groups=("track",))
+    assert "infer | eval | track" in _option(app, "doctor", "for_group").help
+    assert CliRunner().invoke(app, ["doctor", "--for", "track"]).exit_code in (0, 1)
+    assert CliRunner().invoke(app, ["doctor", "--for", "nonesuch"]).exit_code == 2
+
+
+def test_setup_accepts_the_short_form_of_yes(tmp_path, recording_console):
+    assert "-y" in _option(_app(tmp_path, recording_console), "setup", "yes").opts
