@@ -9,9 +9,9 @@
 
 **Architecture:** sushicore gains four bricks: a toolchain selection rule, a `depends_on` closure, the shared base fragment, and a probe that reads every dependency root. `register_provision_commands` grows to carry them. Each module CLI then registers the commands with one call and deletes its own dependency-root code. Hub deletes its copy of the selection rule and the base fragment and reads sushicore's.
 
-**Tech Stack:** Python 3.10+, Typer, pytest, `tomllib`, `sushicore` installed editable from `D:/Projects/sushicore`.
+**Tech Stack:** Python 3.10+, Typer, pytest, `tomllib`, `sushicore` installed editable from `the sushicore checkout`.
 
-**Spec:** `D:/Projects/sushicore/docs/design/STANDALONE_PROVISIONING/README.md`
+**Spec:** `docs/design/STANDALONE_PROVISIONING/README.md`
 
 ## Global Constraints
 
@@ -20,7 +20,7 @@
 - `sushicore` becomes `0.7.0`. Every module CLI and hub require `sushicore>=0.7.0`.
 - Nobody runs a build: no `sr build`, `sb build`, `sa build`, `se build`, `sd build`, `st build`, cmake, ninja or ctest. No build configuration file is edited. Evidence is pytest, `setup --dry-run` and `doctor`.
 - No real `setup` without `--dry-run`. The owner runs the real ones in wave 4.
-- Stage by path. Never `git add -A`. `D:/Projects/sushiengine` has 372 uncommitted files outside `cli/`; nothing outside `cli/`, `docs/reference/CHANGELOG.md` and the README section this plan names is touched there, and a file already dirty is reported, not edited.
+- Stage by path. Never `git add -A`. `the sushiengine checkout` has 372 uncommitted files outside `cli/`; nothing outside `cli/`, `docs/reference/CHANGELOG.md` and the README section this plan names is touched there, and a file already dirty is reported, not edited.
 - Subagents never commit, stash, checkout, reset or create worktrees. The controller commits per task, by path.
 - Python files open with the repository's licence header where its siblings carry one, then a module docstring. Every function has a Google-style docstring whose summary is one sentence starting with a verb.
 - Changelog line: `- 2026-10-04 — <scope>: <Past-tense verb> <what> (`paths`).` One sentence, at most 240 characters, no reason.
@@ -51,8 +51,8 @@
 
 `pipx list --short` on 2026-10-04 shows `sushiai-cli`, `sushiblas-cli`, `sushidsp-cli`, `sushiengine-cli`, `sushihub` and `sushiruntime-cli`. `st` is installed with pip.
 
-- [ ] **Step 1:** The controller runs, for each of the six, `pipx runpip <package> show sushicore` and reads `Editable project location`.
-- [ ] **Step 2:** For each that does not name `D:\Projects\sushicore`, the owner runs `pipx runpip <package> install -e D:\Projects\sushicore`.
+- [x] **Step 1:** The controller runs, for each of the six, `pipx runpip <package> show sushicore` and reads `Editable project location`.
+- [x] **Step 2:** For each that does not name `the sushicore checkout`, the owner runs `pipx runpip <package> install -e the sushicore checkout`.
 
 Acceptance: all six report the editable location and `sr --help`, `sb --help`, `sa --help`, `se --help` open.
 
@@ -61,16 +61,16 @@ Acceptance: all six report the editable location and `sr --help`, `sb --help`, `
 ### Task 1: A module's registry key
 
 **Files:**
-- Modify: `D:/Projects/sushicore/sushicore/profile.py`
-- Modify: `D:/Projects/sushicore/sushicore/provision/commands.py`
-- Test: `D:/Projects/sushicore/tests/test_profile.py`, `D:/Projects/sushicore/tests/provision/test_commands.py`
+- Modify: `source/sushicore/profile.py`
+- Modify: `source/sushicore/provision/commands.py`
+- Test: `tests/test_profile.py`, `tests/provision/test_commands.py`
 
 **Interfaces:**
 - Produces: `ModuleProfile.key -> str`, the lower-cased `name`. It is the owner of the module's fragment, the registry consumer, and its name in a workspace's `[modules]`.
 
 `profile.name` is the display name (`SushiDSP`). `commands.py` uses it as the fragment owner and as the `[modules]` key, so `sd link` writes `SushiDSP` where `hub link` writes `sushidsp`, and `DetectStep` never matches the owner `sushiruntime`.
 
-- [ ] **Step 1: Failing tests.** Append to `tests/test_profile.py`:
+- [x] **Step 1: Failing tests.** Append to `tests/test_profile.py`:
 
 ```python
 def test_key_is_the_lower_cased_name():
@@ -121,9 +121,9 @@ def test_unlink_removes_an_entry_written_under_the_display_name(tmp_path, record
 
 Add `write_module` to that file's `sushicore.workspace` import.
 
-- [ ] **Step 2: Run** `cd D:/Projects/sushicore && python -m pytest tests/test_profile.py tests/provision/test_commands.py -q`. Expected: FAIL, `ModuleProfile` has no `key`.
+- [x] **Step 2: Run** `python -m pytest tests/test_profile.py tests/provision/test_commands.py -q`. Expected: FAIL, `ModuleProfile` has no `key`.
 
-- [ ] **Step 3: Implement.** In `profile.py`, after `env_tokens`:
+- [x] **Step 3: Implement.** In `profile.py`, after `env_tokens`:
 
 ```python
     @property
@@ -142,7 +142,7 @@ In `commands.py`: `_module_source` passes `module.profile.key` as the owner; `In
 
 Messages keep `module.profile.name`.
 
-- [ ] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Recorded a module under its lower-cased key in fragments, the registry and a workspace's module list (`sushicore/profile.py`, `sushicore/provision/commands.py`).`
+- [x] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Recorded a module under its lower-cased key in fragments, the registry and a workspace's module list (`sushicore/profile.py`, `sushicore/provision/commands.py`).`
 
 Acceptance: sushicore suite green (747 plus the three new tests).
 
@@ -151,8 +151,8 @@ Acceptance: sushicore suite green (747 plus the three new tests).
 ### Task 2: The probe reads every dependency root
 
 **Files:**
-- Modify: `D:/Projects/sushicore/sushicore/provision/probe.py` (`_toolchains_dir`, `_discover_installed_toolchains`, `toolchain_status`, the vcpkg default in `_resolve_windows`)
-- Test: `D:/Projects/sushicore/tests/provision/test_probe.py`
+- Modify: `source/sushicore/provision/probe.py` (`_toolchains_dir`, `_discover_installed_toolchains`, `toolchain_status`, the vcpkg default in `_resolve_windows`)
+- Test: `tests/provision/test_probe.py`
 
 **Interfaces:**
 - Consumes: `home.search_roots() -> list[Path]`.
@@ -160,7 +160,7 @@ Acceptance: sushicore suite green (747 plus the three new tests).
 
 Today the probe looks under `home.root()` alone. The 2026-09-23 spec promised that a component present in a legacy tree counts as installed; the probe never did that.
 
-- [ ] **Step 1: Failing tests** appended to `tests/provision/test_probe.py` (read its fixtures first; use `provision_home` from `conftest.py`):
+- [x] **Step 1: Failing tests** appended to `tests/provision/test_probe.py` (read its fixtures first; use `provision_home` from `conftest.py`):
 
 ```python
 def test_installed_toolchain_prefers_the_current_root(provision_home, tmp_path, monkeypatch):
@@ -203,9 +203,9 @@ def test_discovery_records_a_legacy_bundle(provision_home, tmp_path, monkeypatch
 
 Import `Path` and `ProvisionSettings` if the file does not.
 
-- [ ] **Step 2: Run** `python -m pytest tests/provision/test_probe.py -q`. Expected: FAIL, no `installed_toolchain`.
+- [x] **Step 2: Run** `python -m pytest tests/provision/test_probe.py -q`. Expected: FAIL, no `installed_toolchain`.
 
-- [ ] **Step 3: Implement.** Add:
+- [x] **Step 3: Implement.** Add:
 
 ```python
 def installed_toolchain(name: str, relative: Path) -> Path | None:
@@ -219,7 +219,7 @@ def installed_toolchain(name: str, relative: Path) -> Path | None:
 
 `_discover_installed_toolchains` and `toolchain_status` resolve clang++ through `installed_toolchain("llvm-sycl", Path("bin") / exe)` and acpp through `installed_toolchain("adaptivecpp", Path("bin") / name)` for `acpp.bat` then `acpp`; `llvm_root` is the found file's `parents[1]`. In `_resolve_windows`, the vcpkg default becomes the first `root / "vcpkg"` that is a directory across `home.search_roots()`, else `home.root() / "vcpkg"` as today. `_toolchains_dir` stays for the installers, which write to the current root.
 
-- [ ] **Step 4: Run** the sushicore suite, then hub's (`cd D:/Projects/sushistack/cli && python -m pytest -q`). Hub binds the root to its own tree, so its output is unchanged. Changelog: `- 2026-10-04 — provision: Made the probe find toolchains and vcpkg in every dependency root, the legacy trees included (`sushicore/provision/probe.py`).`
+- [x] **Step 4: Run** the sushicore suite, then hub's (`cd sushistack/cli && python -m pytest -q`). Hub binds the root to its own tree, so its output is unchanged. Changelog: `- 2026-10-04 — provision: Made the probe find toolchains and vcpkg in every dependency root, the legacy trees included (`sushicore/provision/probe.py`).`
 
 Acceptance: both suites green.
 
@@ -228,18 +228,18 @@ Acceptance: both suites green.
 ### Task 3: The base fragment ships in sushicore
 
 **Files:**
-- Create: `D:/Projects/sushicore/sushicore/provision/manifests/__init__.py`
-- Create: `D:/Projects/sushicore/sushicore/provision/manifests/base.deps.toml` (a byte copy of `D:/Projects/sushistack/cli/sushihub/manifests/base.deps.toml`, with its header comment's `hub`-specific sentences rewritten to name `setup` and `hub install` both)
-- Modify: `D:/Projects/sushicore/pyproject.toml` (`[tool.setuptools.package-data] sushicore = ["py.typed", "provision/manifests/*.deps.toml"]`)
-- Modify: `D:/Projects/sushicore/tests/provision/test_layering.py` (`"manifests": 0` in `_LAYER`)
-- Test: `D:/Projects/sushicore/tests/provision/test_manifests.py`
+- Create: `source/sushicore/provision/manifests/__init__.py`
+- Create: `source/sushicore/provision/manifests/base.deps.toml` (a byte copy of `sushistack/cli/sushihub/manifests/base.deps.toml`, with its header comment's `hub`-specific sentences rewritten to name `setup` and `hub install` both)
+- Modify: `sushicore/pyproject.toml` (`[tool.setuptools.package-data] sushicore = ["py.typed", "provision/manifests/*.deps.toml"]`)
+- Modify: `tests/provision/test_layering.py` (`"manifests": 0` in `_LAYER`)
+- Test: `tests/provision/test_manifests.py`
 
 **Interfaces:**
 - Produces: `sushicore.provision.manifests.base_fragment() -> Path`; `sushicore.provision.manifests.BASE_OWNER = "shared"`, equal to `fragments.SHARED_OWNER`.
 
 Hub keeps its own copy until Task 16 deletes it, so nothing breaks in between.
 
-- [ ] **Step 1: Failing test:**
+- [x] **Step 1: Failing test:**
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -268,9 +268,9 @@ def test_base_owner_is_the_shared_owner():
     assert manifests.BASE_OWNER == fragments.SHARED_OWNER
 ```
 
-- [ ] **Step 2: Run** `python -m pytest tests/provision/test_manifests.py -q`. Expected: FAIL, no module.
+- [x] **Step 2: Run** `python -m pytest tests/provision/test_manifests.py -q`. Expected: FAIL, no module.
 
-- [ ] **Step 3: Implement** `manifests/__init__.py`:
+- [x] **Step 3: Implement** `manifests/__init__.py`:
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -292,7 +292,7 @@ def base_fragment() -> Path:
 
 Copy the fragment. `BASE_OWNER` is a literal so this layer-0 module imports nothing; the third test pins it to `SHARED_OWNER`.
 
-- [ ] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added the shared base dependency fragment, moved from hub (`sushicore/provision/manifests/`).`
+- [x] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added the shared base dependency fragment, moved from hub (`sushicore/provision/manifests/`).`
 
 Acceptance: suite green, and `python -c "from sushicore.provision.manifests import base_fragment; print(base_fragment().is_file())"` prints `True`.
 
@@ -301,9 +301,9 @@ Acceptance: suite green, and `python -c "from sushicore.provision.manifests impo
 ### Task 4: The toolchain selection rule
 
 **Files:**
-- Create: `D:/Projects/sushicore/sushicore/provision/selection.py`
-- Modify: `D:/Projects/sushicore/tests/provision/test_layering.py` (`"selection": 2`)
-- Test: `D:/Projects/sushicore/tests/provision/test_selection.py`
+- Create: `source/sushicore/provision/selection.py`
+- Modify: `tests/provision/test_layering.py` (`"selection": 2`)
+- Test: `tests/provision/test_selection.py`
 
 **Interfaces:**
 - Consumes: `IDependencySource.all()`, `ToolchainSelection`.
@@ -317,7 +317,7 @@ Acceptance: suite green, and `python -c "from sushicore.provision.manifests impo
 
 The rule: declared toolchain components are grouped by their `provides` tag, a component with none forming a group of its own. A group with a present member turns nothing on. Otherwise its first declared member turns on. Each requested key turns on. The GPU component turns on when `gpu` is true and some declared dependency is `gpu_only`.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -411,9 +411,9 @@ def test_the_component_table_names_every_selection_field():
 
 If `Dependency` requires fields beyond `name`, read `sushicore/deps_fragment.py` and pass its defaults.
 
-- [ ] **Step 2: Run** `python -m pytest tests/provision/test_selection.py -q`. Expected: FAIL, no module.
+- [x] **Step 2: Run** `python -m pytest tests/provision/test_selection.py -q`. Expected: FAIL, no module.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -491,7 +491,7 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
     return ToolchainSelection(**values)
 ```
 
-- [ ] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added the toolchain selection rule and its component table, moved from hub (`sushicore/provision/selection.py`).`
+- [x] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added the toolchain selection rule and its component table, moved from hub (`sushicore/provision/selection.py`).`
 
 Acceptance: suite green.
 
@@ -500,9 +500,9 @@ Acceptance: suite green.
 ### Task 5: The dependency closure
 
 **Files:**
-- Create: `D:/Projects/sushicore/sushicore/provision/closure.py`
-- Modify: `D:/Projects/sushicore/tests/provision/test_layering.py` (`"closure": 2`)
-- Test: `D:/Projects/sushicore/tests/provision/test_closure.py`
+- Create: `source/sushicore/provision/closure.py`
+- Modify: `tests/provision/test_layering.py` (`"closure": 2`)
+- Test: `tests/provision/test_closure.py`
 
 **Interfaces:**
 - Consumes: `deps_fragment.read(path).depends_on`.
@@ -514,7 +514,7 @@ Acceptance: suite green.
 
 `sources` holds `shared` first, then each dependency before the module that names it, the module itself last. A dependency's fragment is read at `DEFAULT_FRAGMENT` under its checkout. A located checkout with no fragment is present and contributes nothing.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -615,9 +615,9 @@ def test_a_module_without_its_own_fragment_resolves_to_shared_only(tmp_path):
     assert resolve("bare", root, _sibling(tmp_path)).sources == ()
 ```
 
-- [ ] **Step 2: Run** `python -m pytest tests/provision/test_closure.py -q`. Expected: FAIL, no module.
+- [x] **Step 2: Run** `python -m pytest tests/provision/test_closure.py -q`. Expected: FAIL, no module.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -691,7 +691,7 @@ def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRA
 
 The cycle test needs the trail check to run before the `done` check, as written.
 
-- [ ] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added the dependency closure that follows a fragment's depends_on to each module's checkout (`sushicore/provision/closure.py`).`
+- [x] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added the dependency closure that follows a fragment's depends_on to each module's checkout (`sushicore/provision/closure.py`).`
 
 Acceptance: suite green.
 
@@ -700,8 +700,8 @@ Acceptance: suite green.
 ### Task 6: Two stock doctor checks
 
 **Files:**
-- Modify: `D:/Projects/sushicore/sushicore/provision/checks.py`
-- Test: `D:/Projects/sushicore/tests/provision/test_checks.py`
+- Modify: `source/sushicore/provision/checks.py`
+- Test: `tests/provision/test_checks.py`
 
 **Interfaces:**
 - Consumes: `Closure.missing`, `selection.toolchain_keys`, `probe.toolchain_status`.
@@ -711,7 +711,7 @@ Acceptance: suite green.
 
 `checks` and `selection` are both layer 2 and `capability_check` calls `selection.groups(source)`; the layering guard allows a sideways import, so no layer moves.
 
-- [ ] **Step 1: Failing tests** appended to `tests/provision/test_checks.py`, reusing `_Source` and `_sycl` copied from `test_selection.py` into this file:
+- [x] **Step 1: Failing tests** appended to `tests/provision/test_checks.py`, reusing `_Source` and `_sycl` copied from `test_selection.py` into this file:
 
 ```python
 def test_modules_check_passes_with_nothing_missing():
@@ -749,9 +749,9 @@ def test_capability_check_passes_when_nothing_is_declared():
     assert (result.state, result.detail) == (State.OK, "no toolchain declared")
 ```
 
-- [ ] **Step 2: Run** `python -m pytest tests/provision/test_checks.py -q`. Expected: FAIL.
-- [ ] **Step 3: Implement** both as `FunctionCheck` factories beside `fragment_check`, in its style.
-- [ ] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added doctor checks for missing module checkouts and unsatisfied toolchain capabilities (`sushicore/provision/checks.py`).`
+- [x] **Step 2: Run** `python -m pytest tests/provision/test_checks.py -q`. Expected: FAIL.
+- [x] **Step 3: Implement** both as `FunctionCheck` factories beside `fragment_check`, in its style.
+- [x] **Step 4: Run** the sushicore suite. Changelog: `- 2026-10-04 — provision: Added doctor checks for missing module checkouts and unsatisfied toolchain capabilities (`sushicore/provision/checks.py`).`
 
 Acceptance: suite green, `test_layering.py` included.
 
@@ -760,8 +760,8 @@ Acceptance: suite green, `test_layering.py` included.
 ### Task 7: The commands carry the closure and the selection
 
 **Files:**
-- Modify: `D:/Projects/sushicore/sushicore/provision/commands.py`
-- Test: `D:/Projects/sushicore/tests/provision/test_commands.py`
+- Modify: `source/sushicore/provision/commands.py`
+- Test: `tests/provision/test_commands.py`
 
 **Interfaces:**
 - Consumes: Tasks 1 to 6.
@@ -781,7 +781,7 @@ Behaviour:
 - Every registered command gets `rich_help_panel=module.panel` when it is not `None`.
 - `_warn_unread_depends_on` and its test are deleted.
 
-- [ ] **Step 1: Failing tests** appended to `tests/provision/test_commands.py`. `_app` gains keyword arguments it forwards to `ModuleProvision` (`**overrides`); existing callers are unchanged.
+- [x] **Step 1: Failing tests** appended to `tests/provision/test_commands.py`. `_app` gains keyword arguments it forwards to `ModuleProvision` (`**overrides`); existing callers are unchanged.
 
 ```python
 def _sibling_locator(tmp_path):
@@ -942,9 +942,9 @@ def test_the_panel_is_set_on_every_command(tmp_path, recording_console):
 
 Delete `test_setup_warns_for_each_depends_on_module_it_cannot_read`.
 
-- [ ] **Step 2: Run** `python -m pytest tests/provision/test_commands.py -q`. Expected: FAIL.
-- [ ] **Step 3: Implement** to the behaviour above. Keep `register_provision_commands` readable by lifting `setup`'s body into `_run_setup(module, *, dry_run, yes, toolchains, gpu) -> int` and the check list into `_checks(module, cfg, closure_result, fix) -> list[Check]`.
-- [ ] **Step 4: Run** the sushicore suite, then sd's and st's (`cd D:/Projects/sushidsp/cli && python -m pytest -q`; `cd D:/Projects/sushitrack/cli && python -m pytest -q`), then `sd doctor`, `sd setup --dry-run`, `st doctor`. Paste all. Changelog: `- 2026-10-04 — provision: Made setup follow depends_on, choose toolchains by the selection rule and take --toolchain and --no-gpu (`sushicore/provision/commands.py`).`
+- [x] **Step 2: Run** `python -m pytest tests/provision/test_commands.py -q`. Expected: FAIL.
+- [x] **Step 3: Implement** to the behaviour above. Keep `register_provision_commands` readable by lifting `setup`'s body into `_run_setup(module, *, dry_run, yes, toolchains, gpu) -> int` and the check list into `_checks(module, cfg, closure_result, fix) -> list[Check]`.
+- [x] **Step 4: Run** the sushicore suite, then sd's and st's (`cd sushidsp/cli && python -m pytest -q`; `cd sushitrack/cli && python -m pytest -q`), then `sd doctor`, `sd setup --dry-run`, `st doctor`. Paste all. Changelog: `- 2026-10-04 — provision: Made setup follow depends_on, choose toolchains by the selection rule and take --toolchain and --no-gpu (`sushicore/provision/commands.py`).`
 
 Acceptance: three suites green; `sd setup --dry-run` exits as before; `sd doctor` gains the `modules` and `toolchains` rows.
 
@@ -953,9 +953,9 @@ Acceptance: three suites green; `sd setup --dry-run` exits as before; `sd doctor
 ### Task 8: `StackConfig` resolves through the dependency roots
 
 **Files:**
-- Modify: `D:/Projects/sushicore/sushicore/stack_config.py`
-- Modify: `D:/Projects/sushicore/sushicore/build_env.py:198`
-- Test: `D:/Projects/sushicore/tests/test_stack_config.py` (new)
+- Modify: `source/sushicore/stack_config.py`
+- Modify: `source/sushicore/build_env.py:198`
+- Test: `tests/test_stack_config.py` (new)
 
 **Interfaces:**
 - Produces on `StackConfig`:
@@ -966,7 +966,7 @@ Acceptance: three suites green; `sd setup --dry-run` exits as before; `sd doctor
   - `standalone_deps_dir` stays as a method returning `provision.home.root()` and is marked deprecated in its docstring; Tasks 11 to 13 and 16 delete the overrides, and the method itself goes in a later release (`api-stability`).
 - `bundled_clang` returns `llvm_root`'s clang++ when `llvm_root` is set and the file exists, else the first `<root>/toolchains/llvm-sycl/bin/clang++` across `dependency_roots`. `resolved_vcpkg` returns the first `<root>/vcpkg` directory. `build_env.py:198` uses the same search through a new `StackConfig.bundled_llvm_root(root) -> Path | None`, which `bundled_clang` also calls.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
 
 ```python
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
@@ -1055,9 +1055,9 @@ def test_locate_sibling_is_none_without_a_checkout(tmp_path):
 
 Move the `provision_home` fixture from `tests/provision/conftest.py` to `tests/conftest.py` so both directories see it; leave `recording_console` where it is.
 
-- [ ] **Step 2: Run** `python -m pytest tests/test_stack_config.py -q`. Expected: FAIL.
-- [ ] **Step 3: Implement.** `stack_config` imports `provision.home` and `provision.config`; both are layer 0 of `provision` and import only `workspace` and `config_base`, so no cycle forms. Confirm with `python -c "import sushicore.stack_config"`.
-- [ ] **Step 4: Run** the sushicore suite and the suites of every consumer: hub, sb, sa, se (`cd D:/Projects/<repo>/cli && python -m pytest -q`). For se run `python -m pytest -q tests/test_config_contracts.py tests/test_doctor.py tests/test_status.py tests/test_configure_arguments.py` if the full suite needs the `planet` extra. Then `sb config`, `sa config`, `se config`: the compiler and vcpkg lines must read as before. Paste all. Changelog: `- 2026-10-04 — config: Made StackConfig resolve the compiler and vcpkg across every dependency root and locate sibling checkouts (`sushicore/stack_config.py`, `sushicore/build_env.py`).`
+- [x] **Step 2: Run** `python -m pytest tests/test_stack_config.py -q`. Expected: FAIL.
+- [x] **Step 3: Implement.** `stack_config` imports `provision.home` and `provision.config`; both are layer 0 of `provision` and import only `workspace` and `config_base`, so no cycle forms. Confirm with `python -c "import sushicore.stack_config"`.
+- [x] **Step 4: Run** the sushicore suite and the suites of every consumer: hub, sb, sa, se (`cd <repo>/cli && python -m pytest -q`). For se run `python -m pytest -q tests/test_config_contracts.py tests/test_doctor.py tests/test_status.py tests/test_configure_arguments.py` if the full suite needs the `planet` extra. Then `sb config`, `sa config`, `se config`: the compiler and vcpkg lines must read as before. Paste all. Changelog: `- 2026-10-04 — config: Made StackConfig resolve the compiler and vcpkg across every dependency root and locate sibling checkouts (`sushicore/stack_config.py`, `sushicore/build_env.py`).`
 
 Acceptance: every suite green and the three `config` outputs unchanged.
 
@@ -1066,15 +1066,15 @@ Acceptance: every suite green and the three `config` outputs unchanged.
 ### Task 9: sushicore 0.7.0
 
 **Files:**
-- Modify: `D:/Projects/sushicore/pyproject.toml` (version `0.7.0`)
-- Modify: `D:/Projects/sushicore/README.md` (Provisioning section)
-- Modify: `D:/Projects/sushicore/docs/reference/CHANGELOG.md`
-- Modify: `D:/Projects/sushicore/docs/design/STANDALONE_PROVISIONING/README.md` (status line)
+- Modify: `sushicore/pyproject.toml` (version `0.7.0`)
+- Modify: `sushicore/README.md` (Provisioning section)
+- Modify: `docs/reference/CHANGELOG.md`
+- Modify: `docs/design/STANDALONE_PROVISIONING/README.md` (status line)
 
-- [ ] **Step 1:** README's Provisioning section gains: what `setup` installs by default and how `--toolchain` and `--no-gpu` change it; that `depends_on` is followed to sibling checkouts and what happens when one is missing; the four `ModuleProvision` fields; the search order of the dependency roots. Run the `humanizer` pass.
-- [ ] **Step 2:** Bump the version. Do not tag.
-- [ ] **Step 3: Run** the sushicore suite, hub's, sd's and st's; paste the four tails.
-- [ ] **Step 4:** Commit by path: `chore(release): prepare sushicore 0.7.0`.
+- [x] **Step 1:** README's Provisioning section gains: what `setup` installs by default and how `--toolchain` and `--no-gpu` change it; that `depends_on` is followed to sibling checkouts and what happens when one is missing; the four `ModuleProvision` fields; the search order of the dependency roots. Run the `humanizer` pass.
+- [x] **Step 2:** Bump the version. Do not tag.
+- [x] **Step 3: Run** the sushicore suite, hub's, sd's and st's; paste the four tails.
+- [x] **Step 4:** Commit by path: `chore(release): prepare sushicore 0.7.0`.
 
 Acceptance: four suites green on the 0.7.0 working tree.
 
@@ -1150,7 +1150,7 @@ def test_config_is_a_provision_config():
 
 ### Task 10: `sr`
 
-**Files** (repository `D:/Projects/sushiruntime`):
+**Files** (repository `the sushiruntime checkout`):
 - Modify: `cli/sushiruntime/config.py`, `cli/sushiruntime/cli.py`, `cli/sushiruntime/services/select.py:28`, `cli/pyproject.toml`
 - Create: `cli/tests/test_provision_commands.py`
 - Modify: `cli/tests/test_help_screen.py`, the CLI documentation, `docs/reference/CHANGELOG.md`
@@ -1193,7 +1193,7 @@ Acceptance: `sr` suite green; `sr setup --dry-run` lists `shared` and `sushirunt
 
 ### Task 11: `sb`
 
-**Files** (repository `D:/Projects/sushiblas`):
+**Files** (repository `the sushiblas checkout`):
 - Modify: `cli/sushiblas/config.py` (delete `standalone_deps_dir`; the module docstring's sentence about borrowing the runtime's bundle goes with it), `cli/sushiblas/cli.py`, `cli/pyproject.toml`
 - Create: `cli/tests/test_provision_commands.py`
 - Modify: `cli/tests/test_help_screen.py`, the CLI documentation, the changelog
@@ -1226,7 +1226,7 @@ Acceptance: `sb` suite green; `sb setup --dry-run` lists owners `shared`, `sushi
 
 ### Task 12: `sa`
 
-**Files** (repository `D:/Projects/sushiai`): as Task 11, under `cli/sushiai/`.
+**Files** (repository `the sushiai checkout`): as Task 11, under `cli/sushiai/`.
 
 Specific to `sa`: `panel=K_DIAGNOSTICS`; if `cli.py` names its panels differently, use the one `config` and `env` sit under. The extra test is Task 11's with `sushiai`, `depends_on = ["sushiruntime", "sushiblas"]`, `SUSHIBLAS_DIR` added to the cleared variables, and both names asserted in the output.
 
@@ -1238,7 +1238,7 @@ Acceptance: `sa` suite green; `sa setup --dry-run` lists owners `shared`, `sushi
 
 ### Task 13: `se`
 
-**Files** (repository `D:/Projects/sushiengine`, `cli/` only):
+**Files** (repository `the sushiengine checkout`, `cli/` only):
 - Modify: `cli/sushiengine/config.py` (delete `standalone_deps_dir`), `cli/sushiengine/cli.py` (delete the `doctor` command and the `doctor_svc` import; register the shared commands), `cli/sushiengine/services/doctor.py`, `cli/pyproject.toml`
 - Modify: `cli/tests/test_doctor.py`, `cli/tests/test_help_screen.py`, `cli/tests/test_command_tree.py`, `cli/tests/test_cli_commands.py` (the lists naming top-level commands gain `setup`, `link`, `unlink`)
 - Create: `cli/tests/test_provision_commands.py`
@@ -1268,7 +1268,7 @@ def test_a_source_checkout_carries_all_four(monkeypatch, tmp_path):
 
 `se` does not publish a binary command set yet, so the binary branch is covered by `is_binary` and `release_checks` unit tests and by sushicore's `test_a_binary_install_registers_doctor_alone`.
 
-The subagent reads `git -C D:/Projects/sushiengine status --short -- cli` first and lists any file under `cli/` that is already dirty; it edits such a file only in the hunks this task names and says so in the report.
+The subagent reads `git -C the sushiengine checkout status --short -- cli` first and lists any file under `cli/` that is already dirty; it edits such a file only in the hunks this task names and says so in the report.
 
 Changelog: `- 2026-10-04 — cli: Added setup, link and unlink from sushicore and moved se doctor onto the shared doctor table (`cli/sushiengine/cli.py`, `cli/sushiengine/services/doctor.py`).`
 
@@ -1278,7 +1278,7 @@ Acceptance: the `se` suites the task touches are green (`tests/test_doctor.py`, 
 
 ### Task 14: `sd`
 
-**Files** (repository `D:/Projects/sushidsp`): `cli/sushidsp/cli.py`, `cli/pyproject.toml`, `cli/tests/test_provision_commands.py`, `cli/tests/test_help_screen.py`.
+**Files** (repository `the sushidsp checkout`): `cli/sushidsp/cli.py`, `cli/pyproject.toml`, `cli/tests/test_provision_commands.py`, `cli/tests/test_help_screen.py`.
 
 Specific to `sd`: the registration gains `panel=K_ENVIRONMENT`; `K_PROVISION_COMMANDS` and the loop under it are deleted; `uses_base` and `locate` are omitted, because `sd` declares no `depends_on` and needs none of the SYCL base. `test_provision_commands.py` gains the contract's `--toolchain` and `--no-gpu` assertions. Documentation changes only where it names the options.
 
@@ -1290,7 +1290,7 @@ Acceptance: `sd` suite green; `sd --help` lists the four commands under Environm
 
 ### Task 15: `st`
 
-**Files** (repository `D:/Projects/sushitrack`): `cli/sushitrack_cli/cli.py`, `cli/pyproject.toml`, `cli/tests/test_help_screen.py`.
+**Files** (repository `the sushitrack checkout`): `cli/sushitrack_cli/cli.py`, `cli/pyproject.toml`, `cli/tests/test_help_screen.py`.
 
 Specific to `st`: read how `cli.py` places the four commands in its help today (`cli/tests/test_help_screen.py:94`); pass that panel as `panel=` and delete whatever re-panels them. `uses_base` and `locate` are omitted. The floor becomes `sushicore>=0.7.0`.
 
@@ -1302,7 +1302,7 @@ Acceptance: `st` suite green; `st --help` unchanged.
 
 ### Task 16: Hub reads the rule and the base fragment from sushicore
 
-**Files** (repository `D:/Projects/sushistack`):
+**Files** (repository `the sushistack checkout`):
 - Delete: `cli/sushihub/setup/selection.py`, `cli/sushihub/manifests/base.deps.toml`
 - Modify: `cli/sushihub/setup/factory.py`, `cli/sushihub/setup/dependency_source.py`, `cli/sushihub/config.py` (delete `CUSTOMIZABLE_COMPONENTS`; `TOOLCHAINS` becomes `selection.toolchain_keys()`), `cli/sushihub/cli.py` (the `--customize` defaults), `cli/sushihub/services/customize.py`, `cli/sushihub/gui_config.py` (delete `standalone_deps_dir`), `cli/pyproject.toml` (`sushicore>=0.7.0`)
 - Modify: every test importing `setup.selection` or `CUSTOMIZABLE_COMPONENTS` (`grep -rn "selection_from_source\|CUSTOMIZABLE_COMPONENTS\|MACHINE_COMPONENTS" cli`)
@@ -1311,7 +1311,7 @@ Acceptance: `st` suite green; `st --help` unchanged.
 **Interfaces:**
 - Consumes: `selection.derive`, `selection.COMPONENTS`, `manifests.base_fragment`, `manifests.BASE_OWNER`.
 
-- [ ] **Step 1: Failing tests.** In the test file that covers `build_pipeline`'s selection today:
+- [x] **Step 1: Failing tests.** In the test file that covers `build_pipeline`'s selection today:
 
 ```python
 def test_a_bare_install_selects_one_sycl_toolchain(monkeypatch):
@@ -1341,17 +1341,17 @@ def test_the_base_fragment_comes_from_sushicore():
 
 `_cfg` and `_runtime_source` are that file's existing helpers for a config and a source declaring the three SYCL toolchains; read the file and use its names.
 
-- [ ] **Step 2: Run** `cd D:/Projects/sushistack/cli && python -m pytest -q`. Expected: the three new tests FAIL.
-- [ ] **Step 3: Implement.** `manifest_sources` starts with `(base_fragment(), BASE_OWNER)`, then hub's own shipped fragments, then the workspace's. `build_pipeline` computes `present` from `probe.toolchain_status(cfg, False)` and calls `selection.derive(source, present)`; a `--customize` result is merged over it with `ToolchainSelection.merged`, as today. `customize` reads labels from `selection.COMPONENTS`.
-- [ ] **Step 4: Run** the hub suite, `hub install --dry-run`, `hub doctor`. Paste all. On this machine all three toolchains are present, so the dry run must select no toolchain download.
-- [ ] **Step 5: Documentation.** `README.md` and `INSTALL.md` open the developer journey with the module's own `setup`, and present hub as what provisions several checkouts at once and what fetches the engine's binary. `WORKSPACE_DECOUPLING.md` §2 gains a paragraph dated 2026-10-04 recording the decision. `REMAINING_WORK.md`'s standalone section records what landed. Run the `humanizer` pass.
+- [x] **Step 2: Run** `cd sushistack/cli && python -m pytest -q`. Expected: the three new tests FAIL.
+- [x] **Step 3: Implement.** `manifest_sources` starts with `(base_fragment(), BASE_OWNER)`, then hub's own shipped fragments, then the workspace's. `build_pipeline` computes `present` from `probe.toolchain_status(cfg, False)` and calls `selection.derive(source, present)`; a `--customize` result is merged over it with `ToolchainSelection.merged`, as today. `customize` reads labels from `selection.COMPONENTS`.
+- [x] **Step 4: Run** the hub suite, `hub install --dry-run`, `hub doctor`. Paste all. On this machine all three toolchains are present, so the dry run must select no toolchain download.
+- [x] **Step 5: Documentation.** `README.md` and `INSTALL.md` open the developer journey with the module's own `setup`, and present hub as what provisions several checkouts at once and what fetches the engine's binary. `WORKSPACE_DECOUPLING.md` §2 gains a paragraph dated 2026-10-04 recording the decision. `REMAINING_WORK.md`'s standalone section records what landed. Run the `humanizer` pass.
 
 Changelog:
 ```
 - 2026-10-04 — setup: Took the toolchain selection rule and the base fragment from sushicore, so a bare hub install installs one SYCL toolchain (`cli/sushihub/setup/factory.py`, `cli/sushihub/setup/dependency_source.py`).
 ```
 
-- [ ] **Step 6: Commit** by path: `refactor(setup)!: take the selection rule and the base fragment from sushicore`.
+- [x] **Step 6: Commit** by path: `refactor(setup)!: take the selection rule and the base fragment from sushicore`.
 
 Acceptance: hub suite green; `hub doctor` reports the same components as before the task.
 
@@ -1366,7 +1366,7 @@ The owner:
 2. Tags `v0.7.0` in sushicore and publishes it.
 3. Pushes each repository.
 
-Acceptance: every build passes. The dependency-root migration (`docs/agent/plans/2026-09-25-hub-root-migration.md`) is next, with its sushicore bump renumbered to 0.8.0.
+Acceptance: every build passes. The dependency-root migration (`docs/agent/2026_09_25_HUB_ROOT_MIGRATION/PLAN.md`) is next, with its sushicore bump renumbered to 0.8.0.
 
 ---
 

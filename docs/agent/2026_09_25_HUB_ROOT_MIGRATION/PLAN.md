@@ -4,19 +4,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move hub's dependency tree from `D:\Projects\sushistack\dependencies` to `C:\Users\sushi\.sushisystems`, leave a junction at the old path so every existing absolute path keeps resolving, and make `hub migrate --rollback` undo it instantly.
+**Goal:** Move hub's dependency tree from `the hub's dependencies folder` to `the user's dependency root`, leave a junction at the old path so every existing absolute path keeps resolving, and make `hub migrate --rollback` undo it instantly.
 
 **Architecture:** `sushicore.provision.links` creates, inspects and removes directory links: a junction on Windows, a symlink elsewhere. `sushicore.provision.migrate` plans the move and copies each top-level component with a journal, verifying every file by size and count. It then swaps the old folder aside (a same-volume rename) and puts a junction in its place. The old copy stays as `dependencies.pre-migrate` until the owner runs `--finalize`, so a rollback is two renames and no copying. `hub migrate` is the command. After a migration, `hub`'s `deps_dir()` returns the provision root, so new installs land there directly.
 
 **Tech Stack:** Python 3.10+, Typer, pytest, `_winapi.CreateJunction` (CPython, Windows), `os.symlink` (Linux).
 
-**Spec:** `D:/Projects/sushicore/docs/agent/specs/2026-09-23-provision-design.md` ("The dependency root", "Migration → Phase B").
+**Spec:** `docs/design/PROVISION/README.md` ("The dependency root", "Migration → Phase B").
 
 ## Global Constraints
 
-- New root: `C:\Users\sushi\.sushisystems`, which is `home.default_root()`. No `SUSHISYSTEMS_HOME` is set (owner decision, 2026-09-25).
+- New root: `the user's dependency root`, which is `home.default_root()`. No `SUSHISYSTEMS_HOME` is set (owner decision, 2026-09-25).
 - The layout is unchanged. `toolchains/`, `tools/`, `vcpkg/`, `ur/` and `build/` move as they are. The versioned layout is a later step (owner decision, 2026-09-25).
-- The move crosses volumes (D: → C:), so each component is copied, verified, and only then counted as moved. Nothing under the old tree is deleted before `--finalize`.
+- The move can cross volumes, so each component is copied, verified, and only then counted as moved. Nothing under the old tree is deleted before `--finalize`.
 - Before any copy, free space on the target volume must be at least the tree size plus 10 %. Otherwise `migrate` refuses and names both numbers. Measured 2026-09-25: the tree is about 20 GB and C: has 38 GB free.
 - Every step goes to a journal at `<new root>/.migrate-journal.jsonl`. `--rollback` replays it in reverse.
 - The old path becomes a junction to the new root, so every `CMakeCache.txt`, `compile_commands.json`, `workspace.toml` and `config.local.toml` naming it still resolves. None of those files is rewritten in this plan (spec phase B step 6 is later).
@@ -50,8 +50,8 @@
 ### Task 1: Directory links
 
 **Files:**
-- Create: `D:/Projects/sushicore/sushicore/provision/links.py`
-- Test: `D:/Projects/sushicore/tests/provision/test_links.py`
+- Create: `source/sushicore/provision/links.py`
+- Test: `tests/provision/test_links.py`
 
 **Interfaces:**
 - Produces:
@@ -114,7 +114,7 @@ def test_plain_directory_is_not_a_link(tmp_path):
     assert link_target(tmp_path) is None
 ```
 
-- [ ] **Step 2: Run** `cd D:/Projects/sushicore && python -m pytest tests/provision/test_links.py -q`. Expected: FAIL (module missing).
+- [ ] **Step 2: Run** `python -m pytest tests/provision/test_links.py -q`. Expected: FAIL (module missing).
 
 - [ ] **Step 3: Implement**
 
@@ -176,7 +176,7 @@ def remove_dir_link(path: Path) -> None:
 
 `Path.is_junction` exists from Python 3.12. If the floor is lower, add a `_is_junction(path)` helper that reads `os.lstat(path).st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT`, and test it. Check `requires-python` in `pyproject.toml` first.
 
-- [ ] **Step 4: Run** the sushicore suite and the hub suite (`cd D:/Projects/sushistack/cli && PYTHONPATH=D:/Projects/sushicore python -m pytest -q`). Changelog line: `- 2026-09-25 — provision: Added directory links, junctions on Windows and symlinks elsewhere (`sushicore/provision/links.py`).`
+- [ ] **Step 4: Run** the sushicore suite and the hub suite (`cd sushistack/cli && PYTHONPATH=../../sushicore/source python -m pytest -q`). Changelog line: `- 2026-09-25 — provision: Added directory links, junctions on Windows and symlinks elsewhere (`sushicore/provision/links.py`).`
 
 Acceptance: both suites green, and the Windows junction test passes on this machine.
 
@@ -185,8 +185,8 @@ Acceptance: both suites green, and the Windows junction test passes on this mach
 ### Task 2: The migration engine
 
 **Files:**
-- Create: `D:/Projects/sushicore/sushicore/provision/migrate.py`
-- Test: `D:/Projects/sushicore/tests/provision/test_migrate.py`
+- Create: `source/sushicore/provision/migrate.py`
+- Test: `tests/provision/test_migrate.py`
 
 **Interfaces:**
 - Consumes: Task 1's link functions; `ProvisionLock`, `LockTimeout` from `provision.lock`.
@@ -235,8 +235,8 @@ Acceptance: every test above passes on Windows with real junctions.
 ### Task 3: Seed the registry from a migrated tree
 
 **Files:**
-- Modify: `D:/Projects/sushicore/sushicore/provision/registry.py`
-- Test: `D:/Projects/sushicore/tests/provision/test_registry.py`
+- Modify: `source/sushicore/provision/registry.py`
+- Test: `tests/provision/test_registry.py`
 
 **Interfaces:**
 - Produces: `Registry.seed_from_tree(root: Path, consumer: str, source: str = "migrated") -> list[Component]`. It adds one component per `toolchains/<name>` and `tools/<name>`, plus `vcpkg` and each `ur/<name>` found under `root`. The version comes from `.sushi_toolchain.json` when present, else `"unversioned"`. Components already recorded are skipped. It returns what it added. It does not save; the caller calls `save()`.
@@ -266,7 +266,7 @@ def test_seed_skips_components_already_recorded(tmp_path):
     assert reg.seed_from_tree(root, consumer="hub") == []
 ```
 
-Read the real stamp's keys from `D:/Projects/sushistack/dependencies/toolchains/llvm-sycl/.sushi_toolchain.json`, and use its version key in place of `"version"` if it differs.
+Read the real stamp's keys from `sushistack/dependencies/toolchains/llvm-sycl/.sushi_toolchain.json`, and use its version key in place of `"version"` if it differs.
 
 - [ ] **Step 2: Run.** Expected: FAIL.
 - [ ] **Step 3: Implement**, reusing `Component` and `add`, and `provision.toolchains.stamp` for reading stamps.
@@ -279,11 +279,11 @@ Acceptance: both suites green.
 ### Task 4: `hub migrate` and the root switch
 
 **Files:**
-- Create: `D:/Projects/sushistack/cli/sushihub/services/migrate.py` (hub-side composition: resolves the old and new roots, renders the plan, calls sushicore, seeds and saves the registry after success)
-- Modify: `D:/Projects/sushistack/cli/sushihub/cli.py` (a `migrate` command in the dependencies help panel)
-- Modify: `D:/Projects/sushistack/cli/sushihub/config.py` `deps_dir()`
-- Modify: `D:/Projects/sushistack/cli/pyproject.toml` (`sushicore>=0.7.0`)
-- Test: `D:/Projects/sushistack/cli/tests/test_migrate_command.py`
+- Create: `sushistack/cli/sushihub/services/migrate.py` (hub-side composition: resolves the old and new roots, renders the plan, calls sushicore, seeds and saves the registry after success)
+- Modify: `sushistack/cli/sushihub/cli.py` (a `migrate` command in the dependencies help panel)
+- Modify: `sushistack/cli/sushihub/config.py` `deps_dir()`
+- Modify: `sushistack/cli/pyproject.toml` (`sushicore>=0.7.0`)
+- Test: `sushistack/cli/tests/test_migrate_command.py`
 - Docs: hub's README or CLI guide section for `hub migrate`, and hub's CHANGELOG
 
 **Interfaces:**
@@ -300,7 +300,7 @@ Acceptance: both suites green.
   - `--rollback` restores `deps_dir()` to the workspace path.
 - [ ] **Step 2: Run.** Expected: FAIL.
 - [ ] **Step 3: Implement.** In `services/migrate.py`, keep the plan rendering as a function of its own, separate from the confirmation prompt.
-- [ ] **Step 4: Run** `cd D:/Projects/sushistack/cli && PYTHONPATH=D:/Projects/sushicore python -m pytest -q`. Then run the real `hub migrate --dry-run` against the live workspace, which is read-only, and paste its output. Also run `hub doctor`. It must still say "Inventory complete" before the real move.
+- [ ] **Step 4: Run** `cd sushistack/cli && PYTHONPATH=../../sushicore/source python -m pytest -q`. Then run the real `hub migrate --dry-run` against the live workspace, which is read-only, and paste its output. Also run `hub doctor`. It must still say "Inventory complete" before the real move.
 
 Acceptance: the hub suite is green, and the live `hub migrate --dry-run` lists `build`, `toolchains`, `tools`, `ur` and `vcpkg` with "enough space: yes".
 
@@ -311,22 +311,22 @@ Acceptance: the hub suite is green, and the live `hub migrate --dry-run` lists `
 The controller shows the owner the live `hub migrate --dry-run` output and the list of files that name the old path (from the inventory: build trees of sushiai, sushiblas, sushidsp, sushiengine, sushifx and sushiruntime; `sushistack/.sushistack/workspace.toml`; `sushiengine/cli/config.local.toml`; `sushiruntime/cli/config.local.toml`). The junction keeps all of them working, and none is edited.
 
 The owner:
-1. Pauses SushiEngine work, and closes IDEs and terminals that hold files under `D:\Projects\sushistack\dependencies` (a locked file fails verification, and nothing is lost).
+1. Pauses SushiEngine work, and closes IDEs and terminals that hold files under `the hub's dependencies folder` (a locked file fails verification, and nothing is lost).
 2. Runs `hub migrate`, reads the plan and confirms.
-3. Keeps `D:\Projects\sushistack\dependencies.pre-migrate` until Task 6 passes.
+3. Keeps `the hub's dependencies folder.pre-migrate` until Task 6 passes.
 
-Acceptance: `hub migrate` prints success, `dir D:\Projects\sushistack` shows `dependencies` as `<JUNCTION>`, and `C:\Users\sushi\.sushisystems` holds the five components.
+Acceptance: `hub migrate` prints success, a directory listing of the hub checkout shows `dependencies` as `<JUNCTION>`, and `the user's dependency root` holds the five components.
 
 ---
 
 ### Task 6: Controller verification, then finalize on the owner's word
 
 The controller runs, and pastes every output:
-- `hub doctor` and `hub install --dry-run`: the same components as the pre-move baseline, now under `C:\Users\sushi\.sushisystems`.
+- `hub doctor` and `hub install --dry-run`: the same components as the pre-move baseline, now under `the user's dependency root`.
 - `sd doctor`, `st doctor`, `sr doctor`, `se doctor`, `sa doctor`, `sb doctor` (each where the CLI has one).
 - A real build of each module through its own CLI: `sr build`, `sa build`, `sb build`, `sd build`, `st build`, and `se build` last, only with the owner's go-ahead since SushiEngine is paused.
 
-If every build passes, the owner runs `hub migrate --finalize`, which deletes the 20 GB aside copy on D:. If anything fails, the owner runs `hub migrate --rollback`: two renames, instant, and nothing is copied.
+If every build passes, the owner runs `hub migrate --finalize`, which deletes the 20 GB aside copy on the old volume. If anything fails, the owner runs `hub migrate --rollback`: two renames, instant, and nothing is copied.
 
 Acceptance: all builds green, and the owner decides between finalize and rollback.
 
