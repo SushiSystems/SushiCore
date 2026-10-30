@@ -148,8 +148,13 @@ def _literal(text: str) -> str:
 
 
 def _rerun_command(ctx: InstallContext) -> str:
-    """Return the command that re-runs provisioning for the program in *ctx*."""
-    return "hub install" if ctx.program == "hub" else f"{ctx.program} setup"
+    """Return the command that re-runs provisioning: the one *ctx* names, else the program's ``setup``."""
+    return ctx.rerun_command or f"{ctx.program} setup".strip()
+
+
+def removal_note(ctx: InstallContext) -> str:
+    """Return the note on removing the whole install, with the consumer's own hint after it."""
+    return f"Remove the whole install by deleting that folder. {ctx.removal_hint}".strip()
 
 
 class DetectStep(Step):
@@ -338,11 +343,7 @@ class DetectStep(Step):
         )
 
         console.info(f"Vendored dependencies go in one folder: {home.root()}")
-        if ctx.program == "hub":
-            console.info("Remove the whole install by deleting that folder "
-                         "(`hub remove --all` does it for you).")
-        else:
-            console.info("Remove the whole install by deleting that folder.")
+        console.info(removal_note(ctx))
         if ctx.cfg.platform == "windows":
             console.info("System prerequisites kept outside that folder: the C++ "
                          "host compiler (Visual Studio Build Tools + Windows SDK), "
@@ -408,7 +409,8 @@ class InstallDepsStep(Step):
         """Install the SYCL toolchains this run selected, recording their resolved paths."""
         if ctx.selection.install_intel_llvm:
             llvm = intel_llvm.install_intel_llvm(
-                ctx.cfg, ctx.dry_run, refresh=ctx.refresh_toolchains)
+                ctx.cfg, ctx.dry_run, refresh=ctx.refresh_toolchains,
+                refresh_command=ctx.refresh_command)
             if llvm:
                 ctx.resolved_paths["llvm_root"] = llvm
             else:
@@ -424,10 +426,7 @@ class InstallDepsStep(Step):
             elif not ctx.selection.install_intel_llvm:
                 message = ("AdaptiveCpp is the only toolchain selected but it did "
                            "not install; the project will not build.")
-                if ctx.program == "hub":
-                    message += (" Re-run `hub install --customize` and also pick "
-                                "intel-llvm as a fallback.")
-                console.warn(message)
+                console.warn(f"{message} {ctx.fallback_hint}".strip())
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Linux."""

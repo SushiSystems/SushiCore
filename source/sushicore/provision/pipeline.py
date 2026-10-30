@@ -52,8 +52,16 @@ class InstallContext:
     selection: ToolchainSelection = field(default_factory=ToolchainSelection)
     #: The module name recorded in the registry.
     consumer: str = ""
-    #: The command a user types to re-run provisioning.
-    program: str = "hub"
+    #: The command line the user runs; it words the messages that name it.
+    program: str = ""
+    #: The command that re-runs provisioning; empty means ``<program> setup``.
+    rerun_command: str = ""
+    #: A sentence the consumer adds to the note on removing the install; empty adds none.
+    removal_hint: str = ""
+    #: A sentence the consumer adds when AdaptiveCpp alone was selected and did not install.
+    fallback_hint: str = ""
+    #: The command that replaces a stale intel/llvm bundle; empty names the refresh option only.
+    refresh_command: str = ""
     dry_run: bool = False
     everything: bool = False
     #: The toolchain ConfigureStep pins as the default, or None to leave it.

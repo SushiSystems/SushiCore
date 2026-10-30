@@ -28,13 +28,14 @@ __all__ = ["install_intel_llvm"]
 
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
-                       refresh: bool = False) -> str | None:
+                       refresh: bool = False, refresh_command: str = "") -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
 
     Args:
         cfg: Resolved configuration; selects the platform's asset.
         dry_run: Report the action without touching the filesystem.
         refresh: Re-download over an existing install.
+        refresh_command: The command the consumer offers for a refresh; named in the note about a stale bundle.
 
     Returns:
         The bundle root on success, None when it could not be installed.
@@ -53,8 +54,8 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         if not has_sanitizer_runtime(root):
             console.warn(
                 "This bundle ships no compiler-rt sanitizer runtimes, so "
-                "`sr build --type asan` cannot link. Current bundles do carry "
-                "them — run [cmd]hub install --refresh-toolchains[/cmd] "
+                "a sanitizer build cannot link. Current bundles do carry "
+                f"them — run [cmd]{refresh_command or 'setup with the refresh option'}[/cmd] "
                 "to replace it. (A newer bundle is the fix; a separate LLVM "
                 "install is not.)")
         return str(root)

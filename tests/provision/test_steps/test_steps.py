@@ -184,11 +184,20 @@ def test_missing_dependency_hint_names_the_calling_program(capsys_console):
     assert "hub install" not in capsys_console.text()
 
 
-def test_missing_dependency_hint_defaults_to_hub(capsys_console):
-    """Assert a context built without a program keeps hub's wording."""
-    ctx = _context()
+def test_missing_dependency_hint_uses_the_rerun_command_the_consumer_names(capsys_console):
+    """Assert a consumer that names its own re-run command is quoted, whatever its program is called."""
+    ctx = _context(program="hub", rerun_command="hub install")
     _run_detect_with_one_missing(ctx)
     assert "`hub install`" in capsys_console.text()
+
+
+def test_a_context_names_no_consumer_until_it_is_given_one(capsys_console):
+    """Assert the shared code carries no default consumer: with no program the hint is the bare setup."""
+    ctx = _context()
+    assert ctx.program == ""
+    _run_detect_with_one_missing(ctx)
+    assert "hub" not in capsys_console.text()
+    assert "`setup`" in capsys_console.text()
 
 
 class _PinnedSource(IDependencySource):
@@ -260,3 +269,13 @@ def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(
     assert not archive.exists()
     archive.write_bytes(b"not the pinned archive")
     download_verifier.verify_download("cmake", archive)
+
+
+def test_the_removal_hint_the_consumer_supplies_follows_the_note():
+    ctx = _context(program="hub", removal_hint="(`hub remove --all` does it for you).")
+    assert steps.removal_note(ctx) == (
+        "Remove the whole install by deleting that folder. (`hub remove --all` does it for you).")
+
+
+def test_no_removal_hint_leaves_the_plain_note():
+    assert steps.removal_note(_context()) == "Remove the whole install by deleting that folder."
