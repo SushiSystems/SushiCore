@@ -44,10 +44,15 @@ exit code is the installer's.
 
 | Command | Options | Does |
 | --- | --- | --- |
-| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j`, `--all` | Runs the tests of the build tree, `small` and `medium` unless a label is named, writes a JUnit file, then prints the budget line when the repository carries the budget reader. The labels are `small`, `medium`, `large` and `quarantined` |
+| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j`, `--all` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, then prints the budget line |
 
-`--label large` without `--filter` exits `2` before anything runs; `--all` runs every size. The budget line
-is a report and never changes the exit code, which is CTest's. A tree that is absent or stale also exits `2`.
+`--label quarantined` alone runs the quarantined tests and no size. `--label large` without `--filter` exits
+`2` before anything runs; `--all` adds every size and lifts that rule. A tree that is absent, or that the
+module reports as faulty, also exits `2`.
+
+The budget line comes from `test_budget.py`, in the testing folder of the shared tools below the module's root, and is printed only when
+the repository carries it. The JUnit file is `junit.xml` in the tree's `Testing` folder; a run that wrote none prints
+a warning instead. The line is a report and never changes the exit code, which is CTest's.
 
 ## Diagnostics
 

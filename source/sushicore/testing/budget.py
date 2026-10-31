@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from .labels import K_DEFAULT_LABELS, LabelSelection
+from .module_tests import ModuleTests
 
 #: Where the shared budget reader sits below a repository root.
 K_READER = Path("tools") / "testing" / "test_budget.py"
@@ -41,11 +42,6 @@ def scope_of(selection: LabelSelection, *, filtered: bool, every_size: bool, rep
     return "partial"
 
 
-def large_needs_a_filter(selection: LabelSelection, *, filtered: bool, every_size: bool) -> bool:
-    """Returns whether a run would start the ``large`` tests with nothing narrowing them."""
-    return selection.runs_large() and not filtered and not every_size
-
-
 def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float) -> Optional[list[str]]:
     """Returns the command that prints the budget line of a run, or None when the root carries no reader.
 
@@ -63,3 +59,20 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float) -> 
     if (root / K_EXEMPTIONS).is_file():
         command += ["--exemptions", str(root / K_EXEMPTIONS)]
     return command
+
+
+def print_budget(module: ModuleTests, junit: Path, scope: str, wall_seconds: float) -> None:
+    """Print the budget line of a run through the module's runner.
+
+    Nothing is printed when the repository carries no reader. A run that wrote no JUnit file, and a reader
+    that fails, are said in a warning and change nothing else.
+    """
+    root = module.project_root()
+    command = reader_command(root, junit, scope, wall_seconds)
+    if command is None:
+        return
+    console = module.console()
+    if not junit.is_file():
+        console.warn("The run wrote no JUnit file, so the budget line is skipped.")
+    elif module.run(command, root) != 0:
+        console.warn("The budget reader failed; the run's own result is unchanged.")

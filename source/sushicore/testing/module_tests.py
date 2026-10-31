@@ -9,9 +9,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Protocol
 
 from ..profile import ModuleProfile
+
+
+class TestConsole(Protocol):
+    """The three console methods the command prints through."""
+
+    __test__ = False
+
+    def info(self, text: str) -> None: ...
+
+    def warn(self, text: str) -> None: ...
+
+    def error(self, text: str) -> None: ...
 
 
 def _tree_is_fine(tree: Path) -> Optional[str]:
@@ -39,7 +51,7 @@ class ModuleTests:
 
     profile: ModuleProfile
     project_root: Callable[[], Path]
-    console: Callable[[], object]
+    console: Callable[[], TestConsole]
     build_tree: Callable[[], Path]
     run_ctest: Callable[..., int]
     run: Callable[[list[str], Path], int]

@@ -7,8 +7,8 @@
 
 import pytest
 
-from sushicore.testing.budget import large_needs_a_filter, reader_command, scope_of
-from sushicore.testing.labels import TestLabel, select_labels
+from sushicore.testing.budget import reader_command, scope_of
+from sushicore.testing.labels import TestLabel, large_needs_a_filter, select_labels
 
 pytestmark = pytest.mark.small
 

@@ -10,8 +10,8 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from .budget import large_needs_a_filter, reader_command, scope_of
-from .labels import LabelSelection
+from .budget import print_budget, scope_of
+from .labels import LabelSelection, large_needs_a_filter
 from .module_tests import ModuleTests
 
 #: The exit code of a request the command could not act on, as for every shared command.
@@ -41,12 +41,9 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
                       "or pass --all to run every size.")
         return K_EXIT_UNUSABLE
     tree = module.build_tree()
-    if not tree.is_dir():
-        console.error(f"{tree} not found. Run `{module.profile.program} build` first.")
-        return K_EXIT_UNUSABLE
-    fault = module.check_tree(tree)
-    if fault:
-        console.error(fault)
+    refusal = _tree_refusal(module, tree)
+    if refusal:
+        console.error(refusal)
         return K_EXIT_UNUSABLE
 
     junit = (tree / "Testing" / "junit.xml").resolve()
@@ -58,23 +55,15 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     code = module.run_ctest(
         tree, label_regex=selection.ctest_include(), exclude_label_regex=selection.ctest_exclude(),
         filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit)
-    wall_seconds = time.monotonic() - started
-    _print_budget(module, junit, scope_of(selection, filtered=bool(name_filter), every_size=every_size,
-                                          repeated=repeat > 0), wall_seconds)
+    scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
+    print_budget(module, junit, scope, time.monotonic() - started)
     if code != 0:
         console.error(f"Tests failed (exit {code}).")
     return code
 
 
-def _print_budget(module: ModuleTests, junit, scope: str, wall_seconds: float) -> None:
-    """Print the budget line of a run when the repository carries the reader and the run wrote a file."""
-    root = module.project_root()
-    command = reader_command(root, junit, scope, wall_seconds)
-    if command is None:
-        return
-    console = module.console()
-    if not junit.is_file():
-        console.warn("The run wrote no JUnit file, so the budget line is skipped.")
-        return
-    if module.run(command, root) != 0:
-        console.warn("The budget reader failed; the run's own result is unchanged.")
+def _tree_refusal(module: ModuleTests, tree) -> Optional[str]:
+    """Returns why the tree cannot be tested, or None when it can."""
+    if not tree.is_dir():
+        return f"{tree} not found. Run `{module.profile.program} build` first."
+    return module.check_tree(tree)

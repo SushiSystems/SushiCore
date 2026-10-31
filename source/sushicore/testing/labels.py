@@ -77,3 +77,8 @@ def select_labels(labels: Iterable[TestLabel] | None, *, every_size: bool = Fals
     sizes = tuple(label for label in TestLabel
                   if label in chosen and label is not TestLabel.QUARANTINED)
     return LabelSelection(sizes=sizes, quarantined=TestLabel.QUARANTINED in chosen)
+
+
+def large_needs_a_filter(selection: LabelSelection, *, filtered: bool, every_size: bool) -> bool:
+    """Returns whether a run would start the ``large`` tests with nothing narrowing them."""
+    return selection.runs_large() and not filtered and not every_size
