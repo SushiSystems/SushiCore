@@ -50,9 +50,11 @@ exit code is the installer's.
 `2` before anything runs; `--all` adds every size and lifts that rule. A tree that is absent, or that the
 module reports as faulty, also exits `2`.
 
-`--sanitize` builds the tree of that sanitizer and tests it; `--cli` runs the pytest suite of the CLI itself for the
-labels and writes no JUnit file. A CLI shows an option only when it has what the option needs. Using a hidden
-one exits `2`, and a sanitizer the CLI does not build exits `2` with the names it does.
+`--sanitize` builds the tree of that sanitizer and tests it. `--cli` runs the pytest suite of the CLI itself for the
+labels and nothing else: it starts no CTest, writes no JUnit file, prints no budget line and checks neither the
+large rule nor the tree, and it exits `2` when given `--filter`, `--repeat`, `--jobs`, `--all` or `--sanitize`. A CLI
+shows an option only when it has what the option needs. Using a hidden one exits `2`, and a sanitizer the CLI does
+not build exits `2` and names the ones it does, or `none`.
 
 The budget line comes from `test_budget.py`, in the testing folder of the shared tools below the module's root, and is printed only when
 the repository carries it. The JUnit file is `junit.xml` in the tree's `Testing` folder; a run that wrote none prints

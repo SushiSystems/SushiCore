@@ -123,6 +123,17 @@ def test_a_module_without_the_sanitizer_or_the_suite_is_told_so_with_the_usage_c
     assert run_tests(module.tests(), select_labels(None), own_tests=True) == 2
 
 
+def test_the_own_suite_refuses_an_option_it_would_drop_and_a_sanitizer_matches_without_case(tmp_path):
+    module = _Module(tmp_path)
+    own = module.tests(cli_tests=lambda selection: 0)
+    assert run_tests(own, select_labels(None), own_tests=True, name_filter="Rect", jobs=2) == 2
+    assert "--filter, --jobs" in module.console.said[-1][1]
+    (tmp_path / "asan").mkdir()
+    sanitized = SanitizedTests(names=("Address",), build=lambda name: 0 if name == "Address" else 9,
+                               tree=lambda name: tmp_path / "asan")
+    assert run_tests(module.tests(sanitized=sanitized), select_labels(None), sanitizer="ADDRESS") == 0
+
+
 def test_the_own_suite_runs_for_the_selection_and_skips_ctest(tmp_path):
     module = _Module(tmp_path)
     asked = []

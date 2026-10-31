@@ -50,7 +50,10 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     console = module.console()
     try:
         if own_tests:
-            return _run_own_tests(module, selection)
+            ignored = [flag for flag, given in (("--filter", name_filter), ("--repeat", repeat),
+                                                ("--jobs", jobs), ("--all", every_size),
+                                                ("--sanitize", sanitizer)) if given]
+            return _run_own_tests(module, selection, ignored)
         if large_needs_a_filter(selection, filtered=bool(name_filter), every_size=every_size):
             raise _refuse(module, "The large tests need real hardware. Narrow the run with --filter, "
                                   "or pass --all to run every size.")
@@ -80,29 +83,35 @@ def _refuse(module: ModuleTests, message: str) -> _Stop:
     return _Stop(K_EXIT_UNUSABLE)
 
 
-def _run_own_tests(module: ModuleTests, selection: LabelSelection) -> int:
-    """Run the module's pytest suite, or refuse when the module has none."""
+def _run_own_tests(module: ModuleTests, selection: LabelSelection, ignored: list[str]) -> int:
+    """Run the module's pytest suite, or refuse when the module has none or an option would be dropped."""
     if module.cli_tests is None:
         raise _refuse(module, f"{module.profile.program} has no tests of its own to run with --cli.")
+    if ignored:
+        raise _refuse(module, "--cli runs the pytest suite for the labels alone; "
+                              f"it cannot take {', '.join(ignored)}.")
     return module.cli_tests(selection)
 
 
 def _tree_of(module: ModuleTests, sanitizer: Optional[str]) -> Path:
     """Returns the tree to test, building the sanitizer's first; raises a stop when it cannot be tested."""
-    if sanitizer is None:
-        tree = module.build_tree()
-    else:
-        if module.sanitized is None or sanitizer.lower() not in module.sanitized.names:
-            known = ", ".join(module.sanitized.names) if module.sanitized else "none"
-            raise _refuse(module, f"{module.profile.program} cannot test the sanitizer '{sanitizer}'; "
-                                  f"it builds: {known}.")
-        code = module.sanitized.build(sanitizer.lower())
-        if code != 0:
-            raise _Stop(code)
-        tree = module.sanitized.tree(sanitizer.lower())
+    tree = module.build_tree() if sanitizer is None else _sanitized_tree(module, sanitizer)
     if not tree.is_dir():
         raise _refuse(module, f"{tree} not found. Run `{module.profile.program} build` first.")
     fault = module.check_tree(tree)
     if fault:
         raise _refuse(module, fault)
     return tree
+
+
+def _sanitized_tree(module: ModuleTests, sanitizer: str) -> Path:
+    """Builds the tree of *sanitizer*, matched to the module's names without regard to case, and returns it."""
+    names = {name.lower(): name for name in module.sanitized.names} if module.sanitized else {}
+    if sanitizer.lower() not in names:
+        raise _refuse(module, f"{module.profile.program} cannot test the sanitizer '{sanitizer}'; "
+                              f"it builds: {', '.join(names.values()) or 'none'}.")
+    name = names[sanitizer.lower()]
+    code = module.sanitized.build(name)
+    if code != 0:
+        raise _Stop(code)
+    return module.sanitized.tree(name)
