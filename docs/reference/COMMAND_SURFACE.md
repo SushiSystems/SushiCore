@@ -44,11 +44,15 @@ exit code is the installer's.
 
 | Command | Options | Does |
 | --- | --- | --- |
-| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j`, `--all` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, then prints the budget line |
+| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j`, `--all`, `--sanitize NAME`, `--cli` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, then prints the budget line |
 
 `--label quarantined` alone runs the quarantined tests and no size. `--label large` without `--filter` exits
 `2` before anything runs; `--all` adds every size and lifts that rule. A tree that is absent, or that the
 module reports as faulty, also exits `2`.
+
+`--sanitize` builds the tree of that sanitizer and tests it; `--cli` runs the pytest suite of the CLI itself for the
+labels and writes no JUnit file. A CLI shows an option only when it has what the option needs. Using a hidden
+one exits `2`, and a sanitizer the CLI does not build exits `2` with the names it does.
 
 The budget line comes from `test_budget.py`, in the testing folder of the shared tools below the module's root, and is printed only when
 the repository carries it. The JUnit file is `junit.xml` in the tree's `Testing` folder; a run that wrote none prints

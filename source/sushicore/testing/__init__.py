@@ -7,6 +7,6 @@
 
 from .commands import register_test_command
 from .labels import LabelSelection, TestLabel, select_labels
-from .module_tests import ModuleTests
+from .module_tests import ModuleTests, SanitizedTests
 
-__all__ = ["LabelSelection", "ModuleTests", "TestLabel", "register_test_command", "select_labels"]
+__all__ = ["LabelSelection", "ModuleTests", "SanitizedTests", "TestLabel", "register_test_command", "select_labels"]

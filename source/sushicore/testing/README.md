@@ -11,12 +11,12 @@ without a filter, and one budget line after every run. Its options are in
 | --- | --- | --- |
 | `TestLabel`, `LabelSelection`, `select_labels`, `large_needs_a_filter` | `labels.py` | Name the labels `--label` accepts, turn them into the `ctest -L` and `-LE` patterns, and say when a run would start the `large` tests unfiltered |
 | `scope_of`, `reader_command`, `print_budget` | `budget.py` | Decide what a run is judged as, build the call of the budget reader and print its line |
-| `ModuleTests`, `TestConsole` | `module_tests.py` | What one module CLI hands the command: its tree, its CTest call, its checkout and its console |
+| `ModuleTests`, `SanitizedTests`, `TestConsole` | `module_tests.py` | What one module CLI hands the command: its tree, its CTest call, its checkout and its console, and the sanitizer builds and the pytest suite it may add |
 | `run_tests` | `session.py` | Refuse a run that cannot start, run CTest with a JUnit file, print the budget line |
 | `register_test_command` | `commands.py` | Add `test` to a Typer application |
 
 The package re-exports `register_test_command`, `ModuleTests`, `TestLabel`, `LabelSelection` and
-`select_labels`; the other names are the package's own and no CLI imports them.
+`select_labels` and `SanitizedTests`; the other names are the package's own and no CLI imports them.
 
 ## What it depends on
 

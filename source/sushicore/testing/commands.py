@@ -24,6 +24,7 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
     import typer
 
     program = module.profile.program
+    sanitizers = ", ".join(module.sanitized.names) if module.sanitized else ""
     epilog = "\n".join((
         f"{program} test  # small and medium",
         f"{program} test --label small -f 'RectTest'",
@@ -49,8 +50,17 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
             help="Run up to N tests concurrently (ctest --parallel)."),
         all_sizes: bool = typer.Option(
             False, "--all", help="Run every size, the large tests included."),
+        sanitize: Optional[str] = typer.Option(
+            None, "--sanitize", metavar="NAME", hidden=module.sanitized is None,
+            help="Build the tree of this sanitizer first and test it: " + sanitizers + "."),
+        own: bool = typer.Option(
+            False, "--cli", hidden=module.cli_tests is None,
+            help="Run the pytest suite of this CLI instead of the CTest tests."),
     ) -> None:
-        """Run the tests of the build tree by size label, then print the budget line."""
+        """Run the tests of the build tree by size label, then print the budget line.
+
+        --sanitize builds the tree of a sanitizer first. --cli runs the pytest suite of this CLI.
+        """
         selection = select_labels(label, every_size=all_sizes)
         raise typer.Exit(run_tests(module, selection, name_filter=filter, repeat=repeat,
-                                   jobs=jobs, every_size=all_sizes))
+                                   jobs=jobs, every_size=all_sizes, sanitizer=sanitize, own_tests=own))

@@ -74,7 +74,7 @@ K_LAYERED = (
     ),
     LayeredPackage(
         name="sushicore.testing",
-        layers={"labels": 0, "module_tests": 0, "budget": 1, "session": 2, "commands": 3},
+        layers={"labels": 0, "module_tests": 1, "budget": 2, "session": 3, "commands": 4},
         strict=True,
         nested=False,
         forbidden=frozenset({"typer", "click"}),

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Optional
 
 from .budget import print_budget, scope_of
@@ -18,8 +19,17 @@ from .module_tests import ModuleTests
 K_EXIT_UNUSABLE = 2
 
 
+class _Stop(Exception):
+    """Ends a run before CTest starts, with the exit code to return."""
+
+    def __init__(self, code: int) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Optional[str] = None,
-              repeat: int = 0, jobs: Optional[int] = None, every_size: bool = False) -> int:
+              repeat: int = 0, jobs: Optional[int] = None, every_size: bool = False,
+              sanitizer: Optional[str] = None, own_tests: bool = False) -> int:
     """Run the tests *selection* names over the module's tree, then print the budget line.
 
     The budget line is a report: it never changes the exit code, which is CTest's.
@@ -31,20 +41,22 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         repeat: Reruns each test up to this many times, stopping at its first failure.
         jobs: How many tests run at once.
         every_size: Whether the run was asked for every size, which allows the ``large`` tests unfiltered.
+        sanitizer: Builds the tree of this sanitizer first and tests it, instead of the plain tree.
+        own_tests: Runs the module's own pytest suite for *selection* instead of CTest.
 
     Returns:
         CTest's exit code, or 2 when the request cannot be acted on.
     """
     console = module.console()
-    if large_needs_a_filter(selection, filtered=bool(name_filter), every_size=every_size):
-        console.error("The large tests need real hardware. Narrow the run with --filter, "
-                      "or pass --all to run every size.")
-        return K_EXIT_UNUSABLE
-    tree = module.build_tree()
-    refusal = _tree_refusal(module, tree)
-    if refusal:
-        console.error(refusal)
-        return K_EXIT_UNUSABLE
+    try:
+        if own_tests:
+            return _run_own_tests(module, selection)
+        if large_needs_a_filter(selection, filtered=bool(name_filter), every_size=every_size):
+            raise _refuse(module, "The large tests need real hardware. Narrow the run with --filter, "
+                                  "or pass --all to run every size.")
+        tree = _tree_of(module, sanitizer)
+    except _Stop as stop:
+        return stop.code
 
     junit = (tree / "Testing" / "junit.xml").resolve()
     junit.parent.mkdir(parents=True, exist_ok=True)
@@ -62,8 +74,35 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     return code
 
 
-def _tree_refusal(module: ModuleTests, tree) -> Optional[str]:
-    """Returns why the tree cannot be tested, or None when it can."""
+def _refuse(module: ModuleTests, message: str) -> _Stop:
+    """Says *message* as an error and returns the stop that ends the run with the usage code."""
+    module.console().error(message)
+    return _Stop(K_EXIT_UNUSABLE)
+
+
+def _run_own_tests(module: ModuleTests, selection: LabelSelection) -> int:
+    """Run the module's pytest suite, or refuse when the module has none."""
+    if module.cli_tests is None:
+        raise _refuse(module, f"{module.profile.program} has no tests of its own to run with --cli.")
+    return module.cli_tests(selection)
+
+
+def _tree_of(module: ModuleTests, sanitizer: Optional[str]) -> Path:
+    """Returns the tree to test, building the sanitizer's first; raises a stop when it cannot be tested."""
+    if sanitizer is None:
+        tree = module.build_tree()
+    else:
+        if module.sanitized is None or sanitizer.lower() not in module.sanitized.names:
+            known = ", ".join(module.sanitized.names) if module.sanitized else "none"
+            raise _refuse(module, f"{module.profile.program} cannot test the sanitizer '{sanitizer}'; "
+                                  f"it builds: {known}.")
+        code = module.sanitized.build(sanitizer.lower())
+        if code != 0:
+            raise _Stop(code)
+        tree = module.sanitized.tree(sanitizer.lower())
     if not tree.is_dir():
-        return f"{tree} not found. Run `{module.profile.program} build` first."
-    return module.check_tree(tree)
+        raise _refuse(module, f"{tree} not found. Run `{module.profile.program} build` first.")
+    fault = module.check_tree(tree)
+    if fault:
+        raise _refuse(module, fault)
+    return tree

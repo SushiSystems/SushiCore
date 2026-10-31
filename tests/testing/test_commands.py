@@ -40,7 +40,14 @@ def _app(calls):
 def test_the_command_declares_the_same_options_in_every_cli():
     command = typer.main.get_command(_app([])).commands["test"]
     names = sorted(name for parameter in command.params for name in parameter.opts)
-    assert names == ["--all", "--filter", "--jobs", "--label", "--repeat", "-f", "-j", "-l", "-r"]
+    assert names == ["--all", "--cli", "--filter", "--jobs", "--label", "--repeat", "--sanitize",
+                     "-f", "-j", "-l", "-r"]
+
+
+def test_the_options_a_module_cannot_serve_are_hidden():
+    command = typer.main.get_command(_app([])).commands["test"]
+    hidden = {parameter.opts[0] for parameter in command.params if parameter.hidden}
+    assert hidden == {"--cli", "--sanitize"}
 
 
 def test_asking_for_large_without_a_filter_exits_with_the_usage_code():
