@@ -66,6 +66,12 @@ Every Sushi CLI registers the same surfaces, each with one call.
 | `sushicore.aliases.AliasTable(program, aliases)` | Old spellings that still run, hidden, and name their replacement |
 | `sushicore.entry.run(app, report)` | An entry point that turns a `SushiCoreError` into one line and exit code 1 |
 
+A CLI whose `test` must also build first, or take options of its own such as `--type`, `--clean` or
+`--package`, keeps its own command. It takes the shared options from `sushicore.testing` (`label_option`,
+`filter_option`, `repeat_option`, `jobs_option` and `all_option`), so they are spelled alike in every CLI, builds
+what it needs, and ends with `run_tests(module, selection, ...)`, which refuses an unfiltered `large` run, writes
+the JUnit file and prints the budget line. Only the shared options are guaranteed identical across CLIs.
+
 `register_root_options` installs the application's callback, so the application must not have
 one of its own. A CLI that needs a root option of its own builds its callback from
 `version_option` and `describe_option` in the same module.

@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from .labels import TestLabel, select_labels
 from .module_tests import ModuleTests
+from .options import all_option, filter_option, jobs_option, label_option, repeat_option
 from .session import run_tests
 
 
@@ -35,21 +36,11 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
 
     @app.command("test", rich_help_panel=module.panel, epilog=epilog)
     def test(
-        label: Optional[List[TestLabel]] = typer.Option(
-            None, "--label", "-l", case_sensitive=False,
-            help="Size label to run, repeatable: small, medium, large or quarantined. "
-                 "Default: small and medium; large needs --filter or --all."),
-        filter: Optional[str] = typer.Option(
-            None, "--filter", "-f", metavar="REGEX",
-            help="ctest -R regex over 'Suite.Case' test names."),
-        repeat: int = typer.Option(
-            0, "--repeat", "-r", min=0, metavar="N",
-            help="Re-run each test up to N times, stopping on the first failure."),
-        jobs: Optional[int] = typer.Option(
-            None, "--jobs", "-j", metavar="N",
-            help="Run up to N tests concurrently (ctest --parallel)."),
-        all_sizes: bool = typer.Option(
-            False, "--all", help="Run every size, the large tests included."),
+        label: Optional[List[TestLabel]] = label_option(),
+        filter: Optional[str] = filter_option(),
+        repeat: int = repeat_option(),
+        jobs: Optional[int] = jobs_option(),
+        all_sizes: bool = all_option(),
         sanitize: Optional[str] = typer.Option(
             None, "--sanitize", metavar="NAME", hidden=module.sanitized is None,
             help="Build the tree of this sanitizer first and test it: " + sanitizers + "."),

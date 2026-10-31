@@ -8,5 +8,8 @@
 from .commands import register_test_command
 from .labels import LabelSelection, TestLabel, select_labels
 from .module_tests import ModuleTests, SanitizedTests
+from .options import all_option, filter_option, jobs_option, label_option, repeat_option
+from .session import run_tests
 
-__all__ = ["LabelSelection", "ModuleTests", "SanitizedTests", "TestLabel", "register_test_command", "select_labels"]
+__all__ = ["LabelSelection", "ModuleTests", "SanitizedTests", "TestLabel", "all_option", "filter_option",
+           "jobs_option", "label_option", "register_test_command", "repeat_option", "run_tests", "select_labels"]
