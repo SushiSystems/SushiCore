@@ -5,6 +5,7 @@
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-59 | P3 | open | Show committed but unbuilt work as unverified when reading the backlog | backlog list and next mark such an entry unverified, a derived state that is never stored |  |  | 2026-10-30 |
+| RW-62 | P2 | open | Let backlog set leave the blocked state in one change | set State open clears Blocked by, so a stale block can be released |  |  | 2026-11-01 |
 
 ## Known issues
 

@@ -81,10 +81,14 @@ class BacklogEditor:
     def set_value(self, ident: str, column: str, value: str) -> AnyEntry:
         """Changes one column of an entry and returns it.
 
+        A state other than ``blocked`` also clears Blocked by, so an entry can leave a block in one change.
+
         @throws RefusedChangeError When the new value breaks a rule.
         """
         located = self.store.find(ident)
         changed = located.entry.with_value(column, _source(value) if column == "Source" else value)
+        if column == "State" and value != "blocked" and isinstance(changed, WorkEntry):
+            changed = changed.with_value("Blocked by", "")
         _refuse_problems(changed)
         area = self.store.read_area(located.area)
         area.put(changed)

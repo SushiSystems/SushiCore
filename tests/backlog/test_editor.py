@@ -65,6 +65,15 @@ def test_set_changes_one_column_and_refuses_a_broken_value(editor, store):
         editor.set_value("RW-1", "State", "blocked")
 
 
+def test_set_state_away_from_blocked_lets_go_of_the_blocker(editor, store):
+    """Leaving `blocked` clears Blocked by in the same change, which the two rules would otherwise forbid."""
+    _work(editor)
+    _work(editor, blocked_by="RW-1")
+    changed = editor.set_value("RW-2", "State", "open")
+    assert (changed.state, changed.blocked_by) == ("open", "")
+    assert store.find("RW-2").entry.blocked_by == ""
+
+
 def test_close_refuses_a_cited_entry_and_records_the_id(editor, store):
     """An entry another cites stays; a closed one leaves its ID in the ledger and a changelog line."""
     _work(editor)
