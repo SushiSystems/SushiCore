@@ -48,3 +48,5 @@ def test_the_reader_is_called_only_where_the_repository_carries_it(tmp_path):
     assert command[2:4] == [str(junit), "--scope"] and command[4:6] == ["default", "--wall"]
     assert command[6] == "3.0"
     assert command[-2] == "--exemptions"
+    assert "--not-rebuilt" not in command
+    assert "--not-rebuilt" in reader_command(tmp_path, junit, "default", 3.0, rebuilt=False)

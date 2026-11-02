@@ -45,6 +45,7 @@ class _Runner:
 
     def run_drained(self, cmd, cwd, env=None):
         self.calls.append(("drained", list(cmd), str(cwd)))
+        self.env = env
         return 0
 
 
@@ -357,3 +358,11 @@ def test_compile_empties_the_scratch_folder_when_the_build_fails(tmp_path):
     with pytest.raises(RuntimeError):
         CMakeDriver(_Console(), runner).compile(_cfg(), tmp_path, tmp_path, None, config="Release")
     assert not runner.scratch.exists()
+
+
+def test_ctest_run_hands_the_shuffle_seed_to_the_tests_through_the_environment(tmp_path):
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), tmp_path, {"A": "1"}, shuffle_seed=77)
+    assert runner.env == {"A": "1", "GTEST_SHUFFLE": "1", "GTEST_RANDOM_SEED": "77"}
+    driver.ctest_run(_cfg(), tmp_path, {"A": "1"})
+    assert runner.env == {"A": "1"}

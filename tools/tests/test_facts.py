@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import pytest
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,9 @@ from documentation import check_docs_facts, docs_follow, facts, facts_cli  # noq
 K_HOME = "# Home\n\n<!-- fact:begin shipping -->\nA topic ships when its last phase is built.\n<!-- fact:end shipping -->\n"
 K_QUOTE = "# Page\n\n<!-- quote:begin shipping -->\nA topic ships when its last phase is built.\n<!-- quote:end shipping -->\n"
 K_FOLLOW = "# Page\n\n<!-- follows: shipping -->\nThe topic is done after its last phase.\n"
+
+
+pytestmark = pytest.mark.medium
 
 
 class ParseTest(unittest.TestCase):

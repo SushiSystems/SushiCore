@@ -47,3 +47,19 @@ def all_option() -> "typer.models.OptionInfo":
     import typer
 
     return typer.Option(False, "--all", help="Run every size, the large tests included.")
+
+
+def shuffle_option() -> "typer.models.OptionInfo":
+    """Returns the default of the ``--shuffle/--no-shuffle`` parameter, a ``bool`` that is on."""
+    import typer
+
+    return typer.Option(True, "--shuffle/--no-shuffle",
+                        help="Run the tests of each program in a random order and print the seed.")
+
+
+def seed_option() -> "typer.models.OptionInfo":
+    """Returns the default of the ``--seed`` parameter, an ``Optional[int]``."""
+    import typer
+
+    return typer.Option(None, "--seed", min=1, max=99999, metavar="N",
+                        help="Shuffle with this seed, to repeat a failing order. Default: a new random one.")

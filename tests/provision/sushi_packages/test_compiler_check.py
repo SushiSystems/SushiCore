@@ -31,7 +31,7 @@ def _tree(tmp_path, compiler):
 def test_a_tree_of_the_expected_compiler_passes(tmp_path):
     """Check that a tree whose cached compiler has the expected identity passes."""
     tree = _tree(tmp_path, "/a/clang++")
-    CompilerCheck(_probe).verify(tree, compiler_identity("/a/clang++", _probe))
+    assert CompilerCheck(_probe).verify(tree, compiler_identity("/a/clang++", _probe)) is None
 
 
 def test_a_tree_of_another_compiler_raises_naming_both(tmp_path):

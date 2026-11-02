@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import pytest
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,9 @@ from documentation.docs_follow import Change, acknowledged, describes_of, parse_
 from hooks import commit_msg  # noqa: E402
 
 K_PAGE = "# Guide\n\n**Describes:** `src/a.py`, `core`\n\nText.\n"
+
+
+pytestmark = pytest.mark.medium
 
 
 class ParsingTest(unittest.TestCase):

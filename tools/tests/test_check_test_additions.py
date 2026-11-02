@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import pytest
 import sys
 import unittest
 from pathlib import Path
@@ -22,6 +23,9 @@ from testing.check_test_additions import (  # noqa: E402
     rule_too_many_cases,
 )
 from repo_builder import Repo  # noqa: E402
+
+
+pytestmark = pytest.mark.medium
 
 
 def cases(count: int, first: int = 0) -> str:

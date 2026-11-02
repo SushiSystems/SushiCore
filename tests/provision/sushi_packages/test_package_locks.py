@@ -45,9 +45,10 @@ def test_the_lock_files_have_the_documented_names(taken, tmp_path):
 
 def test_the_order_checkout_key_link_is_allowed(taken, tmp_path):
     """Check that taking the three locks in order raises nothing."""
-    locks, _ = taken
+    locks, asked = taken
     with locks.checkout("a", tmp_path), locks.key("a", "d"), locks.link("a", "c"):
         pass
+    assert len(asked) == 3
 
 
 @pytest.mark.parametrize("first, second", [("key", "checkout"), ("link", "key"),
@@ -64,8 +65,9 @@ def test_a_lock_of_a_lower_rank_after_a_higher_one_raises(taken, tmp_path, first
 
 def test_the_held_state_is_cleared_after_a_lock(taken, tmp_path):
     """Check that a key lock can be taken again after a link lock was released."""
-    locks, _ = taken
+    locks, asked = taken
     with locks.link("a", "c"):
         pass
     with locks.key("a", "d"):
         pass
+    assert len(asked) == 2

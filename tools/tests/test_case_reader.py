@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import pytest
 import sys
 import unittest
 from pathlib import Path
@@ -18,6 +19,9 @@ from testing.case_reader import cases_of  # noqa: E402
 K_CPP = Path("tests/core/test_shape.cpp")
 K_PY = Path("tests/test_shape.py")
 K_TS = Path("tests/web/camera.test.ts")
+
+
+pytestmark = pytest.mark.small
 
 
 def one(path: Path, text: str):

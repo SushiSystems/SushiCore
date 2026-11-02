@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from .labels import TestLabel, select_labels
 from .module_tests import ModuleTests
-from .options import all_option, filter_option, jobs_option, label_option, repeat_option
+from .options import all_option, filter_option, jobs_option, label_option, repeat_option, seed_option, shuffle_option
 from .session import run_tests
 
 
@@ -41,6 +41,8 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
         repeat: int = repeat_option(),
         jobs: Optional[int] = jobs_option(),
         all_sizes: bool = all_option(),
+        shuffle: bool = shuffle_option(),
+        seed: Optional[int] = seed_option(),
         sanitize: Optional[str] = typer.Option(
             None, "--sanitize", metavar="NAME", hidden=module.sanitized is None,
             help="Build the tree of this sanitizer first and test it: " + sanitizers + "."),
@@ -54,4 +56,5 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
         """
         selection = select_labels(label, every_size=all_sizes)
         raise typer.Exit(run_tests(module, selection, name_filter=filter, repeat=repeat,
-                                   jobs=jobs, every_size=all_sizes, sanitizer=sanitize, own_tests=own))
+                                   jobs=jobs, every_size=all_sizes, sanitizer=sanitize, own_tests=own,
+                                   shuffle=shuffle, seed=seed))

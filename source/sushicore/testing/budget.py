@@ -42,7 +42,8 @@ def scope_of(selection: LabelSelection, *, filtered: bool, every_size: bool, rep
     return "partial"
 
 
-def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float) -> Optional[list[str]]:
+def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
+                   rebuilt: bool = True) -> Optional[list[str]]:
     """Returns the command that prints the budget line of a run, or None when the root carries no reader.
 
     Args:
@@ -50,25 +51,29 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float) -> 
         junit: The JUnit file the run wrote.
         scope: What :func:`scope_of` returned.
         wall_seconds: The wall time of the whole run.
+        rebuilt: Whether the run rebuilt its tree first; a run that did not is marked "(not rebuilt)" and never gates.
     """
     reader = root / K_READER
     if not reader.is_file():
         return None
     command = [sys.executable, str(reader), str(junit), "--scope", scope,
                "--wall", f"{wall_seconds:.1f}", "--root", str(root)]
+    if not rebuilt:
+        command.append("--not-rebuilt")
     if (root / K_EXEMPTIONS).is_file():
         command += ["--exemptions", str(root / K_EXEMPTIONS)]
     return command
 
 
-def print_budget(module: ModuleTests, junit: Path, scope: str, wall_seconds: float) -> None:
+def print_budget(module: ModuleTests, junit: Path, scope: str, wall_seconds: float,
+                 rebuilt: bool = True) -> None:
     """Print the budget line of a run through the module's runner.
 
     Nothing is printed when the repository carries no reader. A run that wrote no JUnit file, and a reader
     that fails, are said in a warning and change nothing else.
     """
     root = module.project_root()
-    command = reader_command(root, junit, scope, wall_seconds)
+    command = reader_command(root, junit, scope, wall_seconds, rebuilt)
     if command is None:
         return
     console = module.console()

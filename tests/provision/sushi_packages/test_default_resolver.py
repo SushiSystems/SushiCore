@@ -27,13 +27,17 @@ def test_the_public_surface_is_exactly_the_documented_names():
 
 def test_default_resolver_starts_no_process(provision_home, monkeypatch):
     """Check that assembling the resolver runs neither git nor a CLI."""
+    started = []
+
     def refuse(*_args, **_kwargs):
-        """Fail the test when a process starts."""
+        """Record that a process started and stop it."""
+        started.append(_args)
         raise AssertionError("a process started")
 
     monkeypatch.setattr(subprocess, "run", refuse)
     monkeypatch.setattr(subprocess, "Popen", refuse)
-    default_resolver(3, lambda _line: None, lambda _text: None, env={})
+    resolver = default_resolver(3, lambda _line: None, lambda _text: None, env={})
+    assert (resolver is not None, started) == (True, [])
 
 
 def test_the_keep_count_is_three_by_default_and_the_environment_overrides_it():

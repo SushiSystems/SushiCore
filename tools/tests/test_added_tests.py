@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import pytest
 import sys
 import unittest
 from pathlib import Path
@@ -22,6 +23,9 @@ from repo_builder import Repo  # noqa: E402
 K_ONE = "TEST(Small_A, One) {\n  EXPECT_TRUE(f());\n}\n"
 K_TWO = "TEST(Small_A, Two) {\n  EXPECT_TRUE(f());\n}\n"
 K_PROGRAM = "project_add_test_program({name} SOURCES test_a.cpp)\n"
+
+
+pytestmark = pytest.mark.medium
 
 
 class AddedTestsTest(unittest.TestCase):

@@ -36,12 +36,12 @@ def test_sha256_of_returns_the_lower_case_hex_digest(tmp_path):
 
 def test_verify_accepts_a_file_with_the_expected_digest(tmp_path):
     """Check that a matching file raises nothing."""
-    verify_sha256(_file(tmp_path), K_DIGEST)
+    assert verify_sha256(_file(tmp_path), K_DIGEST) is None
 
 
 def test_verify_accepts_an_upper_case_expected_digest(tmp_path):
     """Check that the case a digest was written in does not decide the comparison."""
-    verify_sha256(_file(tmp_path), K_DIGEST.upper())
+    assert verify_sha256(_file(tmp_path), K_DIGEST.upper()) is None
 
 
 def test_verify_raises_and_names_the_file_and_both_digests(tmp_path):

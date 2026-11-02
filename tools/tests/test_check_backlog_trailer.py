@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import pytest
 import subprocess
 import sys
 import tempfile
@@ -33,6 +34,9 @@ from hooks import commit_msg, install_hooks  # noqa: E402
 K_AREA = "docs/backlog/GENERAL.md"
 K_TABLE = "| ID | Pri |\n| --- | --- |\n| AB-1 | P1 |\n| AB-22 | P2 |\n"
 K_KNOWN = frozenset({"AB-1", "AB-22"})
+
+
+pytestmark = pytest.mark.medium
 
 
 class TrailerProblemsTest(unittest.TestCase):

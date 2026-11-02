@@ -154,7 +154,8 @@ class CMakeDriver:
                   label_regex: str | None = None, exclude_label_regex: str | None = None,
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
-                  config: str | None = None, output_junit: Path | None = None) -> int:
+                  config: str | None = None, output_junit: Path | None = None,
+                  shuffle_seed: int | None = None) -> int:
         """Run ctest over *build_dir*, draining its output.
 
         @param exclude_label_regex A ctest -LE pattern; the tests whose labels match it are left
@@ -169,6 +170,9 @@ class CMakeDriver:
         @param config When set, passed as -C.
         @param output_junit When set, CTest writes a JUnit file of the run there. CTest reads a
             relative path from the build tree, so a caller gives an absolute one.
+        @param shuffle_seed When set, the gtest programs run their tests in a random order with this
+            seed: ctest hands its environment to each test, so GTEST_SHUFFLE and GTEST_RANDOM_SEED
+            stand for --gtest_shuffle and --gtest_random_seed, which ctest cannot pass on.
         """
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
         if label_regex:
@@ -187,6 +191,9 @@ class CMakeDriver:
             cmd += ["-C", config]
         if output_junit:
             cmd += ["--output-junit", str(output_junit)]
+        if shuffle_seed is not None:
+            env = {**(os.environ if env is None else env),
+                   "GTEST_SHUFFLE": "1", "GTEST_RANDOM_SEED": str(shuffle_seed)}
         return self._runner.run_drained(cmd, build_dir, env)
 
     def clean_tree(self, build_dir: Path) -> bool:
