@@ -2,6 +2,7 @@
 
 ## Unreleased
 
-## v0.10.10 — 2026-11-01
+## v0.10.11 — 2026-11-02
 
-- 2026-11-01 — commands: Let `backlog set <ID> State <state>` leave the blocked state in one change by clearing Blocked by (`sushicore.backlog`).
+- 2026-11-02 — commands: Shuffle the test order by default in the shared test command, print the seed and take `--seed` and `--no-shuffle` (`sushicore.testing`).
+- 2026-11-02 — commands: Print "(not rebuilt)" on the budget line of a run that did not rebuild, and never gate it (`sushicore.testing`).
