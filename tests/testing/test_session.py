@@ -179,4 +179,19 @@ def test_a_run_that_turns_the_shuffle_off_gives_ctest_no_seed(tmp_path):
     (tmp_path / "build").mkdir()
     module = _Module(tmp_path)
     assert run_tests(module.tests(), select_labels(None), shuffle=False) == 0
-    assert module.ctest_calls[0]["shuffle_seed"] is None
+    assert "shuffle_seed" not in module.ctest_calls[0]
+
+
+def test_a_ctest_call_without_the_shuffle_keyword_still_runs_and_the_run_says_so(tmp_path):
+    (tmp_path / "build").mkdir()
+    module = _Module(tmp_path)
+    seen = []
+
+    def old_ctest(tree, label_regex, exclude_label_regex, filter, repeat, jobs, output_junit):
+        seen.append(filter)
+        return 0
+
+    tests = module.tests()
+    tests = ModuleTests(**{**tests.__dict__, "run_ctest": old_ctest})
+    assert run_tests(tests, select_labels(None), name_filter="Rect") == 0
+    assert seen == ["Rect"] and module.console.said[-1][0] == "warn"

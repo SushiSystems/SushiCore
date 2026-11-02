@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import inspect
 import random
 import time
 from pathlib import Path
@@ -77,17 +78,31 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     shuffle_seed = (seed if seed is not None else random.randint(K_SEED_MIN, K_SEED_MAX)) if shuffle else None
     if shuffle_seed is not None:
         console.info(f"Shuffle seed: {shuffle_seed} (repeat with --seed {shuffle_seed})")
+    keywords = dict(label_regex=selection.ctest_include(), exclude_label_regex=selection.ctest_exclude(),
+                    filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit)
+    if shuffle_seed is not None:
+        if _takes_shuffle_seed(module.run_ctest):
+            keywords["shuffle_seed"] = shuffle_seed
+        else:
+            console.warn("This CLI's CTest call cannot take a shuffle seed, so the tests run in their given order.")
     started = time.monotonic()
-    code = module.run_ctest(
-        tree, label_regex=selection.ctest_include(), exclude_label_regex=selection.ctest_exclude(),
-        filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit,
-        shuffle_seed=shuffle_seed)
+    code = module.run_ctest(tree, **keywords)
     scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
     rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
     print_budget(module, junit, scope, time.monotonic() - started, rebuilt)
     if code != 0:
         console.error(f"Tests failed (exit {code}).")
     return code
+
+
+def _takes_shuffle_seed(run_ctest) -> bool:
+    """Returns whether the CTest call of a module accepts ``shuffle_seed``, by name or through ``**keywords``."""
+    try:
+        parameters = inspect.signature(run_ctest).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(parameter.name == "shuffle_seed" or parameter.kind is inspect.Parameter.VAR_KEYWORD
+               for parameter in parameters)
 
 
 def _refuse(module: ModuleTests, message: str) -> _Stop:

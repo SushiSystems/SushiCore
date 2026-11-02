@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import pytest
 import re
 import sys
 import unittest
@@ -33,6 +34,9 @@ K_LABELS = {
     "Test cases added by one `fix` commit": "cases_per_fix",
     "A second test program in one module, added by one commit": "second_program",
 }
+
+
+pytestmark = pytest.mark.medium
 
 
 def read_budget(text: str) -> dict[str, int]:

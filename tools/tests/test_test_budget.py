@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import pytest
 import sys
 import tempfile
 import unittest
@@ -23,6 +24,9 @@ from testing.test_budget import Timing, evaluate, main, read_exemptions, read_ju
 
 K_LIMITS = {"small_test_s": 1, "medium_test_s": 10, "large_test_s": 120, "small_program_s": 10,
             "large_program_s": 600, "default_run_s": 300, "large_tier_s": 1800}
+
+
+pytestmark = pytest.mark.medium
 
 
 def junit(cases: dict[str, float], skipped: tuple[str, ...] = ()) -> str:

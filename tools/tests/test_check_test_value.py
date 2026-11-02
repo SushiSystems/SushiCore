@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import pytest
 import sys
 import tempfile
 import unittest
@@ -23,6 +24,9 @@ from testing.check_test_value import (  # noqa: E402
     rule_no_assertion,
     rule_sleep_in_small,
 )
+
+
+pytestmark = pytest.mark.medium
 
 
 class TestValueTest(unittest.TestCase):
@@ -63,6 +67,20 @@ class TestValueTest(unittest.TestCase):
     def test_reports_an_assertion_on_a_literal(self) -> None:
         self.write("tests/core/test_shape.cpp", "TEST(Small_A, B) {\n  EXPECT_TRUE(true);\n  EXPECT_EQ(x, 1);\n}\n")
         self.assertEqual(self.found(rule_literal_assertion), [("test_shape.cpp", 2)])
+
+    def test_succeed_is_a_literal_assertion(self) -> None:
+        self.write("tests/core/test_shape.cpp", "TEST(Small_A, B) {\n  f();\n  SUCCEED();\n}\n")
+        self.assertEqual(self.found(rule_literal_assertion), [("test_shape.cpp", 3)])
+        self.assertEqual(self.found(rule_no_assertion), [])
+
+    def test_counts_a_compile_time_check_a_no_throw_check_and_a_project_macro_as_assertions(self) -> None:
+        self.write("tests/core/test_shape.cpp",
+                   "TEST(Small_A, B) {\n  static_assert(sizeof(int) == 4);\n}\n\n"
+                   "TEST(Small_A, C) {\n  EXPECT_NO_THROW(f());\n}\n\n"
+                   "TEST(Small_A, D) {\n  SA_EXPECT_OK(f());\n}\n\n"
+                   "TEST(Small_A, E) {\n  MY_ASSERT_THAT(f());\n}\n\n"
+                   "TEST(Small_A, F) {\n  PREEXPECTED(f());\n}\n")
+        self.assertEqual(self.found(rule_no_assertion), [("test_shape.cpp", 17)])
 
     def test_reports_a_sleep_only_in_a_small_case(self) -> None:
         self.write("tests/core/test_wait.cpp",

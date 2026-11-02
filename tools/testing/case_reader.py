@@ -25,11 +25,12 @@ K_CPP_CASE = re.compile(
     r"^[ \t]*(?:TEST|TEST_F|TEST_P|TYPED_TEST|TYPED_TEST_P)[ \t]*\(\s*(\w+)\s*,\s*(\w+)\s*\)\s*\{",
     re.MULTILINE)
 K_CPP_ASSERT = re.compile(
-    r"\b(?:EXPECT|ASSERT)_\w+\s*\(|\b(?:FAIL|SUCCEED|ADD_FAILURE|GTEST_FAIL|GTEST_SUCCEED)\s*\("
+    r"\b(?:[A-Za-z0-9]+_)*(?:EXPECT|ASSERT)\w*\s*\(|\bstatic_assert\s*\("
+    r"|\b(?:FAIL|SUCCEED|ADD_FAILURE|GTEST_FAIL|GTEST_SUCCEED)\s*\("
     r"|\b(?:expect|assert)_\w+\s*(?:<[^;{}()]*>)?\s*\(")
 K_CPP_SLEEP = re.compile(r"\b(?:sleep_for|sleep_until|usleep|Sleep)\s*\(")
 K_CPP_LITERAL = re.compile(
-    r"\b(?:EXPECT|ASSERT)_TRUE\s*\(\s*(?:true|1)\s*\)|\b(?:EXPECT|ASSERT)_FALSE\s*\(\s*(?:false|0)\s*\)"
+    r"\b(?:GTEST_)?SUCCEED\s*\(\s*\)|\b(?:EXPECT|ASSERT)_TRUE\s*\(\s*(?:true|1)\s*\)|\b(?:EXPECT|ASSERT)_FALSE\s*\(\s*(?:false|0)\s*\)"
     r"|\b(?:EXPECT|ASSERT)_EQ\s*\(\s*(-?\d[\w.]*|true|false|\"[^\"]*\")\s*,\s*\1\s*\)")
 K_TS_DESCRIBE = re.compile(r"^describe\s*\(\s*([\"'`])(.*?)\1", re.MULTILINE)
 K_TS_CASE = re.compile(

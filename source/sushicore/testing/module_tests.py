@@ -59,7 +59,8 @@ class ModuleTests:
         build_tree: The built tree CTest runs over.
         run_ctest: Runs CTest over a tree with the module's environment. It takes the tree and the
             keywords ``label_regex``, ``exclude_label_regex``, ``filter``, ``repeat``, ``jobs``,
-            ``output_junit`` and ``shuffle_seed`` (an int, or None for the given order), and returns CTest's exit code.
+            ``output_junit``, and returns CTest's exit code. A call that names ``shuffle_seed`` or takes ``**keywords`` also
+            receives it, an int; any other runs in the given order and the command says so.
         run: Runs a command in a folder and returns its exit code; the budget reader goes through it.
         check_tree: Names a fault of the tree, such as a stale configuration, or returns None.
         panel: The help panel the command is listed under, or None for the default.

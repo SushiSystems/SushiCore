@@ -58,7 +58,8 @@ not build exits `2` and names the ones it does, or `none`.
 
 The shuffle is on unless `--no-shuffle` is given. The seed is `--seed`, or a random one from 1 to 99999 that the
 command prints; it reaches the GoogleTest programs as `GTEST_SHUFFLE` and `GTEST_RANDOM_SEED`, which CTest passes on
-to each test. `--cli` does not shuffle.
+to each test. `--cli` does not shuffle. A module whose CTest call neither names `shuffle_seed` nor takes `**keywords` runs in the
+given order, and the command warns.
 
 The budget line comes from `test_budget.py`, in the testing folder of the shared tools below the module's root, and is printed only when
 the repository carries it. The JUnit file is `junit.xml` in the tree's `Testing` folder; a run that wrote none prints
