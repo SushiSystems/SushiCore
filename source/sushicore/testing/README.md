@@ -14,10 +14,10 @@ without a filter, and one budget line after every CTest run. Its options are in
 | `ModuleTests`, `SanitizedTests`, `TestConsole` | `module_tests.py` | What one module CLI hands the command: its tree, its CTest call, its checkout and its console, and the sanitizer builds and the pytest suite it may add |
 | `run_tests` | `session.py` | Refuse a run that cannot start, build a sanitizer tree when asked, run CTest with a JUnit file and print the budget line, or hand the labels to the CLI's own pytest suite |
 | `register_test_command` | `commands.py` | Add `test` to a Typer application |
-| `label_option`, `filter_option`, `repeat_option`, `jobs_option`, `all_option` | `options.py` | Declare the options of `test`, once, for the command here and for a CLI that keeps a command of its own |
+| `label_option`, `filter_option`, `repeat_option`, `jobs_option`, `all_option`, `shuffle_option`, `seed_option` | `options.py` | Declare the options of `test`, once, for the command here and for a CLI that keeps a command of its own |
 
 The package re-exports `register_test_command`, `ModuleTests`, `SanitizedTests`, `TestLabel`, `LabelSelection`,
-`select_labels`, `run_tests` and the five option functions; the other names are the package's own and no CLI imports them.
+`select_labels`, `run_tests` and the seven option functions; the other names are the package's own and no CLI imports them.
 
 ## What it depends on
 
@@ -27,4 +27,6 @@ supplies its CTest call, so the package imports no build driver.
 The budget reader is `test_budget.py` from the testing folder of the shared tools, found below the module's
 root, and the command runs it with the interpreter that runs the CLI. The JUnit file is
 `junit.xml` in the tree's `Testing` folder. A repository without the reader, such as sushicore, prints no line;
-a run that wrote no file prints a warning in its place.
+a run that wrote no file prints a warning in its place. `ModuleTests.rebuilt` says whether the tree was rebuilt
+just before the run; when it is absent the line ends "(not rebuilt)" and never gates, and a sanitizer run is
+always rebuilt.

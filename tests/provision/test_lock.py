@@ -18,13 +18,18 @@ from sushicore.provision.lock import LockTimeout, ProvisionLock
 pytestmark = pytest.mark.medium
 
 
+def _acquires(path) -> bool:
+    """Returns True when the lock at *path* is taken within half a second; LockTimeout otherwise fails the test."""
+    with ProvisionLock(path, timeout=0.5):
+        return True
+
+
 def test_lock_is_released_on_exit(tmp_path):
     """Check that lock is released on exit."""
     path = tmp_path / ".lock"
     with ProvisionLock(path):
         pass
-    with ProvisionLock(path, timeout=0.5):
-        pass
+    assert _acquires(path)
 
 
 def test_second_holder_times_out_naming_the_pid(tmp_path):
@@ -40,8 +45,7 @@ def test_lock_with_garbage_content_does_not_block(tmp_path):
     """Check that lock with garbage content does not block."""
     path = tmp_path / ".lock"
     path.write_text("garbage not a pid", encoding="utf-8")
-    with ProvisionLock(path, timeout=0.5):
-        pass
+    assert _acquires(path)
 
 
 def test_lock_creates_its_parent_directory(tmp_path):

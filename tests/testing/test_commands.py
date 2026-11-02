@@ -40,8 +40,8 @@ def _app(calls):
 def test_the_command_declares_the_same_options_in_every_cli():
     command = typer.main.get_command(_app([])).commands["test"]
     names = sorted(name for parameter in command.params for name in parameter.opts)
-    assert names == ["--all", "--cli", "--filter", "--jobs", "--label", "--repeat", "--sanitize",
-                     "-f", "-j", "-l", "-r"]
+    assert names == ["--all", "--cli", "--filter", "--jobs", "--label", "--repeat",
+                     "--sanitize", "--seed", "--shuffle", "-f", "-j", "-l", "-r"]
 
 
 def test_the_options_a_module_cannot_serve_are_hidden():

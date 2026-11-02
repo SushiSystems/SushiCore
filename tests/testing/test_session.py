@@ -140,3 +140,43 @@ def test_the_own_suite_runs_for_the_selection_and_skips_ctest(tmp_path):
     assert run_tests(module.tests(cli_tests=lambda selection: asked.append(selection) or 7),
                      select_labels([TestLabel.SMALL]), own_tests=True) == 7
     assert asked[0].sizes == (TestLabel.SMALL,) and module.ctest_calls == []
+
+
+@pytest.mark.parametrize("rebuilt, flagged", [(None, True), (lambda tree: False, True), (lambda tree: True, False)])
+def test_a_run_is_marked_not_rebuilt_unless_the_module_says_it_rebuilt(tmp_path, rebuilt, flagged):
+    (tmp_path / "build").mkdir()
+    module = _Module(tmp_path)
+    module.carry_the_reader()
+    assert run_tests(module.tests(rebuilt=rebuilt), select_labels(None)) == 0
+    assert ("--not-rebuilt" in module.commands[0]) is flagged
+
+
+def test_a_sanitizer_run_is_rebuilt_because_it_builds_its_tree_first(tmp_path):
+    (tmp_path / "asan").mkdir()
+    module = _Module(tmp_path)
+    module.carry_the_reader()
+    sanitized = SanitizedTests(names=("address",), build=lambda name: 0, tree=lambda name: tmp_path / "asan")
+    assert run_tests(module.tests(sanitized=sanitized), select_labels(None), sanitizer="address") == 0
+    assert "--not-rebuilt" not in module.commands[0]
+
+
+def test_a_run_shuffles_with_the_given_seed_and_prints_it(tmp_path):
+    (tmp_path / "build").mkdir()
+    module = _Module(tmp_path)
+    assert run_tests(module.tests(), select_labels(None), seed=4242) == 0
+    assert module.ctest_calls[0]["shuffle_seed"] == 4242
+    assert any("4242" in text for _, text in module.console.said)
+
+
+def test_a_run_without_a_seed_draws_one_in_the_range_gtest_accepts(tmp_path):
+    (tmp_path / "build").mkdir()
+    module = _Module(tmp_path)
+    assert run_tests(module.tests(), select_labels(None)) == 0
+    assert 1 <= module.ctest_calls[0]["shuffle_seed"] <= 99999
+
+
+def test_a_run_that_turns_the_shuffle_off_gives_ctest_no_seed(tmp_path):
+    (tmp_path / "build").mkdir()
+    module = _Module(tmp_path)
+    assert run_tests(module.tests(), select_labels(None), shuffle=False) == 0
+    assert module.ctest_calls[0]["shuffle_seed"] is None

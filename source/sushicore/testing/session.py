@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import random
 import time
 from pathlib import Path
 from typing import Optional
@@ -17,6 +18,10 @@ from .module_tests import ModuleTests
 
 #: The exit code of a request the command could not act on, as for every shared command.
 K_EXIT_UNUSABLE = 2
+
+#: The range of seeds GoogleTest accepts.
+K_SEED_MIN = 1
+K_SEED_MAX = 99999
 
 
 class _Stop(Exception):
@@ -29,7 +34,8 @@ class _Stop(Exception):
 
 def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Optional[str] = None,
               repeat: int = 0, jobs: Optional[int] = None, every_size: bool = False,
-              sanitizer: Optional[str] = None, own_tests: bool = False) -> int:
+              sanitizer: Optional[str] = None, own_tests: bool = False,
+              shuffle: bool = True, seed: Optional[int] = None) -> int:
     """Run the tests *selection* names over the module's tree, then print the budget line.
 
     The budget line is a report: it never changes the exit code, which is CTest's.
@@ -43,6 +49,8 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         every_size: Whether the run was asked for every size, which allows the ``large`` tests unfiltered.
         sanitizer: Builds the tree of this sanitizer first and tests it, instead of the plain tree.
         own_tests: Runs the module's own pytest suite for *selection* instead of CTest.
+        shuffle: Runs the tests of each program in a random order; the seed is printed.
+        seed: The shuffle seed, to repeat an order; a new random one when None.
 
     Returns:
         CTest's exit code, or 2 when the request cannot be acted on.
@@ -66,12 +74,17 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     junit.unlink(missing_ok=True)
     console.info("Labels: " + ", ".join(
         [size.value for size in selection.sizes] + (["quarantined"] if selection.quarantined else [])))
+    shuffle_seed = (seed if seed is not None else random.randint(K_SEED_MIN, K_SEED_MAX)) if shuffle else None
+    if shuffle_seed is not None:
+        console.info(f"Shuffle seed: {shuffle_seed} (repeat with --seed {shuffle_seed})")
     started = time.monotonic()
     code = module.run_ctest(
         tree, label_regex=selection.ctest_include(), exclude_label_regex=selection.ctest_exclude(),
-        filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit)
+        filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit,
+        shuffle_seed=shuffle_seed)
     scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
-    print_budget(module, junit, scope, time.monotonic() - started)
+    rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
+    print_budget(module, junit, scope, time.monotonic() - started, rebuilt)
     if code != 0:
         console.error(f"Tests failed (exit {code}).")
     return code

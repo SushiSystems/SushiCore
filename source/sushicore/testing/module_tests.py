@@ -58,12 +58,15 @@ class ModuleTests:
         console: Returns the console the command prints through.
         build_tree: The built tree CTest runs over.
         run_ctest: Runs CTest over a tree with the module's environment. It takes the tree and the
-            keywords ``label_regex``, ``exclude_label_regex``, ``filter``, ``repeat``, ``jobs`` and
-            ``output_junit``, and returns CTest's exit code.
+            keywords ``label_regex``, ``exclude_label_regex``, ``filter``, ``repeat``, ``jobs``,
+            ``output_junit`` and ``shuffle_seed`` (an int, or None for the given order), and returns CTest's exit code.
         run: Runs a command in a folder and returns its exit code; the budget reader goes through it.
         check_tree: Names a fault of the tree, such as a stale configuration, or returns None.
         panel: The help panel the command is listed under, or None for the default.
         sanitized: The sanitizer builds of the module; None when it has none, which hides ``--sanitize``.
+        rebuilt: Says whether the tree was rebuilt just before this run. None means it is not known, which the
+            command reads as not rebuilt: the budget line says so and never gates. A sanitizer run builds its tree
+            and counts as rebuilt.
         cli_tests: Runs the module's own pytest suite for a selection and returns pytest's exit code; None
             when it has none, which hides ``--cli``.
     """
@@ -78,3 +81,4 @@ class ModuleTests:
     panel: Optional[str] = None
     sanitized: Optional[SanitizedTests] = None
     cli_tests: Optional[Callable[[LabelSelection], int]] = None
+    rebuilt: Optional[Callable[[Path], bool]] = None

@@ -19,7 +19,7 @@ def test_the_same_digest_twice_is_not_a_conflict():
     """Check that two choosers agreeing on a digest is accepted."""
     choices = PackageChoices()
     choices.add("sushiruntime", "a" * 64, "the source tree")
-    choices.add("sushiruntime", "a" * 64, "the sushiblas package")
+    assert choices.add("sushiruntime", "a" * 64, "the sushiblas package") is None
 
 
 def test_two_digests_for_one_library_raise_naming_both_and_both_choosers():
@@ -37,4 +37,4 @@ def test_two_libraries_may_hold_different_digests():
     """Check that digests are per library."""
     choices = PackageChoices()
     choices.add("sushilog", "a" * 64, "x")
-    choices.add("sushiruntime", "b" * 64, "x")
+    assert choices.add("sushiruntime", "b" * 64, "x") is None
