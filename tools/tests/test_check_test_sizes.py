@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -24,7 +23,7 @@ from testing.check_test_sizes import (  # noqa: E402
 )
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class TestSizesTest(unittest.TestCase):
@@ -56,6 +55,10 @@ class TestSizesTest(unittest.TestCase):
     def test_a_python_file_mark_sizes_every_test(self) -> None:
         self.write("tests/test_a.py", "import pytest\n\npytestmark = pytest.mark.small\n\ndef test_x():\n    pass\n")
         self.write("cli/tests/test_b.py", "import pytest\n\npytestmark = [pytest.mark.medium]\n\ndef test_y():\n    pass\n")
+        self.assertEqual(self.found(rule_unsized_python_test), [])
+
+    def test_a_module_size_constant_sizes_every_test(self) -> None:
+        self.write("tests/test_a.py", "K_TEST_SIZE = \"small\"\n\ndef test_x():\n    pass\n")
         self.assertEqual(self.found(rule_unsized_python_test), [])
 
     def test_reaches_every_folder_named_tests_at_any_depth_and_every_dunder_tests_folder(self) -> None:

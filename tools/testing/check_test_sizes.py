@@ -100,17 +100,27 @@ def _sizes_of(decorators: list[ast.expr]) -> set[str]:
     return {name for decorator in decorators for name in _marks(decorator)} & set(K_SIZES)
 
 
+def _file_sizes(module: ast.Module) -> set[str]:
+    """Returns the sizes a module sets for all its tests, with `pytestmark` or with `K_TEST_SIZE`."""
+    sizes: set[str] = set()
+    for node in module.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if not isinstance(target, ast.Name):
+                continue
+            if target.id == "pytestmark":
+                sizes |= _marks(node.value)
+            elif target.id == "K_TEST_SIZE" and isinstance(node.value, ast.Constant):
+                sizes.add(str(node.value.value))
+    return sizes & set(K_SIZES)
+
+
 def rule_unsized_python_test(tree: TestTree) -> Iterator[Issue]:
     """Yields an issue for each pytest test whose file, class or function carries no size."""
     for path in tree.of(lambda path: path.suffix == ".py" and path.name.startswith("test_")):
         module = ast.parse(path.read_text(encoding="utf-8"))
-        file_sizes = {
-            name
-            for node in module.body if isinstance(node, ast.Assign)
-            and any(isinstance(target, ast.Name) and target.id == "pytestmark" for target in node.targets)
-            for name in _marks(node.value)
-        } & set(K_SIZES)
-        if file_sizes:
+        if _file_sizes(module):
             continue
         for node in module.body:
             is_test = (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_")) \

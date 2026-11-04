@@ -205,12 +205,16 @@ def _size_among(names: set[str]) -> str | None:
 
 
 def _file_marks(module: ast.Module) -> set[str]:
-    """Returns the marks a file sets for all its tests with `pytestmark`."""
+    """Returns the marks a file sets for all its tests with `pytestmark` or a `K_TEST_SIZE` string."""
     names: set[str] = set()
     for node in module.body:
-        if isinstance(node, ast.Assign) and any(
-                isinstance(target, ast.Name) and target.id == "pytestmark" for target in node.targets):
+        if not isinstance(node, ast.Assign):
+            continue
+        targets = {target.id for target in node.targets if isinstance(target, ast.Name)}
+        if "pytestmark" in targets:
             names |= _marks(node.value)
+        elif "K_TEST_SIZE" in targets and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            names.add(node.value.value)
     return names
 
 

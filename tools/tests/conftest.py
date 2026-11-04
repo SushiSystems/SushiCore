@@ -21,7 +21,12 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Gives each test the timeout of its size and fails collection of a test that carries none."""
     for item in items:
+        if not any(item.get_closest_marker(size) for size in K_TIMEOUTS_IN_SECONDS):
+            module_size = getattr(getattr(item, "module", None), "K_TEST_SIZE", None)
+            if module_size in K_TIMEOUTS_IN_SECONDS:
+                item.add_marker(getattr(pytest.mark, module_size))
         sizes = [size for size in K_TIMEOUTS_IN_SECONDS if item.get_closest_marker(size)]
         if len(sizes) != 1:
             raise pytest.UsageError(f"{item.nodeid} must carry exactly one size mark, found {sizes}")
-        item.add_marker(pytest.mark.timeout(K_TIMEOUTS_IN_SECONDS[sizes[0]]))
+        if item.config.pluginmanager.hasplugin("timeout"):
+            item.add_marker(pytest.mark.timeout(K_TIMEOUTS_IN_SECONDS[sizes[0]]))
