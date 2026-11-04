@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -20,7 +19,7 @@ from documentation.check_changelog import K_CHECKER, collect  # noqa: E402
 K_GOOD = "- 2026-09-15 — matter: Reserved the neighbour list at tick start (`neighbour_list.hpp`)."
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class ChangelogTest(unittest.TestCase):

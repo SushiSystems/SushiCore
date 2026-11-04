@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextlib
 import io
 import os
-import pytest
 import sys
 import tempfile
 import unittest
@@ -31,7 +30,7 @@ K_FILES = {
 }
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def _root(folder: str) -> Path:

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import pytest
 import re
 import sys
 import tempfile
@@ -54,7 +53,7 @@ K_SOURCE = {
 K_PASSAGE = "The world advances every body by one fixed step and then settles contacts. " * 5
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def _manual(folder: str, files: dict[str, str]) -> Manual:

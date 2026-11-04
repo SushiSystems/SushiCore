@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import pytest
 import sys
 import tempfile
 import unittest
@@ -24,7 +23,7 @@ K_WORK = ["docs/agent/2026_09_22_ROOM_FURNISHINGS"]
 K_FILE = Path("x.md")
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def _drop(text: str, prefixes: list[str] | None = None) -> str:

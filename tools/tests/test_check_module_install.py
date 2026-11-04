@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -23,7 +22,7 @@ K_INSTALL = "# Install\n\n## Standalone\n\nx\n\n## With AcmeHub\n\ny\n"
 K_WORKSPACE_READ = r"\bacmehub (?:install|add)\b|ACME_HOME"
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class ModuleInstallTest(unittest.TestCase):

@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import unittest
 from pathlib import Path
@@ -19,7 +18,7 @@ from commits.history import blob_texts, commits_since  # noqa: E402
 from repo_builder import Repo  # noqa: E402
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class HistoryTest(unittest.TestCase):

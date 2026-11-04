@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import pytest
 import subprocess
 import sys
 import tempfile
@@ -26,7 +25,7 @@ K_QUOTE = "# Page\n\n<!-- quote:begin shipping -->\nA topic ships when its last 
 K_FOLLOW = "# Page\n\n<!-- follows: shipping -->\nThe topic is done after its last phase.\n"
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class ParseTest(unittest.TestCase):

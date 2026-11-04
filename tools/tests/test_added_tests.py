@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import pytest
 import sys
 import unittest
 from pathlib import Path
@@ -25,7 +24,7 @@ K_TWO = "TEST(Small_A, Two) {\n  EXPECT_TRUE(f());\n}\n"
 K_PROGRAM = "project_add_test_program({name} SOURCES test_a.cpp)\n"
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class AddedTestsTest(unittest.TestCase):

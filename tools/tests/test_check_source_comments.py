@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -49,7 +48,7 @@ K_FOREIGN_LICENCE = "Licensed under the Apache License, Version 2.0. See LICENSE
 K_OLD_HOLDER = "Copyright (c) 2026 Acme Corp"
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def setUpModule() -> None:

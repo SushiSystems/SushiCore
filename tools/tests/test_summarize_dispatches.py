@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import unittest
 from pathlib import Path
@@ -26,7 +25,7 @@ K_LINES = (
 )
 
 
-pytestmark = pytest.mark.small
+K_TEST_SIZE = "small"
 
 
 class SummarizeDispatchesTest(unittest.TestCase):

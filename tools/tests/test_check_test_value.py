@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -26,7 +25,7 @@ from testing.check_test_value import (  # noqa: E402
 )
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class TestValueTest(unittest.TestCase):

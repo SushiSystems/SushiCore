@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -32,7 +31,7 @@ K_SETTINGS = SimpleNamespace(
 )
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class LicenceTest(unittest.TestCase):

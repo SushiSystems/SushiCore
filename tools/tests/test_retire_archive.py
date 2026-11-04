@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import pytest
 import subprocess
 import sys
 import tempfile
@@ -27,7 +26,7 @@ K_FILES = {
 }
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def _git(root: Path, *arguments: str) -> str:

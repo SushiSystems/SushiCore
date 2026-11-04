@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextlib
 import io
 import os
-import pytest
 import subprocess
 import sys
 import tempfile
@@ -36,7 +35,7 @@ K_TABLE = "| ID | Pri |\n| --- | --- |\n| AB-1 | P1 |\n| AB-22 | P2 |\n"
 K_KNOWN = frozenset({"AB-1", "AB-22"})
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 class TrailerProblemsTest(unittest.TestCase):

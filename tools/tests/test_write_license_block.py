@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import pytest
 import subprocess
 from datetime import date
 import sys
@@ -49,7 +48,7 @@ K_HEADER = Header(K_PROJECT)
 K_EDGE = "/" + "*" * 74 + "/"
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def setUpModule() -> None:

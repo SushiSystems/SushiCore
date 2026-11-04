@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -75,7 +74,7 @@ K_FILES = {
 }
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def _repository(folder: str, files: dict[str, str], is_required: bool = False, ceiling: int = 0, untracked: bool = False) -> Repository:

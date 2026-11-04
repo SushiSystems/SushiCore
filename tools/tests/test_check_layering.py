@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import pytest
 import sys
 import tempfile
 import unittest
@@ -32,7 +31,7 @@ K_DOMAINS = Layout(("core", "vision", "language"), domain_tiers=("vision", "lang
 K_BUILD = Layout(("foundation",), module_function="project_add_module")
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def _write(root: Path, relative: str, text: str = "\n") -> None:
