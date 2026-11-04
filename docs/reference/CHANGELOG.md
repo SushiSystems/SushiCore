@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-05 — tools: Took the shared checkers of 2026-11-05 with a baseline of the findings they meet, which RW-64 clears.
 ## v0.10.11 — 2026-11-02
 
 - 2026-11-02 — commands: Shuffle the test order by default in the shared test command, print the seed and take `--seed` and `--no-shuffle` (`sushicore.testing`).
