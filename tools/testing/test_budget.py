@@ -40,10 +40,11 @@ K_EXIT_USAGE = 2
 
 @dataclass(frozen=True, slots=True)
 class Timing:
-    """Holds the time one test took in one run."""
+    """Holds the time one test took in one run, and its size when the JUnit file gives one as a property."""
 
     name: str
     seconds: float
+    size: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,8 +69,26 @@ def read_junit(path: Path) -> list[Timing]:
     for case in ElementTree.fromstring(data).iter("testcase"):
         if case.find("skipped") is not None or case.get("status") == "notrun":
             continue
-        timings.append(Timing(case.get("name", ""), float(case.get("time", "0") or 0)))
+        timings.append(Timing(case.get("name", ""), float(case.get("time", "0") or 0), _property_size(case)))
     return timings
+
+
+def _property_size(case: ElementTree.Element) -> str | None:
+    """Returns the `size` property of a JUnit test case, such as pytest writes it, when it names a size."""
+    for prop in case.iter("property"):
+        if prop.get("name") == "size" and prop.get("value") in K_SIZES:
+            return prop.get("value")
+    return None
+
+
+def _case_counts(timings: list[Timing]) -> dict[str, int]:
+    """Returns the number of cases of each size; a case is sized by its name's prefix, else by its property, else not counted."""
+    counts = dict.fromkeys(K_SIZES, 0)
+    for timing in timings:
+        size = suite_and_size(timing.name)[1] or timing.size
+        if size in counts:
+            counts[size] += 1
+    return counts
 
 
 def suite_and_size(name: str) -> tuple[str | None, str | None]:
@@ -125,7 +144,8 @@ def evaluate(timings: list[Timing], *, programs: dict[str, str], exemptions: dic
     findings += _program_findings(totals, programs, factor)
     findings += _whole_run_findings(scope, sized, wall, factor)
     findings += _exemption_findings(exemptions, open_backlog)
-    return Report(_line(totals, sized, scope, wall, added, base, rebuilt, exempt_seconds, len(exemptions)),
+    return Report(_line(totals, sized, scope, wall, added, base, rebuilt, exempt_seconds, len(exemptions),
+                        _case_counts(timings)),
                   tuple(findings), tuple(sorted(over)))
 
 
@@ -165,8 +185,9 @@ def _exemption_findings(exemptions: dict[str, str], open_backlog: frozenset[str]
 
 
 def _line(totals: dict[tuple[str, str], float], sized: dict[str, float], scope: str, wall: float | None,
-          added: int | None, base: str, rebuilt: bool, exempt_seconds: float, exempt_count: int) -> str:
-    """Returns the one-line summary of a run."""
+          added: int | None, base: str, rebuilt: bool, exempt_seconds: float, exempt_count: int,
+          cases: dict[str, int]) -> str:
+    """Returns the one-line summary of a run, ending with the count of cases of each size."""
     parts = []
     small = {program: seconds for (size, program), seconds in totals.items() if size == "small"}
     if small:
@@ -183,7 +204,9 @@ def _line(totals: dict[tuple[str, str], float], sized: dict[str, float], scope: 
         parts.append(f"{exempt_count} exempt, {exempt_seconds:.0f} s left out")
     if added is not None:
         parts.append(f"{added} cases added since {base}")
-    return "budget: " + ", ".join(parts) + ("" if rebuilt else " (not rebuilt)")
+    marker = "budget" if rebuilt else "budget (not rebuilt)"
+    counted = f"cases: {cases['small']} small, {cases['medium']} medium, {cases['large']} large"
+    return f"{marker}: " + ", ".join(parts + [counted])
 
 
 def _arguments(argv: list[str]) -> argparse.Namespace:

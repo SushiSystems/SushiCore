@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import pytest
 import sys
 import tempfile
 import unittest
@@ -26,7 +25,7 @@ K_LIMITS = {"small_test_s": 1, "medium_test_s": 10, "large_test_s": 120, "small_
             "large_program_s": 600, "default_run_s": 300, "large_tier_s": 1800}
 
 
-pytestmark = pytest.mark.medium
+K_TEST_SIZE = "medium"
 
 
 def junit(cases: dict[str, float], skipped: tuple[str, ...] = ()) -> str:
@@ -86,7 +85,8 @@ class EvaluateTest(unittest.TestCase):
         report = run({"Small_A.One": 0.2, "Medium_B.Two": 3.0}, programs={"Small_A": "core", "Medium_B": "io"},
                      scope="default")
         self.assertEqual(report.findings, ())
-        self.assertEqual(report.line, "budget: small 0.2 s of 10 s (core), default 3 s sum of 300 s")
+        self.assertEqual(report.line,
+                         "budget: small 0.2 s of 10 s (core), default 3 s sum of 300 s, cases: 1 small, 1 medium, 0 large")
 
     def test_a_test_over_its_limit_is_named_for_a_rerun_and_judged_by_the_rerun(self) -> None:
         first = run({"Small_A.Slow": 1.5})
@@ -128,7 +128,8 @@ class EvaluateTest(unittest.TestCase):
 
     def test_a_run_that_did_not_rebuild_says_so_and_a_count_is_printed(self) -> None:
         report = run({"Small_A.One": 0.1}, rebuilt=False, added=7, base="origin/main")
-        self.assertTrue(report.line.endswith("7 cases added since origin/main (not rebuilt)"))
+        self.assertTrue(report.line.startswith("budget (not rebuilt): "))
+        self.assertTrue(report.line.endswith("7 cases added since origin/main, cases: 1 small, 0 medium, 0 large"))
 
 
 class MainTest(unittest.TestCase):
@@ -160,6 +161,21 @@ class MainTest(unittest.TestCase):
     def test_gate_exits_one_on_a_finding_and_a_run_that_did_not_rebuild_never_gates(self) -> None:
         self.assertEqual(self.call("--gate")[0], 1)
         self.assertEqual(self.call("--gate", "--not-rebuilt")[0], 0)
+
+    def test_the_line_ends_with_the_count_of_cases_of_each_size_from_the_name_or_the_property(self) -> None:
+        self.path.write_text(
+            '<?xml version="1.0"?><testsuite name="(empty)">'
+            '<testcase name="Small_A.One" classname="Small_A.One" time="0.1" status="run"/>'
+            '<testcase name="Large_B.Two" classname="Large_B.Two" time="1" status="run"/>'
+            '<testcase name="Benchmark_C.Three" classname="Benchmark_C.Three" time="1" status="run"/>'
+            '<testcase name="test_pytest_case" classname="tests.test_x" time="0.2" status="run">'
+            '<properties><property name="size" value="large"/></properties></testcase>'
+            '<testcase name="test_unsized" classname="tests.test_x" time="0.2" status="run"/>'
+            '</testsuite>',
+            encoding="utf-8")
+        code, lines = self.call()
+        self.assertEqual(code, 0)
+        self.assertTrue(lines[0].endswith(", cases: 1 small, 0 medium, 2 large"))
 
     def test_reads_the_program_map(self) -> None:
         programs = Path(self._folder.name) / "map.json"
