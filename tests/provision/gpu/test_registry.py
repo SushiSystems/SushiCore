@@ -18,28 +18,16 @@ from sushicore.provision.gpu.backend import (
     PlatformLocator,
     ToolkitInstall,
 )
+from sushicore.provision.gpu.backend_memory import InMemoryToolkitLocator
 from sushicore.provision.gpu.registry import Registry
 
 
 pytestmark = pytest.mark.small
 
 
-class _FakeLocator:
-    """A locator that reports a fixed install and records provision calls."""
-
-    def __init__(self, root: str) -> None:
-        """Store the install root this fake locator always reports."""
-        self._root = root
-        self.provisioned = False
-
-    def locate(self, cfg):
-        """Return a fixed ToolkitInstall rooted at the stored path."""
-        return ToolkitInstall(root=pathlib.Path(self._root), version="1.0")
-
-    def provision(self, cfg, dry_run: bool) -> bool:
-        """Record that provisioning was requested and report success."""
-        self.provisioned = True
-        return True
+def _locator(root: str) -> InMemoryToolkitLocator:
+    """Return a locator that reports an install rooted at *root*."""
+    return InMemoryToolkitLocator(ToolkitInstall(root=pathlib.Path(root), version="1.0"))
 
 
 def _fake_spec(vendor: str = "fake", probe_vendor: str = "fakevendor",
@@ -48,7 +36,7 @@ def _fake_spec(vendor: str = "fake", probe_vendor: str = "fakevendor",
     return GpuBackendSpec(
         vendor=vendor,
         probe_vendor=probe_vendor,
-        locator=locator or _FakeLocator("/opt/fake"),
+        locator=locator or _locator("/opt/fake"),
         adapter_option="UR_BUILD_ADAPTER_FAKE",
         adapter_definitions=lambda install: {"FAKE_ROOT": str(install.root)},
         adapter_target="ur_adapter_fake",
@@ -88,7 +76,7 @@ def test_a_duplicate_probe_vendor_is_refused():
 
 def test_platform_locator_dispatches_to_the_matching_platform():
     """Check that platform locator dispatches to the matching platform."""
-    linux_locator = _FakeLocator("/opt/fake-linux")
+    linux_locator = _locator("/opt/fake-linux")
     dispatcher = PlatformLocator("fake", {"linux": linux_locator})
     cfg = SimpleNamespace(platform="linux")
 
@@ -96,12 +84,12 @@ def test_platform_locator_dispatches_to_the_matching_platform():
     assert install == ToolkitInstall(root=pathlib.Path("/opt/fake-linux"), version="1.0")
 
     assert dispatcher.provision(cfg, dry_run=False) is True
-    assert linux_locator.provisioned is True
+    assert len(linux_locator.provisioned_with) == 1
 
 
 def test_platform_locator_falls_back_to_not_provided(recording_console):
     """Check that platform locator falls back to not provided."""
-    dispatcher = PlatformLocator("fake", {"linux": _FakeLocator("/opt/fake-linux")})
+    dispatcher = PlatformLocator("fake", {"linux": _locator("/opt/fake-linux")})
     cfg = SimpleNamespace(platform="windows")
 
     assert dispatcher.locate(cfg) is None
@@ -118,7 +106,7 @@ def test_not_provided_always_locates_nothing_and_reports_success(recording_conso
 
 def test_platform_locator_works_with_a_plain_config_stand_in():
     """Check that platform locator works with a plain config stand in."""
-    dispatcher = PlatformLocator("fake", {"linux": _FakeLocator("/opt/fake-linux")})
+    dispatcher = PlatformLocator("fake", {"linux": _locator("/opt/fake-linux")})
     cfg = SimpleNamespace(platform="linux")
 
     install = dispatcher.locate(cfg)

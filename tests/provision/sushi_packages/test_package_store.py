@@ -14,7 +14,9 @@ import pytest
 from sushicore.provision.sushi_packages.package_error import PackageError
 from sushicore.provision.sushi_packages.package_store import PackageStore
 
-from .package_fakes import Clock, install, make_key
+from sushicore.provision.sushi_packages.clock_memory import ManualClock
+
+from .package_fakes import install, make_key
 
 pytestmark = pytest.mark.medium
 
@@ -22,7 +24,7 @@ pytestmark = pytest.mark.medium
 @pytest.fixture
 def clock():
     """Return a clock that tests move by hand."""
-    return Clock()
+    return ManualClock()
 
 
 @pytest.fixture
@@ -38,7 +40,7 @@ def _install_three(store, clock, name="sushiruntime"):
         key = make_key(name, source=f"s{index}")
         install(store, key)
         keys.append(key)
-        clock.now += 60
+        clock.advance(60)
     return keys
 
 

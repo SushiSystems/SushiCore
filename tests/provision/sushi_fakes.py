@@ -3,13 +3,13 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""A fake git and fragment writers shared by the tests of pinned Sushi libraries."""
+"""The pinned commits and the fragment writer shared by the tests of pinned Sushi libraries."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from sushicore.provision.git_client import IGitClient
+from sushicore.provision.git_client_memory import InMemoryGitClient
 
 #: The commit the fixtures pin.
 K_PINNED = "0123456789abcdef0123456789abcdef01234567"
@@ -18,29 +18,14 @@ K_PINNED = "0123456789abcdef0123456789abcdef01234567"
 K_OTHER = "fedcba9876543210fedcba9876543210fedcba98"
 
 
-class FakeGit(IGitClient):
-    """Records clones; a clone creates the folder and leaves HEAD at *commit*."""
+def _make_folder(destination: Path) -> None:
+    """Create the folder a clone lands in, as a real clone does."""
+    destination.mkdir(parents=True)
 
-    def __init__(self, commit: str = K_PINNED, clones: bool = True,
-                 heads: dict[Path, str] | None = None) -> None:
-        """Hold the commit a clone lands on, whether clones succeed, and fixed HEADs."""
-        self.commit = commit
-        self.clones = clones
-        self.heads = {path.resolve(): head for path, head in (heads or {}).items()}
-        self.calls: list[tuple[str, str, Path]] = []
 
-    def clone_tag(self, url: str, tag: str, destination: Path, dry_run: bool) -> bool:
-        """Record the clone and create *destination* when clones succeed."""
-        self.calls.append((url, tag, destination))
-        if not self.clones:
-            return False
-        destination.mkdir(parents=True)
-        self.heads[destination.resolve()] = self.commit
-        return True
-
-    def head(self, checkout: Path) -> str:
-        """Return the HEAD recorded for *checkout*, else ''."""
-        return self.heads.get(checkout.resolve(), "")
+def pinned_git(commit: str = K_PINNED, **changes) -> InMemoryGitClient:
+    """Return an in-memory git whose clones land on *commit* and leave a folder on disk."""
+    return InMemoryGitClient(commit=commit, materialize=_make_folder, **changes)
 
 
 def write_fragment(checkout: Path, pins: dict[str, str]) -> Path:

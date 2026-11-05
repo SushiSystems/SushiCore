@@ -27,7 +27,7 @@ and has no application of its own.
 | `icons` | `IconSet`, the prefix printed before a line, and the presets `text`, `emoji`, `minimal` and `none` |
 | `renderer` | The `Renderer` protocol and its three backends: `RichRenderer`, `PlainRenderer`, `JsonRenderer` |
 | `events` | The event kinds `JsonRenderer` writes and `event_line`, their one serialisation |
-| `console` | `Console`, the facade a CLI calls: `info`, `success`, `warn`, `error`, `command`, `header`, `fail_panel`, `table`, `progress`, `result`, `prompt` |
+| `console`, `console_memory` | `Console`, the facade a CLI calls: `info`, `success`, `warn`, `error`, `command`, `header`, `fail_panel`, `table`, `progress`, `result`, `prompt`; `RecordingConsole`, which records every call in order |
 | `cli_console` | `LazyConsole`, which builds the console on first use so `--help` runs outside a checkout |
 | `markup` | `escape_unknown_tags`, which keeps a bracket as text unless it names a style |
 | `terminal_background` | `is_dark_background`, decided from the `background` setting and `COLORFGBG` |
@@ -45,7 +45,7 @@ files a CLI hands it.
 
 | Module | Owns |
 | --- | --- |
-| `proc` | `Runner`, which spawns a child process for a CLI |
+| `proc`, `proc_memory` | `CommandRunner`, the surface callers run commands through; `Runner`, which spawns a child process for a CLI; `RecordingRunner`, which records the commands and answers scripted results |
 | `build_env` | The environment a build runs under, with the vcvars snapshot on Windows |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
 | `cmake_driver` | `CMakeDriver`, the cmake and ctest command lines |
@@ -63,7 +63,7 @@ files a CLI hands it.
 | --- | --- |
 | `root_options` | `--version` and `--describe` |
 | `describe` | The command catalogue `--describe` prints as JSON |
-| `diag`, `diag_commands` | `Diagnostics` and the `config` and `env` commands registered from it |
+| `diag`, `diag_memory`, `diag_commands` | `Diagnostics` and the `config` and `env` commands registered from it; `InMemoryConfigModule`, the config module it reads in a test |
 | `aliases` | `AliasTable`: old spellings that still run, hidden, and name their replacement |
 | `entry` | `run`, the entry point that turns a `SushiCoreError` into one line and exit code 1 |
 | [`provision`](../../source/sushicore/provision/README.md) | The dependency root, the registry, the doctor and the commands `setup`, `doctor`, `link`, `unlink` |

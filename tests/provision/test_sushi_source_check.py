@@ -18,7 +18,7 @@ from sushicore.provision.sushi_source_check import (
 )
 from sushicore.provision.sushi_sources import fetched_dir
 
-from .sushi_fakes import K_OTHER, K_PINNED, FakeGit, write_fragment
+from .sushi_fakes import K_OTHER, K_PINNED, pinned_git, write_fragment
 
 pytestmark = pytest.mark.medium
 
@@ -36,14 +36,14 @@ def root(tmp_path, provision_home, monkeypatch):
 
 def test_a_missing_library_fails_with_the_fix(root):
     """Check that no checkout fails and names setup as the fix."""
-    result = sushi_source_check(root, K_PIN, FakeGit(), "sr setup").run()
+    result = sushi_source_check(root, K_PIN, pinned_git(), "sr setup").run()
     assert result.state is State.FAIL and result.fix == "sr setup"
 
 
 def test_a_fetched_library_reports_fetched(root):
     """Check that the fetched copy is named as the source."""
     fetched_dir("sushilog", "v1.0.0").mkdir(parents=True)
-    result = sushi_source_check(root, K_PIN, FakeGit(), "sr setup").run()
+    result = sushi_source_check(root, K_PIN, pinned_git(), "sr setup").run()
     assert result.state is State.OK and result.detail.startswith("fetched")
 
 
@@ -51,7 +51,7 @@ def test_a_sibling_at_the_pin_reports_sibling(root):
     """Check that a sibling at the pinned commit passes."""
     sibling = root.parent / "sushilog"
     sibling.mkdir()
-    git = FakeGit(heads={sibling: K_PINNED})
+    git = pinned_git(heads={sibling: K_PINNED})
     result = sushi_source_check(root, K_PIN, git, "sr setup").run()
     assert result.state is State.OK and result.detail.startswith("sibling")
 
@@ -60,7 +60,7 @@ def test_a_sibling_off_the_pin_warns(root):
     """Check that a sibling at another commit warns and names both commits."""
     sibling = root.parent / "sushilog"
     sibling.mkdir()
-    git = FakeGit(heads={sibling: K_OTHER})
+    git = pinned_git(heads={sibling: K_OTHER})
     result = sushi_source_check(root, K_PIN, git, "sr setup").run()
     assert result.state is State.WARN
     assert K_OTHER in result.detail and K_PINNED in result.detail

@@ -14,7 +14,7 @@ from sushicore.provision import sushi_setup
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import InstallContext
 
-from .sushi_fakes import FakeGit, write_fragment
+from .sushi_fakes import pinned_git, write_fragment
 
 pytestmark = pytest.mark.medium
 
@@ -43,7 +43,7 @@ def test_prepare_fetches_a_chain_that_agrees(tmp_path, provision_home, recording
     root = tmp_path / "ws" / "sushiai"
     write_fragment(root, {"sushilog": "v1.0.0"})
     pins = pins_at(root / "cli/sushistack.deps.toml")
-    git = FakeGit()
+    git = pinned_git()
 
     assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
     assert len(git.calls) == 1
@@ -56,7 +56,7 @@ def test_prepare_stops_on_a_conflict_before_cloning(tmp_path, provision_home, re
     write_fragment(root, {"sushiruntime": "v3.0.0", "sushilog": "v1.0.0"})
     write_fragment(ws / "sushiruntime", {"sushilog": "v1.1.0"})
     pins = pins_at(root / "cli/sushistack.deps.toml")
-    git = FakeGit()
+    git = pinned_git()
 
     assert not sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
     assert git.calls == []
@@ -66,5 +66,5 @@ def test_prepare_stops_on_a_conflict_before_cloning(tmp_path, provision_home, re
 
 def test_prepare_has_nothing_to_do_without_pins(tmp_path, provision_home):
     """Check that a module with no pins takes no lock and succeeds."""
-    assert sushi_setup.prepare(_ctx(), tmp_path, [], FakeGit(), timeout=1.0)
+    assert sushi_setup.prepare(_ctx(), tmp_path, [], pinned_git(), timeout=1.0)
     assert not (provision_home / ".lock").exists()

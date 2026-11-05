@@ -3,13 +3,14 @@
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
 # Commercial use requires a licence from Sushi Systems.
-"""Builders shared by the package tests: keys, installed packages and a clock."""
+"""Builders shared by the package tests: keys, installed packages and a rig."""
 
 from __future__ import annotations
 
 import contextlib
 from pathlib import Path
 
+from sushicore.provision.sushi_packages.clock_memory import ManualClock
 from sushicore.provision.sushi_packages.closure_walk import ClosureWalk
 from sushicore.provision.sushi_packages.configure_inputs import ConfigureInputs
 from sushicore.provision.sushi_packages.forced_packages import ForcedPackages
@@ -28,18 +29,6 @@ from sushicore.provision.sushi_packages.package_store import PackageStore
 
 #: The spelling of each library's package, as its config folder carries it.
 K_SPELLING = {"sushilog": "SushiLog", "sushiruntime": "SushiRuntime", "sushiblas": "SushiBLAS"}
-
-
-class Clock:
-    """A clock that moves only when told to."""
-
-    def __init__(self, now: float = 1000.0) -> None:
-        """Start at *now* seconds."""
-        self.now = now
-
-    def __call__(self) -> float:
-        """Return the current time."""
-        return self.now
 
 
 def make_key(name: str = "sushiruntime", source: str = "s1", **changes) -> PackageKey:
@@ -123,7 +112,7 @@ class Rig:
         self.builder = builder or FakeBuilder()
         self.lines: list[str] = []
         self.warnings: list[str] = []
-        self.store = PackageStore(self.root, keep=3, clock=Clock(), sleep=lambda _s: None)
+        self.store = PackageStore(self.root, keep=3, clock=ManualClock(), sleep=lambda _s: None)
         self.resolver = self._resolver(env or {})
 
     def _resolver(self, env) -> PackageResolver:

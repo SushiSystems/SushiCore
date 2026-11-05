@@ -16,6 +16,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `migrate.py` | Moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it |
 | `user_environment.py` | Reads and writes the user's persistent environment variables: the registry on Windows, one block of `~/.profile` elsewhere |
 | `fragments.py` | Merges dependency fragments from a caller-supplied source list |
+| `fragments_memory.py` | `InMemoryDependencySource`, an `IDependencySource` that serves a list given in memory |
 | `closure.py` | Follows a fragment's `depends_on` to each module's checkout |
 | `selection.py` | Decides which toolchain components a run installs |
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
@@ -24,7 +25,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
-| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers |
+| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers; `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
 | `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep` |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |
@@ -34,6 +35,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
 | `pin_chain.py` | Walks the `[sushisystems.<name>]` pins of a chain and finds a library pinned at two versions |
 | `git_client.py` | Clones one tag of a repository and reads a checkout's HEAD |
+| `git_client_memory.py` | `InMemoryGitClient`, an `IGitClient` that clones from a table of tags and runs no git |
 | `sushi_fetch.py` | `FetchSushiSourcesStep`, which clones a pinned library and checks its commit |
 | `sushi_source_check.py` | The doctor rows `sushi <name>` and `sushi pins` |
 | `sushi_setup.py` | The locate fallback, and the pin check, fetch and recheck `setup` runs before the closure |
@@ -145,6 +147,7 @@ its `lines()`, `definitions()` and `run_dirs(platform)`. The design and its deci
 | `source_state.py`, `configure_inputs.py`, `toolchain_identity.py`, `key_factory.py`, `package_key.py` | The key: source content, configure inputs, compiler identity, build type, options, recipe and the packages below |
 | `build_tree.py`, `compiler_check.py`, `package_environment.py`, `package_builder.py` | The build in `build/pkg-<id>` through `<cli> build` and `<cli> package`, its environment and its compiler check |
 | `package.py`, `package_store.py`, `package_locks.py`, `stable_link.py`, `link_publisher.py` | The store under `<home>/packages`, its three locks and the consumer's link |
+| `clock.py`, `clock_memory.py` | The `Clock` the store and the resolver read, and `ManualClock`, which moves only when told to |
 | `consumer_build.py` | What a consumer CLI takes from a `PackageSet`: `configure_arguments`, and `RunDirs`, which keeps the run-time folders in the build tree for the commands that run it |
 | `forced_packages.py`, `package_choices.py`, `package_resolver.py`, `package_set.py`, `default_resolver.py` | Packages handed to a nested build, the one-key-per-library check, the resolver, its result and its assembly |
 

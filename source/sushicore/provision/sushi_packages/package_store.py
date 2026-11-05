@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 from typing import Callable, Collection
 
+from .clock import Clock
 from .package import K_PREFIX, Package
 from .package_error import PackageError
 from .package_key import PackageKey
@@ -44,7 +45,7 @@ class PackageStore:
     """Packages under ``<root>/<name>/<digest>/``, each complete only once its stamp exists."""
 
     def __init__(self, root: Path, keep: int = K_DEFAULT_KEEP,
-                 clock: Callable[[], float] = time.time,
+                 clock: Clock = time.time,
                  sleep: Callable[[float], None] = time.sleep,
                  warn: Callable[[str], None] = lambda _text: None) -> None:
         """Bind the store to *root*.

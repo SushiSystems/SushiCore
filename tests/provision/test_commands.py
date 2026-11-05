@@ -18,7 +18,7 @@ from sushicore.profile import ModuleProfile
 from sushicore.provision import module_checks, module_plan, probe, setup_command
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.git_client import IGitClient
+from sushicore.provision.git_client_memory import InMemoryGitClient
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.pipeline import InstallPipeline
 from sushicore.provision.packages import LinuxPackageManager
@@ -31,16 +31,9 @@ pytestmark = pytest.mark.medium
 K_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
-class _OfflineGit(IGitClient):
-    """A git that cannot reach the network: every clone fails, every HEAD is the pin."""
-
-    def clone_tag(self, url, tag, destination, dry_run):
-        """Report the clone as failed."""
-        return False
-
-    def head(self, checkout):
-        """Report the pinned commit."""
-        return K_COMMIT
+def _offline_git() -> InMemoryGitClient:
+    """Return a git that cannot reach the network: every clone fails, every HEAD is the pin."""
+    return InMemoryGitClient(clones=False, default_head=K_COMMIT)
 
 
 class _FakeAptManager(LinuxPackageManager):
@@ -99,7 +92,7 @@ def _app(tmp_path, recording_console, **overrides):
     def _root():
         """Test app."""
 
-    overrides.setdefault("git", _OfflineGit)
+    overrides.setdefault("git", _offline_git)
     register_provision_commands(app, ModuleProvision(
         profile=profile, project_root=lambda: tmp_path / "dsp",
         load_config=lambda: ProvisionSettings(platform="linux"),
@@ -356,8 +349,12 @@ def test_setup_fails_and_installs_nothing_when_a_pinned_module_cannot_be_fetched
     assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
 
 
-class _FetchingGit(_OfflineGit):
+class _FetchingGit(InMemoryGitClient):
     """A git whose clone writes a checkout holding a fragment that declares gtest."""
+
+    def __init__(self) -> None:
+        """Report the pin as the HEAD of every checkout."""
+        super().__init__(default_head=K_COMMIT)
 
     def clone_tag(self, url, tag, destination, dry_run):
         """Create the checkout and report success."""
@@ -553,22 +550,13 @@ def test_setup_stops_before_fetching_when_two_pins_conflict(
     runtime.parent.mkdir(parents=True)
     runtime.write_text(f'[module]\ndepends_on = ["sushilog"]\n[sushisystems.sushilog]\n'
                        f'version = "v1.1.0"\ncommit = "{K_COMMIT}"\n', encoding="utf-8")
-    clones = []
-
-    class _Recording(_OfflineGit):
-        """Records every clone."""
-
-        def clone_tag(self, url, tag, destination, dry_run):
-            """Record the clone and fail it."""
-            clones.append(url)
-            return False
-
-    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=_Recording)
+    git = _offline_git()
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git)
 
     result = CliRunner().invoke(app, ["setup"])
 
     assert result.exit_code == 1
-    assert clones == []
+    assert git.calls == []
     errors = [args[0] for name, args in recording_console.calls if name == "error"]
     assert any("sushilog" in e and "sushidsp" in e and "sushiruntime" in e
                and "v1.0.0" in e and "v1.1.0" in e for e in errors)
@@ -580,14 +568,6 @@ def _unpinned_fragment(root, depends_on):
     names = ", ".join(f'"{name}"' for name in depends_on)
     fragment.write_text(f"[module]\ndepends_on = [{names}]\n"
                         + fragment.read_text(encoding="utf-8"), encoding="utf-8")
-
-
-class _NoCloneGit(_OfflineGit):
-    """Fails the test on any clone."""
-
-    def clone_tag(self, url, tag, destination, dry_run):
-        """Refuse to clone."""
-        raise AssertionError(f"an unpinned module was cloned: {url}")
 
 
 def test_setup_exits_two_and_installs_nothing_when_an_unpinned_module_is_missing(
@@ -605,13 +585,15 @@ def test_setup_exits_two_and_installs_nothing_when_an_unpinned_module_is_missing
 
     _quiet_setup(monkeypatch, provision_home, managers=[_Recording()])
     _unpinned_fragment(tmp_path / "dsp", ["sushiruntime"])
-    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=_NoCloneGit)
+    git = _offline_git()
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git)
 
     result = CliRunner().invoke(app, ["setup"])
 
     assert result.exit_code == 2
     errors = [args[0] for name, args in recording_console.calls if name == "error"]
     assert any("sushiruntime" in e and "SUSHIRUNTIME_DIR" in e for e in errors)
+    assert git.calls == []
     assert installs == []
     assert not (provision_home / ".lock").exists()
     assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()

@@ -136,3 +136,25 @@ stays a traceback.
 `proc.Runner` to spawn a child, `cmake_driver.CMakeDriver` for the cmake and ctest command
 lines, `build_env` for the environment they run under and `discovery.ExecutableIndex` to list
 what a build produced.
+
+## Testing a CLI
+
+Each port a CLI's code calls has an adapter that ships beside it and holds everything in memory,
+so a CLI test imports it instead of writing a stand-in:
+
+| Port | Adapter |
+| --- | --- |
+| `proc.CommandRunner` | `proc_memory.RecordingRunner` records each command's argv, folder and environment in order and answers the exit codes and output lines scripted in advance |
+| The console (`proc.ConsoleLike`, `testing.module_tests.TestConsole`) | `console_memory.RecordingConsole` records every call as a kind and its arguments, `.texts(kind)` lists the text of one kind |
+| `diag.ConfigModule` | `diag_memory.InMemoryConfigModule` |
+| `provision.git_client.IGitClient` | `provision.git_client_memory.InMemoryGitClient` |
+| `provision.fragments.IDependencySource` | `provision.fragments_memory.InMemoryDependencySource` |
+| `provision.gpu.backend.ToolkitLocator` | `provision.gpu.backend_memory.InMemoryToolkitLocator` |
+| `provision.gpu.windows_installer.MachineEnvironment` | `provision.gpu.windows_installer_memory.InMemoryMachineEnvironment` |
+| `provision.sushi_packages.clock.Clock` | `provision.sushi_packages.clock_memory.ManualClock` |
+
+None of them starts a process or writes to a terminal, a file or the registry, or reads the real
+clock. The one exception to "writes no file" is a hook: `InMemoryGitClient` calls the `materialize`
+function it was given for each clone, and a test that needs a checkout on disk makes it there.
+Each keeps the promises of its port, which the `<Port>Contract` test class in the port's own test
+file checks against the adapter and against the real implementation.

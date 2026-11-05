@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from sushicore import provision
+from sushicore.console_memory import RecordingConsole
 
 from sushicore.provision.config import ProvisionSettings
 
@@ -25,66 +26,10 @@ pytestmark = pytest.mark.medium
 
 
 
-class _StatusContext:
-    """A no-op stand-in for the Rich ``console.status`` context manager."""
-
-    def __enter__(self):
-        """Return this context unchanged."""
-        return self
-
-    def __exit__(self, *exc_info):
-        """Swallow nothing; let any exception propagate."""
-        return False
-
-
-
-class _InnerConsole:
-    """Stands in for ``Console.console``, the raw Rich console."""
-
-    def print(self, *args, **kwargs):
-        """Discard the call."""
-
-    def status(self, *args, **kwargs):
-        """Return a no-op status context."""
-        return _StatusContext()
-
-
-
-class FakeConsole:
-    """Records every semantic call; answers ``is_machine``/``prompt`` on demand."""
-
-    def __init__(self, machine: bool = False, answer: str = "n") -> None:
-        """Start with no recorded calls, in interactive mode by default."""
-        self.calls: list[tuple[str, tuple]] = []
-        self.console = _InnerConsole()
-        self._machine = machine
-        self._answer = answer
-
-    def __getattr__(self, name: str):
-        """Return a recorder for any semantic console method name."""
-        def record(*args, **_kwargs):
-            """Check that record."""
-            self.calls.append((name, args))
-        return record
-
-    def is_machine(self) -> bool:
-        """Report the fixed machine-mode flag this fake was built with."""
-        return self._machine
-
-    def prompt(self, _message: str, _default: str) -> str:
-        """Return the fixed answer this fake was built with."""
-        return self._answer
-
-    def has_call(self, name: str) -> bool:
-        """Report whether *name* was recorded at least once."""
-        return any(call[0] == name for call in self.calls)
-
-
-
 @pytest.fixture
 def fake_console():
-    """Bind a :class:`FakeConsole` for the test, then unbind it."""
-    fake = FakeConsole()
+    """Bind a :class:`RecordingConsole` for the test, then unbind it."""
+    fake = RecordingConsole()
     provision.bind_console(lambda: fake)
     yield fake
     provision.bind_console(None)
@@ -195,7 +140,7 @@ def test_confirm_timeout_returns_the_default_when_unanswered(fake_console, monke
 
 def test_confirm_timeout_machine_mode_uses_the_prompted_answer():
     """Check that confirm timeout machine mode uses the prompted answer."""
-    fake = FakeConsole(machine=True, answer="y")
+    fake = RecordingConsole(machine=True, answer="y")
     provision.bind_console(lambda: fake)
     try:
         result = adaptivecpp._confirm_timeout("Proceed?", timeout=1, default=False)

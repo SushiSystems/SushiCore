@@ -5,9 +5,13 @@
 # Commercial use requires a licence from Sushi Systems.
 """Tests the config and env diagnostics a CLI offers."""
 
+from dataclasses import dataclass, fields
+from pathlib import Path
+
 import pytest
 
-from sushicore.diag import Diagnostics
+from sushicore.diag import ConfigModule, Diagnostics
+from sushicore.diag_memory import InMemoryConfigModule
 from sushicore.profile import ModuleProfile
 
 pytestmark = pytest.mark.small
@@ -38,21 +42,10 @@ class _Console:
         self.lines.append(("error", message))
 
 
-class _Config:
-    def __init__(self, root):
-        self._root = root
-
-    def find_project_root(self, start=None):
-        return self._root
-
-    def load_config(self):
-        return object()
-
-
 def _diagnostics(tmp_path, build_env):
     console = _Console()
     profile = ModuleProfile(name="SushiTest", program="st", env_prefix="ST")
-    return Diagnostics(profile=profile, console=console, config=_Config(tmp_path),
+    return Diagnostics(profile=profile, console=console, config=InMemoryConfigModule(tmp_path, _Settings),
                        build_env=build_env), console
 
 
@@ -76,8 +69,6 @@ def test_env_shows_only_build_relevant_variables_unless_asked(tmp_path):
     assert diagnostics.env_dump(show_all=True) == 0
     assert console.lines[-1] == ("info", "2 of 2 variables shown")
 
-
-from dataclasses import dataclass
 
 
 @dataclass
@@ -150,3 +141,44 @@ def test_a_value_set_nowhere_is_the_default(tmp_path):
     profile = ModuleProfile(name="SushiTest", program="st", env_prefix="ST")
     Diagnostics(profile=profile, console=console, config=_LayeredConfig(root, False)).config_show()
     assert _source_column(console)["generator"] == "default"
+
+
+@dataclass
+class ConfigWorld:
+    """A config module under test and the project root it was built over."""
+
+    module: ConfigModule
+    root: Path
+
+
+class ConfigModuleContract:
+    """The promises every :class:`ConfigModule` keeps; a subclass supplies the world.
+
+    No config module of this package implements the port: each CLI writes its own, so the
+    contract runs here over the in-memory one and is the model for those.
+    """
+
+    @pytest.mark.parametrize("start", [None, Path("somewhere/below")])
+    def test_the_project_root_is_found_from_any_start(self, world, start):
+        assert world.module.find_project_root(start) == world.root
+
+    def test_the_config_directory_lies_inside_the_project_root(self, world):
+        assert world.module.config_dir(world.root).is_relative_to(world.root)
+
+    def test_the_loaded_config_is_an_instance_of_the_config_class(self, world):
+        assert isinstance(world.module.load_config(), world.module.Config)
+
+    def test_every_environment_override_names_a_field_of_the_config_class(self, world):
+        names = {field.name for field in fields(world.module.Config)}
+        assert set(world.module._ENV_OVERRIDES) <= names
+
+
+class TestInMemoryConfigModuleKeepsTheConfigModuleContract(ConfigModuleContract):
+    """The in-memory config module."""
+
+    @pytest.fixture
+    def world(self):
+        root = Path("project")
+        module = InMemoryConfigModule(root, _Settings, {"cxx": "clang"},
+                                      env_overrides={"vcpkg_root": "ST_VCPKG"})
+        return ConfigWorld(module, root)

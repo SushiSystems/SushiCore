@@ -15,7 +15,7 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import TomlDependencySource
 from sushicore.provision.module_checks import ModuleState, doctor_checks
 
-from .sushi_fakes import FakeGit, write_fragment
+from .sushi_fakes import pinned_git, write_fragment
 
 pytestmark = pytest.mark.medium
 
@@ -35,7 +35,7 @@ def quiet(monkeypatch):
 
 def test_no_fragment_adds_no_sushi_rows(tmp_path, provision_home, quiet):
     """Check that a module with no fragment gets the stock rows only."""
-    names = [check.name for check in doctor_checks(_state(tmp_path, None), [], FakeGit())]
+    names = [check.name for check in doctor_checks(_state(tmp_path, None), [], pinned_git())]
     assert not any(name.startswith("sushi") for name in names)
 
 
@@ -48,6 +48,6 @@ def test_pinned_and_unpinned_modules_each_get_a_row_and_pins_a_conflict_row(
         'depends_on = ["sushilog"]', 'depends_on = ["sushilog", "sushiruntime"]'),
         encoding="utf-8")
 
-    names = [check.name for check in doctor_checks(_state(root, read(path)), [], FakeGit())]
+    names = [check.name for check in doctor_checks(_state(root, read(path)), [], pinned_git())]
 
     assert {"sushi sushilog", "sushi sushiruntime", "sushi pins"} <= set(names)

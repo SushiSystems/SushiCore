@@ -14,18 +14,12 @@ import pytest
 from sushicore.errors import DigestMismatchError
 from sushicore.provision import download_verifier, home, probe, steps
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.fragments import Dependency, IDependencySource
+from sushicore.provision.fragments import Dependency
+from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
 
 
 pytestmark = pytest.mark.medium
-
-
-class _EmptySource(IDependencySource):
-    """Fake EmptySource for testing."""
-    def all(self):
-        """Check that all."""
-        return []
 
 
 class _Sink:
@@ -97,7 +91,7 @@ def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch, recording
     sentinel.write_text("keep me", encoding="utf-8")
     try:
         ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), everything=True)
-        step = steps.UninstallStep(_EmptySource(), managers=[], sink=_Sink())
+        step = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=_Sink())
         result = step._run_linux(ctx)
     finally:
         home.bind_root(None)
@@ -132,7 +126,7 @@ def test_windows_uninstall_refuses_before_touching_tools(tmp_path, recording_con
     try:
         ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
         sink = _Sink()
-        result = steps.UninstallStep(_EmptySource(), managers=[], sink=sink).run(ctx)
+        result = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink).run(ctx)
     finally:
         home.bind_root(None)
 
@@ -149,7 +143,7 @@ def test_linux_uninstall_refuses_before_removing_anything(tmp_path, recording_co
     try:
         ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
         sink = _Sink()
-        result = steps.UninstallStep(_EmptySource(), managers=[], sink=sink).run(ctx)
+        result = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink).run(ctx)
     finally:
         home.bind_root(None)
 
@@ -173,7 +167,7 @@ def _context(**overrides):
 def _run_detect_with_one_missing(ctx):
     """Report an inventory with one missing required dependency through *ctx*."""
     rows = [("ninja", steps._MISSING, "shared", "not found")]
-    steps.DetectStep(_EmptySource())._report_inventory(ctx, rows)
+    steps.DetectStep(InMemoryDependencySource([]))._report_inventory(ctx, rows)
 
 
 def test_missing_dependency_hint_names_the_calling_program(capsys_console):
@@ -200,14 +194,6 @@ def test_a_context_names_no_consumer_until_it_is_given_one(capsys_console):
     assert "`setup`" in capsys_console.text()
 
 
-class _PinnedSource(IDependencySource):
-    """Serves one dependency that pins a Windows digest."""
-
-    def all(self):
-        """Return the pinned dependency."""
-        return [Dependency(name="cmake", sha256={"windows": "3f" * 32})]
-
-
 def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(
         monkeypatch, tmp_path, recording_console):
     """Check that the downloads of a run are verified against its fragments and no later."""
@@ -227,7 +213,7 @@ def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(
     monkeypatch.setattr(steps.InstallDepsStep, "_run_windows", install)
     ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
 
-    assert steps.InstallDepsStep(_PinnedSource(), managers=[]).run(ctx) is StepResult.OK
+    assert steps.InstallDepsStep(InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})]), managers=[]).run(ctx) is StepResult.OK
 
     assert during == [archive]
     archive.write_bytes(b"not the pinned archive")
@@ -259,7 +245,7 @@ def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(
             return StepResult.OK
 
     monkeypatch.setattr(steps.InstallDepsStep, "_run_windows", install)
-    pipeline = InstallPipeline([steps.InstallDepsStep(_PinnedSource(), managers=[]), _Later()])
+    pipeline = InstallPipeline([steps.InstallDepsStep(InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})]), managers=[]), _Later()])
     ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
 
     with pytest.raises(DigestMismatchError):

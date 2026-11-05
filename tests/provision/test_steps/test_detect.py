@@ -10,30 +10,13 @@ from __future__ import annotations
 import pytest
 
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.fragments import SHARED_OWNER, Dependency, IDependencySource
+from sushicore.provision.fragments import SHARED_OWNER, Dependency
+from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.pipeline import InstallContext
 from sushicore.provision.steps import DetectStep
 
 
 pytestmark = pytest.mark.small
-
-
-class MemorySource(IDependencySource):
-    """Serves a fixed dependency list and a fixed module dependency map."""
-
-    def __init__(self, deps: list[Dependency],
-                 depends_on: dict[str, list[str]] | None = None) -> None:
-        """Store the dependencies and the module-to-modules map to serve."""
-        self._deps = list(deps)
-        self._depends_on = dict(depends_on or {})
-
-    def all(self) -> list[Dependency]:
-        """Return the dependency list exactly as it was given."""
-        return list(self._deps)
-
-    def depends_on(self, owner: str) -> list[str]:
-        """Return the modules *owner* directly builds on."""
-        return list(self._depends_on.get(owner, []))
 
 
 def dep(name: str, owner: str = SHARED_OWNER, *, provides: str = "",
@@ -73,7 +56,7 @@ def _ctx():
 
 def test_undeclared_toolchains_are_not_needed():
     """Check that undeclared toolchains are not needed."""
-    src = MemorySource([dep("cmake")])
+    src = InMemoryDependencySource([dep("cmake")])
     rows = _step(src).inventory_rows(_ctx(), src.all())
     status = {name: s for name, s, _o, _d in rows}
     assert status["intel-llvm"] == "NOT NEEDED" and status["cuda"] == "NOT NEEDED"
@@ -81,14 +64,14 @@ def test_undeclared_toolchains_are_not_needed():
 
 def test_declared_toolchains_are_missing_when_absent():
     """Check that declared toolchains are missing when absent."""
-    src = MemorySource([dep("intel-llvm", "sushiruntime")])
+    src = InMemoryDependencySource([dep("intel-llvm", "sushiruntime")])
     rows = _step(src).inventory_rows(_ctx(), src.all())
     assert dict((n, s) for n, s, _o, _d in rows)["intel-llvm"] == "MISSING"
 
 
 def test_rows_are_grouped_by_owner_in_dependency_order():
     """Check that rows are grouped by owner in dependency order."""
-    src = MemorySource([dep("a", "sushiai"), dep("r", "sushiruntime"), dep("cmake")],
+    src = InMemoryDependencySource([dep("a", "sushiai"), dep("r", "sushiruntime"), dep("cmake")],
                        depends_on={"sushiai": ["sushiruntime"]})
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
     owners = [o for _n, _s, o, _d in _step(src).inventory_rows(ctx, src.all())]
@@ -98,7 +81,7 @@ def test_rows_are_grouped_by_owner_in_dependency_order():
 
 def test_a_toolchain_whose_capability_another_provides_is_not_needed():
     """Check that a toolchain whose capability another provides is not needed."""
-    src = MemorySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
+    src = InMemoryDependencySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
                         dep("adaptivecpp", "sushiruntime", provides="sycl-toolchain")])
     step = DetectStep(src, managers=[], gpu_vendor=lambda: "none",
                       toolchain_status=lambda cfg, gpu: [
@@ -111,7 +94,7 @@ def test_a_toolchain_whose_capability_another_provides_is_not_needed():
 
 def test_every_member_of_an_unsatisfied_capability_is_missing():
     """Check that every member of an unsatisfied capability is missing."""
-    src = MemorySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
+    src = InMemoryDependencySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
                         dep("adaptivecpp", "sushiruntime", provides="sycl-toolchain")])
     step = DetectStep(src, managers=[], gpu_vendor=lambda: "none",
                       toolchain_status=lambda cfg, gpu: [

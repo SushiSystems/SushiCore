@@ -13,6 +13,7 @@ from typing import Callable
 
 from ..closure import DEFAULT_FRAGMENT
 from .build_tree import BuildTree
+from .clock import Clock
 from .closure_walk import ClosureWalk
 from .forced_packages import ForcedPackages
 from .key_factory import KeyFactory
@@ -52,7 +53,7 @@ class PackageResolver:
     def __init__(self, walk: ClosureWalk, keys: KeyFactory, store: PackageStore,
                  builder: IPackageBuilder, forced: ForcedPackages, locks: PackageLocks,
                  publisher: LinkPublisher, report: Callable[[str], None],
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Clock = time.monotonic) -> None:
         """Bind the resolver to its collaborators.
 
         Args:

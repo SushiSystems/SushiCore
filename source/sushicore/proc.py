@@ -38,8 +38,24 @@ class ConsoleLike(Protocol):
     def warn(self, text: str) -> None: ...
 
 
+class CommandRunner(Protocol):
+    """The surface callers use to run external commands: path lookup, run and run drained."""
+
+    def resolve_exe(self, name: str, env: Mapping[str, str] | None = None) -> str:
+        """Return the executable *name* resolved against *env*'s PATH, or *name* itself."""
+        ...
+
+    def run(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
+        """Run *cmd* in *cwd* and return its exit code."""
+        ...
+
+    def run_drained(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
+        """Run *cmd* in *cwd*, re-emit its output line by line and return its exit code."""
+        ...
+
+
 class Runner:
-    """Runs external commands and says what it ran.
+    """Runs external commands and says what it ran; implements :class:`CommandRunner`.
 
     @param console A CLI's console module.
     @param program The CLI's command name ("sr", "se", ...), used in guidance.

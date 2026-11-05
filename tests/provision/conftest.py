@@ -10,34 +10,7 @@ from __future__ import annotations
 import pytest
 
 from sushicore import provision
-
-
-class _RecordingRichConsole:
-    """Stands in for the Rich console behind ``Console.console``, recording ``print``."""
-
-    def __init__(self, calls: list[tuple[str, tuple]]) -> None:
-        """Record into *calls*, the owning :class:`RecordingConsole`'s list."""
-        self._calls = calls
-
-    def print(self, *args, **_kwargs) -> None:
-        """Record a ``console.print`` call."""
-        self._calls.append(("console.print", args))
-
-
-class RecordingConsole:
-    """Collects every console call as ``(method, args)`` for assertions."""
-
-    def __init__(self) -> None:
-        """Start with no recorded calls."""
-        self.calls: list[tuple[str, tuple]] = []
-        self.console = _RecordingRichConsole(self.calls)
-
-    def __getattr__(self, name: str):
-        """Return a recorder for any console method name."""
-        def record(*args, **_kwargs):
-            """Check that record."""
-            self.calls.append((name, args))
-        return record
+from sushicore.console_memory import RecordingConsole
 
 
 @pytest.fixture

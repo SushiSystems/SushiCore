@@ -13,34 +13,18 @@ import pytest
 
 from sushicore.provision import packages
 from sushicore.provision import probe
+from sushicore.provision.gpu.backend_memory import InMemoryToolkitLocator
 from sushicore.provision.gpu.registry import Registry
 
 
 pytestmark = pytest.mark.small
 
 
-class _RecordingLocator:
-    """A locator that records whether it was asked to provision."""
-
-    def __init__(self) -> None:
-        """Start with no recorded call."""
-        self.provisioned_with: tuple | None = None
-
-    def locate(self, cfg):
-        """Report no toolkit; this fake never needs to be found."""
-        return None
-
-    def provision(self, cfg, dry_run: bool) -> bool:
-        """Record the call and report success."""
-        self.provisioned_with = (cfg, dry_run)
-        return True
-
-
 def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
     """Check that install gpu stack dispatches through the registry."""
     from sushicore.provision.gpu.backend import GpuBackendSpec
 
-    locator = _RecordingLocator()
+    locator = InMemoryToolkitLocator()
     fake_spec = GpuBackendSpec(
         vendor="fake",
         probe_vendor="fakevendor",
@@ -57,7 +41,7 @@ def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
     result = packages.install_gpu_stack(cfg, "fakevendor", dry_run=True)
 
     assert result is True
-    assert locator.provisioned_with == (cfg, True)
+    assert locator.provisioned_with == [(cfg, True)]
 
 
 def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(

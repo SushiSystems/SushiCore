@@ -9,28 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision.fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
+from sushicore.provision.fragments import SHARED_OWNER, Dependency, owner_order
+from sushicore.provision.fragments_memory import InMemoryDependencySource
 
 
 pytestmark = pytest.mark.small
-
-
-class MemorySource(IDependencySource):
-    """Serves a fixed dependency list and a fixed module dependency map."""
-
-    def __init__(self, deps: list[Dependency],
-                 depends_on: dict[str, list[str]] | None = None) -> None:
-        """Store the dependencies and the module-to-modules map to serve."""
-        self._deps = list(deps)
-        self._depends_on = dict(depends_on or {})
-
-    def all(self) -> list[Dependency]:
-        """Return the dependency list exactly as it was given."""
-        return list(self._deps)
-
-    def depends_on(self, owner: str) -> list[str]:
-        """Return the modules *owner* directly builds on."""
-        return list(self._depends_on.get(owner, []))
 
 
 def dep(name: str, owner: str = SHARED_OWNER, *, provides: str = "",
@@ -52,7 +35,7 @@ def dep(name: str, owner: str = SHARED_OWNER, *, provides: str = "",
 
 def test_shared_comes_first_then_dependency_order():
     """Check that shared comes first then dependency order."""
-    src = MemorySource(
+    src = InMemoryDependencySource(
         [dep("a", "sushiai"), dep("b", "sushiblas"), dep("r", "sushiruntime")],
         depends_on={"sushiai": ["sushiruntime", "sushiblas"], "sushiblas": ["sushiruntime"]})
     assert owner_order(src, ["sushiai", "shared", "sushiblas", "sushiruntime"]) == \
@@ -61,12 +44,12 @@ def test_shared_comes_first_then_dependency_order():
 
 def test_ties_keep_input_order():
     """Check that ties keep input order."""
-    src = MemorySource([], depends_on={})
+    src = InMemoryDependencySource([], depends_on={})
     assert owner_order(src, ["sushidsp", "sushiengine"]) == ["sushidsp", "sushiengine"]
 
 
 def test_a_cycle_is_refused():
     """Check that a cycle is refused."""
-    src = MemorySource([], depends_on={"x": ["y"], "y": ["x"]})
+    src = InMemoryDependencySource([], depends_on={"x": ["y"], "y": ["x"]})
     with pytest.raises(ValueError):
         owner_order(src, ["x", "y"])

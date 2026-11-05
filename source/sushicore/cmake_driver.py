@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_stale
+from .proc import CommandRunner
 
 
 def _option_value(args: Sequence[str], option: str) -> str | None:
@@ -60,12 +61,12 @@ class CMakeDriver:
     """The cmake and ctest half of what five project.py copies shared.
 
     @param console A CLI's console module.
-    @param runner  A :class:`sushicore.proc.Runner`.
+    @param runner  A :class:`sushicore.proc.CommandRunner`, such as :class:`sushicore.proc.Runner`.
     """
 
     __slots__ = ("_console", "_runner")
 
-    def __init__(self, console, runner) -> None:
+    def __init__(self, console, runner: CommandRunner) -> None:
         self._console = console
         self._runner = runner
 

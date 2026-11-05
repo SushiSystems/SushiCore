@@ -15,7 +15,7 @@ from sushicore.provision.pipeline import InstallContext, StepResult
 from sushicore.provision.sushi_fetch import FetchSushiSourcesStep
 from sushicore.provision.sushi_sources import SourceKind, resolve
 
-from .sushi_fakes import K_OTHER, K_PINNED, FakeGit, write_fragment
+from .sushi_fakes import K_OTHER, K_PINNED, pinned_git, write_fragment
 
 pytestmark = pytest.mark.medium
 
@@ -42,11 +42,11 @@ def _ctx():
 
 def test_a_missing_library_is_fetched_and_then_resolves_as_fetched(consumer, recording_console):
     """Check that the step clones the pinned tag and resolution then reports fetched."""
-    git = FakeGit()
+    git = pinned_git()
 
     assert _step(consumer, git).run(_ctx()) is StepResult.OK
 
-    url, tag, destination = git.calls[0]
+    url, tag, destination, _ = git.calls[0]
     assert (url, tag) == ("https://github.com/sushisystems/sushilog.git", "v1.0.0")
     found = resolve(consumer, "sushilog", "v1.0.0")
     assert found.kind is SourceKind.FETCHED and found.path == destination
@@ -55,7 +55,7 @@ def test_a_missing_library_is_fetched_and_then_resolves_as_fetched(consumer, rec
 def test_a_sibling_wins_and_the_step_is_skipped(consumer, recording_console):
     """Check that a sibling checkout is used and nothing is cloned."""
     (consumer.parent / "sushilog").mkdir()
-    git = FakeGit()
+    git = pinned_git()
 
     assert _step(consumer, git).run(_ctx()) is StepResult.SKIPPED
 
@@ -69,7 +69,7 @@ def test_the_directory_variable_wins(consumer, recording_console, monkeypatch, t
     elsewhere.mkdir()
     (consumer.parent / "sushilog").mkdir()
     monkeypatch.setenv("SUSHILOG_DIR", str(elsewhere))
-    git = FakeGit()
+    git = pinned_git()
 
     assert _step(consumer, git).run(_ctx()) is StepResult.SKIPPED
 
@@ -80,7 +80,7 @@ def test_the_directory_variable_wins(consumer, recording_console, monkeypatch, t
 
 def test_a_commit_off_the_pin_fails_and_leaves_no_folder(consumer, recording_console):
     """Check that a clone whose HEAD is not the pin is removed and the step fails."""
-    git = FakeGit(commit=K_OTHER)
+    git = pinned_git(K_OTHER)
 
     assert _step(consumer, git).run(_ctx()) is StepResult.FAILED
 
@@ -94,7 +94,7 @@ def test_a_commit_off_the_pin_fails_and_leaves_no_folder(consumer, recording_con
 def test_a_failed_clone_names_the_url_the_tag_and_the_directory_variable(
         consumer, recording_console):
     """Check that an offline clone fails with one message saying how to hand over a checkout."""
-    git = FakeGit(clones=False)
+    git = pinned_git(clones=False)
 
     assert _step(consumer, git).run(_ctx()) is StepResult.FAILED
 
@@ -109,7 +109,7 @@ def test_a_failed_clone_names_the_url_the_tag_and_the_directory_variable(
 
 def test_a_fetched_copy_at_the_pin_is_not_cloned_again(consumer, recording_console):
     """Check that the step is skipped when the folder already holds the pinned commit."""
-    git = FakeGit()
+    git = pinned_git()
     _step(consumer, git).run(_ctx())
 
     assert _step(consumer, git).run(_ctx()) is StepResult.SKIPPED

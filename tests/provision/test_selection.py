@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision.fragments import Dependency, IDependencySource
+from sushicore.provision.fragments import Dependency
+from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.pipeline import ToolchainSelection
 from sushicore.provision.selection import COMPONENTS, derive, enabled_keys, toolchain_keys
 
@@ -17,24 +18,12 @@ from sushicore.provision.selection import COMPONENTS, derive, enabled_keys, tool
 pytestmark = pytest.mark.small
 
 
-class _Source(IDependencySource):
-    """A dependency source holding a fixed list."""
-
-    def __init__(self, deps: list[Dependency]) -> None:
-        """Hold *deps* as the declared dependencies."""
-        self._deps = deps
-
-    def all(self) -> list[Dependency]:
-        """Return the fixed list."""
-        return list(self._deps)
-
-
 def _sycl(name: str) -> Dependency:
     """Return a toolchain dependency providing the SYCL capability."""
     return Dependency(name=name, provides="sycl-toolchain", owner="sushiruntime")
 
 
-_RUNTIME = _Source([_sycl("intel-llvm"), _sycl("adaptivecpp"), _sycl("oneapi")])
+_RUNTIME = InMemoryDependencySource([_sycl("intel-llvm"), _sycl("adaptivecpp"), _sycl("oneapi")])
 
 
 def test_an_unsatisfied_group_turns_on_its_first_declared_member():
@@ -46,7 +35,7 @@ def test_an_unsatisfied_group_turns_on_its_first_declared_member():
 
 def test_declaration_order_decides_the_default():
     """Check that declaration order decides the default."""
-    source = _Source([_sycl("adaptivecpp"), _sycl("intel-llvm")])
+    source = InMemoryDependencySource([_sycl("adaptivecpp"), _sycl("intel-llvm")])
     selection = derive(source, present={})
     assert (selection.install_acpp, selection.install_intel_llvm) == (True, False)
 
@@ -78,20 +67,20 @@ def test_an_unknown_requested_key_raises_and_names_the_valid_ones():
 
 def test_an_optional_toolchain_is_not_installed_unasked():
     """Check that an optional toolchain is not installed unasked."""
-    source = _Source([Dependency(name="intel-llvm", required=False, owner="sushidsp")])
+    source = InMemoryDependencySource([Dependency(name="intel-llvm", required=False, owner="sushidsp")])
     assert derive(source, present={}).install_intel_llvm is False
     assert derive(source, present={}, requested=["intel-llvm"]).install_intel_llvm is True
 
 
 def test_a_source_declaring_no_toolchain_selects_none():
     """Check that a source declaring no toolchain selects none."""
-    selection = derive(_Source([Dependency(name="sdl2", owner="sushidsp")]), present={})
+    selection = derive(InMemoryDependencySource([Dependency(name="sdl2", owner="sushidsp")]), present={})
     assert not (selection.install_intel_llvm or selection.install_acpp or selection.oneapi)
 
 
-def _with_gpu_dependency() -> _Source:
+def _with_gpu_dependency() -> InMemoryDependencySource:
     """Return the runtime's toolchains plus one GPU-only dependency."""
-    return _Source([*_RUNTIME.all(), Dependency(name="cuda", gpu_only=True, owner="sushiruntime")])
+    return InMemoryDependencySource([*_RUNTIME.all(), Dependency(name="cuda", gpu_only=True, owner="sushiruntime")])
 
 
 def test_gpu_turns_on_when_a_gpu_only_dependency_is_declared():
@@ -117,7 +106,7 @@ def test_the_component_table_names_every_selection_field():
 
 def test_a_shared_fragment_cannot_select_a_toolchain():
     """Check that a shared fragment cannot select a toolchain."""
-    source = _Source([Dependency(name="intel-llvm", owner="shared")])
+    source = InMemoryDependencySource([Dependency(name="intel-llvm", owner="shared")])
     assert derive(source, present={}).install_intel_llvm is False
 
 

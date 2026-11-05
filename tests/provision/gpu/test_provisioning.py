@@ -13,6 +13,7 @@ import pytest
 
 from sushicore.provision.gpu.backend import GpuBackendSpec, ToolkitInstall
 from sushicore.provision.gpu.provisioning import provision_gpu_adapters
+from sushicore.provision.gpu.backend_memory import InMemoryToolkitLocator
 from sushicore.provision.gpu.registry import Registry
 
 
@@ -21,28 +22,12 @@ pytestmark = pytest.mark.medium
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
 
 
-class _FakeLocator:
-    """Reports a fixed install, or none, for one backend."""
-
-    def __init__(self, install: ToolkitInstall | None) -> None:
-        """Store the install this locator always reports."""
-        self._install = install
-
-    def locate(self, cfg) -> ToolkitInstall | None:
-        """Return the stored install."""
-        return self._install
-
-    def provision(self, cfg, dry_run: bool) -> bool:
-        """Never called by provisioning; present only to satisfy the protocol."""
-        return True
-
-
 def _spec(vendor: str, install: ToolkitInstall | None) -> GpuBackendSpec:
     """Build one GpuBackendSpec whose locator reports *install*."""
     return GpuBackendSpec(
         vendor=vendor,
         probe_vendor=f"{vendor}vendor",
-        locator=_FakeLocator(install),
+        locator=InMemoryToolkitLocator(install),
         adapter_option=f"UR_BUILD_ADAPTER_{vendor.upper()}",
         adapter_definitions=lambda install: {},
         adapter_target=f"ur_adapter_{vendor}",

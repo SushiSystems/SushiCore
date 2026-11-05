@@ -10,6 +10,9 @@
 | RW-16 | P2 | open | Remove `StackConfig.standalone_deps_dir` | `source/sushicore/stack_config.py` lacks it, one release after its last override is gone |  |  | 2026-10-19 |
 | RW-18 | P2 | open | Clone a Sushi library that only a fetched library pins | `setup` fetches a Sushi library pinned by a fetched library and by no fragment here |  |  | 2026-10-19 |
 | RW-54 | P2 | open | Provision every GPU vendor on a machine | `detect_gpu_vendor` returns every vendor present and the registry provisions a backend for each; a machine with an NVIDIA card and an AMD iGPU provisions only… |  |  | 2026-10-19 |
+| RW-65 | P2 | open | Rename adapter_builder's CommandRunner so one name means one port | only proc.CommandRunner carries that name, and adapter_builder's runner port has its own |  | `source/sushicore/provision/gpu/adapter_builder.py` | 2026-11-05 |
+| RW-66 | P3 | open | Split the package clock into a wall clock and a monotonic clock | PackageStore takes a wall clock and PackageResolver a monotonic one, each with its in-memory adapter |  | `source/sushicore/provision/sushi_packages/clock.py` | 2026-11-05 |
+| RW-67 | P2 | open | Give LinuxPackageManager an in-memory adapter beside its port | the three test copies of _FakeAptManager are gone and a contract test runs over the adapter |  |  | 2026-11-05 |
 
 ## Known issues
 

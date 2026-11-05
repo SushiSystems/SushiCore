@@ -11,7 +11,7 @@ import pytest
 
 from sushicore.provision import steps as steps_mod
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.fragments import IDependencySource
+from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.packages import LinuxPackageManager
 from sushicore.provision.packages import install_gpu_stack as _real_install_gpu_stack
 from sushicore.provision.pipeline import InstallContext, StepResult, ToolchainSelection
@@ -19,14 +19,6 @@ from sushicore.provision.steps import InstallDepsStep, provision_adapters_for_ru
 
 
 pytestmark = pytest.mark.medium
-
-
-class MemorySource(IDependencySource):
-    """Serves a fixed, empty dependency list."""
-
-    def all(self):
-        """Return no dependencies."""
-        return []
 
 
 class _FakeAptManager(LinuxPackageManager):
@@ -126,7 +118,7 @@ def test_run_windows_reaches_provision_adapters_for_run_when_gpu_is_selected(
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
 
-    step = InstallDepsStep(MemorySource(), managers=[])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
     ctx = InstallContext(cfg=ProvisionSettings(platform="windows"),
                          selection=ToolchainSelection(gpu=True))
 
@@ -142,7 +134,7 @@ def test_run_windows_skips_provision_adapters_for_run_without_gpu(monkeypatch, t
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
 
-    step = InstallDepsStep(MemorySource(), managers=[])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
     ctx = InstallContext(cfg=ProvisionSettings(platform="windows"),
                          selection=ToolchainSelection(gpu=False))
 
@@ -167,7 +159,7 @@ def test_run_linux_reaches_provision_adapters_for_run_when_gpu_is_selected(
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
 
-    step = InstallDepsStep(MemorySource(), managers=[_FakeAptManager()])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[_FakeAptManager()])
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"),
                          selection=ToolchainSelection(gpu=True))
 
@@ -184,7 +176,7 @@ def test_run_linux_skips_provision_adapters_for_run_without_gpu(
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
 
-    step = InstallDepsStep(MemorySource(), managers=[_FakeAptManager()])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[_FakeAptManager()])
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"),
                          selection=ToolchainSelection(gpu=False))
 
@@ -200,7 +192,7 @@ def test_run_windows_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recor
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
 
-    step = InstallDepsStep(MemorySource(), managers=[])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
     ctx = InstallContext(cfg=ProvisionSettings(platform="windows"),
                          selection=ToolchainSelection(gpu=True), gpu_vendor="none")
 
@@ -218,7 +210,7 @@ def test_run_linux_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recordi
     calls = []
     monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
 
-    step = InstallDepsStep(MemorySource(), managers=[_FakeAptManager()])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[_FakeAptManager()])
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"),
                          selection=ToolchainSelection(gpu=True), gpu_vendor="none")
 
@@ -266,7 +258,7 @@ def test_vs_build_tools_are_not_installed_when_a_visual_studio_has_the_cpp_tools
     ran = []
     monkeypatch.setattr(steps_mod.subprocess, "run", lambda *a, **k: ran.append(a))
 
-    step = InstallDepsStep(MemorySource(), managers=[])
+    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
     ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
 
     assert step._install_vs_build_tools(ctx, _WingetWithoutBuildTools()) is True
