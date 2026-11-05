@@ -44,8 +44,8 @@ addopts = "--strict-markers"
 pythonpath = ["source"]
 testpaths = ["tests"]
 markers = [
-    "small: one process and one thread, no network, no sleep, no file outside the build tree (60 s)",
-    "medium: threads and processes, localhost, files in a temporary folder (300 s)",
-    "large: real hardware, or a run longer than medium allows (900 s)",
+    "small: the memory of one process and one thread; no file, socket, sleep, environment or real clock (1 s)",
+    "medium: one machine: threads, localhost, a per-test temporary folder (10 s)",
+    "large: anything, including real hardware at scale (120 s)",
     "quarantined: an intermittent test, out of every gating stage; see its known issue in docs/backlog/",
 ]

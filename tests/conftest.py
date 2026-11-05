@@ -28,10 +28,16 @@ def _leave_the_real_console_alone(monkeypatch):
     )
 
 
+@pytest.fixture(scope="session")
+def _session_machine_root(tmp_path_factory) -> str:
+    """Return one temporary folder for the session, standing in for the machine's dependency root."""
+    return str(tmp_path_factory.mktemp("machine-root"))
+
+
 @pytest.fixture(autouse=True)
-def _no_machine_dependency_root(tmp_path, monkeypatch):
-    """Point ``SUSHISYSTEMS_HOME`` at a temporary folder so no test writes to the machine's root."""
-    monkeypatch.setenv("SUSHISYSTEMS_HOME", str(tmp_path / "machine-root"))
+def _no_machine_dependency_root(_session_machine_root, monkeypatch):
+    """Point ``SUSHISYSTEMS_HOME`` away from the machine's root, without a temporary folder per test."""
+    monkeypatch.setenv("SUSHISYSTEMS_HOME", _session_machine_root)
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +61,7 @@ def provision_home(tmp_path, monkeypatch):
     home.bind_root(None)
 
 
-K_SIZE_TIMEOUTS = {"small": 60, "medium": 300, "large": 900}
+K_SIZE_TIMEOUTS = {"small": 1, "medium": 10, "large": 120}
 
 
 def _sizes_of(item: pytest.Item) -> list[str]:

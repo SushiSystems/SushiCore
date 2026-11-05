@@ -47,7 +47,7 @@ passed carries the command and its output.
 
 Every test carries exactly one size: `small`, `medium` or `large`, set by a module-level
 `pytestmark`. `tests/conftest.py` fails collection for a test without one and stops a test that
-outlives its size's timeout of 60, 300 or 900 seconds. A stage runs a size with
+outlives its size's timeout of 1, 10 or 120 seconds. A stage runs a size with
 `python -m pytest -m small`. A quarantined test also carries `quarantined`.
 
 This repository has no CLI and nothing to compile. A change here is never proved by running a
