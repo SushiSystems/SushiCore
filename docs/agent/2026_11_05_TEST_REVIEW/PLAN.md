@@ -11,9 +11,9 @@ writes each add. Nothing in a module job changes production code except a seam a
 
 | Job | Files | Waits on | Status |
 | --- | --- | --- | --- |
-| T1 | In-memory adapters beside their ports: `proc.Runner`, the console (one recorder replacing every copy), `ConfigModule`, `MachineEnvironment`, `ToolkitLocator`, `IDependencySource`, the git client, the clock (moved out of `package_fakes.py`) |  | todo |
+| T1 | In-memory adapters beside their ports: `proc.Runner`, the console (one recorder replacing every copy), `ConfigModule`, `MachineEnvironment`, `ToolkitLocator`, `IDependencySource`, the git client, the clock (moved out of `package_fakes.py`) |  | done |
 | T2 | A file-system port for the backlog and design store, with its in-memory adapter |  | todo |
-| T3 | `tests/conftest.py` and `pyproject.toml`: the size timeouts, and the autouse fixture that hands every test a temp folder |  | todo |
+| T3 | `tests/conftest.py` and `pyproject.toml`: the size timeouts, and the autouse fixture that hands every test a temp folder |  | done |
 | T4 | The defects of this report, each with a test that fails first |  | todo |
 | T5 | `tools/testing/check_test_additions.py`, `tools/tests/test_check_test_additions.py` deleted |  | todo |
 | M1 | the tests of `(root)` (38 files): 133 rewrite, 33 resize, 17 split, 19 merge, 21 delete | T1, T2, T3, T4, T5 | todo |
