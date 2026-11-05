@@ -49,13 +49,14 @@ the only test that crosses the real git boundary.
 - `tools/tests/test_test_budget_settings.py` skips here, since the repository has no `skills/` folder, so
   its promise is checked nowhere; it also defines `read_budget` and `differences` in the test file.
 
-## The owner's decisions waiting
+## Decisions
 
-1. The size timeouts of the shared test command: align them with the skill. Recommended: yes, since
-   every repository inherits them.
-2. A file-system port for the backlog and design store, and a seam that takes the logo grids and palette
-   as values.
-3. The Typer stray-close-tag behaviour: a defect to fix, or the documented fallback.
+The owner delegated these decisions on 2026-11-05. Each ruling below is final for the plan; its reason follows it.
+
+1. The size timeouts follow the testing skill: 1 s, 10 s and 120 s. The skill is the one home of these numbers; a measurement on the owner's machine changes the skill, not a repository. Every repository inherits these timeouts from this test command.
+2. A file-system port for the backlog and design store, with an in-memory adapter: yes. The logo grids and palette are passed as values. Every seam is added as a parameter or overload whose default keeps today's behaviour, so existing callers compile unchanged and the change is a minor version. A value passed in is preferred to a reset of process-wide state.
+3. The Typer fallback's stray close tag is a defect. A fallback exists so that output never crashes, so a stray tag prints as text, and the test that expects `MarkupError` is turned around.
+4. The `TimingPolicy` contract suite stays and the concrete copies merge into it. The deletes of chunk 005 are reversed, as the report says.
 
 ## Dispatches
 
