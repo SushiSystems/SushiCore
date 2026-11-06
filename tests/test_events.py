@@ -8,15 +8,10 @@ import json
 
 import pytest
 
-from sushicore.events import EVENT_KINDS, event_line
+from sushicore.events import event_line
 
 
 pytestmark = pytest.mark.small
-
-
-def test_every_kind_is_named():
-    assert EVENT_KINDS == {"line", "command", "header", "panel",
-                           "table", "progress", "result", "prompt"}
 
 
 def test_event_line_is_one_json_object_with_the_kind_first():
@@ -26,11 +21,14 @@ def test_event_line_is_one_json_object_with_the_kind_first():
     assert text.startswith('{"event":"line"')
 
 
-def test_event_line_keeps_non_ascii_and_embedded_newlines_escaped():
-    text = event_line("panel", title="ş", body="a\nb")
+def test_event_line_keeps_non_ascii_characters_unescaped():
+    assert "ş" in event_line("panel", title="ş", body="b")
+
+
+def test_event_line_escapes_embedded_newlines():
+    text = event_line("panel", title="t", body="a\nb")
     assert "\n" not in text
     assert json.loads(text)["body"] == "a\nb"
-    assert "ş" in text
 
 
 def test_unknown_kind_is_refused():

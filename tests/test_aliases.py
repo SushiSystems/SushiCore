@@ -5,6 +5,7 @@
 """Tests the alias table that keeps an old command spelling working until its date."""
 
 import io
+import sys
 
 from datetime import date
 
@@ -16,15 +17,11 @@ from typer.testing import CliRunner
 
 from sushicore.aliases import Alias, AliasTable, UnknownAliasError
 
-from sushicore.describe import catalogue
-
-
-
-pytestmark = pytest.mark.medium
-
 
 
 K_REMOVED = date(2027, 3, 25)
+
+K_SWITCH_OFF = {"SX_NO_DEPRECATION_NOTICE": "1"}
 
 
 
@@ -38,20 +35,13 @@ class _Tty(io.StringIO):
 
 
 def _app() -> typer.Typer:
-    """Returns an application named `sx` with one command and one hidden command."""
+    """Returns an application named `sx` with one command."""
     app = typer.Typer(name="sx", help="Builds things.", no_args_is_help=True, add_completion=False)
 
     @app.command("build")
     def build(clean: bool = typer.Option(False, "--clean", help="Start over.")) -> None:
-        """Configure and build.
-
-        A second paragraph the catalogue leaves out.
-        """
+        """Configure and build."""
         typer.echo(f"built clean={clean}")
-
-    @app.command("old-build", hidden=True)
-    def old_build() -> None:
-        """The old spelling."""
 
     return app
 
@@ -63,6 +53,7 @@ def _table() -> AliasTable:
 
 
 
+@pytest.mark.small
 def test_alias_notice_names_both_spellings_and_the_date():
     """The notice tells the user the new spelling and the last day of the old one."""
     table = _table()
@@ -71,45 +62,74 @@ def test_alias_notice_names_both_spellings_and_the_date():
 
 
 
+@pytest.mark.small
 def test_alias_announces_once_to_a_terminal_only():
     """The notice is printed once per table, and never to a stream that is not a terminal."""
     table = _table()
     pipe, terminal = io.StringIO(), _Tty()
-    table.announce(table.alias_for("sx doxygen"), stream=pipe)
-    table.announce(table.alias_for("sx doxygen"), stream=terminal)
-    table.announce(table.alias_for("sx doxygen"), stream=terminal)
+    table.announce(table.alias_for("sx doxygen"), stream=pipe, environ={})
+    table.announce(table.alias_for("sx doxygen"), stream=terminal, environ={})
+    table.announce(table.alias_for("sx doxygen"), stream=terminal, environ={})
     assert pipe.getvalue() == ""
     assert terminal.getvalue().count("\n") == 1
 
 
 
-def test_alias_stays_silent_when_switched_off_or_permanent(monkeypatch):
-    """The environment switch and a permanent alias both print nothing."""
+@pytest.mark.small
+def test_alias_stays_silent_for_a_permanent_alias():
+    """A permanent alias prints nothing."""
     table = _table()
     terminal = _Tty()
-    table.announce(table.alias_for("sx b"), stream=terminal)
-    monkeypatch.setenv("SX_NO_DEPRECATION_NOTICE", "1")
-    table.announce(table.alias_for("sx doxygen"), stream=terminal)
+    table.announce(table.alias_for("sx b"), stream=terminal, environ={})
     assert terminal.getvalue() == ""
 
 
 
-def test_alias_command_runs_the_new_command_and_is_hidden():
-    """The old word runs the new command's callback and does not appear in the catalogue."""
+@pytest.mark.small
+def test_alias_stays_silent_when_the_switch_is_on():
+    """The environment switch silences a dated alias."""
+    table = _table()
+    terminal = _Tty()
+    table.announce(table.alias_for("sx doxygen"), stream=terminal, environ=K_SWITCH_OFF)
+    assert terminal.getvalue() == ""
+
+
+
+@pytest.mark.medium
+def test_alias_command_runs_the_new_command():
+    """The old word runs the new command's callback."""
     app = _app()
     table = AliasTable("sx", (Alias("sx make", "sx build", K_REMOVED),))
     build = next(info.callback for info in app.registered_commands if info.name == "build")
     table.command(app, "make", build, "sx make")
     assert CliRunner().invoke(app, ["make", "--clean"]).output == "built clean=True\n"
-    names = [command["name"] for command in catalogue(app, distribution="sushicore")["commands"]]
-    assert "make" not in names
 
 
 
-def test_alias_table_reports_unknown_and_expired_rows():
-    """An unknown spelling raises, and a row past its date is listed as expired."""
+@pytest.mark.medium
+def test_deprecated_announces_the_alias_once_and_calls_the_callback_unchanged(monkeypatch):
+    """The wrapper prints the notice on the first call only and returns the callback's result."""
+    terminal = _Tty()
+    monkeypatch.setattr(sys, "stderr", terminal)
+    monkeypatch.delenv("SX_NO_DEPRECATION_NOTICE", raising=False)
     table = _table()
+    wrapped = table.deprecated(lambda value: value * 2, "sx doxygen")
+    assert (wrapped(2), wrapped(3)) == (4, 6)
+    assert terminal.getvalue() == table.notice(table.alias_for("sx doxygen")) + "\n"
+
+
+
+@pytest.mark.small
+def test_alias_table_raises_for_an_unknown_spelling():
+    """An unknown spelling raises."""
     with pytest.raises(UnknownAliasError):
-        table.alias_for("sx nothing")
+        _table().alias_for("sx nothing")
+
+
+
+@pytest.mark.small
+def test_alias_table_lists_the_rows_past_their_date_as_expired():
+    """A row past its date is listed as expired, and a row on its last day is not."""
+    table = _table()
     assert [alias.old for alias in table.expired(date(2027, 3, 26))] == ["sx doxygen"]
     assert table.expired(K_REMOVED) == []

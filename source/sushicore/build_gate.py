@@ -20,6 +20,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Callable, Mapping
 
 #: Memory left to everything else on the machine, in megabytes.
 K_RESERVE_MB = 1536
@@ -210,8 +211,13 @@ def record_peak(peaks: dict, kind: str, key: str, peak: int) -> None:
     peaks[K_KIND_PREFIX + kind] = max(peak, int(peaks.get(K_KIND_PREFIX + kind, 0)))
 
 
-def admit(ledger: dict, me: int, expected: int, free_mb: int, now: float) -> bool:
+def admit(
+    ledger: dict, me: int, expected: int, free_mb: int, now: float,
+    *, is_alive: Callable[[int], bool] = alive,
+) -> bool:
     """Admits *me* into *ledger* when its reservation fits and its turn has come.
+
+    *is_alive* answers whether a process id is still running; the default asks the system.
 
     Its turn has come when it heads the queue, or when it fits and the head has waited less than
     the backfill window. The budget is set by the first edge to arrive at an idle gate, from the
@@ -221,9 +227,9 @@ def admit(ledger: dict, me: int, expected: int, free_mb: int, now: float) -> boo
     """
     running = ledger.setdefault("running", {})
     queue = ledger.setdefault("queue", [])
-    for pid in [pid for pid in running if not alive(int(pid))]:
+    for pid in [pid for pid in running if not is_alive(int(pid))]:
         del running[pid]
-    queue[:] = [entry for entry in queue if alive(entry[0])]
+    queue[:] = [entry for entry in queue if is_alive(entry[0])]
     if not running and not queue:
         ledger["budget"] = max(0, free_mb - K_RESERVE_MB)
         ledger["lowest_free"] = free_mb
@@ -352,6 +358,19 @@ def defined_symbols(data: bytes) -> list[bytes] | None:
     return None
 
 
+def kernel_submission_of(data: bytes) -> str:
+    """Returns the first SYCL kernel submission the object bytes *data* instantiate, or "".
+
+    Only the symbols the object defines count: debug information names the submissions it
+    merely references.
+    """
+    names = defined_symbols(data)
+    for name in [data] if names is None else names:
+        if found := K_KERNEL_SUBMISSION.search(name):
+            return found.group(0)[:160].decode("ascii", "replace")
+    return ""
+
+
 def kernel_submission_in(obj: Path) -> str:
     """Returns the first SYCL kernel submission a host-only object instantiates, or "".
 
@@ -364,11 +383,7 @@ def kernel_submission_in(obj: Path) -> str:
         data = obj.read_bytes()
     except OSError:
         return ""
-    names = defined_symbols(data)
-    for name in [data] if names is None else names:
-        if found := K_KERNEL_SUBMISSION.search(name):
-            return found.group(0)[:160].decode("ascii", "replace")
-    return ""
+    return kernel_submission_of(data)
 
 
 def object_of(command: list[str]) -> Path | None:
@@ -378,8 +393,13 @@ def object_of(command: list[str]) -> Path | None:
     return None
 
 
-def cached(command: list[str], kind: str, cache: str, state: Path) -> tuple[list[str], dict | None]:
+def cached(
+    command: list[str], kind: str, cache: str, state: Path,
+    *, environ: Mapping[str, str] | None = None,
+) -> tuple[list[str], dict | None]:
     """Returns *command* run through the compiler cache *cache*, and the environment it needs.
+
+    *environ* holds the variables the cache settings are read from; the process environment when None.
 
     Only a host compile is cached. A device compile's object carries device images, and a stale
     one is a kernel missing at run time that no build step reports. Unless the environment says
@@ -390,11 +410,17 @@ def cached(command: list[str], kind: str, cache: str, state: Path) -> tuple[list
     defaults = {"CCACHE_DIR": str(state.parent / "ccache"), "CCACHE_MAXSIZE": K_CACHE_SIZE,
                 "CCACHE_COMPILERCHECK": "content", "CCACHE_SLOPPINESS": "pch_defines,time_macros"}
     # A setting the environment already makes, such as a CI job's cache folder, is kept.
-    return [cache, *command], {**defaults, **os.environ}
+    return [cache, *command], {**defaults, **(os.environ if environ is None else environ)}
 
 
-def run(state: Path, command: list[str], cache: str = "") -> int:
-    """Runs *command* once the gate admits it, records its peak and returns its exit code."""
+def run(
+    state: Path, command: list[str], cache: str = "", *, requested: set[str] | None = None,
+) -> int:
+    """Runs *command* once the gate admits it, records its peak and returns its exit code.
+
+    *requested* holds the unit keys whose compiles are time-traced; None reads them from the
+    state folder's `time_trace.txt`.
+    """
     state.mkdir(parents=True, exist_ok=True)
     kind, key = edge_of(command)
     me = os.getpid()
@@ -417,7 +443,7 @@ def run(state: Path, command: list[str], cache: str = "") -> int:
         time.sleep(K_POLL)
 
     meter = PeakMeter()
-    traced = wants_time_trace(kind, key, _requested_units(state))
+    traced = wants_time_trace(kind, key, _requested_units(state) if requested is None else requested)
     if traced:
         # A cache hit writes no trace, so a traced compile runs the compiler itself.
         command, cache = [*command, "-ftime-trace"], ""
@@ -444,16 +470,27 @@ def run(state: Path, command: list[str], cache: str = "") -> int:
     return code
 
 
-def main(argv: list[str]) -> int:
-    """Runs `build_gate.py <state dir> [--cache <ccache>] -- <command...>`."""
+def parse_command_line(argv: list[str]) -> tuple[Path, list[str], str] | None:
+    """Returns the state folder, the command and the cache *argv* names, or None when it is malformed.
+
+    *argv* reads `<program> <state dir> [--cache <ccache>] -- <command...>`; the cache is "" when absent.
+    """
     cache = ""
     rest = argv[2:]
     if rest[:1] == ["--cache"] and len(rest) > 1:
         cache, rest = rest[1], rest[2:]
     if len(argv) < 2 or len(rest) < 2 or rest[0] != "--":
+        return None
+    return Path(argv[1]), rest[1:], cache
+
+
+def main(argv: list[str]) -> int:
+    """Runs `build_gate.py <state dir> [--cache <ccache>] -- <command...>`."""
+    parsed = parse_command_line(argv)
+    if parsed is None:
         print("usage: build_gate.py <state dir> [--cache <ccache>] -- <command...>", file=sys.stderr)
         return 2
-    return run(Path(argv[1]), rest[1:], cache)
+    return run(*parsed)
 
 
 if __name__ == "__main__":

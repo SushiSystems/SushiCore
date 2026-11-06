@@ -5,6 +5,8 @@
 """Spawning, and the two things four copies of it disagreed about."""
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -21,186 +23,206 @@ K_LINES = ["note: see [[nodiscard]] here", "second line"]
 K_MISSING_EXIT_CODE = 127
 
 
-@pytest.mark.medium
-def test_resolve_exe_falls_back_to_the_name(tmp_path):
+class _Child:
+    """Stands in for the process `subprocess.Popen` starts: it prints lines and exits."""
+
+    def __init__(self, lines: list[str] | None = None, exit_code: int = 0) -> None:
+        self.stdout = iter(lines or [])
+        self._exit_code = exit_code
+
+    def wait(self) -> int:
+        """Return the exit code the child was given."""
+        return self._exit_code
+
+
+class _InterruptedChild:
+    """Stands in for a child whose output is read when the user presses Ctrl+C."""
+
+    def __init__(self) -> None:
+        self.terminated = False
+        self.waited_after_terminating = False
+
+    @property
+    def stdout(self):
+        """Raise the interrupt the user's Ctrl+C raises."""
+        raise KeyboardInterrupt
+
+    def terminate(self) -> None:
+        """Record that the child was told to stop."""
+        self.terminated = True
+
+    def wait(self) -> int:
+        """Record whether the child had been told to stop before it was waited for."""
+        self.waited_after_terminating = self.terminated
+        return 0
+
+
+def _raising(error: BaseException) -> Callable[..., None]:
+    """Return a function that raises *error* whatever it is called with."""
+    def raise_error(*args, **kwargs):
+        raise error
+    return raise_error
+
+
+def _executable(folder: Path) -> Path:
+    """Create a program named `tool` in *folder* the way the platform names one, and return it."""
+    program = folder / ("tool.exe" if os.name == "nt" else "tool")
+    program.write_text("")
+    program.chmod(0o755)
+    return program
+
+
+@pytest.fixture
+def nothing_on_path(monkeypatch):
+    """Make the PATH search find no program, so a test reads neither PATH nor the disk."""
+    monkeypatch.setattr(shutil, "which", lambda *args, **kwargs: None)
+
+
+@pytest.fixture
+def child_is_missing(monkeypatch, nothing_on_path):
+    """Make every spawn fail as it does for a program that does not exist."""
+    monkeypatch.setattr(subprocess, "run", _raising(FileNotFoundError()))
+    monkeypatch.setattr(subprocess, "Popen", _raising(FileNotFoundError()))
+
+
+@pytest.fixture
+def user_interrupts(monkeypatch, nothing_on_path):
+    """Make a run of a child raise the interrupt that Ctrl+C raises."""
+    monkeypatch.setattr(subprocess, "run", _raising(KeyboardInterrupt()))
+
+
+@pytest.mark.small
+def test_resolve_exe_falls_back_to_the_name(nothing_on_path):
     runner = Runner(RecordingConsole(), "sb")
     assert runner.resolve_exe("definitely-not-on-path") == "definitely-not-on-path"
 
 
 @pytest.mark.medium
 def test_resolve_exe_reads_path_case_insensitively(tmp_path):
-    exe = tmp_path / ("tool.exe" if __import__("os").name == "nt" else "tool")
-    exe.write_text("")
-    exe.chmod(0o755)
+    exe = _executable(tmp_path)
     runner = Runner(RecordingConsole(), "sb")
     # shutil.which spells the extension as PATHEXT does; see docs/architecture/OVERVIEW.md, proc.
     assert runner.resolve_exe("tool", {"Path": str(tmp_path)}).lower() == str(exe).lower()
 
 
 @pytest.mark.medium
-def test_resolve_exe_finds_the_tool_when_the_env_holds_both_path_keys():
+def test_resolve_exe_finds_the_tool_when_the_env_holds_both_path_keys(tmp_path):
     """The collision the whole function exists for: os.environ's "Path" plus a
     vcvars overlay's "PATH". Whichever key wins, the tool must still resolve."""
-    import os
-    import tempfile
-    with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
-        name = "tool.exe" if os.name == "nt" else "tool"
-        exe = Path(second) / name
-        exe.write_text("")
-        exe.chmod(0o755)
-        runner = Runner(RecordingConsole(), "sb")
-        resolved = runner.resolve_exe("tool", {"Path": first, "PATH": second})
-        assert resolved.lower() == str(exe).lower()
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    exe = _executable(second)
+    runner = Runner(RecordingConsole(), "sb")
+    resolved = runner.resolve_exe("tool", {"Path": str(first), "PATH": str(second)})
+    assert resolved.lower() == str(exe).lower()
 
 
-@pytest.mark.medium
-def test_not_found_message_names_the_program():
+@pytest.mark.small
+def test_not_found_message_names_the_program(child_is_missing):
     console = RecordingConsole()
     runner = Runner(console, "sb")
     rc = runner.run(["no-such-binary-anywhere"], cwd=Path("."))
     assert rc == 1
-    errors = console.texts("error")
-    assert errors and "sb config" in errors[0]
+    assert "sb config" in console.texts("error")[0]
 
 
-@pytest.mark.medium
-def test_drained_output_is_not_parsed_as_markup(monkeypatch):
+@pytest.mark.small
+def test_drained_output_is_not_parsed_as_markup(monkeypatch, nothing_on_path):
     """The defect: Rich ate '[[nodiscard]]' out of ctest output in three CLIs."""
     console = RecordingConsole()
-
-    class _Proc:
-        stdout = iter(["note: see [[nodiscard]] here\n"])
-
-        def wait(self):
-            return 0
-
-    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: _Proc())
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: _Child([K_LINES[0] + "\n"]))
     runner = Runner(console, "sb")
     assert runner.run_drained(["ctest"], cwd=Path(".")) == 0
     printed = console.console.printed[0]
-    assert printed.text == "note: see [[nodiscard]] here"
+    assert printed.text == K_LINES[0]
     assert printed.options["markup"] is False
 
 
-def _raise(exc):
-    def _fn(*a, **k):
-        raise exc
-    return _fn
+@pytest.mark.small
+@pytest.mark.parametrize("options, expected", [
+    ({}, 1),
+    ({"missing_exit_code": 127}, 127),
+], ids=["default", "configured"])
+def test_missing_exit_code_defaults_to_one_and_is_configurable(
+        child_is_missing, options, expected):
+    runner = Runner(RecordingConsole(), "st", **options)
+    assert runner.run(["no-such-binary-anywhere"], Path(".")) == expected
 
 
-@pytest.mark.medium
-def test_missing_exit_code_defaults_to_one_and_is_configurable():
-    assert Runner(RecordingConsole(), "sb").run(["no-such-binary-anywhere"], Path(".")) == 1
-    runner = Runner(RecordingConsole(), "st", missing_exit_code=127)
-    assert runner.run(["no-such-binary-anywhere"], Path(".")) == 127
-
-
-@pytest.mark.medium
-def test_run_drained_returns_the_missing_exit_code(monkeypatch):
-    monkeypatch.setattr(subprocess, "Popen", _raise(FileNotFoundError()))
+@pytest.mark.small
+def test_run_drained_returns_the_missing_exit_code(child_is_missing):
     runner = Runner(RecordingConsole(), "st", missing_exit_code=127)
     assert runner.run_drained(["ctest"], Path(".")) == 127
 
 
-@pytest.mark.medium
-def test_interrupt_propagates_by_default(monkeypatch):
-    import pytest
-    monkeypatch.setattr(subprocess, "run", _raise(KeyboardInterrupt()))
+@pytest.mark.small
+def test_interrupt_propagates_by_default(user_interrupts):
     with pytest.raises(KeyboardInterrupt):
         Runner(RecordingConsole(), "sb").run(["x"], Path("."))
 
 
-@pytest.mark.medium
-def test_run_catches_interrupt_when_asked(monkeypatch):
+@pytest.mark.small
+def test_run_catches_interrupt_when_asked(user_interrupts):
     console = RecordingConsole()
-    monkeypatch.setattr(subprocess, "run", _raise(KeyboardInterrupt()))
     assert Runner(console, "st", catch_interrupt=True).run(["x"], Path(".")) == 130
     assert console.texts("warn") == ["Interrupted."]
 
 
-@pytest.mark.medium
-def test_run_drained_terminates_the_child_on_interrupt(monkeypatch):
+@pytest.mark.small
+def test_run_drained_terminates_the_child_on_interrupt(monkeypatch, nothing_on_path):
     console = RecordingConsole()
-
-    class _Proc:
-        terminated = False
-        waited = False
-
-        @property
-        def stdout(self):
-            raise KeyboardInterrupt
-
-        def terminate(self):
-            _Proc.terminated = True
-
-        def wait(self):
-            _Proc.waited = _Proc.terminated
-
-    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: _Proc())
+    child = _InterruptedChild()
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: child)
     runner = Runner(console, "st", catch_interrupt=True)
     assert runner.run_drained(["ctest"], Path(".")) == 130
-    assert _Proc.terminated
-    assert _Proc.waited
+    assert (child.terminated, child.waited_after_terminating) == (True, True)
     assert console.texts("warn") == ["Interrupted."]
 
 
 @pytest.mark.medium
-def test_run_drained_replaces_undecodable_bytes(monkeypatch):
-    seen = {}
-
-    class _Proc:
-        stdout = iter([])
-
-        def wait(self):
-            return 0
-
-    def _popen(*a, **k):
-        seen.update(k)
-        return _Proc()
-
-    monkeypatch.setattr(subprocess, "Popen", _popen)
-    Runner(RecordingConsole(), "sb").run_drained(["ctest"], Path("."))
-    assert seen["errors"] == "replace"
-
-
-@pytest.mark.medium
-def test_capture_returns_code_stdout_and_stderr_without_echo():
-    import sys
+def test_run_drained_replaces_undecodable_bytes():
     console = RecordingConsole()
-    script = "import sys; print('o'); print('e', file=sys.stderr); sys.exit(3)"
-    code, out, err = Runner(console, "st").capture([sys.executable, "-c", script])
-    assert (code, out.strip(), err.strip()) == (3, "o", "e")
+    # The bytes "ok ", 0x81 and a newline: 0x81 is invalid UTF-8 and undefined in cp1252.
+    code = "import sys; sys.stdout.buffer.write(bytes([111, 107, 32, 129, 10]))"
+    assert Runner(console, "sb").run_drained([sys.executable, "-c", code], Path(".")) == 0
+    assert [out.text for out in console.console.printed] == ["ok �"]
+
+
+@pytest.mark.small
+def test_capture_returns_code_stdout_and_stderr_without_echo(monkeypatch, nothing_on_path):
+    console = RecordingConsole()
+    finished = subprocess.CompletedProcess(["tool"], 3, stdout="o\n", stderr="e\n")
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: finished)
+    code, out, err = Runner(console, "st").capture(["tool"])
+    assert (code, out, err) == (3, "o\n", "e\n")
     assert console.calls == []
 
 
-@pytest.mark.medium
-def test_capture_reports_a_missing_executable_quietly():
+@pytest.mark.small
+def test_capture_reports_a_missing_executable_quietly(child_is_missing):
     console = RecordingConsole()
     result = Runner(console, "st", missing_exit_code=127).capture(["no-such-binary-anywhere"])
     assert result == (127, "", "Executable not found: 'no-such-binary-anywhere'")
     assert console.calls == []
 
 
-@pytest.mark.medium
-def test_capture_catches_interrupt(monkeypatch):
+@pytest.mark.small
+def test_capture_catches_interrupt(user_interrupts):
     console = RecordingConsole()
-    monkeypatch.setattr(subprocess, "run", _raise(KeyboardInterrupt()))
     assert Runner(console, "st", catch_interrupt=True).capture(["x"]) == (130, "", "")
     assert console.texts("warn") == ["Interrupted."]
 
 
-@pytest.mark.medium
-def test_capture_returns_the_default_missing_exit_code():
+@pytest.mark.small
+def test_capture_returns_the_default_missing_exit_code(child_is_missing):
     assert Runner(RecordingConsole(), "sb").capture(["no-such-binary-anywhere"])[0] == 1
 
 
-@pytest.mark.medium
-def test_capture_propagates_interrupt_by_default(monkeypatch):
-    import pytest
-    monkeypatch.setattr(subprocess, "run", _raise(KeyboardInterrupt()))
+@pytest.mark.small
+def test_capture_propagates_interrupt_by_default(user_interrupts):
     with pytest.raises(KeyboardInterrupt):
         Runner(RecordingConsole(), "sb").capture(["x"])
-
 
 
 @dataclass

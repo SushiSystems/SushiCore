@@ -15,7 +15,7 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any, Callable, Iterable, TextIO
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, TextIO
 
 from .errors import SushiCoreError
 
@@ -81,12 +81,22 @@ class AliasTable:
             return line + "."
         return f"{line}; the old spelling is removed after {alias.removed_after.isoformat()}."
 
-    def announce(self, alias: Alias, *, stream: TextIO | None = None) -> None:
-        """Prints *alias*'s notice once per table, to a terminal, unless it is switched off."""
+    def announce(
+        self, alias: Alias, *, stream: TextIO | None = None,
+        environ: Mapping[str, str] | None = None,
+    ) -> None:
+        """Prints *alias*'s notice once per table, to a terminal, unless it is switched off.
+
+        Args:
+            alias: The row whose notice is printed.
+            stream: Where the notice goes; the standard error stream when None.
+            environ: The variables the switch is read from; the process environment when None.
+        """
         target = sys.stderr if stream is None else stream
+        variables = os.environ if environ is None else environ
         if self._announced or alias.removed_after is None:
             return
-        if os.environ.get(self.notice_switch) == "1" or not target.isatty():
+        if variables.get(self.notice_switch) == "1" or not target.isatty():
             return
         print(self.notice(alias), file=target)
         self._announced = True

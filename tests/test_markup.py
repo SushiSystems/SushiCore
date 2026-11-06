@@ -39,20 +39,22 @@ def test_a_bracket_that_names_a_rich_style_is_left_alone(text):
     assert _escape(text) == text
 
 
-def test_a_theme_name_is_left_alone_when_it_is_known():
-    assert _escape("[success]ok[/success]") == "[success]ok[/success]"
-
-
-def test_a_theme_name_is_escaped_when_it_is_not_known_and_not_a_rich_style():
-    assert _escape("[success]ok[/success]", known={}) == r"\[success]ok\[/success]"
+@pytest.mark.parametrize("known, expected", [
+    (K_THEME_NAMES, "[success]ok[/success]"),
+    ({}, r"\[success]ok\[/success]"),
+], ids=["known", "unknown"])
+def test_a_theme_name_is_left_alone_when_known_and_escaped_when_not(known, expected):
+    assert _escape("[success]ok[/success]", known=known) == expected
 
 
 def test_the_bare_close_everything_tag_is_left_alone():
     assert _escape("[/]") == "[/]"
 
 
-def test_a_bracket_that_is_already_escaped_is_left_alone():
-    assert _escape(r"hdf5\[core,zlib]") == r"hdf5\[core,zlib]"
+@pytest.mark.parametrize("text", [r"hdf5\[core,zlib]", "\\\\\\[core,zlib]"],
+                         ids=["one backslash", "three backslashes"])
+def test_a_bracket_that_is_already_escaped_is_left_alone(text):
+    assert _escape(text) == text
 
 
 def test_several_brackets_in_one_string_are_judged_one_by_one():
@@ -98,10 +100,6 @@ def test_an_empty_name_is_left_alone(name):
 
 def test_a_bracket_after_an_even_run_of_backslashes_is_escaped():
     assert _escape("\\\\[core,zlib]") == "\\\\\\[core,zlib]"
-
-
-def test_a_bracket_after_an_odd_run_of_backslashes_is_escaped_already():
-    assert _escape("\\\\\\[core,zlib]") == "\\\\\\[core,zlib]"
 
 
 def test_a_key_value_bracket_is_not_a_style():

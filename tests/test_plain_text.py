@@ -4,6 +4,8 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """Tests the removal of Rich markup tags from text."""
 
+from pathlib import Path
+
 import pytest
 
 from sushicore.plain_text import plain_text
@@ -36,6 +38,7 @@ def test_importing_the_module_does_not_load_rich():
     import sys
 
     code = "import sys, sushicore.plain_text; sys.exit(1 if 'rich' in sys.modules else 0)"
+    source = str(Path(__file__).resolve().parents[1] / "source")
     # Windows needs SYSTEMROOT to seed hash randomisation, so the parent environment is kept.
-    env = {**os.environ, "PYTHONPATH": "source"}
+    env = {**os.environ, "PYTHONPATH": source}
     assert subprocess.run([sys.executable, "-c", code], env=env).returncode == 0

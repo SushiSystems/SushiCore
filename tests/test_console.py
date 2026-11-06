@@ -5,6 +5,7 @@
 """Tests how the console turns semantic calls into renderer calls."""
 
 import io
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -13,78 +14,94 @@ import pytest
 from sushicore.console import Console
 from sushicore.console_memory import RecordingConsole
 from sushicore.icons import IconSet
-from sushicore.renderer import PlainRenderer
+from sushicore.renderer import JsonRenderer, PlainRenderer
 from sushicore.theme import Theme
 
+pytestmark = pytest.mark.small
+
+K_ICONS = IconSet(info="i", success="s", warn="w", error="e")
 
 
-class _Renderer:
-    """Records every call a console makes."""
-
-    def __init__(self):
-        self.calls = []
-        self.raw = object()
-
-    def __getattr__(self, name):
-        def record(*args, **kwargs):
-            self.calls.append((name, args, kwargs))
-            return "answer" if name == "prompt" else None
-        return record
+def _plain_console(theme: Theme | None = None, *,
+                   dark_background: bool = False) -> tuple[Console, io.StringIO]:
+    """Return a console over the plain renderer and the stream it writes to."""
+    stream = io.StringIO()
+    return Console(PlainRenderer(stream), theme or Theme(), K_ICONS, dark_background), stream
 
 
-def _console():
-    renderer = _Renderer()
-    return Console(renderer, Theme(), IconSet(), dark_background=True), renderer
+def _json_console(answers: str = "") -> tuple[Console, io.StringIO]:
+    """Return a console over the JSON renderer, reading *answers*, and the stream of its events."""
+    events = io.StringIO()
+    renderer = JsonRenderer(events, io.StringIO(), io.StringIO(answers))
+    return Console(renderer, Theme(), K_ICONS), events
 
 
-@pytest.mark.small
-def test_each_level_uses_its_style_and_icon():
-    console, renderer = _console()
-    theme, icons = Theme(), IconSet()
-    console.info("a")
-    console.warn("b")
-    console.error("c")
-    console.success("d")
-    assert renderer.calls == [
-        ("line", (theme.info, icons.info, "a"), {}),
-        ("line", (theme.warn, icons.warn, "b"), {}),
-        ("line", (theme.error, icons.error, "c"), {}),
-        ("line", (theme.success, icons.success, "d"), {}),
-    ]
+def _events(stream: io.StringIO) -> list[dict]:
+    """Return the JSON events written to *stream*, in order."""
+    return [json.loads(line) for line in stream.getvalue().splitlines()]
 
 
-@pytest.mark.small
-def test_a_flat_table_does_not_pass_group_by():
-    console, renderer = _console()
-    console.table(["A"], [["1"]])
-    console.table(["A"], [["1"]], group_by="A")
-    assert renderer.calls[0][2] == {}
-    assert renderer.calls[1][2] == {"group_by": "A"}
+@pytest.mark.parametrize("method, line", [
+    ("info", "i a\n"),
+    ("success", "s a\n"),
+    ("warn", "w a\n"),
+    ("error", "e a\n"),
+])
+def test_each_level_prints_its_own_icon_before_the_message(method, line):
+    console, stream = _plain_console()
+    getattr(console, method)("a")
+    assert stream.getvalue() == line
 
 
-@pytest.mark.small
-def test_prompts_are_numbered_per_console():
-    console, renderer = _console()
-    assert console.prompt("Name?") == "answer"
+def test_a_flat_table_prints_its_title_header_and_rows():
+    console, stream = _plain_console()
+    console.table(["A", "B"], [["1", "2"]], "Things")
+    assert stream.getvalue() == "Things\nA  B\n1  2\n"
+
+
+def test_a_table_grouped_by_a_column_prints_its_rows():
+    console, stream = _plain_console()
+    console.table(["A", "B"], [["1", "2"]], "Things", group_by="A")
+    assert stream.getvalue() == "Things\nA  B\n1  2\n"
+
+
+def test_prompts_are_numbered_from_one_in_the_order_they_are_asked():
+    console, events = _json_console("Ann\nBo\n")
+    console.prompt("Name?")
     console.prompt("Again?", default="x")
-    assert [call[1][0] for call in renderer.calls] == ["prompt-1", "prompt-2"]
+    assert [event["id"] for event in _events(events)] == ["prompt-1", "prompt-2"]
 
 
-@pytest.mark.small
+def test_a_prompt_returns_the_answer_the_renderer_read():
+    console, _ = _json_console("Ann\n")
+    assert console.prompt("Name?") == "Ann"
+
+
 def test_result_sends_an_empty_payload_by_default():
-    console, renderer = _console()
+    console, events = _json_console()
     console.result(True)
-    assert renderer.calls == [("result", (True, {}), {})]
+    assert _events(events) == [{"event": "result", "ok": True, "payload": {}}]
 
 
-@pytest.mark.small
-def test_properties_expose_the_bound_parts():
-    console, renderer = _console()
-    assert console.console is renderer.raw
-    assert console.accent == Theme().header
-    assert console.dark_background
-    assert not console.is_machine()
+def test_the_rich_console_property_prints_to_the_stream_of_the_renderer():
+    console, stream = _plain_console()
+    console.console.print("shown")
+    assert stream.getvalue() == "shown\n"
 
+
+def test_accent_is_the_header_style_of_the_theme():
+    console, _ = _plain_console(Theme(header="underline"))
+    assert console.accent == "underline"
+
+
+def test_dark_background_reports_what_the_console_was_built_with():
+    console, _ = _plain_console(dark_background=True)
+    assert console.dark_background is True
+
+
+def test_a_console_over_the_json_renderer_is_in_machine_mode():
+    console, _ = _json_console()
+    assert console.is_machine() is True
 
 
 @dataclass
@@ -114,7 +131,6 @@ class ConsoleContract:
         assert world.console.is_machine() is False
 
 
-@pytest.mark.small
 class TestRecordingConsoleKeepsTheConsoleContract(ConsoleContract):
     """The recording console, which prints nothing."""
 
@@ -124,7 +140,6 @@ class TestRecordingConsoleKeepsTheConsoleContract(ConsoleContract):
         return ConsoleWorld(console, lambda: "\n".join(call.text for call in console.calls))
 
 
-@pytest.mark.small
 class TestConsoleKeepsTheConsoleContract(ConsoleContract):
     """The real console, rendering into a string in place of a terminal."""
 

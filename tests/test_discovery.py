@@ -7,25 +7,14 @@
 import os
 import stat
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.discovery import ExecutableIndex
 
 
 pytestmark = pytest.mark.medium
-
-
-class _FakeConsole:
-    """The slice of a CLI's console module ExecutableIndex needs."""
-
-    def __init__(self) -> None:
-        self.console = SimpleNamespace(print=lambda *a, **k: None)
-        self.errors: list[str] = []
-
-    def error(self, message: str) -> None:
-        self.errors.append(message)
 
 
 def _exe(build_root: Path, name: str) -> Path:
@@ -40,45 +29,45 @@ def _exe(build_root: Path, name: str) -> Path:
 
 def test_resolve_finds_an_explicit_target(tmp_path):
     _exe(tmp_path, "widget")
-    console = _FakeConsole()
+    console = RecordingConsole()
     index = ExecutableIndex()
 
     exe = index.resolve(tmp_path, console, target="widget")
 
     assert exe == tmp_path / "widget.exe"
-    assert console.errors == []
+    assert console.texts("error") == []
 
 
 def test_resolve_reports_a_missing_explicit_target_by_name(tmp_path):
     _exe(tmp_path, "widget")
-    console = _FakeConsole()
+    console = RecordingConsole()
     index = ExecutableIndex()
 
     exe = index.resolve(tmp_path, console, target="gadget")
 
     assert exe is None
-    assert console.errors == ["Executable matching 'gadget' not found."]
+    assert console.texts("error") == ["Executable matching 'gadget' not found."]
 
 
 def test_resolve_falls_back_to_the_default_when_no_target_is_given(tmp_path):
     _exe(tmp_path, "widget")
-    console = _FakeConsole()
+    console = RecordingConsole()
     index = ExecutableIndex()
 
     exe = index.resolve(tmp_path, console, default="widget")
 
     assert exe == tmp_path / "widget.exe"
-    assert console.errors == []
+    assert console.texts("error") == []
 
 
 def test_resolve_reports_a_missing_default_by_name(tmp_path):
-    console = _FakeConsole()
+    console = RecordingConsole()
     index = ExecutableIndex()
 
     exe = index.resolve(tmp_path, console, default="widget")
 
     assert exe is None
-    assert console.errors == ["Default target 'widget' not found."]
+    assert console.texts("error") == ["Default target 'widget' not found."]
 
 
 def test_resolve_with_sort_ignores_target_and_default_and_delegates_to_select(tmp_path):
@@ -91,13 +80,13 @@ def test_resolve_with_sort_ignores_target_and_default_and_delegates_to_select(tm
     were inverted, this would report the target or default message instead and
     the assertion below would fail.
     """
-    console = _FakeConsole()
+    console = RecordingConsole()
     index = ExecutableIndex()
 
     exe = index.resolve(tmp_path, console, target="widget", sort=True, default="widget")
 
     assert exe is None
-    assert console.errors == ["No executables found. Build the project first."]
+    assert console.texts("error") == ["No executables found. Build the project first."]
 
 
 def test_resolve_with_sort_returns_select_choice_even_though_target_also_matches(tmp_path,
@@ -111,7 +100,7 @@ def test_resolve_with_sort_returns_select_choice_even_though_target_also_matches
     """
     _exe(tmp_path, "widget")
     _exe(tmp_path, "zzz_other")
-    console = _FakeConsole()
+    console = RecordingConsole()
     index = ExecutableIndex()
 
     import rich.prompt
@@ -121,4 +110,37 @@ def test_resolve_with_sort_returns_select_choice_even_though_target_also_matches
     exe = index.resolve(tmp_path, console, target="widget", sort=True, default="widget")
 
     assert exe == tmp_path / "zzz_other.exe"
-    assert console.errors == []
+    assert console.texts("error") == []
+
+
+def _tree(build_root: Path, relative_paths: list[str]) -> None:
+    """Create an executable at each of *relative_paths* under *build_root*."""
+    for relative in relative_paths:
+        folder = build_root / Path(relative).parent
+        folder.mkdir(parents=True, exist_ok=True)
+        _exe(folder, Path(relative).name)
+
+
+def _names(found: list[Path]) -> list[str]:
+    """Return the file names of *found*, in order."""
+    return [path.name for path in found]
+
+
+def test_find_prunes_the_build_system_folders_and_the_skip_names_at_any_depth(tmp_path):
+    _tree(tmp_path, [
+        "keep.exe",
+        "CMakeFiles/pruned_a.exe",
+        "x/_deps/pruned_b.exe",
+        "x/y/vcpkg_installed/pruned_c.exe",
+        "sibling/pruned_d.exe",
+        "x/sibling/pruned_e.exe",
+        "x/nested.exe",
+    ])
+    found = ExecutableIndex(skip_dirs=("sibling",)).find(tmp_path)
+    assert _names(found) == ["keep.exe", "nested.exe"]
+
+
+def test_find_stops_descending_at_max_depth(tmp_path):
+    _tree(tmp_path, ["top.exe", "a/mid.exe", "a/b/deep.exe"])
+    found = ExecutableIndex(max_depth=1).find(tmp_path)
+    assert _names(found) == ["mid.exe", "top.exe"]

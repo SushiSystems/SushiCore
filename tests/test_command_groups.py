@@ -8,7 +8,7 @@ import pytest
 import typer
 
 from sushicore.backlog import register_backlog_commands
-from sushicore.command_groups import K_BACKLOG, K_DESIGN, K_GROUPS, exposed_groups, missing_groups
+from sushicore.command_groups import exposed_groups, missing_groups
 from sushicore.design import register_design_commands
 
 
@@ -29,12 +29,20 @@ def _app():
     return app
 
 
-def test_the_groups_are_backlog_then_design():
-    assert K_GROUPS == (K_BACKLOG, K_DESIGN) == ("backlog", "design")
+def _single_command_app():
+    """Return an app with one command and no callback, which is a command and not a group."""
+    app = typer.Typer()
+
+    @app.command()
+    def build() -> None:
+        """Build."""
+
+    return app
 
 
-def test_an_app_with_neither_group_lacks_both():
-    assert missing_groups(_app()) == ["backlog", "design"]
+@pytest.mark.parametrize("make_app", [_app, _single_command_app])
+def test_an_app_with_neither_group_lacks_both(make_app):
+    assert missing_groups(make_app()) == ["backlog", "design"]
 
 
 def test_an_app_that_registered_a_group_through_sushicore_exposes_it(tmp_path):
@@ -47,14 +55,3 @@ def test_an_app_that_registered_a_group_through_sushicore_exposes_it(tmp_path):
 
 def test_a_caller_can_ask_for_another_set_of_names():
     assert missing_groups(_app(), ["build", "deploy"]) == ["deploy"]
-
-
-def test_an_app_with_one_command_and_no_callback_exposes_nothing():
-    app = typer.Typer()
-
-    @app.command()
-    def build() -> None:
-        """Build."""
-
-    assert exposed_groups(app) == frozenset()
-    assert missing_groups(app) == ["backlog", "design"]

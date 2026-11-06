@@ -6,8 +6,6 @@
 
 import json
 
-from datetime import date
-
 import pytest
 
 import typer
@@ -21,10 +19,6 @@ from sushicore.root_options import register_root_options
 
 
 pytestmark = pytest.mark.medium
-
-
-
-K_REMOVED = date(2027, 3, 25)
 
 
 
@@ -48,18 +42,28 @@ def _app() -> typer.Typer:
 
 
 
-def test_describe_prints_the_catalogue_without_hidden_commands():
-    """--describe prints the catalogue as JSON and leaves hidden spellings out."""
+def _described() -> dict:
+    """Returns the document `sx --describe` prints."""
     app = _app()
     register_root_options(app, distribution="sushicore")
     result = CliRunner().invoke(app, ["--describe"])
-    assert result.exit_code == 0
-    document = json.loads(result.output)
+    return json.loads(result.output)
+
+
+
+def test_describe_prints_the_catalogue_document_of_the_program():
+    """--describe prints the program, the contract version and each command's help and flags."""
+    document = _described()
     assert document["program"] == "sx"
     assert document["contract"] == K_CONTRACT_VERSION
-    assert [command["name"] for command in document["commands"]] == ["build"]
     assert document["commands"][0]["help"] == "Configure and build."
     assert document["commands"][0]["params"][0]["flags"] == ["--clean"]
+
+
+
+def test_describe_leaves_hidden_commands_out():
+    """A hidden spelling is not listed."""
+    assert [command["name"] for command in _described()["commands"]] == ["build"]
 
 
 

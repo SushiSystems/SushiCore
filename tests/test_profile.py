@@ -9,9 +9,7 @@ import pytest
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile
 
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.small
 def test_env_overrides_are_prefixed_from_the_profile():
     profile = ModuleProfile(name="SushiBLAS", program="sb", env_prefix="SB")
     overrides = profile.env_overrides()
@@ -19,6 +17,7 @@ def test_env_overrides_are_prefixed_from_the_profile():
     assert overrides["vcpkg_root"] == "SB_VCPKG_ROOT"
 
 
+@pytest.mark.small
 def test_extra_env_overrides_win_over_the_prefix():
     """A collision is the only thing that proves precedence, so use one."""
     plain = ModuleProfile(name="SushiBLAS", program="sb", env_prefix="SB")
@@ -30,6 +29,7 @@ def test_extra_env_overrides_win_over_the_prefix():
     assert overridden.env_overrides()["cxx"] == "SUSHIRUNTIME_CXX"
 
 
+@pytest.mark.small
 def test_an_extra_override_for_a_non_tool_field_is_still_carried():
     """The real use: a sibling directory, which has no prefix-derived entry."""
     profile = ModuleProfile(
@@ -39,30 +39,35 @@ def test_an_extra_override_for_a_non_tool_field_is_still_carried():
     assert profile.env_overrides()["sushiruntime_dir"] == "SUSHIRUNTIME_DIR"
 
 
+@pytest.mark.small
 def test_sibling_skip_dirs_names_every_sibling():
     profile = ModuleProfile(name="SushiAI", program="sa", env_prefix="SA",
                             siblings=("sushiruntime", "sushiblas"))
     assert set(profile.sibling_skip_dirs()) == {"sushiruntime", "sushiblas"}
 
 
+@pytest.mark.small
 def test_markers_name_the_root_marker_then_the_release_manifest():
     profile = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE",
                             root_marker=".sushiengine-root")
     assert profile.markers() == (".sushiengine-root", RELEASE_MANIFEST)
 
 
+@pytest.mark.medium
 def test_presence_is_binary_when_the_release_manifest_is_there(tmp_path):
     profile = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE")
     (tmp_path / RELEASE_MANIFEST).write_text('{"product": "sushiengine"}')
     assert profile.presence(tmp_path) == "binary"
 
 
+@pytest.mark.medium
 def test_presence_is_source_without_the_release_manifest(tmp_path):
     profile = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE")
     (tmp_path / "CMakeLists.txt").write_text("")
     assert profile.presence(tmp_path) == "source"
 
 
+@pytest.mark.medium
 def test_a_directory_named_like_the_manifest_is_not_a_binary_install(tmp_path):
     """Only a file counts; a stray directory of that name must not fool the walk."""
     profile = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE")
@@ -70,6 +75,7 @@ def test_a_directory_named_like_the_manifest_is_not_a_binary_install(tmp_path):
     assert profile.presence(tmp_path) == "source"
 
 
+@pytest.mark.small
 def test_not_a_project_message_names_both_markers():
     profile = ModuleProfile(name="SushiEngine", program="se", env_prefix="SE",
                             root_marker=".sushiengine-root")
@@ -78,6 +84,10 @@ def test_not_a_project_message_names_both_markers():
     assert RELEASE_MANIFEST in message
 
 
-def test_key_is_the_lower_cased_name():
-    """Check that key is the lower cased name."""
-    assert ModuleProfile(name="SushiDSP", program="sd", env_prefix="SD").key == "sushidsp"
+@pytest.mark.small
+def test_env_tokens_give_the_common_tokens_then_the_modules_own():
+    plain = ModuleProfile(name="SushiBLAS", program="sb", env_prefix="SB").env_tokens()
+    own = ModuleProfile(name="SushiRuntime", program="sr", env_prefix="SR",
+                        env_of_interest=("ONEAPI_ROOT", "CUDA_PATH")).env_tokens()
+    assert "PATH" in plain
+    assert own == plain + ("ONEAPI_ROOT", "CUDA_PATH")

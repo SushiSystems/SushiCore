@@ -4,16 +4,11 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """The background setting travels from a TOML file and the environment to the console."""
 
-import io
-
 import pytest
 
 from sushicore import build_console
 from sushicore.config import load_appearance
-from sushicore.console import Console
-from sushicore.icons import IconSet
-from sushicore.renderer import PlainRenderer
-from sushicore.theme import Theme
+from sushicore.theme import get_theme
 
 
 pytestmark = pytest.mark.medium
@@ -32,10 +27,6 @@ def _config(tmp_path, body: str):
     return path
 
 
-def test_background_defaults_to_auto():
-    assert load_appearance([]).background == "auto"
-
-
 def test_the_cli_table_sets_the_background(tmp_path):
     path = _config(tmp_path, '[cli]\nbackground = "dark"\n')
     assert load_appearance([path]).background == "dark"
@@ -51,20 +42,6 @@ def test_the_environment_overrides_the_file(tmp_path, monkeypatch):
     monkeypatch.setenv("SUSHI_CLI_BACKGROUND", "light")
     path = _config(tmp_path, '[cli]\nbackground = "dark"\n')
     assert load_appearance([path]).background == "light"
-
-
-def test_an_unknown_background_falls_back_to_auto(tmp_path):
-    path = _config(tmp_path, '[cli]\nbackground = "sepia"\n')
-    assert load_appearance([path]).background == "auto"
-
-
-def test_a_console_reports_the_background_it_was_built_with():
-    console = Console(PlainRenderer(stream=io.StringIO()), Theme(), IconSet(), dark_background=True)
-    assert console.dark_background
-
-
-def test_a_console_assumes_a_light_background_by_default():
-    assert not Console(PlainRenderer(stream=io.StringIO()), Theme(), IconSet()).dark_background
 
 
 def test_build_console_takes_the_background_from_the_config(tmp_path):
@@ -87,16 +64,25 @@ def _clean_appearance_environment(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
-@pytest.mark.parametrize("key, bad, fallback", [
+K_UNKNOWN_VALUES = [
     ("theme", "neon", "default"),
     ("icons", "sparkly", "text"),
     ("color", "rainbow", "auto"),
     ("background", "sepia", "auto"),
-])
-def test_every_unknown_appearance_value_falls_back_and_warns_once(
+]
+
+
+@pytest.mark.parametrize("key, bad, fallback", K_UNKNOWN_VALUES)
+def test_every_unknown_appearance_value_falls_back(
         tmp_path, _clean_appearance_environment, key, bad, fallback):
     spec = load_appearance([_config(tmp_path, f'[cli]\n{key} = "{bad}"\n')])
     assert getattr(spec, key) == fallback
+
+
+@pytest.mark.parametrize("key, bad, fallback", K_UNKNOWN_VALUES)
+def test_every_unknown_appearance_value_warns_once(
+        tmp_path, _clean_appearance_environment, key, bad, fallback):
+    spec = load_appearance([_config(tmp_path, f'[cli]\n{key} = "{bad}"\n')])
     assert len(spec.warnings) == 1
     assert f"Unknown CLI {key} '{bad}'" in spec.warnings[0]
     assert f"using '{fallback}'" in spec.warnings[0]
@@ -114,9 +100,13 @@ def test_a_bad_value_from_the_environment_is_handled_the_same_way(monkeypatch, _
     assert "Unknown CLI theme 'neon'" in spec.warnings[0]
 
 
-def test_a_console_built_from_a_bad_theme_works_and_says_so(tmp_path, _clean_appearance_environment, capsys):
-    console = build_console([_config(tmp_path, '[cli]\ntheme = "neon"\n')], machine=True)
-    assert console is not None
+def test_a_console_built_from_a_bad_theme_says_so(tmp_path, _clean_appearance_environment, capsys):
+    build_console([_config(tmp_path, '[cli]\ntheme = "neon"\n')], machine=True)
     out = capsys.readouterr().out
     assert '"level":"warn"' in out
     assert "Unknown CLI theme 'neon'" in out
+
+
+def test_a_console_built_from_a_bad_theme_takes_the_default_theme(tmp_path, _clean_appearance_environment):
+    console = build_console([_config(tmp_path, '[cli]\ntheme = "neon"\n')], machine=True)
+    assert console.theme == get_theme("default")

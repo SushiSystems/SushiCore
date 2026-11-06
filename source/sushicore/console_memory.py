@@ -65,10 +65,13 @@ class RecordingConsole:
     Args:
         machine: What ``is_machine`` reports.
         answer: What ``prompt`` returns; ``None`` returns the prompt's own default.
+        accent: The style ``accent`` holds, for code that builds its own Rich renderables.
     """
 
-    def __init__(self, *, machine: bool = False, answer: str | None = None) -> None:
+    def __init__(self, *, machine: bool = False, answer: str | None = None,
+                 accent: str = "bold") -> None:
         """Start with no recorded calls."""
+        self.accent = accent
         self.calls: list[ConsoleCall] = []
         self.console = RecordingRichConsole(self.calls)
         self._machine = machine

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.config_base import write_toml_document, write_tool_section
+from sushicore.config_base import ToolConfig, load_tool_config, write_toml_document, write_tool_section
 from sushicore.workspace import read_toml
 
 
@@ -57,3 +57,13 @@ def test_the_document_writer_renders_every_table_it_is_given(tmp_path):
     body = target.read_text(encoding="utf-8")
     assert body.index("[tool]") < body.index("[modules]") < body.index("[workspace]")
     assert 'sushiai = "D:/Projects/sushiai"' in body
+
+
+def test_load_tool_config_keeps_only_the_declared_fields_and_coerces_the_bool_keys(tmp_path):
+    """An undeclared key is dropped, and a string under a bool key becomes a bool."""
+    target = tmp_path / "workspace.toml"
+    target.write_text('[tool]\ngenerator = "Make"\nuse_vcpkg = "yes"\nundeclared = "x"\n',
+                      encoding="utf-8")
+    cfg = load_tool_config(ToolConfig, [target], "windows", {})
+    assert (cfg.generator, cfg.use_vcpkg, cfg.platform) == ("Make", True, "windows")
+    assert not hasattr(cfg, "undeclared")

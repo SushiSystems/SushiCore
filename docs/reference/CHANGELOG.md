@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-07 — testing: Gave the alias table, the build gate, the trace summary, the icon registry, the diagnostics and the TOML reader optional seams whose defaults keep today's behaviour, so their tests run small (`build_gate.py`).
+
 - 2026-11-07 — testing: Added a CMake driver port, which the disk driver keeps with two new tree reads, and an in-memory driver that passes the same contract test (RW-69, `cmake_driver_memory.py`).
 
 - 2026-11-07 — continuous_integration: Deleted the budget-settings checker test that SushiSkills dropped, since it only skipped here (RW-68, `a528a1d`).

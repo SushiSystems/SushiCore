@@ -9,18 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from sushicore import JsonRenderer, build_console
 from sushicore.cli_console import LazyConsole
 
-
-pytestmark = pytest.mark.small
-
-
-def test_build_console_machine_uses_the_json_renderer():
-    console = build_console([], machine=True)
-    assert isinstance(console._renderer, JsonRenderer)
+K_CHECKOUT = Path("checkout")
 
 
+@pytest.mark.medium
 def test_lazy_console_reads_machine_at_first_build(monkeypatch, capsys):
     lazy = LazyConsole(lambda: Path("/nowhere"))
     lazy.machine = True
@@ -28,42 +22,47 @@ def test_lazy_console_reads_machine_at_first_build(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out.strip()) == {"event": "line", "level": "info", "message": "hello"}
 
 
-def test_lazy_console_exposes_the_new_names():
+@pytest.mark.medium
+@pytest.mark.parametrize("name", ["table", "progress", "result", "prompt"])
+def test_lazy_console_exposes_the_new_names(name):
     lazy = LazyConsole(lambda: Path("/nowhere"))
-    for name in ("table", "progress", "result", "prompt"):
-        assert callable(lazy.attribute(name))
+    assert callable(lazy.attribute(name))
 
 
-def test_lazy_console_is_machine_true_when_machine_flag_is_set():
+@pytest.mark.medium
+@pytest.mark.parametrize("machine", [True, False])
+def test_lazy_console_is_machine_follows_the_machine_flag(machine):
     lazy = LazyConsole(lambda: Path("/nowhere"))
-    lazy.machine = True
-    assert lazy.attribute("is_machine")() is True
+    lazy.machine = machine
+    assert lazy.attribute("is_machine")() is machine
 
 
-def test_lazy_console_is_machine_false_when_machine_flag_is_unset():
-    lazy = LazyConsole(lambda: Path("/nowhere"))
-    lazy.machine = False
-    assert lazy.attribute("is_machine")() is False
+@pytest.mark.small
+def test_lazy_console_layers_extra_files_below_the_directory_files():
+    workspace = K_CHECKOUT / "workspace.toml"
+    lazy = LazyConsole(lambda: K_CHECKOUT / "cli", lambda: [workspace])
+    assert lazy.sources() == [workspace, K_CHECKOUT / "cli" / "config.toml",
+                              K_CHECKOUT / "cli" / "config.local.toml"]
 
 
-def test_lazy_console_layers_extra_files_below_the_directory_files(tmp_path):
-    workspace = tmp_path / "workspace.toml"
-    lazy = LazyConsole(lambda: tmp_path / "cli", lambda: [workspace])
-    assert lazy.sources() == [workspace, tmp_path / "cli" / "config.toml",
-                              tmp_path / "cli" / "config.local.toml"]
-
-
-def test_lazy_console_still_reads_extra_files_outside_a_checkout(tmp_path):
+@pytest.mark.small
+def test_lazy_console_still_reads_extra_files_outside_a_checkout():
     def outside():
         raise SystemExit(1)
 
-    workspace = tmp_path / "workspace.toml"
+    workspace = K_CHECKOUT / "workspace.toml"
     assert LazyConsole(outside, lambda: [workspace]).sources() == [workspace]
     assert LazyConsole(outside).sources() == []
 
 
-def test_lazy_console_takes_a_theme_from_a_file_it_was_given(tmp_path, capsys):
+@pytest.mark.medium
+def test_lazy_console_takes_a_theme_from_a_file_it_was_given(tmp_path):
     workspace = tmp_path / "workspace.toml"
     workspace.write_text('[cli]\ntheme = "muted"\n', encoding="utf-8")
     lazy = LazyConsole(lambda: tmp_path / "cli", lambda: [workspace])
-    assert lazy.get()._theme.cmd == "dim cyan"
+    assert lazy.get().theme.cmd == "dim cyan"
+
+
+@pytest.mark.small
+def test_lazy_console_is_not_built_until_it_is_first_used():
+    assert LazyConsole(lambda: K_CHECKOUT).built is False

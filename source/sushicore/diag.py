@@ -15,6 +15,7 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
+from .files import Files
 from .profile import ModuleProfile
 from .workspace import merge_platform_table, read_toml
 
@@ -52,9 +53,11 @@ class Diagnostics:
                        engine derives it from a preset and sushiruntime has a
                        separate sanitizer tree, so ``<root>/build`` is a guess
                        this module has no business making.
+    @param files       The file system the config files are read through; the
+                       disk when None.
     """
 
-    __slots__ = ("_profile", "_console", "_config", "_build_env", "_build_dir")
+    __slots__ = ("_profile", "_console", "_config", "_build_env", "_build_dir", "_files")
 
     def __init__(
         self,
@@ -64,12 +67,18 @@ class Diagnostics:
         config: ConfigModule,
         build_env: Callable[[object, Path], Mapping[str, str]] | None = None,
         build_dir: Callable[[Path], Path] = lambda root: root / "build",
+        files: Files | None = None,
     ) -> None:
         self._profile = profile
         self._console = console
         self._config = config
         self._build_env = build_env
         self._build_dir = build_dir
+        self._files = files
+
+    def _is_file(self, path: Path) -> bool:
+        """Whether a file is at *path*, on the disk or in the file system this was given."""
+        return path.is_file() if self._files is None else self._files.is_file(path)
 
     def _config_files(self, root: Path) -> list[Path]:
         """The config files this module layers, lowest precedence first.
@@ -88,7 +97,7 @@ class Diagnostics:
         cfg_dir = self._config.config_dir(root)
         origins: dict[str, str] = {}
         for path in self._config_files(root):
-            doc = read_toml(path)
+            doc = read_toml(path, files=self._files)
             if doc:
                 label = path.name if path.parent == cfg_dir else _WORKSPACE_LABEL
                 origins.update(dict.fromkeys(merge_platform_table(doc, plat), label))
@@ -148,7 +157,7 @@ class Diagnostics:
         console.info(f"{'Config dir':<{width}} : {cfg_dir}")
         for fname in _CONFIG_FILES:
             # Rich drops "[found]" as a style tag, hence parentheses; docs/architecture/OVERVIEW.md.
-            mark = "found" if (cfg_dir / fname).is_file() else "absent"
+            mark = "found" if self._is_file(cfg_dir / fname) else "absent"
             console.info(f"  {fname:<20} ({mark})")
         return 0
 

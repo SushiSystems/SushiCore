@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Mapping, Sequence
 
 K_OBJECT_SUFFIXES = (".obj", ".o")
 
@@ -61,20 +62,33 @@ def summarise_time_traces(build_dir: Path, top: int) -> TraceSummary:
     Clang writes `<object stem>.json` beside `<object>`. Times are inclusive: a header that
     includes another counts the inner parse in its own total.
     """
-    summary = TraceSummary(top=top)
+    units: dict[str, Sequence[Mapping]] = {}
     for suffix in K_OBJECT_SUFFIXES:
         for obj in sorted(build_dir.rglob(f"*{suffix}")):
             trace = obj.with_suffix(".json")
-            if trace.is_file():
-                _add(summary, obj.relative_to(build_dir).as_posix(), trace)
+            events = _read_events(trace) if trace.is_file() else None
+            if events is not None:
+                units[obj.relative_to(build_dir).as_posix()] = events
+    return summarise_events(units, top)
+
+
+def summarise_events(units: Mapping[str, Sequence[Mapping]], top: int) -> TraceSummary:
+    """Sums up the trace events of each unit; *units* maps a unit's name to its `traceEvents`."""
+    summary = TraceSummary(top=top)
+    for unit, events in units.items():
+        _add(summary, unit, events)
     return summary
 
 
-def _add(summary: TraceSummary, unit: str, trace: Path) -> None:
+def _read_events(trace: Path) -> list[Mapping] | None:
+    """Returns the `traceEvents` of the trace file *trace*, or None when it cannot be read."""
     try:
-        events = json.loads(trace.read_text(encoding="utf-8")).get("traceEvents", [])
+        return json.loads(trace.read_text(encoding="utf-8")).get("traceEvents", [])
     except (OSError, ValueError):
-        return
+        return None
+
+
+def _add(summary: TraceSummary, unit: str, events: Sequence[Mapping]) -> None:
     times = summary.units.setdefault(unit, UnitTimes())
     headers: dict[str, float] = {}
     templates: dict[str, float] = {}

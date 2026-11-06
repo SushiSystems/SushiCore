@@ -209,7 +209,7 @@ was taken on.
 `test_a_cache_written_before_this_existed_heals_on_read` was a snapshot taken while a session
 had pinned SYCL to the CPU: it kept pinning every later build and run, from any terminal,
 because the cache is merged over the current environment.
-`test_the_current_environment_still_reaches_a_subprocess` checks the other side. Dropping the
+`test_a_callers_device_choice_survives_the_merge_with_a_cached_snapshot` checks the other side. Dropping the
 variable from the snapshot must not stop a caller setting it for one run; `merge_env` starts
 from the live environment, so a deliberate export still arrives.
 

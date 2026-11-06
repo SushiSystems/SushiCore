@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from .errors import ConfigError, SushiCoreError
+from .files import Files
 from .toml_writer import write_toml_document
 
 try:
@@ -38,16 +39,30 @@ def workspace_file(root: Path) -> Path:
     return root / WORKSPACE_MARKER / WORKSPACE_FILE
 
 
-def read_toml(path: Path) -> dict:
+def read_toml(path: Path, *, files: Files | None = None) -> dict:
     """Parse a TOML file, or return ``{}`` when it does not exist.
 
+    @param files The file system the file is read through; the disk when None.
     @throws ConfigError When the file is not valid TOML.
     """
+    if files is not None:
+        return _parse_toml(path, files.read_text(path)) if files.is_file(path) else {}
     if not path.is_file():
         return {}
     try:
         with path.open("rb") as fh:
             return tomllib.load(fh)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{path}: {exc}") from exc
+
+
+def _parse_toml(path: Path, text: str) -> dict:
+    """Parse TOML *text* read from *path*.
+
+    @throws ConfigError When the text is not valid TOML.
+    """
+    try:
+        return tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"{path}: {exc}") from exc
 

@@ -6,16 +6,15 @@
 
 import os
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from sushicore.cmake_driver import CMakeDriver
+from sushicore.config_base import ToolConfig
 from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
 
-
-pytestmark = pytest.mark.medium
+K_TREE = Path("tree")
 
 
 def _calls(runner):
@@ -30,10 +29,8 @@ def _lines(console):
 
 
 def _cfg(**kw):
-    base = dict(cmake_exe="", ctest_exe="", doxygen_exe="", generator="Ninja")
-    base.update(kw)
-    base["expand"] = lambda s: s
-    return SimpleNamespace(**base)
+    """Return a tool config with the settings *kw* names and the defaults for the rest."""
+    return ToolConfig(**kw)
 
 
 def _runner():
@@ -46,12 +43,19 @@ def _driver():
     return CMakeDriver(RecordingConsole(), runner), runner
 
 
+@pytest.mark.small
 def test_cmake_defaults_to_the_bare_name():
     driver, _ = _driver()
     assert driver.cmake(_cfg()) == "cmake"
+
+
+@pytest.mark.small
+def test_cmake_takes_the_configured_path():
+    driver, _ = _driver()
     assert driver.cmake(_cfg(cmake_exe="C:/tools/cmake.exe")) == "C:/tools/cmake.exe"
 
 
+@pytest.mark.medium
 def test_compile_builds_the_expected_argv(tmp_path):
     driver, runner = _driver()
     driver.compile(_cfg(), tmp_path, tmp_path, None, config="Release")
@@ -60,6 +64,7 @@ def test_compile_builds_the_expected_argv(tmp_path):
          str(tmp_path))]
 
 
+@pytest.mark.medium
 def test_compile_appends_targets(tmp_path):
     driver, runner = _driver()
     driver.compile(_cfg(), tmp_path, tmp_path, None, config="Debug",
@@ -69,48 +74,55 @@ def test_compile_appends_targets(tmp_path):
         "--target", "editor"]
 
 
-def test_ctest_run_is_drained_and_carries_the_knobs(tmp_path):
+@pytest.mark.small
+def test_ctest_run_is_drained_and_carries_the_knobs():
     driver, runner = _driver()
-    driver.ctest_run(_cfg(), tmp_path, None, label_regex="^unit$",
+    driver.ctest_run(_cfg(), K_TREE, None, label_regex="^unit$",
                      filter="Gemm.*", repeat=3)
     kind, argv, cwd = _calls(runner)[0]
     assert kind == "drained"
-    assert argv == ["ctest", "--test-dir", str(tmp_path), "--output-on-failure",
+    assert argv == ["ctest", "--test-dir", str(K_TREE), "--output-on-failure",
                     "-L", "^unit$", "-R", "Gemm.*", "--repeat", "until-fail:3"]
-    assert cwd == str(tmp_path)
+    assert cwd == str(K_TREE)
 
 
-
-def test_ctest_run_leaves_out_the_excluded_labels(tmp_path):
+@pytest.mark.small
+def test_ctest_run_leaves_out_the_excluded_labels():
     driver, runner = _driver()
-    driver.ctest_run(_cfg(), tmp_path, None, label_regex="^(small|medium)$",
+    driver.ctest_run(_cfg(), K_TREE, None, label_regex="^(small|medium)$",
                      exclude_label_regex="^quarantined$")
     assert _calls(runner)[0][1][-4:] == ["-L", "^(small|medium)$", "-LE", "^quarantined$"]
 
-def test_ctest_run_writes_a_junit_file_when_asked(tmp_path):
+
+@pytest.mark.small
+def test_ctest_run_writes_a_junit_file_when_asked():
     driver, runner = _driver()
-    report = tmp_path / "junit.xml"
-    driver.ctest_run(_cfg(), tmp_path, None, label_regex="^small$", output_junit=report)
+    report = K_TREE / "junit.xml"
+    driver.ctest_run(_cfg(), K_TREE, None, label_regex="^small$", output_junit=report)
     assert _calls(runner)[0][1][-2:] == ["--output-junit", str(report)]
 
 
-def test_ctest_run_omits_absent_knobs(tmp_path):
+@pytest.mark.small
+def test_ctest_run_omits_absent_knobs():
     driver, runner = _driver()
-    driver.ctest_run(_cfg(), tmp_path, None)
-    assert _calls(runner)[0][1] == ["ctest", "--test-dir", str(tmp_path),
-                                  "--output-on-failure"]
+    driver.ctest_run(_cfg(), K_TREE, None)
+    assert _calls(runner)[0][1] == ["ctest", "--test-dir", str(K_TREE),
+                                    "--output-on-failure"]
 
 
+@pytest.mark.medium
 def test_needs_configure_when_there_is_no_tree(tmp_path):
     driver, _ = _driver()
     assert driver.needs_configure(tmp_path / "absent", "Ninja") is True
 
 
+@pytest.mark.medium
 def test_needs_configure_when_the_sentinel_is_missing(tmp_path):
     driver, _ = _driver()
     assert driver.needs_configure(tmp_path, "Ninja") is True
 
 
+@pytest.mark.medium
 def test_no_reconfigure_when_expectations_hold(tmp_path):
     (tmp_path / "build.ninja").write_text("")
     (tmp_path / "CMakeCache.txt").write_text("CMAKE_BUILD_TYPE:STRING=Release\n")
@@ -119,6 +131,7 @@ def test_no_reconfigure_when_expectations_hold(tmp_path):
                                   expect={"CMAKE_BUILD_TYPE": "Release"}) is False
 
 
+@pytest.mark.medium
 def test_reconfigure_when_an_expectation_is_violated(tmp_path):
     (tmp_path / "build.ninja").write_text("")
     (tmp_path / "CMakeCache.txt").write_text("CMAKE_BUILD_TYPE:STRING=Release\n")
@@ -129,6 +142,7 @@ def test_reconfigure_when_an_expectation_is_violated(tmp_path):
 
 # is_stale's comparison is pinned in test_cmake_cache.py; see docs/architecture/OVERVIEW.md.
 
+@pytest.mark.medium
 def test_root_mismatch_forces_reconfigure_and_warns(tmp_path):
     build_dir = tmp_path / "build"
     build_dir.mkdir()
@@ -143,6 +157,7 @@ def test_root_mismatch_forces_reconfigure_and_warns(tmp_path):
     assert any("different source path" in line for line in _lines(console))
 
 
+@pytest.mark.medium
 def test_root_match_does_not_reconfigure_or_warn(tmp_path):
     build_dir = tmp_path / "build"
     build_dir.mkdir()
@@ -157,6 +172,7 @@ def test_root_match_does_not_reconfigure_or_warn(tmp_path):
     assert _lines(console) == []
 
 
+@pytest.mark.medium
 def test_clean_tree_says_so_when_there_is_nothing_to_clean(tmp_path):
     console = RecordingConsole()
     driver = CMakeDriver(console, _runner())
@@ -164,6 +180,7 @@ def test_clean_tree_says_so_when_there_is_nothing_to_clean(tmp_path):
     assert any("nothing to clean" in line for line in _lines(console))
 
 
+@pytest.mark.medium
 def test_clean_tree_removes_the_directory_it_is_given(tmp_path):
     build = tmp_path / "build"
     (build / "CMakeFiles").mkdir(parents=True)
@@ -173,6 +190,7 @@ def test_clean_tree_removes_the_directory_it_is_given(tmp_path):
     assert not build.exists()
 
 
+@pytest.mark.medium
 def test_clean_tree_removes_only_that_directory(tmp_path):
     """The failure that would matter: removing the parent instead of the tree."""
     sibling = tmp_path / "keep"
@@ -181,11 +199,10 @@ def test_clean_tree_removes_only_that_directory(tmp_path):
     build.mkdir()
     driver = CMakeDriver(RecordingConsole(), _runner())
     driver.clean_tree(build)
-    assert not build.exists()
     assert sibling.is_dir()
-    assert tmp_path.is_dir()
 
 
+@pytest.mark.medium
 def test_clean_tree_reports_a_tree_that_is_still_there(tmp_path, monkeypatch):
     """A tree a program holds open survives the removal and must not be reported as removed."""
     build = tmp_path / "build"
@@ -197,12 +214,16 @@ def test_clean_tree_reports_a_tree_that_is_still_there(tmp_path, monkeypatch):
     assert not any(line.endswith("removed.") for line in _lines(console))
 
 
-def test_clean_tree_returns_true_for_a_removed_and_for_an_absent_tree(tmp_path):
+@pytest.mark.medium
+def test_clean_tree_returns_true_for_a_removed_tree(tmp_path):
     build = tmp_path / "build"
     build.mkdir()
-    driver = CMakeDriver(RecordingConsole(), _runner())
-    assert driver.clean_tree(build) is True
-    assert driver.clean_tree(build) is True
+    assert CMakeDriver(RecordingConsole(), _runner()).clean_tree(build) is True
+
+
+@pytest.mark.medium
+def test_clean_tree_returns_true_for_an_absent_tree(tmp_path):
+    assert CMakeDriver(RecordingConsole(), _runner()).clean_tree(tmp_path / "absent") is True
 
 
 def _installed_doxygen(tmp_path: Path):
@@ -213,6 +234,7 @@ def _installed_doxygen(tmp_path: Path):
     return str(doxy)
 
 
+@pytest.mark.medium
 def test_doxygen_passes_a_path_relative_to_cwd(tmp_path):
     """The child resolves its argument against cwd; every module hands the driver an
     absolute Doxyfile so its own existence check is robust to being invoked from a
@@ -227,6 +249,7 @@ def test_doxygen_passes_a_path_relative_to_cwd(tmp_path):
     assert _calls(runner) == [("run", [doxy, "Doxyfile"], str(tmp_path))]
 
 
+@pytest.mark.medium
 def test_doxygen_derives_a_nested_relative_path(tmp_path):
     """SushiEngine's Doxyfile lives under .config/doxygen/; the argv must name it the
     same way the module always has, not the absolute path the existence check needs."""
@@ -241,6 +264,7 @@ def test_doxygen_derives_a_nested_relative_path(tmp_path):
     assert _calls(runner)[0][1] == [doxy, ".config/doxygen/Doxyfile"]
 
 
+@pytest.mark.medium
 def test_doxygen_not_found_names_the_absolute_path():
     """Printed, not spawned, so naming the full path here cannot move the argv."""
     console = RecordingConsole()
@@ -251,26 +275,44 @@ def test_doxygen_not_found_names_the_absolute_path():
     assert any(str(missing) in line for line in _lines(console))
 
 
+@pytest.mark.medium
+def test_doxygen_prints_the_install_hint_and_returns_1_when_doxygen_is_not_on_path(tmp_path):
+    doxyfile = tmp_path / "Doxyfile"
+    doxyfile.write_text("")
+    console = RecordingConsole()
+    driver = CMakeDriver(console, _runner())
+
+    code = driver.doxygen(_cfg(doxygen_exe="no-such-doxygen-executable"), doxyfile, tmp_path, None,
+                          install_hint="  - install it by hand")
+
+    assert code == 1
+    assert console.texts("error") == [
+        "Doxygen is not installed or not on PATH.\n  - install it by hand"]
+
+
+@pytest.mark.medium
 def test_compile_places_parallel_before_targets(tmp_path):
     driver, runner = _driver()
     driver.compile(_cfg(), tmp_path, tmp_path, None, config="Release",
                    targets=["a"], jobs=8)
     assert _calls(runner)[-1][1] == ["cmake", "--build", str(tmp_path), "--config",
-                                   "Release", "--parallel", "8", "--target", "a"]
+                                     "Release", "--parallel", "8", "--target", "a"]
 
 
-def test_ctest_run_appends_parallel_and_config_in_order(tmp_path):
+@pytest.mark.small
+def test_ctest_run_appends_parallel_and_config_in_order():
     driver, runner = _driver()
-    driver.ctest_run(_cfg(), tmp_path, None, filter="S.*", repeat=2, jobs=4,
+    driver.ctest_run(_cfg(), K_TREE, None, filter="S.*", repeat=2, jobs=4,
                      config="Debug")
     assert _calls(runner)[-1][1] == [
-        "ctest", "--test-dir", str(tmp_path), "--output-on-failure", "-R", "S.*",
+        "ctest", "--test-dir", str(K_TREE), "--output-on-failure", "-R", "S.*",
         "--repeat", "until-fail:2", "--parallel", "4", "-C", "Debug"]
 
 
-def test_ctest_run_passes_parallel_for_a_single_job(tmp_path):
+@pytest.mark.small
+def test_ctest_run_passes_parallel_for_a_single_job():
     driver, runner = _driver()
-    driver.ctest_run(_cfg(), tmp_path, None, jobs=1)
+    driver.ctest_run(_cfg(), K_TREE, None, jobs=1)
     command = _calls(runner)[-1][1]
     assert command[command.index("--parallel") + 1] == "1"
 
@@ -283,6 +325,7 @@ def _configured_tree(tmp_path, compiler):
     return build
 
 
+@pytest.mark.medium
 def test_configure_drops_the_cache_when_the_compiler_path_changed(tmp_path):
     build = _configured_tree(tmp_path, "D:/old/bin/clang++.exe")
     driver, runner = _driver()
@@ -293,14 +336,20 @@ def test_configure_drops_the_cache_when_the_compiler_path_changed(tmp_path):
     assert _calls(runner) == [("run", args, str(tmp_path))]
 
 
-def test_configure_keeps_the_cache_when_only_the_spelling_of_the_path_differs(tmp_path):
+@pytest.mark.medium
+@pytest.mark.parametrize("spelled", [
+    "D:/Tools/bin/./clang++.exe",
+    pytest.param(r"D:\Tools\bin\clang++.exe",
+                 marks=pytest.mark.skipif(os.name != "nt", reason="only Windows reads a backslash as a separator")),
+])
+def test_configure_keeps_the_cache_when_only_the_spelling_of_the_path_differs(tmp_path, spelled):
     build = _configured_tree(tmp_path, "D:/Tools/bin/clang++.exe")
     driver, _ = _driver()
-    spelled = r"D:\Tools\bin\clang++.exe" if os.name == "nt" else "D:/Tools/bin/./clang++.exe"
     driver.configure(["cmake", "-B", str(build), f"-DCMAKE_CXX_COMPILER={spelled}"], tmp_path)
     assert (build / "CMakeCache.txt").exists()
 
 
+@pytest.mark.medium
 def test_configure_keeps_the_cache_when_no_compiler_is_named(tmp_path):
     build = _configured_tree(tmp_path, "D:/old/bin/clang++.exe")
     driver, _ = _driver()
@@ -308,45 +357,45 @@ def test_configure_keeps_the_cache_when_no_compiler_is_named(tmp_path):
     assert (build / "CMakeCache.txt").exists()
 
 
-class _ScratchRunner:
-    """Records the scratch folder a build was given and writes a leftover into it."""
-
-    def __init__(self, fail=False):
-        self.fail = fail
-        self.scratch = None
-
-    def run(self, cmd, cwd, env=None):
-        self.scratch = Path(env["TMP"])
-        assert env["TEMP"] == env["TMP"]
-        (self.scratch / "main-sm_86-65cff7.s").write_text("leftover")
-        if self.fail:
-            raise RuntimeError("the build broke")
-        return 0
-
-
+@pytest.mark.medium
 def test_compile_hands_the_compilers_a_scratch_folder_in_the_tree(tmp_path):
-    runner = _ScratchRunner()
-    driver = CMakeDriver(RecordingConsole(), runner)
-    driver.compile(_cfg(), tmp_path, tmp_path, {"TMP": "C:/Temp", "PATH": "x"}, config="Release")
-    assert runner.scratch == tmp_path / "compiler_tmp"
-
-
-def test_compile_empties_the_scratch_folder_when_the_build_ends(tmp_path):
-    runner = _ScratchRunner()
-    CMakeDriver(RecordingConsole(), runner).compile(_cfg(), tmp_path, tmp_path, None, config="Release")
-    assert not runner.scratch.exists()
-
-
-def test_compile_empties_the_scratch_folder_when_the_build_fails(tmp_path):
-    runner = _ScratchRunner(fail=True)
-    with pytest.raises(RuntimeError):
-        CMakeDriver(RecordingConsole(), runner).compile(_cfg(), tmp_path, tmp_path, None, config="Release")
-    assert not runner.scratch.exists()
-
-
-def test_ctest_run_hands_the_shuffle_seed_to_the_tests_through_the_environment(tmp_path):
     driver, runner = _driver()
-    driver.ctest_run(_cfg(), tmp_path, {"A": "1"}, shuffle_seed=77)
+    driver.compile(_cfg(), tmp_path, tmp_path, {"TMP": "C:/Temp", "PATH": "x"}, config="Release")
+    env = runner.commands[-1].env
+    scratch = str(tmp_path / "compiler_tmp")
+    assert (env["TMP"], env["TEMP"]) == (scratch, scratch)
+
+
+@pytest.mark.medium
+def test_compile_empties_the_scratch_folder_when_the_build_ends(tmp_path):
+    scratch = tmp_path / "compiler_tmp"
+    scratch.mkdir()
+    (scratch / "main-sm_86-65cff7.s").write_text("leftover")
+    driver, _ = _driver()
+    driver.compile(_cfg(), tmp_path, tmp_path, None, config="Release")
+    assert not scratch.exists()
+
+
+@pytest.mark.medium
+def test_compile_empties_the_scratch_folder_when_the_build_fails(tmp_path):
+    scratch = tmp_path / "compiler_tmp"
+    scratch.mkdir()
+    (scratch / "main-sm_86-65cff7.s").write_text("leftover")
+    driver, runner = _driver()
+    runner.script(exit_code=1)
+    assert driver.compile(_cfg(), tmp_path, tmp_path, None, config="Release") == 1
+    assert not scratch.exists()
+
+
+@pytest.mark.small
+def test_ctest_run_hands_the_shuffle_seed_to_the_tests_through_the_environment():
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), K_TREE, {"A": "1"}, shuffle_seed=77)
     assert runner.commands[-1].env == {"A": "1", "GTEST_SHUFFLE": "1", "GTEST_RANDOM_SEED": "77"}
-    driver.ctest_run(_cfg(), tmp_path, {"A": "1"})
+
+
+@pytest.mark.small
+def test_ctest_run_leaves_the_environment_alone_without_a_shuffle_seed():
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), K_TREE, {"A": "1"})
     assert runner.commands[-1].env == {"A": "1"}

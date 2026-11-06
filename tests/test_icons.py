@@ -6,7 +6,6 @@
 
 import pytest
 
-import sushicore.icons as icons
 from sushicore.errors import ConfigError
 from sushicore.icons import IconSet, get_icon_set, known_icon_sets, register_icon_set
 
@@ -27,9 +26,12 @@ def test_get_icon_set_names_the_known_sets_for_an_unknown_one():
         get_icon_set("sparkles")
 
 
-def test_a_registered_set_is_found_and_listed(monkeypatch):
-    monkeypatch.setattr(icons, "_ICON_PRESETS", dict(icons._ICON_PRESETS))
-    register_icon_set("arrows", IconSet(info=">"))
-    assert get_icon_set("arrows").info == ">"
-    assert "arrows" in known_icon_sets()
-    assert list(known_icon_sets()) == sorted(known_icon_sets())
+def test_a_registered_set_is_found_by_name():
+    presets: dict[str, IconSet] = {}
+    register_icon_set("arrows", IconSet(info=">"), presets=presets)
+    assert get_icon_set("arrows", presets=presets).info == ">"
+
+
+def test_known_icon_sets_lists_the_registered_names_sorted():
+    presets = {"zebra": IconSet(), "arrows": IconSet()}
+    assert known_icon_sets(presets=presets) == ("arrows", "zebra")

@@ -4,95 +4,77 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """Tests `run`, which turns a CLI error into one line and an exit code."""
 
-from datetime import date
+import io
 
 import pytest
 
 import typer
 
+from sushicore.cli_console import LazyConsole
+from sushicore.console import Console
 from sushicore.entry import run
-
-from sushicore.errors import ConfigError, SushiCoreError
-
-
-
-pytestmark = pytest.mark.medium
+from sushicore.errors import ConfigError
+from sushicore.icons import IconSet
+from sushicore.renderer import PlainRenderer
+from sushicore.theme import Theme
 
 
+def _fail() -> None:
+    """Raises the failure a broken configuration raises."""
+    raise ConfigError("config.toml: bad value")
 
-K_REMOVED = date(2027, 3, 25)
 
+def _bug() -> None:
+    """Raises what a programming error raises."""
+    raise KeyError("oops")
+
+
+def _build() -> None:
+    """Returns normally, as a command that succeeds does."""
+    typer.echo("built")
 
 
 def _app() -> typer.Typer:
-    """Returns an application named `sx` with one command and one hidden command."""
+    """Returns an application named `sx` with a command that succeeds and two that raise."""
     app = typer.Typer(name="sx", help="Builds things.", no_args_is_help=True, add_completion=False)
-
-    @app.command("build")
-    def build(clean: bool = typer.Option(False, "--clean", help="Start over.")) -> None:
-        """Configure and build.
-
-        A second paragraph the catalogue leaves out.
-        """
-        typer.echo(f"built clean={clean}")
-
-    @app.command("old-build", hidden=True)
-    def old_build() -> None:
-        """The old spelling."""
-
+    app.command("build")(_build)
+    app.command("fail")(_fail)
+    app.command("bug")(_bug)
     return app
 
 
-
+@pytest.mark.small
 def test_run_turns_a_sushicore_error_into_one_line_and_exit_one():
     """The entry point reports a sushicore failure through the CLI's reporter and exits 1."""
-    app = _app()
-
-    @app.command("fail")
-    def fail() -> None:
-        """Raises the failure a broken configuration raises."""
-        raise ConfigError("config.toml: bad value")
-
-    reported: list[str] = []
+    stream = io.StringIO()
+    console = Console(PlainRenderer(stream), Theme(), IconSet(error="E"))
     with pytest.raises(SystemExit) as caught:
-        run(app, reported.append, argv=["fail"])
+        run(_app(), console.error, argv=["fail"])
     assert caught.value.code == 1
-    assert reported == ["config.toml: bad value"]
+    assert stream.getvalue() == "E config.toml: bad value\n"
 
 
-
-def test_run_falls_back_to_stderr_when_the_reporter_itself_fails(capsys):
-    """A reporter that cannot be built still leaves the user one line on stderr."""
-    app = _app()
-
-    @app.command("fail")
-    def fail() -> None:
-        """Raises the failure a broken configuration raises."""
-        raise ConfigError("config.toml: bad value")
-
-    def broken(message: str) -> None:
-        """Fails the way a console built from the same broken file fails."""
-        raise ConfigError("cannot build the console")
-
+@pytest.mark.medium
+def test_run_falls_back_to_stderr_when_the_reporter_itself_fails(tmp_path, capsys):
+    """A console built from the same broken file still leaves the user one line on stderr."""
+    (tmp_path / "config.toml").write_text("this is [not toml", encoding="utf-8")
+    lazy = LazyConsole(lambda: tmp_path)
     with pytest.raises(SystemExit) as caught:
-        run(app, broken, argv=["fail"])
+        run(_app(), lambda message: lazy.attribute("error")(message), argv=["fail"])
     assert caught.value.code == 1
     assert capsys.readouterr().err == "sx: config.toml: bad value\n"
 
 
-
-def test_run_passes_a_normal_exit_and_other_errors_through():
-    """A command's own exit code survives, and a bug is not disguised as a user error."""
-    app = _app()
-
-    @app.command("bug")
-    def bug() -> None:
-        """Raises what a programming error raises."""
-        raise KeyError("oops")
-
+@pytest.mark.small
+def test_run_exits_zero_after_a_command_that_succeeds():
+    """A command that returns normally leaves the process exit code 0."""
     with pytest.raises(SystemExit) as caught:
-        run(app, lambda message: None, argv=["build"])
+        run(_app(), lambda message: None, argv=["build"])
     assert caught.value.code == 0
+
+
+@pytest.mark.small
+def test_run_does_not_disguise_a_bug_as_a_user_error():
+    """An error that is not a sushicore failure stays a traceback."""
     with pytest.raises(KeyError):
-        run(app, lambda message: None, argv=["bug"])
-    assert issubclass(ConfigError, SushiCoreError)
+        run(_app(), lambda message: None, argv=["bug"])

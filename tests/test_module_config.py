@@ -6,6 +6,7 @@
 
 import pytest
 
+from sushicore.config_base import ToolConfig
 from sushicore.module_config import ModuleConfig
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile
 from sushicore.workspace import (
@@ -68,36 +69,77 @@ def _workspace(root, *, new: bool = False, legacy: bool = False):
     return root
 
 
-def test_the_shared_config_is_the_workspace_file(tmp_path, monkeypatch):
+@pytest.fixture
+def checkout(tmp_path, monkeypatch):
+    """Return a module checkout the working directory sits in, and no workspace link to it."""
+    root = tmp_path / "module"
+    root.mkdir()
+    (root / "CMakeLists.txt").write_text("")
+    monkeypatch.chdir(root)
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    return root.resolve()
+
+
+@pytest.fixture
+def workspace_root(tmp_path, monkeypatch):
+    """Return a workspace root that SUSHISTACK_HOME names."""
+    root = tmp_path / "workspace"
+    root.mkdir()
+    monkeypatch.setenv("SUSHISTACK_HOME", str(root))
+    return root.resolve()
+
+
+def _layers(checkout, *shared):
+    """Return the config files a module layers: its own file, the shared ones, its local file."""
+    cli = checkout / "cli"
+    return [cli / "config.toml", *shared, cli / "config.local.toml"]
+
+
+def test_the_shared_config_is_the_workspace_file(checkout, workspace_root):
     """A workspace carrying workspace.toml hands that file to the module CLI."""
-    _workspace(tmp_path, new=True)
-    monkeypatch.setenv("SUSHISTACK_HOME", str(tmp_path))
-    module = ModuleConfig(PROFILE)
-    assert module._shared_config_local() == workspace_file(tmp_path)
+    _workspace(workspace_root, new=True)
+    assert ModuleConfig(PROFILE).sources() == _layers(checkout, workspace_file(workspace_root))
 
 
-def test_an_unupgraded_workspace_falls_back_to_the_old_file(tmp_path, monkeypatch):
+def test_an_unupgraded_workspace_falls_back_to_the_old_file(checkout, workspace_root):
     """Before any `hub` command upgrades it, the pre-2026-09-22 path is read."""
-    _workspace(tmp_path, legacy=True)
-    monkeypatch.setenv("SUSHISTACK_HOME", str(tmp_path))
-    module = ModuleConfig(PROFILE)
-    assert module._shared_config_local() == tmp_path / LEGACY_SHARED_CONFIG
+    _workspace(workspace_root, legacy=True)
+    assert ModuleConfig(PROFILE).sources() == _layers(
+        checkout, workspace_root / LEGACY_SHARED_CONFIG)
 
 
-def test_the_new_file_wins_when_both_exist(tmp_path, monkeypatch):
+def test_the_new_file_wins_when_both_exist(checkout, workspace_root):
     """An upgraded workspace that kept its old file still reads the new one."""
-    _workspace(tmp_path, new=True, legacy=True)
-    monkeypatch.setenv("SUSHISTACK_HOME", str(tmp_path))
-    module = ModuleConfig(PROFILE)
-    assert module._shared_config_local() == workspace_file(tmp_path)
+    _workspace(workspace_root, new=True, legacy=True)
+    assert ModuleConfig(PROFILE).sources() == _layers(checkout, workspace_file(workspace_root))
 
 
-def test_a_workspace_with_neither_file_shares_nothing(tmp_path, monkeypatch):
+def test_a_workspace_with_neither_file_shares_nothing(checkout, workspace_root):
     """A marked workspace that holds no config hands the module CLI nothing."""
-    _workspace(tmp_path)
-    monkeypatch.setenv("SUSHISTACK_HOME", str(tmp_path))
-    module = ModuleConfig(PROFILE)
-    assert module._shared_config_local() is None
+    _workspace(workspace_root)
+    assert ModuleConfig(PROFILE).sources() == _layers(checkout)
+
+
+def _write_tool_table(path, **fields):
+    """Write a config file whose ``[tool]`` table holds *fields*."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["[tool]", *(f'{name} = "{value}"' for name, value in fields.items())]
+    path.write_text(chr(10).join(lines), encoding="utf-8")
+
+
+def test_load_layers_repo_config_shared_config_local_config_and_environment_in_order(
+        checkout, workspace_root, monkeypatch):
+    """Each later layer wins on a field it repeats, and the environment wins over all files."""
+    _workspace(workspace_root, new=True)
+    _write_tool_table(checkout / "cli" / "config.toml",
+                      cxx="repo", generator="repo", vcpkg_root="repo", ninja_exe="repo")
+    _write_tool_table(workspace_file(workspace_root),
+                      cxx="shared", generator="shared", ninja_exe="shared")
+    _write_tool_table(checkout / "cli" / "config.local.toml", cxx="local", ninja_exe="local")
+    monkeypatch.setenv("SE_NINJA", "environment")
+    loaded = ModuleConfig(PROFILE).load(ToolConfig)
+    assert (loaded.cxx, loaded.generator, loaded.vcpkg_root, loaded.ninja_exe) == (
+        "local", "shared", "repo", "environment")
 
 
 def test_workspace_home_follows_the_link_pointer(tmp_path, monkeypatch):
