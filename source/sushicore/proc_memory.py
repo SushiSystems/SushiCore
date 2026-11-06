@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
-from .proc import ConsoleLike
+from .proc import K_TIMEOUT_EXIT_CODE, ConsoleLike, timed_out_message
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +24,7 @@ class RecordedCommand:
         env: A copy of the environment given, or ``None`` when the caller gave none.
         drained: Whether the command ran through ``run_drained``.
         captured: Whether the command ran through ``capture``.
+        timeout: The timeout a capture was given, or ``None``.
     """
 
     argv: tuple[str, ...]
@@ -31,6 +32,7 @@ class RecordedCommand:
     env: dict[str, str] | None
     drained: bool
     captured: bool = False
+    timeout: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,12 +44,14 @@ class ScriptedRun:
         lines: The output lines a drained run prints, one per line, and a capture returns as stdout.
         stderr: The error output a capture returns.
         missing: Whether the executable is missing, as if it were on no PATH.
+        timed_out: Whether a capture outlives its timeout.
     """
 
     exit_code: int = 0
     lines: tuple[str, ...] = ()
     stderr: str = ""
     missing: bool = False
+    timed_out: bool = False
 
 
 class RecordingRunner:
@@ -83,6 +87,11 @@ class RecordingRunner:
         self._scripts.append(ScriptedRun(missing=True))
         return self
 
+    def script_timeout(self) -> "RecordingRunner":
+        """Queue a capture that outlives its timeout for the next unanswered command."""
+        self._scripts.append(ScriptedRun(timed_out=True))
+        return self
+
     def resolve_exe(self, name: str, env: Mapping[str, str] | None = None) -> str:
         """Return *name* unchanged; no PATH is searched."""
         return name
@@ -96,11 +105,15 @@ class RecordingRunner:
         return self._answer(cmd, cwd, env, drained=True)
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
-                env: dict[str, str] | None = None) -> tuple[int, str, str]:
+                env: dict[str, str] | None = None,
+                timeout: float | None = None) -> tuple[int, str, str]:
         """Record *cmd* quietly and return the next scripted exit code, lines as stdout, and stderr."""
         self._commands.append(RecordedCommand(
-            tuple(cmd), cwd, dict(env) if env is not None else None, drained=False, captured=True))
+            tuple(cmd), cwd, dict(env) if env is not None else None, drained=False, captured=True,
+            timeout=timeout))
         scripted = self._scripts.pop(0) if self._scripts else ScriptedRun()
+        if scripted.timed_out:
+            return K_TIMEOUT_EXIT_CODE, "", timed_out_message(cmd[0], timeout)
         if scripted.missing:
             return self._missing_exit_code, "", f"Executable not found: '{cmd[0]}'"
         stdout = "".join(f"{line}\n" for line in scripted.lines)

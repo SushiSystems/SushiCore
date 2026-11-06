@@ -46,7 +46,7 @@ files a CLI hands it.
 
 | Module | Owns |
 | --- | --- |
-| `proc`, `proc_memory` | `CommandRunner`, the surface callers run commands through (`run`, `run_drained`, `capture`); `Runner`, which spawns a child process for a CLI; `RecordingRunner`, which records the commands and answers scripted results |
+| `proc`, `proc_memory` | `CommandRunner`, the surface callers run commands through (`run`, `run_drained`, and `capture`, which takes an optional `timeout`); `Runner`, which spawns a child process for a CLI; `RecordingRunner`, which records the commands and answers scripted results |
 | `build_env` | The environment a build runs under, with the vcvars snapshot on Windows |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
 | `cmake_driver` | `CMakeDriver`, the cmake and ctest command lines |

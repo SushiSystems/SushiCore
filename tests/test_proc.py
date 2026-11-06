@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.proc import CommandRunner, Runner
+from sushicore.proc import K_TIMEOUT_EXIT_CODE, CommandRunner, Runner
 from sushicore.proc_memory import RecordingRunner
 
 K_LINES = ["note: see [[nodiscard]] here", "second line"]
@@ -211,6 +211,7 @@ class RunnerWorld:
     console: RecordingConsole
     exiting: Callable[[int, list[str]], list[str]]
     missing: Callable[[], list[str]]
+    hanging: Callable[[], list[str]]
 
 
 class CommandRunnerContract:
@@ -266,6 +267,14 @@ class CommandRunnerContract:
         assert (code, stdout, "no-such-binary-anywhere" in stderr, world.console.texts("error")) == (
             K_MISSING_EXIT_CODE, "", True, [])
 
+    def test_a_capture_that_outlives_its_timeout_returns_the_timeout_exit_code(self, world):
+        code, _, stderr = world.runner.capture(world.hanging(), Path("."), timeout=0.5)
+        assert (code, "timed out" in stderr) == (K_TIMEOUT_EXIT_CODE, True)
+
+    def test_a_capture_within_its_timeout_returns_as_without_one(self, world):
+        code, stdout, _ = world.runner.capture(world.exiting(0, K_LINES), Path("."), timeout=30)
+        assert (code, stdout.splitlines()) == (0, K_LINES)
+
 
 @pytest.mark.small
 class TestRecordingRunnerKeepsTheRunnerContract(CommandRunnerContract):
@@ -284,7 +293,11 @@ class TestRecordingRunnerKeepsTheRunnerContract(CommandRunnerContract):
             runner.script_missing()
             return ["no-such-binary-anywhere"]
 
-        return RunnerWorld(runner, console, exiting, missing)
+        def hanging():
+            runner.script_timeout()
+            return ["tool", "--hang"]
+
+        return RunnerWorld(runner, console, exiting, missing, hanging)
 
 
 @pytest.mark.medium
@@ -303,4 +316,7 @@ class TestRunnerKeepsTheRunnerContract(CommandRunnerContract):
         def missing():
             return ["no-such-binary-anywhere"]
 
-        return RunnerWorld(runner, console, exiting, missing)
+        def hanging():
+            return [sys.executable, "-c", "import time; time.sleep(30)"]
+
+        return RunnerWorld(runner, console, exiting, missing, hanging)

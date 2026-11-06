@@ -18,6 +18,9 @@ import subprocess
 from pathlib import Path
 from typing import Mapping, Protocol
 
+K_TIMEOUT_EXIT_CODE = 124
+"""The exit code a capture returns when its command outlives its timeout, as GNU `timeout` returns."""
+
 
 class RichConsoleLike(Protocol):
     """The one Rich console method this needs, so `console` is not typed `object`."""
@@ -53,8 +56,13 @@ class CommandRunner(Protocol):
         ...
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
-                env: dict[str, str] | None = None) -> tuple[int, str, str]:
-        """Run *cmd* quietly and return its exit code, stdout and stderr."""
+                env: dict[str, str] | None = None,
+                timeout: float | None = None) -> tuple[int, str, str]:
+        """Run *cmd* quietly and return its exit code, stdout and stderr.
+
+        A command still running after *timeout* seconds is stopped, and the capture returns
+        `K_TIMEOUT_EXIT_CODE` with a stderr that says it timed out.
+        """
         ...
 
 
@@ -165,13 +173,22 @@ class Runner:
             return self._interrupted()
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
-                env: dict[str, str] | None = None) -> tuple[int, str, str]:
-        """Run *cmd* quietly and return its exit code, stdout and stderr."""
+                env: dict[str, str] | None = None,
+                timeout: float | None = None) -> tuple[int, str, str]:
+        """Run *cmd* quietly and return its exit code, stdout and stderr.
+
+        A command still running after *timeout* seconds is stopped, and the capture returns
+        `K_TIMEOUT_EXIT_CODE`, the output read until then, and a stderr that says it timed out.
+        """
         resolved = list(cmd)
         resolved[0] = self.resolve_exe(cmd[0], env)
         try:
             result = subprocess.run(resolved, cwd=str(cwd) if cwd else None, env=env,
-                                    capture_output=True, text=True, errors="replace")
+                                    capture_output=True, text=True, errors="replace",
+                                    timeout=timeout)
+        except subprocess.TimeoutExpired as expired:
+            stdout = expired.stdout if isinstance(expired.stdout, str) else ""
+            return K_TIMEOUT_EXIT_CODE, stdout, timed_out_message(cmd[0], timeout)
         except FileNotFoundError:
             return self._missing_exit_code, "", f"Executable not found: '{cmd[0]}'"
         except KeyboardInterrupt:
@@ -179,3 +196,10 @@ class Runner:
                 raise
             return self._interrupted(), "", ""
         return result.returncode, result.stdout, result.stderr
+
+
+def timed_out_message(program: str, timeout: float | None) -> str:
+    """Return the stderr a capture gives for a command stopped after *timeout* seconds."""
+    if timeout is None:
+        return f"'{program}' timed out"
+    return f"'{program}' timed out after {timeout:g} s"

@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
+from sushicore.proc import K_TIMEOUT_EXIT_CODE
 from sushicore.proc_memory import RecordedCommand, RecordingRunner
 
 pytestmark = pytest.mark.small
@@ -74,3 +75,13 @@ def test_the_runner_records_a_capture_as_captured(runner):
 def test_a_capture_returns_the_scripted_error_output(runner):
     runner.script(2, stderr="fatal: not a repository")
     assert runner.capture(["git", "status"])[2] == "fatal: not a repository"
+
+
+def test_the_runner_records_the_timeout_a_capture_was_given(runner):
+    runner.capture(["git", "status"], Path("repo"), timeout=5.0)
+    assert runner.commands[0].timeout == 5.0
+
+
+def test_a_scripted_timeout_answers_even_a_capture_given_no_timeout(runner):
+    runner.script_timeout()
+    assert runner.capture(["git", "fetch"])[0] == K_TIMEOUT_EXIT_CODE
