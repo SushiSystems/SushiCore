@@ -19,14 +19,11 @@ def test_header_is_a_blank_line_then_a_rule_holding_the_title():
     assert capture(Header("Setup"), width=20) == "\n────── Setup ───────\n"
 
 
-def test_a_256_colour_render_can_run_before_the_truecolour_one():
-    """Render at 256 colours, the first half of the pair below."""
-    assert "38;5;" in capture_ansi(Header("Setup"), color_system="256")
-
-
-def test_a_truecolour_render_keeps_its_codes_after_a_256_colour_one():
-    """Render at truecolour right after the test above, which must leave nothing behind."""
-    assert "38;2;240;165;0" in capture_ansi(Header("Setup"))
+@pytest.mark.parametrize(
+    ("color_system", "code"), [("256", "38;5;"), ("truecolor", "38;2;240;165;0")], ids=["256", "truecolour"],
+)
+def test_the_header_is_drawn_in_the_colour_codes_of_the_terminal(color_system, code):
+    assert code in capture_ansi(Header("Setup"), color_system=color_system)
 
 
 def test_a_marked_up_title_prints_without_its_tags():

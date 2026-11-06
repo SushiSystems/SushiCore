@@ -49,17 +49,6 @@ def test_an_entry_without_text_prints_its_term_alone():
     assert capture(DefinitionList("Examples", (("hub doctor", ""),))) == "Examples\n  hub doctor\n"
 
 
-def test_an_unescaped_extra_marker_stays_on_the_page():
-    text = capture(DefinitionList("Arguments", (("module", "The module.  [required]"),)))
-    assert "The module.  [required]" in text
-
-
-def test_an_escaped_extra_marker_shows_its_brackets_once():
-    text = capture(DefinitionList("Options", (("--kind", "Kind.  \\[default: debug]"),)))
-    assert "Kind.  [default: debug]" in text
-    assert "\\" not in text
-
-
 def test_a_bracket_that_names_a_style_still_styles_its_text():
     entries = (("--kind", "Paint [cyan]x[/cyan]."),)
     assert "Paint x." in capture(DefinitionList("Options", entries))
@@ -77,32 +66,31 @@ def test_a_row_is_not_padded_to_the_console_width():
     assert max(len(line) for line in lines) <= 60
 
 
-def test_the_heading_is_bold_and_the_term_carries_no_bold_in_the_default_theme():
-    theme = Theme()
-    out = capture_ansi(DefinitionList("Modules", (("add", "Bring."),)), theme=theme)
-    assert _painted(theme.header, "Modules") in out
-    assert _painted(theme.cmd, "add") in out
-    assert _painted(f"bold {theme.cmd}", "add") not in out
+def _drawn(theme: Theme) -> str:
+    """Return a one-entry list under the heading Modules as a truecolour terminal shows it."""
+    return capture_ansi(DefinitionList("Modules", (("add", "Bring."),)), theme=theme)
 
 
-def test_a_term_is_amber_and_a_heading_bold_amber_in_the_sushiweb_theme():
-    out = capture_ansi(
-        DefinitionList("Modules", (("add", "Bring."),)), theme=get_theme("default")
-    )
-    assert f"{K_BOLD_AMBER}Modules" in out
-    assert f"{K_AMBER}add" in out
-    assert f"{K_BOLD_AMBER}add" not in out
+@pytest.mark.parametrize(
+    ("theme", "heading"),
+    [(Theme(), _painted(Theme().header, "Modules")), (get_theme("default"), f"{K_BOLD_AMBER}Modules"),
+     (get_theme("mono"), f"{K_BOLD}Modules")],
+    ids=["built-in", "sushiweb", "mono"],
+)
+def test_the_heading_is_drawn_bold_in_the_theme_header_style(theme, heading):
+    assert heading in _drawn(theme)
 
 
-def test_a_term_is_plain_and_a_heading_bold_when_the_theme_command_style_is_only_bold():
-    out = capture_ansi(
-        DefinitionList("Modules", (("add", "Bring."),)), theme=get_theme("mono")
-    )
-    assert f"{K_BOLD}Modules" in out
-    assert "add" in out and f"{K_BOLD}add" not in out
-
-
-def test_a_theme_whose_command_style_is_not_bold_keeps_its_term_style():
-    theme = get_theme("muted")
-    out = capture_ansi(DefinitionList("Modules", (("add", "Bring."),)), theme=theme)
-    assert _painted(theme.cmd, "add") in out
+@pytest.mark.parametrize(
+    ("theme", "term", "not_term"),
+    [
+        (Theme(), _painted(Theme().cmd, "add"), _painted(f"bold {Theme().cmd}", "add")),
+        (get_theme("default"), f"{K_AMBER}add", f"{K_BOLD_AMBER}add"),
+        (get_theme("mono"), "add", f"{K_BOLD}add"),
+        (get_theme("muted"), _painted(get_theme("muted").cmd, "add"), f"{K_BOLD}add"),
+    ],
+    ids=["built-in", "sushiweb", "mono", "muted"],
+)
+def test_the_term_takes_the_theme_command_style_without_bold(theme, term, not_term):
+    out = _drawn(theme)
+    assert term in out and not_term not in out

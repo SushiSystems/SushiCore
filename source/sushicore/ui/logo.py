@@ -25,12 +25,14 @@ from ..theme import Theme
 K_GAP = 2
 K_FOREGROUND_COLOUR = "default"
 
+Palette = tuple[tuple[str, str], ...]
 
-def _colours(glow: bool) -> dict[str, str]:
+
+def _colours(palette: Palette, glow_palette: Palette, glow: bool) -> dict[str, str]:
     """Return the colour of each pixel key; a key missing from it draws as transparent."""
-    colours = dict(K_PALETTE)
+    colours = dict(palette)
     if glow:
-        colours.update(K_GLOW_PALETTE)
+        colours.update(glow_palette)
     colours[K_FOREGROUND_KEY] = K_FOREGROUND_COLOUR
     return colours
 
@@ -59,15 +61,15 @@ def _trimmed(grid: tuple[str, ...], colours: dict[str, str]) -> list[str]:
     return body
 
 
-def _pixels(mark: list[str], wordmark: bool) -> list[str]:
-    """Return the grid the logo draws: the mark, optionally the wordmark, an even number of rows."""
+def _pixels(mark: list[str], wordmark: tuple[str, ...] | None) -> list[str]:
+    """Return the grid the logo draws: the mark, the wordmark when given, an even number of rows."""
     height = len(mark)
     if wordmark:
-        height = max(height, len(K_WORDMARK_PIXELS))
+        height = max(height, len(wordmark))
     rows = _centred(tuple(mark), height)
     if wordmark:
         gap = K_TRANSPARENT * K_GAP
-        words = _centred(K_WORDMARK_PIXELS, height)
+        words = _centred(wordmark, height)
         rows = [left + gap + word for left, word in zip(rows, words)]
     if len(rows) % 2:
         rows.append(K_TRANSPARENT * len(rows[0]))
@@ -92,22 +94,38 @@ def _cell(top: str, bottom: str, colours: dict[str, str]) -> Text:
 @final
 @dataclass(frozen=True, slots=True)
 class Logo:
-    """Draws the brand mark, with the wordmark beside it and a glow behind it when asked."""
+    """Draws the brand mark, with the wordmark beside it and a glow behind it when asked.
+
+    The pixel grids and palettes default to the brand's; a caller may pass others, each grid a
+    tuple of rows of pixel keys and each palette a tuple of (key, colour) pairs.
+    """
 
     indent: int = 2
     wordmark: bool = True
     glow: bool = False
+    mark_pixels: tuple[str, ...] = K_MARK_PIXELS
+    wordmark_pixels: tuple[str, ...] = K_WORDMARK_PIXELS
+    palette: Palette = tuple(K_PALETTE.items())
+    glow_palette: Palette = tuple(K_GLOW_PALETTE.items())
 
     @property
     def width(self) -> int:
         """Return the columns one row takes, indent included."""
-        pixels = _pixels(_trimmed(K_MARK_PIXELS, _colours(self.glow)), self.wordmark)
+        pixels = self._pixels(self._colours())
         return self.indent + (len(pixels[0]) if pixels else 0)
+
+    def _colours(self) -> dict[str, str]:
+        """Return the colour of each pixel key this logo draws."""
+        return _colours(self.palette, self.glow_palette, self.glow)
+
+    def _pixels(self, colours: dict[str, str]) -> list[str]:
+        """Return the pixel grid this logo draws."""
+        return _pixels(_trimmed(self.mark_pixels, colours), self.wordmark_pixels if self.wordmark else None)
 
     def render(self, theme: Theme) -> Text:
         """Return the logo as styled text, two pixel rows per terminal row."""
-        colours = _colours(self.glow)
-        pixels = _pixels(_trimmed(K_MARK_PIXELS, colours), self.wordmark)
+        colours = self._colours()
+        pixels = self._pixels(colours)
         rows = []
         for top, bottom in zip(pixels[0::2], pixels[1::2]):
             cells = [_cell(upper, lower, colours) for upper, lower in zip(top, bottom)]

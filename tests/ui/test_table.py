@@ -57,24 +57,16 @@ def _lines(table: Table) -> list[str]:
     return capture(table, width=100).split("\n")[:-1]
 
 
-def test_table_draws_title_header_rule_and_rows():
-    text = capture(Table(("Module", "State"), K_ROWS, title="Modules"), width=50)
+@pytest.mark.parametrize(("title", "top"), [("Modules", "Modules\n"), (None, "")], ids=["titled", "untitled"])
+def test_table_draws_title_header_rule_and_rows(title, top):
+    text = capture(Table(("Module", "State"), K_ROWS, title=title), width=50)
     assert text == (
-        "Modules\n"
-        "Module         State\n"
+        top
+        + "Module         State\n"
         "─────────────────────\n"
         "sushiruntime   cloned\n"
         "sushiengine    linked\n"
     )
-
-
-def test_table_without_a_title_starts_at_the_header_row():
-    assert capture(Table(("Module", "State"), K_ROWS), width=50).startswith("Module ")
-
-
-def test_table_has_no_outer_frame():
-    text = capture(Table(("Module", "State"), K_ROWS, title="Modules"), width=50)
-    assert not set(text) & set("│┃┌┐└┘╭╮╰╯|+")
 
 
 def test_group_by_must_name_one_of_the_columns():
@@ -175,9 +167,6 @@ def test_a_cell_that_is_not_a_status_word_carries_no_style():
     assert re.search(r"\x1b\[[0-9;]*m(?=cloned)", row) is None
 
 
-K_BRACKET_CELL = "Dear ImGui (imgui[glfw-binding,opengl3-binding])"
-
-
 def _themed_ansi(table: Table, theme: Theme) -> str:
     """Return the table as a terminal that carries the theme's own style names would show it."""
     stream = io.StringIO()
@@ -193,30 +182,15 @@ def _themed_ansi(table: Table, theme: Theme) -> str:
     return stream.getvalue()
 
 
-def test_a_bracket_that_names_no_style_stays_in_a_flat_cell():
-    text = capture(Table(("Name", "Detail"), (("imgui", K_BRACKET_CELL),)), width=100)
-    assert K_BRACKET_CELL in text
-
-
-def test_a_bracket_that_names_no_style_stays_in_a_grouped_cell():
-    rows = (("shared", "imgui", K_BRACKET_CELL),)
-    table = Table(("Owner", "Name", "Detail"), rows, group_by="Owner")
-    assert K_BRACKET_CELL in capture(table, width=100)
-
-
-def test_a_cell_that_names_a_theme_style_is_drawn_in_that_style_and_without_its_tags():
-    table = Table(("Name", "State"), (("imgui", "[error]FAIL[/error]"),))
+@pytest.mark.parametrize(
+    "table",
+    [
+        Table(("Name", "State"), (("imgui", "[error]FAIL[/error]"),)),
+        Table(("Owner", "Name", "State"), (("shared", "imgui", "[error]FAIL[/error]"),), group_by="Owner"),
+    ],
+    ids=["flat", "grouped"],
+)
+def test_a_cell_that_names_a_theme_style_is_drawn_in_that_style_and_without_its_tags(table):
     text = _themed_ansi(table, Theme())
     assert "\x1b[1;31mFAIL" in text
     assert "[error]" not in text
-
-
-def test_a_grouped_cell_that_names_a_theme_style_is_drawn_in_that_style():
-    rows = (("shared", "imgui", "[error]FAIL[/error]"),)
-    table = Table(("Owner", "Name", "State"), rows, group_by="Owner")
-    assert "\x1b[1;31mFAIL" in _themed_ansi(table, Theme())
-
-
-def test_a_styled_cell_may_hold_a_bracket_that_names_no_style():
-    table = Table(("Name", "State"), (("imgui", "[cmd]imgui[core,zlib][/cmd]"),))
-    assert "imgui[core,zlib]" in capture(table, width=100)

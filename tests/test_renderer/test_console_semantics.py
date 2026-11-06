@@ -5,9 +5,11 @@
 """Each renderer speaks the four new calls in its own idiom."""
 
 import io
+import json
 
 import pytest
 
+from sushicore.console import Console
 from sushicore.icons import IconSet
 from sushicore.renderer import JsonRenderer, PlainRenderer, RichRenderer
 from sushicore.theme import Theme
@@ -36,16 +38,9 @@ def test_plain_result_prints_nothing():
     assert out.getvalue() == ""
 
 
-def test_plain_prompt_returns_default_on_empty_line(monkeypatch):
-    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "")
-    assert PlainRenderer(stream=io.StringIO()).prompt("p1", "Continue?", "n") == "n"
-
-
-def test_plain_prompt_returns_default_on_eof(monkeypatch):
-    def _eof(*_a, **_k):
-        raise EOFError
-    monkeypatch.setattr("builtins.input", _eof)
-    assert PlainRenderer(stream=io.StringIO()).prompt("p1", "Continue?", "n") == "n"
+def test_plain_prompt_returns_default_on_empty_line():
+    renderer = PlainRenderer(stream=io.StringIO(), input_stream=io.StringIO("\n"))
+    assert renderer.prompt("p1", "Continue?", "n") == "n"
 
 
 def test_plain_prompt_asks_on_its_stream_and_reads_the_input_stream_given():
@@ -60,98 +55,87 @@ def test_plain_prompt_returns_default_when_the_input_stream_is_spent():
     assert renderer.prompt("p1", "Continue?", "n") == "n"
 
 
-def test_rich_table_renders_rows(capsys):
-    r = RichRenderer(Theme(), no_color=True)
-    r.table("Modules", ["Module", "State"], [["sushiruntime", "cloned"]], header_style="bold")
-    captured = capsys.readouterr().out
-    assert "sushiruntime" in captured and "cloned" in captured
+def _rich_renderer(out):
+    return RichRenderer(Theme(), no_color=True, stream=out, enable_virtual_terminal=lambda: False)
 
 
-class _Spy:
-    """A renderer that records every call."""
-
-    def __init__(self):
-        self.calls = []
-        self.raw = None
-
-    def line(self, *a): self.calls.append(("line", a))
-    def command(self, *a): self.calls.append(("command", a))
-    def header(self, *a): self.calls.append(("header", a))
-    def panel(self, *a): self.calls.append(("panel", a))
-    def table(self, *a): self.calls.append(("table", a))
-    def progress(self, *a): self.calls.append(("progress", a))
-    def result(self, *a): self.calls.append(("result", a))
-    def prompt(self, *a):
-        self.calls.append(("prompt", a))
-        return "y"
+def _json_console(input_text=""):
+    out = io.StringIO()
+    renderer = JsonRenderer(
+        stream=out, error_stream=io.StringIO(), input_stream=io.StringIO(input_text),
+    )
+    return Console(renderer, Theme(), IconSet()), out
 
 
-def _console(spy):
-    from sushicore.console import Console
-    from sushicore.icons import IconSet
-    return Console(spy, Theme(), IconSet())
+def _events(out):
+    return [json.loads(line) for line in out.getvalue().splitlines()]
 
 
-def test_console_table_passes_the_theme_header_style():
-    spy = _Spy()
-    _console(spy).table(["A"], [["1"]], title="T")
-    assert spy.calls == [("table", ("T", ["A"], [["1"]], Theme().header))]
+def test_rich_table_renders_rows():
+    out = io.StringIO()
+    _rich_renderer(out).table(
+        "Modules", ["Module", "State"], [["sushiruntime", "cloned"]], header_style="bold",
+    )
+    assert "sushiruntime" in out.getvalue() and "cloned" in out.getvalue()
 
 
-class _GroupingSpy(_Spy):
-    """A renderer whose table accepts the grouping column the newer Protocol declares."""
-
-    def table(self, *a, group_by=None):
-        self.calls.append(("table", a, group_by))
-
-
-def test_console_leaves_group_by_out_of_the_call_when_it_is_not_asked_for():
-    spy = _GroupingSpy()
-    _console(spy).table(["A"], [["1"]], title="T")
-    assert spy.calls == [("table", ("T", ["A"], [["1"]], Theme().header), None)]
+def test_console_table_reaches_the_renderer_with_its_title_columns_and_rows():
+    console, out = _json_console()
+    console.table(["A"], [["1"]], title="T")
+    assert _events(out) == [{"event": "table", "title": "T", "columns": ["A"], "rows": [["1"]]}]
 
 
-def test_console_forwards_the_grouping_column_when_it_is_given():
-    spy = _GroupingSpy()
-    _console(spy).table(["A", "B"], [["1", "2"]], title="T", group_by="A")
-    assert spy.calls == [("table", ("T", ["A", "B"], [["1", "2"]], Theme().header), "A")]
+def test_console_table_with_a_grouping_column_reaches_a_json_renderer_as_the_flat_event():
+    console, out = _json_console()
+    console.table(["A", "B"], [["1", "2"]], title="T", group_by="A")
+    assert _events(out) == [
+        {"event": "table", "title": "T", "columns": ["A", "B"], "rows": [["1", "2"]]},
+    ]
 
 
-def test_a_renderer_that_never_heard_of_group_by_still_draws_an_ungrouped_table():
-    spy = _Spy()
-    _console(spy).table(["A"], [["1"]], title="T")
-    assert spy.calls == [("table", ("T", ["A"], [["1"]], Theme().header))]
+def test_console_table_without_group_by_keeps_the_group_column_in_a_rich_renderer():
+    out = io.StringIO()
+    Console(_rich_renderer(out), Theme(), IconSet()).table(
+        ["Owner", "State"], [["shared", "cloned"]], title="T",
+    )
+    assert "Owner" in out.getvalue()
+
+
+def test_console_table_forwards_the_grouping_column_to_a_rich_renderer():
+    out = io.StringIO()
+    Console(_rich_renderer(out), Theme(), IconSet()).table(
+        ["Owner", "State"], [["shared", "cloned"]], title="T", group_by="Owner",
+    )
+    assert "Owner" not in out.getvalue() and "shared" in out.getvalue()
 
 
 def test_console_progress_defaults_fraction_to_none():
-    spy = _Spy()
-    _console(spy).progress("step", 1, 3)
-    assert spy.calls == [("progress", ("step", 1, 3, None))]
+    console, out = _json_console()
+    console.progress("step", 1, 3)
+    assert _events(out)[0]["fraction"] is None
 
 
 def test_console_result_defaults_payload_to_empty_dict():
-    spy = _Spy()
-    _console(spy).result(True)
-    assert spy.calls == [("result", (True, {}))]
+    console, out = _json_console()
+    console.result(True)
+    assert _events(out)[0]["payload"] == {}
 
 
 def test_console_prompt_numbers_prompts_per_instance():
-    spy = _Spy()
-    c = _console(spy)
-    assert c.prompt("Go?", "n") == "y"
-    c.prompt("Again?")
-    assert [a[0] for k, a in spy.calls] == ["prompt-1", "prompt-2"]
+    console, out = _json_console("y\n\n")
+    assert console.prompt("Go?", "n") == "y"
+    console.prompt("Again?")
+    assert [event["id"] for event in _events(out)] == ["prompt-1", "prompt-2"]
 
 
-def test_console_is_machine_is_false_for_a_rich_renderer():
-    from sushicore.console import Console
-
-    console = Console(RichRenderer(Theme(), no_color=True), Theme(), IconSet())
-    assert console.is_machine() is False
-
-
-def test_console_is_machine_is_true_for_a_json_renderer():
-    from sushicore.console import Console
-
-    console = Console(JsonRenderer(stream=io.StringIO()), Theme(), IconSet())
-    assert console.is_machine() is True
+@pytest.mark.parametrize(
+    ("make_renderer", "expected"),
+    [
+        (lambda: _rich_renderer(io.StringIO()), False),
+        (lambda: JsonRenderer(stream=io.StringIO()), True),
+    ],
+    ids=["rich", "json"],
+)
+def test_console_is_machine_is_true_only_for_a_json_renderer(make_renderer, expected):
+    console = Console(make_renderer(), Theme(), IconSet())
+    assert console.is_machine() is expected

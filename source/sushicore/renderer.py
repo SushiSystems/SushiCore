@@ -68,19 +68,30 @@ class Renderer(Protocol):
         ...
 
 
-def _force_utf8_streams() -> None:
-    """Reconfigure stdout and stderr to UTF-8 so Rich glyphs never raise on a legacy console."""
-    for stream in (sys.stdout, sys.stderr):
+def force_utf8(streams, log: logging.Logger | None = None) -> None:
+    """Reconfigure each stream to UTF-8 so Rich glyphs never raise on a legacy console.
+
+    Args:
+        streams: The streams to switch; one without a ``reconfigure`` method is left alone.
+        log: Where a refusal is recorded as a warning; this module's logger when None.
+    """
+    sink = _log if log is None else log
+    for stream in streams:
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
             try:
                 reconfigure(encoding="utf-8", errors="replace")
             except (ValueError, OSError) as error:
-                _log.warning(
+                sink.warning(
                     "a standard stream was not switched to UTF-8 (%s: %s); it keeps its encoding",
                     type(error).__name__,
                     error,
                 )
+
+
+def _force_utf8_streams() -> None:
+    """Reconfigure stdout and stderr to UTF-8 so Rich glyphs never raise on a legacy console."""
+    force_utf8((sys.stdout, sys.stderr))
 
 
 def _answer(raw: str | None, default: str | None) -> str:
@@ -100,17 +111,35 @@ def _progress_text(label: str, index: int, count: int, fraction: float | None) -
 class RichRenderer:
     """Render through Rich; ``no_color=True`` keeps the layout and strips the ANSI codes."""
 
-    def __init__(self, theme: Theme, no_color: bool = False) -> None:
-        """Build the Rich console with the theme's styles registered."""
+    def __init__(
+        self,
+        theme: Theme,
+        no_color: bool = False,
+        stream=None,
+        enable_virtual_terminal=None,
+    ) -> None:
+        """Build the Rich console with the theme's styles registered.
+
+        Args:
+            theme: The theme whose styles the console registers.
+            no_color: Whether the console strips colour.
+            stream: Where the console writes; stdout, switched to UTF-8, when None.
+            enable_virtual_terminal: The call that switches virtual terminal processing on, run
+                once; the Win32 switch of ``sushicore.windows_console`` when None.
+        """
         from rich.console import Console as _RichConsole
         from rich.theme import Theme as _RichTheme
 
-        from .windows_console import enable_virtual_terminal
+        if enable_virtual_terminal is None:
+            from .windows_console import enable_virtual_terminal
 
-        _force_utf8_streams()
+        if stream is None:
+            _force_utf8_streams()
         enable_virtual_terminal()
         self._theme = theme
-        self._console = _RichConsole(theme=_RichTheme(theme.as_rich_styles()), no_color=no_color)
+        self._console = _RichConsole(
+            theme=_RichTheme(theme.as_rich_styles()), no_color=no_color, file=stream,
+        )
 
     @property
     def raw(self):

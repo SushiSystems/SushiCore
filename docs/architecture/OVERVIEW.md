@@ -389,7 +389,9 @@ found the right file.
 protocol and never to Rich. Any object that implements its eight methods is a drop-in renderer.
 Three ship in the file: `RichRenderer` for a terminal, `PlainRenderer` for text without markup,
 and `JsonRenderer` for one event per line on stdout, the shape that section 7 of SushiStack's
-`docs/design/HUB.md` fixes.
+`docs/design/HUB.md` fixes. `RichRenderer` takes the stream it writes to and the call that
+switches on virtual terminal processing, and `force_utf8` switches given streams to UTF-8 and
+records a stream that refuses; their defaults keep stdout and the Windows console switch.
 
 ### `stack_config`
 

@@ -6,10 +6,11 @@
 
 import io
 import json
+import logging
 
 import pytest
 
-from sushicore.renderer import JsonRenderer
+from sushicore.renderer import JsonRenderer, force_utf8
 
 
 pytestmark = pytest.mark.small
@@ -31,16 +32,15 @@ def test_line_event_carries_level_and_message():
     assert _events(out) == [{"event": "line", "level": "info", "message": "hello"}]
 
 
-def test_level_is_derived_from_the_prefix_not_the_style():
+@pytest.mark.parametrize(
+    ("prefix", "level"),
+    [("[WARN]", "warn"), ("", "info")],
+    ids=["named-prefix", "no-prefix"],
+)
+def test_level_comes_from_the_prefix_not_the_style_and_is_info_without_one(prefix, level):
     r, out, _ = _renderer()
-    r.line("bold red", "[WARN]", "x")
-    assert _events(out)[0]["level"] == "warn"
-
-
-def test_unnamed_prefix_yields_info():
-    r, out, _ = _renderer()
-    r.line("bold red", "", "x")
-    assert _events(out)[0]["level"] == "info"
+    r.line("bold red", prefix, "x")
+    assert _events(out)[0]["level"] == level
 
 
 def test_each_call_is_exactly_one_line():
@@ -90,16 +90,11 @@ def test_prompt_returns_default_on_eof():
     assert r.prompt("prompt-1", "Go?", "n") == "n"
 
 
-def test_default_streams_are_forced_to_utf8(monkeypatch):
+def test_force_utf8_switches_a_cp1252_stream_to_utf8():
     """A redirected stdout on Windows defaults to cp1252; the contract says UTF-8."""
-    import io
-    import sys
-
-    raw = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
-    monkeypatch.setattr(sys, "stdout", raw)
-    JsonRenderer()
-    assert sys.stdout.encoding.lower().replace("-", "") == "utf8"
-
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    force_utf8((stream,))
+    assert stream.encoding.lower().replace("-", "") == "utf8"
 
 
 class _StubbornStream:
@@ -110,31 +105,42 @@ class _StubbornStream:
         raise ValueError("underlying buffer has been detached")
 
 
-def test_a_stream_that_refuses_utf8_is_recorded(monkeypatch, caplog):
+class _ListHandler(logging.Handler):
+    """Collects the records a logger emits, in memory."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Keep the record."""
+        self.records.append(record)
+
+
+def test_a_stream_that_refuses_utf8_is_recorded_once_per_stream():
     """Check that a stream left on its old encoding is logged once per stream."""
-    import sys
-
-    monkeypatch.setattr(sys, "stdout", _StubbornStream())
-    monkeypatch.setattr(sys, "stderr", _StubbornStream())
-    with caplog.at_level("WARNING", logger="sushicore.renderer"):
-        JsonRenderer()
-    warnings = [r for r in caplog.records if r.name == "sushicore.renderer"]
-    assert [r.levelname for r in warnings] == ["WARNING", "WARNING"]
-    assert "detached" in warnings[0].getMessage()
+    sink = logging.Logger("test.force_utf8")
+    handler = _ListHandler()
+    sink.addHandler(handler)
+    force_utf8((_StubbornStream(), _StubbornStream()), log=sink)
+    assert [r.levelname for r in handler.records] == ["WARNING", "WARNING"]
+    assert "detached" in handler.records[0].getMessage()
 
 
-def test_the_table_event_carries_plain_text_with_no_markup():
+@pytest.mark.parametrize(
+    ("title", "column", "cell", "expected"),
+    [
+        ("[bold]Doctor[/bold]", "[dim]Result[/dim]", "[success]ok[/success]",
+         ("Doctor", "Result", "ok")),
+        ("T", "Detail", "found [1, 2] in path", ("T", "Detail", "found [1, 2] in path")),
+    ],
+    ids=["markup-removed", "bracket-that-is-no-markup-kept"],
+)
+def test_the_table_event_carries_plain_text_and_keeps_brackets_that_are_no_markup(
+    title, column, cell, expected,
+):
     """A cell the human table colours with markup reaches a program as the bare word."""
     r, out, _ = _renderer()
-    r.table("[bold]Doctor[/bold]", ["Check", "[dim]Result[/dim]"],
-            [["cmake", "[success]ok[/success]"], ["ninja", "[error]FAIL[/error]"]], "bold")
+    r.table(title, [column], [[cell]], "bold")
     event = _events(out)[0]
-    assert event["title"] == "Doctor"
-    assert event["columns"] == ["Check", "Result"]
-    assert event["rows"] == [["cmake", "ok"], ["ninja", "FAIL"]]
-
-
-def test_a_cell_with_a_bracket_that_is_no_markup_keeps_it():
-    r, out, _ = _renderer()
-    r.table("T", ["Detail"], [["found [1, 2] in path"]], "bold")
-    assert _events(out)[0]["rows"] == [["found [1, 2] in path"]]
+    assert (event["title"], event["columns"][0], event["rows"][0][0]) == expected

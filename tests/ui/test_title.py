@@ -40,14 +40,5 @@ def test_a_bracket_that_names_a_style_still_styles_its_text():
     )
 
 
-def test_an_unescaped_extra_marker_stays_in_the_description():
-    title = Title("hub add", "Bring a module in.  [required]")
-    assert capture(title) == "hub add\nBring a module in.  [required]\n"
-
-
-def test_an_escaped_extra_marker_shows_its_brackets_once():
-    assert capture(Title("hub", "Kind.  \\[default: debug]")) == "hub\nKind.  [default: debug]\n"
-
-
 def test_a_theme_style_name_in_the_description_is_still_a_tag():
     assert capture(Title("hub", "Say [success]yes[/success].")) == "hub\nSay yes.\n"

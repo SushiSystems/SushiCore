@@ -22,9 +22,8 @@ class _Hello:
         return Text("hello")
 
 
-def test_a_class_with_render_satisfies_the_protocol():
-    assert isinstance(_Hello(), Component)
-
-
-def test_a_class_without_render_does_not():
-    assert not isinstance(object(), Component)
+@pytest.mark.parametrize(
+    ("candidate", "satisfies"), [(_Hello(), True), (object(), False)], ids=["with render", "without"],
+)
+def test_only_a_class_with_render_satisfies_the_protocol(candidate, satisfies):
+    assert isinstance(candidate, Component) is satisfies
