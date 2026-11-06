@@ -106,10 +106,10 @@ def _cmake_on_system() -> str:
     return ""
 
 
-def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] = gh_latest_asset,
-                          fetch: Callable[[str, Path], None] = download,
-                          cmake_on_system: Callable[[], str] = _cmake_on_system,
-                          on_path: Callable[[str], None] = _put_on_user_path) -> bool:
+def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+                          fetch: Callable[[str, Path], None] | None = None,
+                          cmake_on_system: Callable[[], str] | None = None,
+                          on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the portable CMake zip into the tools dir and add it to PATH.
 
     Args:
@@ -118,14 +118,14 @@ def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] = gh_lates
         cmake_on_system: Finds a cmake already installed, or returns an empty string.
         on_path: Puts a directory on the user's PATH.
     """
-    if cmake_on_system():
+    if (cmake_on_system or _cmake_on_system)():
         console.info("cmake: already present, skipping.")
         return True
     try:
-        url = resolve_asset("Kitware/CMake", "*windows-x86_64.zip")
+        url = (resolve_asset or gh_latest_asset)("Kitware/CMake", "*windows-x86_64.zip")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
-        fetch(url, zip_dest)
+        (fetch or download)(url, zip_dest)
         verify_download("cmake", zip_dest)
         target = tools_dir() / "cmake"
         console.info(f"Extracting CMake to {target} ...")
@@ -139,7 +139,7 @@ def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] = gh_lates
                 shutil.rmtree(target, ignore_errors=True)
             shutil.move(str(srcroot), str(target))
         zip_dest.unlink(missing_ok=True)
-        on_path(str(_cmake_portable_bin()))
+        (on_path or _put_on_user_path)(str(_cmake_portable_bin()))
         if (_cmake_portable_bin() / "cmake.exe").is_file():
             return True
         console.error("CMake not found after extracting the portable archive.")
@@ -151,9 +151,9 @@ def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] = gh_lates
         return False
 
 
-def _install_ninja_direct(*, resolve_asset: Callable[[str, str], str] = gh_latest_asset,
-                          fetch: Callable[[str, Path], None] = download,
-                          on_path: Callable[[str], None] = _put_on_user_path) -> bool:
+def _install_ninja_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+                          fetch: Callable[[str, Path], None] | None = None,
+                          on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the ninja.exe archive into the tools dir and add it to PATH.
 
     Args:
@@ -162,17 +162,17 @@ def _install_ninja_direct(*, resolve_asset: Callable[[str, str], str] = gh_lates
         on_path: Puts a directory on the user's PATH.
     """
     try:
-        url = resolve_asset("ninja-build/ninja", "ninja-win.zip")
+        url = (resolve_asset or gh_latest_asset)("ninja-build/ninja", "ninja-win.zip")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             dest = Path(f.name)
-        fetch(url, dest)
+        (fetch or download)(url, dest)
         verify_download("ninja", dest)
         tools = tools_dir()
         tools.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(dest) as zf:
             zf.extract("ninja.exe", tools)
         dest.unlink(missing_ok=True)
-        on_path(str(tools))
+        (on_path or _put_on_user_path)(str(tools))
         return (tools / "ninja.exe").is_file()
     except DigestMismatchError:
         raise
@@ -181,9 +181,9 @@ def _install_ninja_direct(*, resolve_asset: Callable[[str, str], str] = gh_lates
         return False
 
 
-def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] = gh_latest_asset,
-                            fetch: Callable[[str, Path], None] = download,
-                            on_path: Callable[[str], None] = _put_on_user_path) -> bool:
+def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+                            fetch: Callable[[str, Path], None] | None = None,
+                            on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the portable Doxygen zip into the tools dir and add it to PATH.
 
     Args:
@@ -197,10 +197,10 @@ def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] = gh_lat
         console.info("doxygen: already present in deps/tools, skipping.")
         return True
     try:
-        url = resolve_asset("doxygen/doxygen", "doxygen-*.windows.x64.bin.zip")
+        url = (resolve_asset or gh_latest_asset)("doxygen/doxygen", "doxygen-*.windows.x64.bin.zip")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
-        fetch(url, zip_dest)
+        (fetch or download)(url, zip_dest)
         verify_download("doxygen", zip_dest)
         console.info(f"Extracting Doxygen to {target} ...")
         with tempfile.TemporaryDirectory() as staging:
@@ -213,7 +213,7 @@ def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] = gh_lat
                 shutil.rmtree(target, ignore_errors=True)
             shutil.move(str(srcroot), str(target))
         zip_dest.unlink(missing_ok=True)
-        on_path(str(target))
+        (on_path or _put_on_user_path)(str(target))
         if exe.is_file():
             return True
         console.error("doxygen.exe not found after extracting the portable archive.")
@@ -225,9 +225,9 @@ def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] = gh_lat
         return False
 
 
-def _install_git_direct(*, resolve_asset: Callable[[str, str], str] = gh_latest_asset,
-                        fetch: Callable[[str, Path], None] = download,
-                        launch: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+def _install_git_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+                        fetch: Callable[[str, Path], None] | None = None,
+                        launch: Callable[..., subprocess.CompletedProcess] | None = None,
                         ) -> bool:
     """Download and silently run the Git for Windows installer.
 
@@ -237,13 +237,13 @@ def _install_git_direct(*, resolve_asset: Callable[[str, str], str] = gh_latest_
         launch: Runs the installer command; takes the command and a ``timeout`` keyword.
     """
     try:
-        url = resolve_asset("git-for-windows/git", "*64-bit.exe")
+        url = (resolve_asset or gh_latest_asset)("git-for-windows/git", "*64-bit.exe")
         with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
             dest = Path(f.name)
-        fetch(url, dest)
+        (fetch or download)(url, dest)
         verify_download("git", dest)
         console.info("Installing Git silently ...")
-        rc = launch(
+        rc = (launch or subprocess.run)(
             [str(dest), "/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-",
              "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS",
              "/COMPONENTS=icons,ext\\reg\\shellhere,assoc,assoc_sh"],

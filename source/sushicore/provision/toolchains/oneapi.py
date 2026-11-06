@@ -55,7 +55,7 @@ def install_oneapi(ctx: "InstallContext") -> bool:
 
 
 def download_oneapi_installer(*, directory: Path | None = None,
-                              launch: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+                              launch: Callable[..., subprocess.CompletedProcess] | None = None,
                               ) -> Path | None:
     """Download the Intel oneAPI offline installer into the user's home directory.
 
@@ -73,7 +73,7 @@ def download_oneapi_installer(*, directory: Path | None = None,
     installer = (directory or Path.home()) / "intel-oneapi-toolkit-offline.exe"
     if not installer.is_file():
         console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
-        dl_rc = launch(
+        dl_rc = (launch or subprocess.run)(
             ["curl", "-L", "-o", str(installer), _ONEAPI_URL]).returncode
         if dl_rc != 0:
             console.error("Failed to download Intel oneAPI installer.")

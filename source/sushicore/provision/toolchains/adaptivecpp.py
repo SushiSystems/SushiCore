@@ -115,9 +115,9 @@ def _find_windows_llvm() -> tuple[str, str] | None:
     return None
 
 
-def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] = gh_tagged_asset,
-                         fetch: Callable[[str, Path], None] = download,
-                         launch: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None = None,
+                         fetch: Callable[[str, Path], None] | None = None,
+                         launch: Callable[..., subprocess.CompletedProcess] | None = None,
                          ) -> tuple[str, str] | None:
     """Download the official clang+llvm Windows tarball into the tools tree.
 
@@ -136,7 +136,7 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] = gh_t
     tag = f"llvmorg-{LLVM_WINDOWS_VERSION}"
     asset = f"LLVM-{LLVM_WINDOWS_VERSION}-win64.exe"
     try:
-        url = resolve_asset("llvm/llvm-project", tag, asset)
+        url = (resolve_asset or gh_tagged_asset)("llvm/llvm-project", tag, asset)
     except Exception as exc:
         console.error(f"Could not resolve LLVM {LLVM_WINDOWS_VERSION} asset: {exc}")
         return None
@@ -144,7 +144,7 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] = gh_t
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
-            fetch(url, archive)
+            (fetch or download)(url, archive)
             verify_download("adaptivecpp", archive)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
@@ -153,7 +153,7 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] = gh_t
                 f"Start-Process -FilePath '{archive}' "
                 f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
             )
-            launch(["powershell", "-NoProfile", "-Command", ps_cmd], check=True)
+            (launch or subprocess.run)(["powershell", "-NoProfile", "-Command", ps_cmd], check=True)
         except DigestMismatchError:
             raise
         except Exception as exc:

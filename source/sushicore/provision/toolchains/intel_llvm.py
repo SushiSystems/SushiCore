@@ -29,8 +29,8 @@ __all__ = ["install_intel_llvm"]
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        refresh: bool = False, refresh_command: str = "", *,
-                       resolve_release: Callable[..., tuple[str, str]] = gh_latest_release_asset,
-                       fetch: Callable[[str, Path], None] = download) -> str | None:
+                       resolve_release: Callable[..., tuple[str, str]] | None = None,
+                       fetch: Callable[[str, Path], None] | None = None) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
 
     Args:
@@ -71,7 +71,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
 
     try:
         # intel/llvm ships every SYCL build as a GitHub pre-release (nightly-*).
-        tag, url = resolve_release("intel/llvm", asset)
+        tag, url = (resolve_release or gh_latest_release_asset)("intel/llvm", asset)
     except Exception as exc:
         console.error(f"Could not resolve intel/llvm release asset: {exc}")
         return None
@@ -87,7 +87,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading intel/llvm SYCL bundle {tag} (~300-500 MB) ...")
-            fetch(url, archive)
+            (fetch or download)(url, archive)
             verify_download("intel-llvm", archive)
             _extract_tar_gz(archive, root)
         except DigestMismatchError:
