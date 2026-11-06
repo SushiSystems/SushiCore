@@ -31,8 +31,9 @@ class _Console:
 class _Module:
     """Builds a ModuleTests over a tree below *root* and records what it is asked to run."""
 
-    def __init__(self, root, ctest_code=0, writes_junit=True):
+    def __init__(self, root, ctest_code=0, writes_junit=True, reader_code=0):
         self.root = root
+        self.reader_code = reader_code
         self.console = _Console()
         self.ctest_calls = []
         self.commands = []
@@ -53,7 +54,7 @@ class _Module:
 
     def _run(self, command, cwd):
         self.commands.append(command)
-        return 0
+        return self.reader_code
 
     def carry_the_reader(self):
         (self.root / "tools" / "testing").mkdir(parents=True)
@@ -97,6 +98,14 @@ def test_a_run_that_wrote_no_junit_file_skips_the_line_and_says_so(tmp_path):
     module.carry_the_reader()
     assert run_tests(module.tests(), select_labels(None)) == 0
     assert module.commands == [] and module.console.said[-1][0] == "warn"
+
+
+def test_a_failing_reader_is_said_in_a_warning_and_leaves_the_code(tmp_path):
+    (tmp_path / "build").mkdir()
+    module = _Module(tmp_path, reader_code=1)
+    module.carry_the_reader()
+    assert run_tests(module.tests(), select_labels(None)) == 0
+    assert module.console.said[-1] == ("warn", "The budget reader failed; the run's own result is unchanged.")
 
 
 def test_a_sanitizer_is_built_and_its_tree_is_the_one_tested(tmp_path):

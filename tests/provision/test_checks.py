@@ -72,6 +72,31 @@ def test_stamp_check_warns_on_an_unstamped_toolchain(tmp_path):
     assert checks.stamp_check(tmp_path).run().state is State.WARN
 
 
+def test_path_check_passes_on_a_present_path(tmp_path):
+    """Check that path check passes and names the path when it exists."""
+    result = checks.path_check("yolox", tmp_path, "infer", True, "git submodule update").run()
+    assert (result.state, result.detail) == (State.OK, str(tmp_path))
+
+
+def test_stamp_check_passes_when_every_toolchain_is_stamped(tmp_path):
+    """Check that stamp check passes when each toolchain folder holds its stamp."""
+    folder = tmp_path / "toolchains" / "llvm-sycl"
+    folder.mkdir(parents=True)
+    (folder / checks.TOOLCHAIN_STAMP).write_text("{}", encoding="utf-8")
+    assert checks.stamp_check(tmp_path).run().state is State.OK
+
+
+def test_stamp_check_passes_with_no_toolchain_installed(tmp_path):
+    """Check that stamp check passes when no toolchains folder exists."""
+    assert checks.stamp_check(tmp_path).run().state is State.OK
+
+
+def test_fragment_check_passes_a_dependency_whose_check_cmd_succeeds():
+    """Check that fragment check passes when every check cmd exits zero."""
+    dep = Dependency(name="python", check_cmd=[sys.executable, "-c", "pass"])
+    assert checks.fragment_check(_FixedSource([dep]), "linux", False, "").run().state is State.OK
+
+
 def test_fragment_check_fails_a_dependency_whose_check_cmd_hangs(monkeypatch):
     """Check that fragment check fails a dependency whose check cmd hangs."""
     monkeypatch.setattr(checks, "_VERSION_TIMEOUT", 0.1)

@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — paused by the owner on 2026-11-06; T1, T2, T3 and T5 done, T4 next
+**Status:** Open — paused by the owner on 2026-11-06; T jobs done, M1 next
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -14,7 +14,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | T1 | In-memory adapters beside their ports: `proc.Runner`, the console (one recorder replacing every copy), `ConfigModule`, `MachineEnvironment`, `ToolkitLocator`, `IDependencySource`, the git client, the clock (moved out of `package_fakes.py`) |  | done |
 | T2 | A file-system port for the backlog and design store, with its in-memory adapter |  | done |
 | T3 | `tests/conftest.py` and `pyproject.toml`: the size timeouts, and the autouse fixture that hands every test a temp folder |  | done |
-| T4 | The defects of this report, each with a test that fails first |  | todo |
+| T4 | The defects of this report, each with a test that fails first |  | done |
 | T5 | `tools/testing/check_test_additions.py`, `tools/tests/test_check_test_additions.py` deleted |  | done |
 | M1 | the tests of `(root)` (38 files): 133 rewrite, 33 resize, 17 split, 19 merge, 21 delete | T1, T2, T3, T4, T5 | todo |
 | M2 | the tests of `backlog` (9 files): 9 rewrite, 10 resize, 19 split, 1 delete | T1, T2, T3, T4, T5 | todo |

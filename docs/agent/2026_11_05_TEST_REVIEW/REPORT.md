@@ -58,6 +58,7 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 3. The Typer fallback's stray close tag is a defect. A fallback exists so that output never crashes, so a stray tag prints as text, and the test that expects `MarkupError` is turned around.
 4. The `TimingPolicy` contract suite stays and the concrete copies merge into it. The deletes of chunk 005 are reversed, as the report says.
 5. (Lead, 2026-11-07, T2.) The port is `sushicore.files.Files`, a module of its own rather than a part of `workspace`, because the stores need only six calls on text files and `workspace` already answers another question. `DiskFiles` is the default of the new `files=` parameter of `BacklogStore` and `DesignStore`, so every caller keeps working; `MemoryFiles` sits beside it in `files_memory.py`. A folder in memory exists while a file sits under it: an empty folder is never something the stores read.
+6. (Lead, 2026-11-07, T4.) `tools/tests/test_test_budget_settings.py` belongs to SushiSkills, which the copier makes the one home of the shared tools, so it is not edited here; RW-68 asks SushiSkills for the change.
 
 ## Dispatches
 
