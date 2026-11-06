@@ -46,5 +46,4 @@ says how a change lands.
 ## Licence
 
 Open source under the Apache License 2.0; see `LICENSE`. Third-party software is listed in
-`NOTICE.md`. The versions from the commit that adds `NOTICE.md` up to the licence change were
-published under the PolyForm Noncommercial License 1.0.0 and stay available under it.
+`NOTICE.md`. Every earlier version is under the Apache License 2.0 as well; see `NOTICE.md`.

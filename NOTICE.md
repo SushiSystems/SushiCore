@@ -3,6 +3,9 @@
 SushiCore is Copyright (c) 2026-present Mustafa Garip & Sushi Systems and licensed under the Apache
 License 2.0; see `LICENSE`. The material below keeps its own licence.
 
+Every version of SushiCore published under the PolyForm Noncommercial License 1.0.0 is also
+licensed, from 2026-11-06 on, under the Apache License 2.0.
+
 No third-party code is vendored in this repository, no file is ported from third-party code,
 and the package redistributes no third-party binary or data set.
 
