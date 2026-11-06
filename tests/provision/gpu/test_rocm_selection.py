@@ -1,8 +1,7 @@
 # test_rocm_selection.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """The newest release with one family covering every card is chosen, the leanest family first."""
 
 from __future__ import annotations

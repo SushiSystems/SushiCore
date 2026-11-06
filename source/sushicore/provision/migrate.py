@@ -1,8 +1,7 @@
 # migrate.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Moves a dependency root to another directory behind a journal, with rollback and finalize.
 
 The old path becomes a directory link to the new root. The steps and their order are in

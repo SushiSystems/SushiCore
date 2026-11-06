@@ -45,7 +45,6 @@ says how a change lands.
 
 ## Licence
 
-Source-available, free for non-commercial use under the PolyForm Noncommercial License 1.0.0;
-see `LICENSE`. Commercial use needs a licence from Sushi Systems; see `COMMERCIAL.md`.
-Third-party software is listed in `NOTICE.md`. Versions 0.1.0 to 0.6.0, the commits before the
-one that adds `NOTICE.md`, stay available under the Apache License 2.0.
+Open source under the Apache License 2.0; see `LICENSE`. Third-party software is listed in
+`NOTICE.md`. The versions from the commit that adds `NOTICE.md` up to the licence change were
+published under the PolyForm Noncommercial License 1.0.0 and stay available under it.

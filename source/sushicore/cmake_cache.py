@@ -1,8 +1,7 @@
 # cmake_cache.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """What a build tree says about how it was configured.
 
 Read out of CMakeCache.txt rather than through `cmake -L`, so it costs nothing

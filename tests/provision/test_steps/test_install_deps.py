@@ -1,8 +1,7 @@
 # test_install_deps.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """``InstallDepsStep`` reaches ``provision_adapters_for_run`` only when GPU is selected."""
 
 from __future__ import annotations

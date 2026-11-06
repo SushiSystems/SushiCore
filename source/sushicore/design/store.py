@@ -1,8 +1,7 @@
 # store.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Reads and writes the design topics of one repository and answers which topic owns a module.
 
 A topic is the folder `docs/design/<TOPIC>/`, whose `README.md` is its document; a topic under

@@ -1,8 +1,7 @@
 # cli_console.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Builds a CLI's console on first use instead of on import.
 
 The reasoning is in docs/architecture/OVERVIEW.md, section `cli_console`.

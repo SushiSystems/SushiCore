@@ -1,8 +1,7 @@
 # model.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """The frame of a design topic: its title, status line, metadata, five sections and phase table.
 
 The tool writes the frame; the prose inside a section is the author's. The rules are in

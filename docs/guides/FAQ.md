@@ -157,15 +157,9 @@ offers the stream, as `--json`. A `prompt` event is answered by one line on stdi
 
 ## How is SushiCore licensed?
 
-SushiCore is source-available. It is free for non-commercial use under the PolyForm
-Noncommercial License 1.0.0, and [`LICENSE`](../../LICENSE) is the binding text. The permitted
-purposes it lists are personal, non-commercial use and use by the non-commercial organisations
-it names.
-
-Any commercial purpose needs a separate, paid licence from Sushi Systems. That includes use
-inside a company, use in paid client work, and use in a product or service that is sold.
-[`COMMERCIAL.md`](../../COMMERCIAL.md) says how to ask for one: write to `hello@sushisystems.io`
-with what you want to build and who will use it.
+SushiCore is open source under the Apache License 2.0, and [`LICENSE`](../../LICENSE) is the
+binding text. Any use is allowed, commercial use included, as long as the licence and the notices
+travel with the code.
 
 Versions 0.1.0 to 0.4.0 were published under the Apache License 2.0 and stay available under
 it; 0.7.0 is the first version under the licence above. The [README](../../README.md) gives the

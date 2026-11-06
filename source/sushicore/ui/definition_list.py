@@ -1,8 +1,7 @@
 # definition_list.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Draws a heading over a two-column list of terms and their text.
 
 A term is literal. An entry's text is Rich markup in which only a bracket that names a

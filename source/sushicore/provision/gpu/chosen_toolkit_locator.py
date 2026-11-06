@@ -1,8 +1,7 @@
 # chosen_toolkit_locator.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Locates and provisions any vendor's toolkit by the release its hardware needs.
 
 The flow is the same for every vendor: read the cards, reuse the release recorded for them or

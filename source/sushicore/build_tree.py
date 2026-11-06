@@ -1,8 +1,7 @@
 # build_tree.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Names a build tree by its build type, and keeps each tree to the type in its name.
 
 The reasoning is in docs/architecture/OVERVIEW.md, section `build_tree`.

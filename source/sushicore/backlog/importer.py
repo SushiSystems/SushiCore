@@ -1,8 +1,7 @@
 # importer.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Moves a repository's backlog into the store once, and gives clashing IDs new numbers.
 
 `import` reads `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md`, the form

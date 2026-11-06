@@ -1,8 +1,7 @@
 # rocm.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """The ROCm backend: the release chosen for this machine's AMD cards, and its adapter build.
 
 Linux only: intel/llvm ships no HIP adapter on Windows, so nothing there would use the SDK.

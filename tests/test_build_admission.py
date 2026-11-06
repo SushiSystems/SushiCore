@@ -1,8 +1,7 @@
 # test_build_admission.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """A tree is put behind the gate by its launcher entries, and refused while the gate is stopped."""
 
 from __future__ import annotations

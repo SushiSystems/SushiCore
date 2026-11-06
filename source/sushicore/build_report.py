@@ -1,8 +1,7 @@
 # build_report.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Reports one build: what each kind of edge cost in time, and in memory at its peak.
 
 A CLI's build report reads the edges the build ran from `.ninja_log` and the peaks the memory gate

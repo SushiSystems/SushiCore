@@ -1,8 +1,7 @@
 # command_groups.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Names the command groups a CLI adds beside its own commands, and checks that it exposes them."""
 
 from __future__ import annotations

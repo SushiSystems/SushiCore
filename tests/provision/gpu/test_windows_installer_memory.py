@@ -1,8 +1,7 @@
 # test_windows_installer_memory.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """What the in-memory machine environment promises beyond the contract in test_windows_installer.py."""
 
 from __future__ import annotations

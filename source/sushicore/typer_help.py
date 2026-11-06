@@ -1,8 +1,7 @@
 # typer_help.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Wires the help page into Typer; the only module in sushicore that imports Typer.
 
 The group replaces each child's format_help as it hands the child out; the reason is in

@@ -1,8 +1,7 @@
 # rocm_tarball_index.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Reads AMD's ROCm SDK tarball listing: every release, for every family of cards.
 
 AMD names each tarball ``therock-dist-<platform>-<family>-<version>.tar.gz``. Nothing here

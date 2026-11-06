@@ -1,8 +1,7 @@
 # cuda_redist.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Reads NVIDIA's CUDA redistributable index: which releases exist and the archives of each.
 
 NVIDIA publishes one ``redistrib_<version>.json`` per release beside the archives it names, each

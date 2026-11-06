@@ -1,8 +1,7 @@
 # sushi_sources.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Finds the checkout of a Sushi library: its directory variable, the sibling, then the fetched copy."""
 
 from __future__ import annotations

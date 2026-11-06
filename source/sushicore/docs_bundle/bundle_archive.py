@@ -1,8 +1,7 @@
 # bundle_archive.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Packs a staged bundle into a reproducible gzip tar and records its SHA-256."""
 
 from __future__ import annotations

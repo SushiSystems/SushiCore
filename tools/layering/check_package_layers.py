@@ -1,8 +1,7 @@
 # check_package_layers.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Checks the shape of SushiCore's packages: layered imports, forbidden imports and ui components.
 
 Usage: python tools/layering/check_package_layers.py [repository root] [--report] [--rule NAME]

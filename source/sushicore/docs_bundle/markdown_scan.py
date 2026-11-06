@@ -1,8 +1,7 @@
 # markdown_scan.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Reads what a Markdown page links to and what it is called.
 
 Inline links only; `docs/reference/DOCS_BUNDLE.md` records the limit.

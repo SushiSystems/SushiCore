@@ -1,8 +1,7 @@
 # check.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Every rule `backlog check` enforces on a repository's `docs/backlog/`.
 
 Each rule is a function of one `BacklogCheck` and yields the faults it finds. The rules are in

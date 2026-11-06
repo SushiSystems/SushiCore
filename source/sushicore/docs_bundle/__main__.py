@@ -1,8 +1,7 @@
 # __main__.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """Bundles the documentation of a repository that has no CLI of its own.
 
 Usage: python -m sushicore.docs_bundle --release 1.2.3 [--root DIR] [--out DIR]

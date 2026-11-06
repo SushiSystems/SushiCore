@@ -1,8 +1,7 @@
 # windows_installer_memory.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
-# Licensed under PolyForm Noncommercial 1.0.0. See LICENSE.
-# Commercial use requires a licence from Sushi Systems.
+# Licensed under the Apache License 2.0. See LICENSE.
 """A machine environment held in a dictionary, in place of the registry."""
 
 from __future__ import annotations
