@@ -153,6 +153,7 @@ so a CLI test imports it instead of writing a stand-in:
 | `provision.gpu.windows_installer.MachineEnvironment` | `provision.gpu.windows_installer_memory.InMemoryMachineEnvironment` |
 | `provision.sushi_packages.clock.Clock` | `provision.sushi_packages.clock_memory.ManualClock` |
 | `cmake_driver_port.CMakeDriverPort`, which `cmake_driver.CMakeDriver` keeps | `cmake_driver_memory.MemoryCMakeDriver` holds build trees by path, seeded with `add_tree` or left by a `configure` argv's `-B`, `-G` and `-D` values; it records each command as a `CMakeCall` and answers the exit codes queued with `script`, else 0 |
+| `renderer.Renderer` on a terminal | `renderer.TerminalMemoryRenderer` writes to memory as a terminal of a given colour system, width and no-colour flag would; `written()` returns the text |
 | `files.Files`, which `backlog.BacklogStore` and `design.DesignStore` take as `files=` | `files_memory.MemoryFiles` holds each file's text by path; a folder exists while a file sits under it |
 
 None of them starts a process or writes to a terminal, a file or the registry, or reads the real

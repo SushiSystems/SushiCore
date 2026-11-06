@@ -16,7 +16,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | T3 | `tests/conftest.py` and `pyproject.toml`: the size timeouts, and the autouse fixture that hands every test a temp folder |  | done |
 | T4 | The defects of this report, each with a test that fails first |  | done |
 | T5 | `tools/testing/check_test_additions.py`, `tools/tests/test_check_test_additions.py` deleted |  | done |
-| M1 | the tests of `(root)` (38 files): 133 rewrite, 33 resize, 17 split, 19 merge, 21 delete | T1, T2, T3, T4, T5 | in progress |
+| M1 | the tests of `(root)` (38 files): 133 rewrite, 33 resize, 17 split, 19 merge, 21 delete | T1, T2, T3, T4, T5 | done |
 | M2 | the tests of `backlog` (9 files): 9 rewrite, 10 resize, 19 split, 1 delete | T1, T2, T3, T4, T5 | done |
 | M3 | the tests of `design` (7 files): 7 rewrite, 2 resize, 14 split, 1 delete | T1, T2, T3, T4, T5 | todo |
 | M4 | the tests of `docs_bundle` (13 files): 11 rewrite, 30 resize, 6 split, 6 merge, 3 delete | T1, T2, T3, T4, T5 | todo |

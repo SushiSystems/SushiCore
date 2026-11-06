@@ -248,6 +248,48 @@ class PlainRenderer:
         return _answer(answer, default)
 
 
+class TerminalMemoryRenderer(PlainRenderer):
+    """Render as plain text, with a raw Rich console that is a terminal of a given colour system.
+
+    The terminal is in memory: nothing reaches the real console. A test reads what a coloured
+    terminal of a given width would have shown from the stream.
+    """
+
+    def __init__(
+        self, color_system: str, width: int = 80, no_color: bool = False, stream=None,
+        input_stream=None,
+    ) -> None:
+        """Write to ``stream``, or to a new in-memory text stream.
+
+        Args:
+            color_system: The Rich colour system of the terminal, such as ``"standard"``,
+                ``"256"`` or ``"truecolor"``.
+            width: The terminal's width in columns.
+            no_color: Whether the terminal strips colour.
+            stream: Where the terminal writes; a new ``io.StringIO`` when None.
+            input_stream: Where answers are read from, as for :class:`PlainRenderer`.
+        """
+        import io
+
+        from rich.console import Console as _RichConsole
+
+        super().__init__(stream=stream if stream is not None else io.StringIO(),
+                         input_stream=input_stream)
+        self._terminal = _RichConsole(
+            file=self._stream, force_terminal=True, color_system=color_system,
+            no_color=no_color, width=width,
+        )
+
+    @property
+    def raw(self):
+        """Return the in-memory terminal, the same Rich console on every call."""
+        return self._terminal
+
+    def written(self) -> str:
+        """Return everything written to the stream so far."""
+        return self._stream.getvalue()
+
+
 _LEVELS = ("info", "success", "warn", "error")
 
 

@@ -17,7 +17,9 @@ from typing import Callable, ClassVar, Collection, Mapping
 from . import deps_fragment
 from .provision import home as provision_home
 from .provision import sushi_sources
-from .provision.sushi_packages import PackageRequest, PackageSet, default_resolver
+from .provision.sushi_packages import (
+    PackageRequest, PackageResolver, PackageSet, default_resolver,
+)
 from .provision.module_manifest import fragment_path
 from .provision.config import ProvisionSettings
 
@@ -102,7 +104,8 @@ class StackConfig(ProvisionSettings):
                        report: Callable[[str], None] = print,
                        warn: Callable[[str], None] = print,
                        compiler: str = "",
-                       libraries: Collection[str] | None = None) -> PackageSet:
+                       libraries: Collection[str] | None = None,
+                       assemble: Callable[..., PackageResolver] | None = None) -> PackageSet:
         """Return a built package of every Sushi library this module's chain links, or of *libraries*.
 
         A package that the store lacks is built through the library's own CLI. One line per
@@ -116,6 +119,8 @@ class StackConfig(ProvisionSettings):
         @param compiler  The compiler of this build; :meth:`resolved_compiler` when empty.
         @param libraries The libraries to resolve, with what each depends on; None resolves every
                          library of the closure. The package key of a library does not change.
+        @param assemble  Builds the resolver from the keep count, the report and warn callbacks and
+                         the ``cmake`` keyword; :func:`default_resolver` when None.
         @raises sushicore.provision.sushi_packages.PackageError A package cannot be chosen.
         """
         vcpkg = self.resolved_vcpkg(root)
@@ -128,7 +133,8 @@ class StackConfig(ProvisionSettings):
             fragment=self.fragment or fragment_path(root), vcpkg_root=Path(vcpkg) if vcpkg else None,
             triplet=self.vcpkg_triplet, libraries=libraries)
         cmake = self.expand(self.cmake_exe) if self.cmake_exe else "cmake"
-        return default_resolver(self.package_keep, report, warn, cmake=cmake).resolve(request)
+        build = assemble or default_resolver
+        return build(self.package_keep, report, warn, cmake=cmake).resolve(request)
 
     def standalone_deps_dir(self, root: Path) -> Path:
         """Return the machine's dependency root.

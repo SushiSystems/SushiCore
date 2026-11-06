@@ -15,18 +15,19 @@ K_STANDARD_HANDLES = (K_STD_OUTPUT_HANDLE, K_STD_ERROR_HANDLE)
 K_ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
 
 
-def enable_virtual_terminal(kernel32=None) -> bool:
+def enable_virtual_terminal(kernel32=None, platform: str | None = None) -> bool:
     """Turn on virtual terminal processing for stdout and stderr and report whether either is on.
 
     Args:
         kernel32: An object with ``GetStdHandle``, ``GetConsoleMode`` and ``SetConsoleMode``;
             ``default_kernel32()`` when ``None``.
+        platform: The platform name to test against ``"win32"``; ``sys.platform`` when ``None``.
 
     Returns:
         ``True`` when at least one console handle has the mode on, ``False`` off Windows, when
         every handle is redirected or refused the write, or when the API raised.
     """
-    if sys.platform != "win32":
+    if (platform if platform is not None else sys.platform) != "win32":
         return False
     try:
         api = kernel32 if kernel32 is not None else default_kernel32()

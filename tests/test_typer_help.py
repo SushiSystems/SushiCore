@@ -11,17 +11,15 @@ import re
 import pytest
 import typer
 import typer.main
-from rich.console import Console as RichConsole
 from rich.console import Group, RenderableType
-from rich.errors import MarkupError
 from rich.text import Text
 from typer.testing import CliRunner
 
 from sushicore.console import Console
 from sushicore.icons import IconSet
-from sushicore.renderer import PlainRenderer
+from sushicore.renderer import PlainRenderer, TerminalMemoryRenderer
 from sushicore.theme import Theme
-from sushicore.typer_help import HelpGroup, help_group
+from sushicore.typer_help import help_group
 from sushicore.ui.logo import Logo
 from tests.ui.capture import capture
 
@@ -93,17 +91,27 @@ def test_a_bare_invocation_prints_the_same_page():
     assert _run() == _run("--help")
 
 
-def test_leaf_help_lists_arguments_options_and_examples():
+def test_a_leaf_page_lists_its_arguments():
     out = _run("add", "--help")
     assert "Arguments" in out and K_ARGUMENT_ROW.search(out)
+
+
+def test_a_leaf_page_lists_its_options():
+    out = _run("add", "--help")
     assert "--dry-run" in out and "Show the plan only." in out
+
+
+def test_a_leaf_page_lists_its_examples():
+    out = _run("add", "--help")
     assert "Examples" in out and "hub add sr" in out and "bring sushiruntime in" in out
 
 
-def test_leaf_help_shows_the_extras_typer_puts_on_a_parameter():
-    out = _run("add", "--help")
-    assert "The module.  [required]" in out
-    assert "\\" not in out
+def test_a_leaf_page_shows_the_required_extra_typer_puts_on_a_parameter():
+    assert "The module.  [required]" in _run("add", "--help")
+
+
+def test_a_page_prints_no_escape_backslashes():
+    assert "\\" not in _run("add", "--help")
 
 
 def test_a_sub_group_draws_its_own_page_not_a_leaf_page():
@@ -165,27 +173,16 @@ def test_looking_a_child_up_twice_leaves_it_with_one_help_page():
     assert stream.getvalue().count("Usage: hub add") == 1
 
 
-class _TerminalConsole:
-    """Stands in for a sushicore Console whose Rich console is a terminal of a given colour."""
-
-    theme = Theme()
-
-    def __init__(
-        self,
-        color_system: str,
-        no_color: bool = False,
-        width: int = 80,
-        dark_background: bool = False,
-    ) -> None:
-        """Build the Rich console as a terminal of ``width`` columns in ``color_system``."""
-        self.dark_background = dark_background
-        self.console = RichConsole(
-            file=io.StringIO(),
-            force_terminal=True,
-            color_system=color_system,
-            no_color=no_color,
-            width=width,
-        )
+def _terminal_console(
+    color_system: str,
+    no_color: bool = False,
+    width: int = 80,
+    dark_background: bool = False,
+    stream: io.StringIO | None = None,
+) -> tuple[Console, TerminalMemoryRenderer]:
+    """Return a Console on an in-memory terminal of the given shape, and its renderer."""
+    renderer = TerminalMemoryRenderer(color_system, width=width, no_color=no_color, stream=stream)
+    return Console(renderer, Theme(), IconSet(), dark_background=dark_background), renderer
 
 
 def _two_commands(app: typer.Typer) -> typer.Typer:
@@ -203,18 +200,12 @@ def _two_commands(app: typer.Typer) -> typer.Typer:
 
 
 def _terminal_page(*args: str, **shape) -> str:
-    """Return what the terminal consoles of shape ``shape`` printed while ``args`` ran."""
-    consoles: list[_TerminalConsole] = []
-
-    def provider() -> _TerminalConsole:
-        console = _TerminalConsole(**shape)
-        consoles.append(console)
-        return console
-
-    app = _two_commands(typer.Typer(cls=help_group(provider), name="hub", help="Manage."))
+    """Return what the in-memory terminal of shape ``shape`` printed while ``args`` ran."""
+    console, renderer = _terminal_console(**shape)
+    app = _two_commands(typer.Typer(cls=help_group(lambda: console), name="hub", help="Manage."))
     result = CliRunner().invoke(app, list(args))
     assert result.exit_code == 0, result.output
-    return "".join(console.console.file.getvalue() for console in consoles)
+    return renderer.written()
 
 
 def _shows_logo(output: str) -> bool:
@@ -233,6 +224,13 @@ def _drawn_alone(logo: Logo, width: int) -> list[str]:
     return _block_rows(capture(logo, width=width))
 
 
+def _root_lines() -> tuple[list[str], list[int]]:
+    """Return the root page's lines on a wide dark terminal and the indices of the logo rows."""
+    output = _terminal_page("--help", color_system="truecolor", width=90, dark_background=True)
+    lines = K_ANSI.sub("", output).split("\n")
+    return lines, [i for i, line in enumerate(lines) if _shows_logo(line)]
+
+
 @pytest.mark.parametrize("color_system", ["256", "truecolor"])
 def test_the_root_page_shows_the_logo_on_a_terminal_with_256_colours_or_more(color_system):
     assert _shows_logo(_terminal_page("--help", color_system=color_system))
@@ -243,11 +241,13 @@ def test_the_page_reaches_a_truecolour_terminal_with_the_rolls_own_colour_codes(
     assert K_AMBER_CODE in output and K_NORI_CODE in output
 
 
-def test_the_root_page_leaves_one_blank_line_above_the_logo_and_two_below_it():
-    output = _terminal_page("--help", color_system="truecolor", width=90, dark_background=True)
-    lines = K_ANSI.sub("", output).split("\n")
-    rows = [i for i, line in enumerate(lines) if _shows_logo(line)]
+def test_the_root_page_leaves_one_blank_line_above_the_logo():
+    lines, rows = _root_lines()
     assert lines[: rows[0]] == [""]
+
+
+def test_the_root_page_leaves_two_blank_lines_below_the_logo_before_the_title():
+    lines, rows = _root_lines()
     assert lines[rows[-1] + 1 : rows[-1] + 3] == ["", ""]
     assert lines[rows[-1] + 3].strip() == "hub"
 
@@ -289,81 +289,96 @@ def test_the_root_page_hides_the_logo_when_colour_is_switched_off_on_a_terminal(
     assert not _shows_logo(_terminal_page("--help", color_system="truecolor", no_color=True))
 
 
-def _guarded_app(provider, help_text: str = "Manage the stack.", **options) -> typer.Typer:
-    """Return a two-command app whose help draws through ``provider``."""
-    app = typer.Typer(cls=help_group(provider), name="hub", help=help_text, **options)
+class _LegacyEncodingStream(io.StringIO):
+    """An in-memory stream that reports a legacy code page, as a Windows console can."""
+
+    encoding = "cp1252"
+
+
+def test_the_root_page_hides_the_logo_on_a_console_whose_encoding_is_not_utf():
+    console, renderer = _terminal_console("truecolor", stream=_LegacyEncodingStream())
+    app = _two_commands(typer.Typer(cls=help_group(lambda: console), name="hub", help="Manage."))
+    result = CliRunner().invoke(app, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert renderer.written() != "" and not _shows_logo(renderer.written())
+
+
+class _RecordedWarnings(logging.Handler):
+    """Keeps the message of every warning it receives."""
+
+    def __init__(self) -> None:
+        """Start with no message."""
+        super().__init__(logging.WARNING)
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Keep the formatted message of ``record``."""
+        self.messages.append(record.getMessage())
+
+
+def _recording_logger() -> tuple[logging.Logger, _RecordedWarnings]:
+    """Return a logger of its own, outside the process-wide tree, and the handler that records it."""
+    logger = logging.Logger(K_LOGGER_NAME, logging.WARNING)
+    handler = _RecordedWarnings()
+    logger.addHandler(handler)
+    return logger, handler
+
+
+def _guarded_app(provider, logger, help_text: str = "Manage the stack.", **options) -> typer.Typer:
+    """Return a two-command app whose help draws through ``provider`` and logs to ``logger``."""
+    app = typer.Typer(cls=help_group(provider, logger), name="hub", help=help_text, **options)
     return _two_commands(app)
 
 
-def _warnings(caplog) -> list[logging.LogRecord]:
-    """Return the warnings the help logger recorded."""
-    return [
-        record
-        for record in caplog.records
-        if record.name == K_LOGGER_NAME and record.levelno == logging.WARNING
-    ]
-
-
-def _invoke_and_warn(app: typer.Typer, caplog, *args: str) -> str:
-    """Return the output of ``app`` with ``args``, asserting exit code 0 and one warning."""
-    with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
-        result = CliRunner().invoke(app, list(args))
-    assert result.exit_code == 0, result.output
-    assert len(_warnings(caplog)) == 1, [record.getMessage() for record in _warnings(caplog)]
-    return K_ANSI.sub("", result.output)
-
-
-def test_a_group_whose_provider_raises_falls_back_to_typers_help(caplog):
+@pytest.mark.parametrize("args", [("--help",), ("add", "--help")], ids=["group", "child"])
+def test_a_provider_that_raises_falls_back_to_typers_help_with_one_warning(args):
     def provider():
         raise RuntimeError("no workspace here")
 
-    output = _invoke_and_warn(_guarded_app(provider), caplog, "--help")
-    assert K_TYPER_PANEL in output
-    assert "no workspace here" in _warnings(caplog)[0].getMessage()
-
-
-def test_a_child_whose_provider_raises_falls_back_to_typers_help(caplog):
-    def provider():
-        raise ValueError("the config is unreadable")
-
-    output = _invoke_and_warn(_guarded_app(provider), caplog, "add", "--help")
-    assert K_TYPER_PANEL in output and "Bring a module in." in output
-
-
-def test_a_help_group_used_without_a_provider_falls_back_to_typers_help(caplog):
-    app = _two_commands(typer.Typer(cls=HelpGroup, name="hub", help="Manage the stack."))
-    with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
-        result = CliRunner().invoke(app, ["--help"])
+    logger, warnings = _recording_logger()
+    result = CliRunner().invoke(_guarded_app(provider, logger), list(args))
     assert result.exit_code == 0, result.output
     assert K_TYPER_PANEL in K_ANSI.sub("", result.output)
-    assert len(_warnings(caplog)) == 1
+    assert len(warnings.messages) == 1 and "no workspace here" in warnings.messages[0]
 
 
-def test_a_stray_close_tag_in_rich_help_prints_as_text_and_is_logged(caplog):
+def test_a_help_group_used_without_a_provider_falls_back_to_typers_help():
+    logger, warnings = _recording_logger()
+    app = _two_commands(typer.Typer(cls=help_group(None, logger), name="hub", help="Manage."))
+    result = CliRunner().invoke(app, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert K_TYPER_PANEL in K_ANSI.sub("", result.output)
+    assert len(warnings.messages) == 1
+
+
+def _stray_close_tag_run():
+    """Run --help on an app whose help text holds a stray close tag; return the result and warnings."""
     console = _plain_console(io.StringIO())
-    app = _guarded_app(lambda: console, "Manage [/] the stack.", rich_markup_mode="rich")
-    with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
-        result = CliRunner().invoke(app, ["--help"])
+    logger, warnings = _recording_logger()
+    app = _guarded_app(lambda: console, logger, "Manage [/] the stack.", rich_markup_mode="rich")
+    return CliRunner().invoke(app, ["--help"]), warnings.messages
+
+
+def test_a_stray_close_tag_in_rich_help_is_logged():
+    _, messages = _stray_close_tag_run()
+    assert "MarkupError" in messages[0]
+
+
+def test_a_stray_close_tag_in_rich_help_falls_back_to_typers_help_without_raising():
+    result, _ = _stray_close_tag_run()
     assert result.exit_code == 0, result.exception
     assert "Manage [/] the stack." in K_ANSI.sub("", result.output)
-    assert "MarkupError" in _warnings(caplog)[0].getMessage()
 
 
-def test_typer_alone_fails_on_the_same_stray_close_tag():
-    app = _two_commands(typer.Typer(name="hub", help="Manage [/] the stack.",
-                                    rich_markup_mode="rich"))
-    assert isinstance(CliRunner().invoke(app, ["--help"]).exception, MarkupError)
-
-
-def test_each_help_call_logs_one_warning_of_its_own(caplog):
+def test_each_help_call_logs_one_warning_of_its_own():
     def provider():
         raise RuntimeError("no workspace here")
 
-    app = _guarded_app(provider)
-    with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
-        CliRunner().invoke(app, ["--help"])
-        CliRunner().invoke(app, ["add", "--help"])
-    assert len(_warnings(caplog)) == 2
+    logger, warnings = _recording_logger()
+    app = _guarded_app(provider, logger)
+    CliRunner().invoke(app, ["--help"])
+    CliRunner().invoke(app, ["add", "--help"])
+    assert len(warnings.messages) == 2
 
 
 class _Exploding:
@@ -374,20 +389,20 @@ class _Exploding:
         raise RuntimeError("the second block cannot be drawn")
 
 
-class _HalfDrawnPage:
-    """Stands in for a page whose second block fails once the first has drawn."""
-
-    def __init__(self, model, logo=None) -> None:
-        """Take the arguments HelpPage takes and keep none of them."""
+class _HalfDrawnLogo:
+    """A logo whose first block draws and whose second block raises."""
 
     def render(self, theme: Theme) -> RenderableType:
         """Return a block that draws and, after it, a block that raises."""
         return Group(Text(K_FIRST_BLOCK), _Exploding())
 
 
-def test_a_block_that_fails_to_draw_leaves_no_part_of_the_page_on_the_console(monkeypatch, caplog):
-    monkeypatch.setattr("sushicore.typer_help.HelpPage", _HalfDrawnPage)
-    stream = io.StringIO()
-    output = _invoke_and_warn(_app(_plain_console(stream)), caplog, "--help")
-    assert stream.getvalue() == ""
-    assert K_FIRST_BLOCK not in output and K_TYPER_PANEL in output
+def test_a_block_that_fails_to_draw_leaves_no_part_of_the_page_on_the_console():
+    console, renderer = _terminal_console("truecolor")
+    logger, warnings = _recording_logger()
+    group = help_group(lambda: console, logger, lambda **shape: _HalfDrawnLogo())
+    app = _two_commands(typer.Typer(cls=group, name="hub", help="Manage."))
+    result = CliRunner().invoke(app, ["--help"])
+    assert renderer.written() == ""
+    assert K_FIRST_BLOCK not in result.output and K_TYPER_PANEL in K_ANSI.sub("", result.output)
+    assert len(warnings.messages) == 1

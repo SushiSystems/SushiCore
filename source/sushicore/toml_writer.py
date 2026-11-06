@@ -33,14 +33,14 @@ def _emit_table(name: str, table: dict) -> list[str]:
     return lines
 
 
-def write_toml_document(target: Path, tables: dict, header_lines: Iterable[str]) -> Path:
-    """Render *tables* as a whole TOML document and write it to *target*.
+def render_toml_document(tables: dict, header_lines: Iterable[str]) -> str:
+    """Render *tables* as the text of a whole TOML document.
 
     ``tool`` is rendered first — its scalars under ``[tool]``, its sub-tables
     (the machine-specific paths a probe wrote) as ``[tool.<platform>]`` — then
     every other table follows, sorted by name. Backslashes become forward
     slashes throughout, and a value the emitter cannot render raises rather
-    than disappearing. Returns the path written.
+    than disappearing. Returns the text.
 
     @pre Every table in *tables* holds only strings, bools, or nested tables
         of strings; anything else raises.
@@ -66,6 +66,13 @@ def write_toml_document(target: Path, tables: dict, header_lines: Iterable[str])
     for name in sorted(k for k in tables if k != "tool"):
         lines.extend(_emit_table(name, tables[name]))
     lines.append("")
+    return "\n".join(lines)
 
-    target.write_text("\n".join(lines), encoding="utf-8")
+
+def write_toml_document(target: Path, tables: dict, header_lines: Iterable[str]) -> Path:
+    """Render *tables* with :func:`render_toml_document` and write the text to *target*.
+
+    @return The path written.
+    """
+    target.write_text(render_toml_document(tables, header_lines), encoding="utf-8")
     return target

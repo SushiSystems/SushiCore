@@ -10,7 +10,10 @@ from dataclasses import dataclass
 
 import pytest
 
-from sushicore.provision.config import ProvisionSettings
+from pathlib import Path
+
+from sushicore.provision.sushi_packages.package import Package
+from sushicore.provision.sushi_packages.package_set import PackageSet, ResolvedPackage
 from sushicore.stack_config import StackConfig
 
 
@@ -32,9 +35,9 @@ def _clang(root):
     return exe
 
 
-def test_a_stack_config_carries_the_provision_fields():
-    """Check that a stack config carries the provision fields."""
-    assert issubclass(StackConfig, ProvisionSettings)
+def test_a_stack_config_reads_a_provision_field():
+    """Check that a stack config reads a provision field it was given."""
+    assert _Config(platform="linux", cxx="/x/clang++").cxx == "/x/clang++"
 
 
 def test_bundled_clang_is_found_under_the_provision_root(provision_home, tmp_path):
@@ -165,23 +168,22 @@ def test_sushi_pins_read_the_fragment_the_module_declares(tmp_path, provision_ho
     assert [pin.name for pin in _Moved(platform="linux").sushi_pins(root)] == ["sushiruntime"]
 
 
+def _package_set(left_out=(), packaged=()):
+    """Return a real package set naming *packaged* libraries and leaving out *left_out*."""
+    resolved = tuple(
+        ResolvedPackage(Package(name, "0" * 40, Path("store") / name, {}), None, built=False)
+        for name in packaged)
+    return PackageSet(resolved, left_out)
+
+
 def test_sushi_definitions_skip_a_packaged_library(tmp_path, provision_home, monkeypatch):
     """Check that a library in the package set gets no -D<NAME>_DIR."""
     monkeypatch.delenv("SUSHIRUNTIME_DIR", raising=False)
     root = tmp_path / "sushiblas"
     _pin(root, "sushiruntime")
     (tmp_path / "sushiruntime").mkdir()
-
-    class _Packaged:
-        """Names one packaged library."""
-
-        def names(self):
-            """Return the packaged names."""
-            return ["sushiruntime"]
-
-        left_out = ()
-
-    assert _Config(platform="linux").sushi_definitions(root, _Packaged()) == []
+    packaged = _package_set(packaged=("sushiruntime",))
+    assert _Config(platform="linux").sushi_definitions(root, packaged) == []
 
 
 def test_sushi_definitions_skip_a_library_the_package_set_left_out(
@@ -191,24 +193,12 @@ def test_sushi_definitions_skip_a_library_the_package_set_left_out(
     root = tmp_path / "sushiblas"
     _pin(root, "sushiruntime")
     (tmp_path / "sushiruntime").mkdir()
-
-    class _Filtered:
-        """A set that resolved nothing and left the runtime out."""
-
-        left_out = ("sushiruntime",)
-
-        def names(self):
-            """Return the packaged names."""
-            return []
-
-    assert _Config(platform="linux").sushi_definitions(root, _Filtered()) == []
+    left_out = _package_set(left_out=("sushiruntime",))
+    assert _Config(platform="linux").sushi_definitions(root, left_out) == []
 
 
-def test_sushi_packages_hands_the_resolver_the_consumer_request(
-        tmp_path, provision_home, monkeypatch):
+def test_sushi_packages_hands_the_resolver_the_consumer_request(tmp_path, provision_home):
     """Check the request built from the config: owner, compiler, build type and directories."""
-    import sushicore.stack_config as stack_config
-
     seen = {}
 
     class _Resolver:
@@ -224,12 +214,12 @@ def test_sushi_packages_hands_the_resolver_the_consumer_request(
         seen["keep"], seen["cmake"] = keep, cmake
         return _Resolver()
 
-    monkeypatch.setattr(stack_config, "default_resolver", assemble)
     root = tmp_path / "sushiai"
     root.mkdir()
     cfg = _Config(platform="linux", cxx="/x/clang++", sushiruntime_dir="/r", package_keep=5,
                   cmake_exe="/c/cmake")
-    result = cfg.sushi_packages(root, "release", {"sushiruntime": ("--distributed",)})
+    result = cfg.sushi_packages(root, "release", {"sushiruntime": ("--distributed",)},
+                                assemble=assemble)
     request = seen["request"]
     assert result == "resolved"
     assert (request.owner, request.compiler, request.build_type) == ("sushiai", "/x/clang++",
@@ -239,13 +229,9 @@ def test_sushi_packages_hands_the_resolver_the_consumer_request(
     assert (seen["keep"], seen["cmake"]) == (5, "/c/cmake")
 
 
-def test_a_config_that_turns_vcpkg_off_resolves_none_even_with_a_tree_present(provision_home, tmp_path):
+def test_a_config_that_turns_vcpkg_off_resolves_none_whatever_is_present(provision_home, tmp_path):
+    """Check that use_vcpkg False resolves no vcpkg, with a tree present and an explicit root set."""
     (provision_home / "vcpkg").mkdir(parents=True)
-    config = _Config(platform="linux", use_vcpkg=False)
-    assert config.resolved_vcpkg(tmp_path) == ""
-
-
-def test_a_config_that_turns_vcpkg_off_ignores_an_explicit_root_too(tmp_path):
     config = _Config(platform="linux", use_vcpkg=False, vcpkg_root=str(tmp_path / "v"))
     assert config.resolved_vcpkg(tmp_path) == ""
 
@@ -262,3 +248,17 @@ def test_a_config_that_never_sets_the_key_keeps_resolving_the_tree(provision_hom
     config = _Config(platform="windows")
     assert config.use_vcpkg is None
     assert config.resolved_vcpkg(tmp_path) == str(provision_home / "vcpkg")
+
+
+def test_sibling_dir_returns_the_configured_path(tmp_path):
+    """Check that a configured path is returned as given, resolved."""
+    configured = tmp_path / "elsewhere"
+    assert _Config(platform="linux").sibling_dir(
+        tmp_path / "sushiblas", "sushiruntime", str(configured)) == configured.resolve()
+
+
+def test_sibling_dir_defaults_to_the_name_beside_the_root(tmp_path):
+    """Check that without a configured path the directory is ../name beside the root."""
+    root = tmp_path / "sushiblas"
+    assert _Config(platform="linux").sibling_dir(root, "sushiruntime") == (
+        tmp_path / "sushiruntime").resolve()

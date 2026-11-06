@@ -65,6 +65,7 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 dispatch: J15 review, 12 chunks — haiku high, 1 round each, passed, rung 1
 dispatch: J16 M1 part A, 15 root test files — sonnet medium, 1 round, passed after one lead fix (a backslash escape), rung 1
 dispatch: J16 M1 part B, 14 root test files — sonnet medium, 1 round, passed, rung 1
+dispatch: J16 M1 part C, 9 root test files — sonnet medium, 1 round, passed after one lead fix (an import path), rung 1
 dispatch: J16 M2, 9 backlog test files — sonnet medium, 1 round, passed, rung 1; RW-70 opened for the disk reads it met
 
 ## Totals

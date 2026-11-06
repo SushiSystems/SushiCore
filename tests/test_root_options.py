@@ -4,7 +4,7 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """Tests the root options every Sushi CLI takes: the version line and the help."""
 
-from datetime import date
+from importlib.metadata import version
 
 import pytest
 
@@ -17,10 +17,6 @@ from sushicore.root_options import register_root_options, version_line
 
 
 pytestmark = pytest.mark.medium
-
-
-
-K_REMOVED = date(2027, 3, 25)
 
 
 
@@ -50,8 +46,7 @@ def test_version_prints_the_distribution_and_exits_zero():
     register_root_options(app, distribution="sushicore")
     result = CliRunner().invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert result.output.strip() == version_line("sushicore")
-    assert result.output.startswith("sushicore ")
+    assert result.output == f"sushicore {version('sushicore')}\n"
 
 
 
@@ -69,10 +64,16 @@ def test_version_lines_can_be_supplied_by_the_cli():
 
 
 
-def test_root_options_keep_the_help_and_the_commands():
-    """Registering the root options changes neither the help text nor a command's behaviour."""
+def test_root_options_keep_the_help_text():
+    """Registering the root options leaves the application's help text in the help page."""
     app = _app()
     register_root_options(app, distribution="sushicore")
-    runner = CliRunner()
-    assert "Builds things." in runner.invoke(app, ["--help"]).output
-    assert runner.invoke(app, ["build", "--clean"]).output == "built clean=True\n"
+    assert "Builds things." in CliRunner().invoke(app, ["--help"]).output
+
+
+
+def test_root_options_keep_a_commands_behaviour():
+    """Registering the root options leaves a command's behaviour as it was."""
+    app = _app()
+    register_root_options(app, distribution="sushicore")
+    assert CliRunner().invoke(app, ["build", "--clean"]).output == "built clean=True\n"

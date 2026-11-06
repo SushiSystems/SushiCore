@@ -26,7 +26,7 @@ and has no application of its own.
 | `config` | `load_appearance`: the `[cli]` table and the `SUSHI_CLI_*` variables resolved into one `AppearanceSpec` |
 | `theme` | `Theme`, the style tokens, and the presets `default`, `mono` and `muted` |
 | `icons` | `IconSet`, the prefix printed before a line, and the presets `text`, `emoji`, `minimal` and `none` |
-| `renderer` | The `Renderer` protocol and its three backends: `RichRenderer`, `PlainRenderer`, `JsonRenderer` |
+| `renderer` | The `Renderer` protocol and its three backends: `RichRenderer`, `PlainRenderer`, `JsonRenderer`; `TerminalMemoryRenderer` is the in-memory terminal tests use |
 | `events` | The event kinds `JsonRenderer` writes and `event_line`, their one serialisation |
 | `console`, `console_memory` | `Console`, the facade a CLI calls: `info`, `success`, `warn`, `error`, `command`, `header`, `fail_panel`, `table`, `progress`, `result`, `prompt`; `RecordingConsole`, which records every call in order |
 | `cli_console` | `LazyConsole`, which builds the console on first use so `--help` runs outside a checkout |

@@ -9,15 +9,24 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `typer_theme`.
 
 from __future__ import annotations
 
+from typing import Any
+
 from .theme import Theme
 
 
-def apply_typer_theme(theme: Theme) -> None:
-    """Point Typer's help-screen colors at ``theme``. No-op if Typer isn't installed."""
-    try:
-        import typer.rich_utils as rich_utils
-    except ImportError:
-        return
+def apply_typer_theme(theme: Theme, target: Any = None) -> None:
+    """Point Typer's help-screen colors at ``theme``. No-op if Typer isn't installed.
+
+    Args:
+        theme: The theme whose tokens colour the help screen.
+        target: The object whose ``STYLE_*`` attributes are set; ``typer.rich_utils`` when None.
+    """
+    if target is None:
+        try:
+            import typer.rich_utils as target
+        except ImportError:
+            return
+    rich_utils = target
 
     rich_utils.STYLE_USAGE_COMMAND = theme.header
     rich_utils.STYLE_OPTION = theme.cmd

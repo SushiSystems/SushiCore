@@ -5,10 +5,10 @@
 """The two pieces of toolchain-flag assembly that carry no module policy."""
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
+from sushicore.stack_config import StackConfig
 from sushicore.toolchain_args import c_compiler_for, vcpkg_prefix
 
 
@@ -38,14 +38,10 @@ def test_a_bare_icpx_gets_icx_from_the_path(tmp_path, monkeypatch):
     assert c_compiler_for("icpx") == str(tmp_path / "icx")
 
 
-def test_a_clangxx_without_a_sibling_is_left_alone(tmp_path):
-    cxx = tmp_path / "clang++"
-    cxx.write_text("")
-    assert c_compiler_for(str(cxx)) == str(cxx)
-
-
-def test_a_non_clangxx_compiler_is_left_alone(tmp_path):
-    assert c_compiler_for("/usr/bin/g++") == "/usr/bin/g++"
+@pytest.mark.parametrize("cxx", ["/nowhere/clang++", "/usr/bin/g++"])
+def test_a_compiler_with_no_sibling_is_left_alone(cxx):
+    """A compiler without a sibling C driver is returned unchanged."""
+    assert c_compiler_for(cxx) == cxx
 
 
 def test_the_windows_exe_suffix_is_preserved(tmp_path):
@@ -56,12 +52,11 @@ def test_the_windows_exe_suffix_is_preserved(tmp_path):
 
 
 def test_vcpkg_prefix_is_empty_without_a_root():
-    cfg = SimpleNamespace(vcpkg_triplet="x64-windows",
-                          resolved_vcpkg=lambda root: "")
-    assert vcpkg_prefix(cfg, Path(".")) == ""
+    """A config that turns vcpkg off has no prefix."""
+    assert vcpkg_prefix(StackConfig(platform="linux", use_vcpkg=False), Path(".")) == ""
 
 
 def test_vcpkg_prefix_names_the_triplet():
-    cfg = SimpleNamespace(vcpkg_triplet="x64-windows",
-                          resolved_vcpkg=lambda root: "C:/vcpkg")
+    """The prefix is the vcpkg root, installed, then the triplet."""
+    cfg = StackConfig(platform="windows", vcpkg_root="C:/vcpkg", vcpkg_triplet="x64-windows")
     assert vcpkg_prefix(cfg, Path(".")) == "C:/vcpkg/installed/x64-windows"
