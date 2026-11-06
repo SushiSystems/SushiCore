@@ -77,6 +77,7 @@ dispatch: J17 M14, 3 renderer test files — sonnet medium, 1 round, passed afte
 dispatch: J17 M16, 6 testing test files — sonnet medium, 1 round, passed, rung 1
 dispatch: J17 M9, 2 download verifier test files — sonnet medium, 1 round, passed after a lead fix (seam defaults bound at load time let a test reach the network), rung 1
 dispatch: J17 M11, 4 provision steps test files — sonnet medium, 1 round, passed, rung 1; two package-manager stand-ins remain
+dispatch: J17 M12, 4 toolchains test files — sonnet medium, 1 round, passed, rung 1; RW-73 asks the owner about dead _confirm_timeout
 
 ## Totals
 

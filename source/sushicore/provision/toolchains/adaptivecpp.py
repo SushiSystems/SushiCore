@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import typing
 from pathlib import Path
-from typing import Callable
+from typing import Callable, MutableMapping, Sequence
 
 from sushicore.errors import DigestMismatchError
 
@@ -46,13 +46,15 @@ _YES = ("y", "yes", "e", "evet")
 
 
 def _confirm_timeout(message: str, timeout: int = _LLVM_CONSENT_TIMEOUT,
-                     default: bool = False) -> bool:
+                     default: bool = False, *,
+                     reader: Callable[[], str] | None = None) -> bool:
     """Ask a yes/no question, returning *default* if unanswered within *timeout*.
 
     Args:
         message: The question to print, as Rich markup.
         timeout: Seconds to wait for an answer before falling back to *default*.
         default: The answer used when the wait times out.
+        reader: Returns one line of the answer; ``input`` when omitted.
 
     Returns:
         True when the answer means yes.
@@ -75,7 +77,7 @@ def _confirm_timeout(message: str, timeout: int = _LLVM_CONSENT_TIMEOUT,
 
     def _read() -> None:
         try:
-            result[0] = input().strip().lower() in _YES
+            result[0] = (reader or input)().strip().lower() in _YES
         except (EOFError, OSError):
             _log.debug("no answer on stdin; keeping the default %s", default)
 
@@ -89,26 +91,35 @@ def _confirm_timeout(message: str, timeout: int = _LLVM_CONSENT_TIMEOUT,
     return result[0]
 
 
-def _find_windows_sdk_rc_dir() -> str:
-    """Return the directory containing rc.exe from the Windows 10/11 SDK, or ''."""
+def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> str:
+    """Return the directory containing rc.exe from the Windows 10/11 SDK, or ''.
+
+    Args:
+        glob: Expands a glob pattern into the matching paths; ``glob.glob`` when omitted.
+    """
     for pat in [
         r"C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe",
         r"C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe",
     ]:
-        hits = sorted(_glob.glob(pat))
+        hits = sorted((glob or _glob.glob)(pat))
         if hits:
             return str(Path(hits[-1]).parent)
     return ""
 
 
-def _find_windows_llvm() -> tuple[str, str] | None:
-    """Return ``(LLVM_DIR, clang_prefix)`` for an existing Windows LLVM, else None."""
-    bases = [
+def _find_windows_llvm(bases: Sequence[Path] | None = None) -> tuple[str, str] | None:
+    """Return ``(LLVM_DIR, clang_prefix)`` for an existing Windows LLVM, else None.
+
+    Args:
+        bases: The LLVM install roots to look in, first match wins; the vendored tree,
+            then the two Program Files folders when omitted.
+    """
+    roots = bases if bases is not None else [
         home.root() / "tools" / "llvm",
         Path(r"C:/Program Files/LLVM"),
         Path(r"C:/Program Files (x86)/LLVM"),
     ]
-    for base in bases:
+    for base in roots:
         cm = base / "lib" / "cmake" / "llvm"
         if cm.is_dir():
             return (str(cm), str(base))
@@ -170,7 +181,14 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None
 
 def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
                         vcpkg: "IPackageManager | None", dry_run: bool,
-                        assume_yes: bool = False) -> str | None:
+                        assume_yes: bool = False, *,
+                        which: Callable[[str], str | None] | None = None,
+                        glob: Callable[[str], list[str]] | None = None,
+                        llvm_bases: Sequence[Path] | None = None,
+                        environ: MutableMapping[str, str] | None = None,
+                        run_command: Callable[..., int] | None = None,
+                        configure: Callable[[list[str], bool], bool] | None = None,
+                        ) -> str | None:
     """Build AdaptiveCpp from source; return the ``acpp`` executable path.
 
     Args:
@@ -179,6 +197,15 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
         vcpkg: The vcpkg manager, or None when unavailable.
         dry_run: Report the action without touching the filesystem.
         assume_yes: Skip the Windows LLVM consent prompt.
+        which: Finds an executable on the search path; ``shutil.which`` when omitted.
+        glob: Expands a glob pattern when the Windows SDK is looked up; ``glob.glob`` when omitted.
+        llvm_bases: The Windows LLVM install roots to look in; see :func:`_find_windows_llvm`.
+        environ: The environment whose ``PATH`` gains the SDK resource compiler's folder;
+            ``os.environ`` when omitted.
+        run_command: Runs a command and returns its exit code; takes the command, the dry-run
+            flag and a ``check`` keyword. ``packages.run`` when omitted.
+        configure: Runs the configure command quietly and reports success; takes the command
+            and the dry-run flag. The quiet subprocess runner when omitted.
 
     Returns:
         The ``acpp`` executable path on success, None when it could not be built.
@@ -192,8 +219,10 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
             return str(cand)
 
     # cmake/git may be off PATH (e.g. scoop), so honour the configured paths.
-    cmake = cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else (shutil.which("cmake") or "")
-    git = shutil.which("git") or ""
+    find = which or shutil.which
+    env = environ if environ is not None else os.environ
+    cmake = cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else (find("cmake") or "")
+    git = find("git") or ""
     if not git or not cmake:
         console.warn("AdaptiveCpp build needs git and cmake; skipping.")
         return None
@@ -203,7 +232,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
         return str(acpp_exe)
 
     llvm_dir, clang_prefix = (
-        _acpp_deps_windows(vcpkg, assume_yes=assume_yes)
+        _acpp_deps_windows(vcpkg, assume_yes=assume_yes, llvm_bases=llvm_bases)
         if cfg.is_windows else _acpp_deps_linux(mgr)
     )
     if llvm_dir is None:
@@ -213,7 +242,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "acpp"
         build = src / "build"
-        clone = run(
+        clone = (run_command or run)(
             [git, "clone", "--depth", "1", "--branch", ACPP_VERSION,
              "https://github.com/AdaptiveCpp/AdaptiveCpp.git", str(src)],
             dry_run, check=True,
@@ -240,16 +269,16 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
 
         # clang-cl needs rc.exe (Windows SDK Resource Compiler) on PATH for the manifest embed.
         if cfg.is_windows:
-            rc_dir = _find_windows_sdk_rc_dir()
-            if rc_dir and rc_dir.lower() not in os.environ.get("PATH", "").lower():
-                os.environ["PATH"] = rc_dir + os.pathsep + os.environ.get("PATH", "")
+            rc_dir = _find_windows_sdk_rc_dir(glob)
+            if rc_dir and rc_dir.lower() not in env.get("PATH", "").lower():
+                env["PATH"] = rc_dir + os.pathsep + env.get("PATH", "")
 
-        configure_ok = _run_quiet(cfg_cmd, dry_run)
+        configure_ok = (configure or _run_quiet)(cfg_cmd, dry_run)
         if not configure_ok:
             console.warn("AdaptiveCpp configure failed; skipping. "
                          "intel-llvm is installed and selected.")
             return None
-        if run([cmake, "--build", str(build), "--target", "install"],
+        if (run_command or run)([cmake, "--build", str(build), "--target", "install"],
                 dry_run, check=True) != 0:
             console.warn("AdaptiveCpp build failed; skipping. "
                          "intel-llvm is installed and selected.")
@@ -311,18 +340,20 @@ def _acpp_deps_linux(mgr: "IPackageManager | None") -> tuple[str | None, str | N
     return ("", None)  # empty LLVM_DIR => cmake searches default locations
 
 
-def _acpp_deps_windows(vcpkg: "IPackageManager | None",
-                       assume_yes: bool = False) -> tuple[str | None, str | None]:
+def _acpp_deps_windows(vcpkg: "IPackageManager | None", assume_yes: bool = False, *,
+                       llvm_bases: Sequence[Path] | None = None,
+                       ) -> tuple[str | None, str | None]:
     """Install acpp build deps on Windows; return ``(LLVM_DIR, clang_prefix)``.
 
     Args:
         vcpkg: The vcpkg manager, or None when unavailable.
         assume_yes: Skip the consent prompt for the heavy LLVM download.
+        llvm_bases: The LLVM install roots to look in; see :func:`_find_windows_llvm`.
     """
     if vcpkg is not None:
         vcpkg.install(["boost-context", "boost-fiber"], dry_run=False)
 
-    existing = _find_windows_llvm()
+    existing = _find_windows_llvm(llvm_bases)
     if existing:
         return existing
 
@@ -339,7 +370,7 @@ def _acpp_deps_windows(vcpkg: "IPackageManager | None",
              "--silent"],
             check=False,
         )
-        existing = _find_windows_llvm()
+        existing = _find_windows_llvm(llvm_bases)
         if existing:
             return existing
 

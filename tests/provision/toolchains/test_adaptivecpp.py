@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Fake-backed tests for the AdaptiveCpp installer and its dependencies."""
+"""The AdaptiveCpp installer reuses a build, finds its dependencies and explains why it skips."""
 
 from __future__ import annotations
 
@@ -12,263 +12,309 @@ import pytest
 
 from sushicore import provision
 from sushicore.console_memory import RecordingConsole
-
 from sushicore.provision.config import ProvisionSettings
-
 from sushicore.provision.toolchains import adaptivecpp
-
 from sushicore.provision.toolchains.stamp import toolchains_dir
 
+_SDK_NEWEST = "C:/Program Files/Windows Kits/10/bin/10.0.22000.0/x64"
+_SDK_OLDER = "C:/Program Files/Windows Kits/10/bin/10.0.19041.0/x64"
 
 
-pytestmark = pytest.mark.medium
+class _Commands:
+    """Records each command the installer runs and answers the scripted exit codes, then 0."""
 
+    def __init__(self, *exit_codes: int) -> None:
+        """Script the exit codes, in call order."""
+        self._exit_codes = list(exit_codes)
+        self.commands: list[list[str]] = []
+
+    def __call__(self, cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
+        """Record *cmd* and answer the next scripted exit code."""
+        self.commands.append(cmd)
+        return self._exit_codes.pop(0) if self._exit_codes else 0
+
+
+class _Configure:
+    """Records the configure command and answers a fixed success flag."""
+
+    def __init__(self, ok: bool = False) -> None:
+        """Answer *ok* to every configure."""
+        self._ok = ok
+        self.commands: list[list[str]] = []
+
+    def __call__(self, cmd: list[str], dry_run: bool) -> bool:
+        """Record *cmd* and answer the flag."""
+        self.commands.append(cmd)
+        return self._ok
+
+
+class _Manager:
+    """A package manager that records what it was asked to install."""
+
+    def __init__(self, name: str) -> None:
+        """Name the manager, as ``apt`` or ``pacman``."""
+        self.name = name
+        self.installed: list[str] = []
+
+    def translate_apt(self, pkgs: list[str]) -> list[str]:
+        """Rename Debian package names the way a generic manager would."""
+        return [f"generic-{pkg}" for pkg in pkgs]
+
+    def install(self, pkgs: list[str], dry_run: bool) -> bool:
+        """Record *pkgs* and report success."""
+        self.installed.extend(pkgs)
+        return True
+
+
+def _on_path(name: str) -> str:
+    """Answer a search-path lookup as if every tool sat in ``/usr/bin``."""
+    return f"/usr/bin/{name}"
+
+
+def _not_on_path(_name: str) -> None:
+    """Answer a search-path lookup as if no tool were installed."""
+    return None
+
+
+def _no_sdk(_pattern: str) -> list[str]:
+    """Answer a glob as if no Windows SDK were installed."""
+    return []
+
+
+def _two_sdks(pattern: str) -> list[str]:
+    """Answer the 64-bit Program Files glob with two SDK versions, the others with none."""
+    if "Program Files/Windows" not in pattern:
+        return []
+    return [f"{_SDK_OLDER}/rc.exe", f"{_SDK_NEWEST}/rc.exe"]
+
+
+def _closed_stdin() -> str:
+    """Fail as a read from a closed standard input does."""
+    raise EOFError
+
+
+def _linux_cfg() -> ProvisionSettings:
+    """Build the configuration of a Linux host."""
+    return ProvisionSettings(platform="linux")
+
+
+def _windows_cfg() -> ProvisionSettings:
+    """Build the configuration of a Windows host."""
+    return ProvisionSettings(platform="windows")
+
+
+def _make_llvm_tree(base: Path) -> Path:
+    """Create the LLVM cmake folder under *base* and return it."""
+    cmake_dir = base / "lib" / "cmake" / "llvm"
+    cmake_dir.mkdir(parents=True)
+    return cmake_dir
+
+
+def _infos(console: RecordingConsole) -> str:
+    """Join every information line the console recorded."""
+    return " ".join(console.texts("info"))
 
 
 @pytest.fixture
-def fake_console():
-    """Bind a :class:`RecordingConsole` for the test, then unbind it."""
-    fake = RecordingConsole()
+def machine_console():
+    """Bind a recording console in machine mode that answers yes, then unbind it."""
+    fake = RecordingConsole(machine=True, answer="y")
     provision.bind_console(lambda: fake)
     yield fake
     provision.bind_console(None)
 
 
-
-def _linux_cfg() -> ProvisionSettings:
-    """Check that linux cfg."""
-    return ProvisionSettings(platform="linux")
-
-
-
-def _windows_cfg() -> ProvisionSettings:
-    """Check that windows cfg."""
-    return ProvisionSettings(platform="windows")
-
-
-
-def test_install_adaptivecpp_reuses_an_existing_binary(provision_home, fake_console):
-    """Check that install adaptivecpp reuses an existing binary."""
-    prefix = toolchains_dir() / "adaptivecpp"
-    acpp = prefix / "bin" / "acpp"
+@pytest.mark.medium
+def test_install_adaptivecpp_reuses_an_existing_binary(provision_home, recording_console):
+    """Check that an installed acpp is returned without a build."""
+    acpp = toolchains_dir() / "adaptivecpp" / "bin" / "acpp"
     acpp.parent.mkdir(parents=True)
     acpp.touch()
+    commands = _Commands()
 
-    result = adaptivecpp.install_adaptivecpp(_linux_cfg(), None, None, dry_run=False)
+    result = adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands)
 
     assert result == str(acpp)
+    assert commands.commands == []
 
 
+@pytest.mark.medium
+def test_install_adaptivecpp_skips_without_git_or_cmake(provision_home, recording_console):
+    """Check that a missing git or cmake skips the build with a warning."""
+    commands = _Commands()
 
-def test_install_adaptivecpp_skips_without_git_or_cmake(provision_home, fake_console, monkeypatch):
-    """Check that install adaptivecpp skips without git or cmake."""
-    monkeypatch.setattr(adaptivecpp.shutil, "which", lambda _name: None)
-
-    result = adaptivecpp.install_adaptivecpp(_linux_cfg(), None, None, dry_run=False)
+    result = adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), None, None, dry_run=False, which=_not_on_path, run_command=commands)
 
     assert result is None
-    assert fake_console.has_call("warn")
+    assert recording_console.texts("warn") == ["AdaptiveCpp build needs git and cmake; skipping."]
+    assert commands.commands == []
 
 
+@pytest.mark.medium
+def test_install_adaptivecpp_dry_run_reports_without_building(provision_home, recording_console):
+    """Check that a dry run names the executable it would build and runs nothing."""
+    commands = _Commands()
 
-def test_install_adaptivecpp_dry_run_reports_without_building(provision_home, fake_console,
-                                                               monkeypatch):
-    """Check that install adaptivecpp dry run reports without building."""
-    monkeypatch.setattr(adaptivecpp.shutil, "which", lambda name: f"/usr/bin/{name}")
+    result = adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), None, None, dry_run=True, which=_on_path, run_command=commands)
 
-    result = adaptivecpp.install_adaptivecpp(_linux_cfg(), None, None, dry_run=True)
-
-    prefix = toolchains_dir() / "adaptivecpp"
-    assert result == str(prefix / "bin" / "acpp")
-    assert fake_console.has_call("info")
-
-
-
-def test_find_windows_sdk_rc_dir_returns_empty_without_a_match(monkeypatch):
-    """Check that find windows sdk rc dir returns empty without a match."""
-    monkeypatch.setattr(adaptivecpp._glob, "glob", lambda _pat: [])
-
-    assert adaptivecpp._find_windows_sdk_rc_dir() == ""
+    assert result == str(toolchains_dir() / "adaptivecpp" / "bin" / "acpp")
+    assert commands.commands == []
+    assert recording_console.has_call("info")
 
 
+@pytest.mark.medium
+def test_install_adaptivecpp_adds_no_resource_compiler_folder_without_a_windows_sdk(
+        provision_home, recording_console, tmp_path):
+    """Check that a Windows build with no SDK leaves the search path as it was."""
+    llvm = tmp_path / "llvm"
+    _make_llvm_tree(llvm)
+    environ = {"PATH": "base"}
 
-def test_find_windows_sdk_rc_dir_returns_the_highest_sorting_match(monkeypatch):
-    """Check that find windows sdk rc dir returns the highest sorting match."""
-    monkeypatch.setattr(
-        adaptivecpp._glob, "glob",
-        lambda pat: ([r"C:/Program Files/Windows Kits/10/bin/10.0.19041.0/x64/rc.exe",
-                      r"C:/Program Files/Windows Kits/10/bin/10.0.22000.0/x64/rc.exe"]
-                     if "Program Files/Windows" in pat else []))
+    adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
+        llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure())
 
-    result = adaptivecpp._find_windows_sdk_rc_dir()
-
-    assert Path(result) == Path(r"C:/Program Files/Windows Kits/10/bin/10.0.22000.0/x64")
-
-
-
-def test_find_windows_llvm_finds_a_vendored_tree(provision_home):
-    """Check that find windows llvm finds a vendored tree."""
-    cmake_dir = provision_home / "tools" / "llvm" / "lib" / "cmake" / "llvm"
-    cmake_dir.mkdir(parents=True)
-
-    result = adaptivecpp._find_windows_llvm()
-
-    assert result == (str(cmake_dir), str(provision_home / "tools" / "llvm"))
+    assert environ["PATH"] == "base"
 
 
+@pytest.mark.medium
+def test_install_adaptivecpp_puts_the_newest_sdk_resource_compiler_on_the_path(
+        provision_home, recording_console, tmp_path):
+    """Check that a Windows build puts the highest-sorting SDK's folder first on the path."""
+    llvm = tmp_path / "llvm"
+    _make_llvm_tree(llvm)
+    environ = {"PATH": "base"}
 
-def test_find_windows_llvm_returns_none_when_nothing_is_installed(provision_home, monkeypatch):
-    """Check that find windows llvm returns none when nothing is installed."""
-    # Hermetic regardless of whether this host has its own LLVM install.
-    monkeypatch.setattr(adaptivecpp.Path, "is_dir", lambda _self: False)
+    adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_two_sdks,
+        llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure())
 
-    assert adaptivecpp._find_windows_llvm() is None
-
+    assert environ["PATH"].startswith(str(Path(_SDK_NEWEST)))
 
 
-def test_confirm_timeout_returns_the_default_when_unanswered(fake_console, monkeypatch):
-    """Check that confirm timeout returns the default when unanswered."""
-    # A real input() would block under -s; make it fail at once like a closed stdin.
-    monkeypatch.setattr("builtins.input", lambda: (_ for _ in ()).throw(EOFError()))
+@pytest.mark.medium
+def test_install_adaptivecpp_configures_against_a_vendored_llvm_tree(
+        provision_home, recording_console):
+    """Check that the LLVM tree vendored under the tools folder is the one cmake is pointed at."""
+    llvm = provision_home / "tools" / "llvm"
+    cmake_dir = _make_llvm_tree(llvm)
+    configure = _Configure()
 
-    result = adaptivecpp._confirm_timeout("Proceed?", timeout=1, default=False)
+    adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
+        environ={}, run_command=_Commands(), configure=configure)
+
+    assert f"-DLLVM_DIR={cmake_dir}" in configure.commands[0]
+    assert f"-DCLANG_INSTALL_PREFIX={llvm}" in configure.commands[0]
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_skips_on_windows_when_no_llvm_is_installed(
+        provision_home, recording_console):
+    """Check that without an LLVM and without consent a Windows build skips and says how to enable it."""
+    commands = _Commands()
+
+    result = adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, None, dry_run=False, which=_on_path, llvm_bases=[],
+        run_command=commands)
+
+    assert result is None
+    assert commands.commands == []
+    assert "sr setup acpp" in _infos(recording_console)
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_on_windows_installs_boost_and_reuses_an_existing_llvm(
+        provision_home, recording_console, tmp_path):
+    """Check that a Windows build asks vcpkg for boost and builds against the LLVM it found."""
+    llvm = tmp_path / "llvm"
+    cmake_dir = _make_llvm_tree(llvm)
+    vcpkg = _Manager("vcpkg")
+    configure = _Configure()
+
+    adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, vcpkg, dry_run=False, which=_on_path, glob=_no_sdk,
+        llvm_bases=[llvm], environ={}, run_command=_Commands(), configure=configure)
+
+    assert vcpkg.installed == ["boost-context", "boost-fiber"]
+    assert f"-DLLVM_DIR={cmake_dir}" in configure.commands[0]
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_on_linux_without_a_manager_skips_the_build(
+        provision_home, recording_console):
+    """Check that a Linux build with no package manager skips before any command runs."""
+    commands = _Commands()
+
+    result = adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands)
+
+    assert result is None
+    assert commands.commands == []
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_on_linux_names_the_dev_packages_when_it_skips(
+        provision_home, recording_console):
+    """Check that the Linux skip note names the LLVM dev packages to install."""
+    adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=_Commands())
+
+    assert "llvm-17-dev" in _infos(recording_console)
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_on_apt_installs_the_pinned_llvm_packages(
+        provision_home, recording_console):
+    """Check that an apt host is asked for the pinned LLVM, clang, lld and boost packages."""
+    manager = _Manager("apt")
+    llvm = adaptivecpp.ACPP_LLVM
+
+    adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), manager, None, dry_run=False, which=_on_path,
+        run_command=_Commands(1), configure=_Configure())
+
+    assert manager.installed == [
+        f"clang-{llvm}", f"llvm-{llvm}-dev", f"libclang-{llvm}-dev", f"lld-{llvm}",
+        "libboost-context-dev", "libboost-fiber-dev",
+    ]
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_on_another_manager_translates_the_generic_packages(
+        provision_home, recording_console):
+    """Check that a non-apt host is asked for the translated generic packages and a default LLVM."""
+    manager = _Manager("pacman")
+    configure = _Configure()
+
+    adaptivecpp.install_adaptivecpp(
+        _linux_cfg(), manager, None, dry_run=False, which=_on_path,
+        run_command=_Commands(), configure=configure)
+
+    assert manager.installed == [
+        "generic-clang", "generic-llvm",
+        "generic-libboost-context-dev", "generic-libboost-fiber-dev",
+    ]
+    assert "-DLLVM_DIR=" in configure.commands[0]
+    assert not any(arg.startswith("-DCLANG_INSTALL_PREFIX") for arg in configure.commands[0])
+
+
+@pytest.mark.medium
+def test_confirm_timeout_returns_the_default_when_unanswered(recording_console):
+    """Check that a closed input keeps the default answer."""
+    result = adaptivecpp._confirm_timeout(
+        "Proceed?", timeout=1, default=False, reader=_closed_stdin)
 
     assert result is False
 
 
-
-def test_confirm_timeout_machine_mode_uses_the_prompted_answer():
-    """Check that confirm timeout machine mode uses the prompted answer."""
-    fake = RecordingConsole(machine=True, answer="y")
-    provision.bind_console(lambda: fake)
-    try:
-        result = adaptivecpp._confirm_timeout("Proceed?", timeout=1, default=False)
-    finally:
-        provision.bind_console(None)
+@pytest.mark.small
+def test_confirm_timeout_machine_mode_uses_the_prompted_answer(machine_console):
+    """Check that machine mode takes the prompted answer instead of reading input."""
+    result = adaptivecpp._confirm_timeout(
+        "Proceed?", timeout=1, default=False, reader=_closed_stdin)
 
     assert result is True
-
-
-
-def test_acpp_deps_linux_without_a_manager_returns_no_llvm_dir():
-    """Check that acpp deps linux without a manager returns no llvm dir."""
-    assert adaptivecpp._acpp_deps_linux(None) == (None, None)
-
-
-
-class _FakeAptManager:
-    """Fake FakeAptManager for testing."""
-    name = "apt"
-
-    def __init__(self) -> None:
-        """Perform  init  ."""
-        self.installed: list[str] = []
-
-    def install(self, pkgs, dry_run):
-        """Check that install."""
-        self.installed.extend(pkgs)
-        return True
-
-
-
-def test_acpp_deps_linux_apt_installs_the_pinned_llvm_packages(fake_console, monkeypatch):
-    """Check that acpp deps linux apt installs the pinned llvm packages."""
-    # Hermetic regardless of whether this host has its own llvm-17 dev tree.
-    monkeypatch.setattr(adaptivecpp.Path, "is_dir", lambda _self: False)
-    mgr = _FakeAptManager()
-
-    llvm_dir, clang_prefix = adaptivecpp._acpp_deps_linux(mgr)
-
-    assert mgr.installed == [
-        f"clang-{adaptivecpp.ACPP_LLVM}", f"llvm-{adaptivecpp.ACPP_LLVM}-dev",
-        f"libclang-{adaptivecpp.ACPP_LLVM}-dev", f"lld-{adaptivecpp.ACPP_LLVM}",
-        "libboost-context-dev", "libboost-fiber-dev",
-    ]
-    assert clang_prefix == f"/usr/lib/llvm-{adaptivecpp.ACPP_LLVM}"
-    assert llvm_dir is None
-
-
-
-class _FakeGenericManager:
-    """Fake FakeGenericManager for testing."""
-    name = "pacman"
-
-    def __init__(self) -> None:
-        """Perform  init  ."""
-        self.installed: list[str] = []
-
-    def translate_apt(self, pkgs):
-        """Check that translate apt."""
-        return [f"generic-{p}" for p in pkgs]
-
-    def install(self, pkgs, dry_run):
-        """Check that install."""
-        self.installed.extend(pkgs)
-        return True
-
-
-
-def test_acpp_deps_linux_other_manager_translates_generic_packages(fake_console):
-    """Check that acpp deps linux other manager translates generic packages."""
-    mgr = _FakeGenericManager()
-
-    result = adaptivecpp._acpp_deps_linux(mgr)
-
-    assert result == ("", None)
-    assert mgr.installed == [
-        "generic-clang", "generic-llvm",
-        "generic-libboost-context-dev", "generic-libboost-fiber-dev",
-    ]
-
-
-
-class _FakeVcpkgManager:
-    """Fake FakeVcpkgManager for testing."""
-    def __init__(self) -> None:
-        """Perform  init  ."""
-        self.installed: list[str] = []
-
-    def install(self, pkgs, dry_run):
-        """Check that install."""
-        self.installed.extend(pkgs)
-        return True
-
-
-
-def test_acpp_deps_windows_reuses_an_existing_llvm(monkeypatch, fake_console):
-    """Check that acpp deps windows reuses an existing llvm."""
-    monkeypatch.setattr(adaptivecpp, "_find_windows_llvm", lambda: ("dir", "prefix"))
-    vcpkg = _FakeVcpkgManager()
-
-    result = adaptivecpp._acpp_deps_windows(vcpkg)
-
-    assert result == ("dir", "prefix")
-    assert vcpkg.installed == ["boost-context", "boost-fiber"]
-
-
-
-def test_acpp_deps_windows_without_consent_skips_the_download(monkeypatch, fake_console):
-    """Check that acpp deps windows without consent skips the download."""
-    monkeypatch.setattr(adaptivecpp, "_find_windows_llvm", lambda: None)
-
-    result = adaptivecpp._acpp_deps_windows(None, assume_yes=False)
-
-    assert result == (None, None)
-
-
-
-def test_explain_acpp_skip_windows_names_the_setup_command(fake_console):
-    """Check that explain acpp skip windows names the setup command."""
-    adaptivecpp._explain_acpp_skip(_windows_cfg())
-
-    infos = " ".join(str(args) for name, args in fake_console.calls if name == "info")
-    assert "sr setup acpp" in infos
-
-
-
-def test_explain_acpp_skip_linux_names_the_dev_packages(fake_console):
-    """Check that explain acpp skip linux names the dev packages."""
-    adaptivecpp._explain_acpp_skip(_linux_cfg())
-
-    infos = " ".join(str(args) for name, args in fake_console.calls if name == "info")
-    assert "llvm-17-dev" in infos

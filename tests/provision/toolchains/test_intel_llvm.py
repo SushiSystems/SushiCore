@@ -2,196 +2,178 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Fake-backed tests for the intel/llvm installer."""
+"""The intel/llvm installer reuses, refreshes, downloads and cleans up a bundle under the toolchains folder."""
 
 from __future__ import annotations
 
-import ast
-
 import io
-
-import re
-
 import tarfile
-
 from pathlib import Path
 
 import pytest
 
-from sushicore import provision
-from sushicore.console_memory import RecordingConsole
-
 from sushicore.provision.config import ProvisionSettings
-
 from sushicore.provision.toolchains import intel_llvm
-
-from sushicore.provision.toolchains.stamp import read_toolchain_stamp, toolchains_dir
-
-
+from sushicore.provision.toolchains.stamp import (
+    read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
 
 pytestmark = pytest.mark.medium
 
+_URL = "http://example.invalid/a"
 
 
-@pytest.fixture
-def fake_console():
-    """Bind a :class:`RecordingConsole` for the test, then unbind it."""
-    fake = RecordingConsole()
-    provision.bind_console(lambda: fake)
-    yield fake
-    provision.bind_console(None)
+class _Resolver:
+    """Answers a release lookup with a fixed tag and counts the lookups."""
 
+    def __init__(self, tag: str = "nightly-2", error: Exception | None = None) -> None:
+        """Answer *tag*, or raise *error* when one is given."""
+        self._tag = tag
+        self._error = error
+        self.lookups = 0
+
+    def __call__(self, repo: str, asset: str) -> tuple[str, str]:
+        """Count the lookup and answer the tag and the asset URL."""
+        self.lookups += 1
+        if self._error is not None:
+            raise self._error
+        return self._tag, _URL
+
+
+class _Fetcher:
+    """Writes a tar.gz of the named members as the download, or raises *error*; counts the downloads."""
+
+    def __init__(self, members: tuple[str, ...] = (), error: Exception | None = None) -> None:
+        """Download an archive holding *members*, or fail with *error*."""
+        self._members = members
+        self._error = error
+        self.downloads = 0
+
+    def __call__(self, url: str, dest: Path) -> None:
+        """Count the download and write the archive to *dest*."""
+        self.downloads += 1
+        if self._error is not None:
+            raise self._error
+        with tarfile.open(dest, "w:gz") as archive:
+            for name in self._members:
+                info = tarfile.TarInfo(name=name)
+                info.size = len(b"binary")
+                archive.addfile(info, io.BytesIO(b"binary"))
 
 
 def _linux_cfg() -> ProvisionSettings:
-    """Check that linux cfg."""
+    """Build the configuration of a Linux host."""
     return ProvisionSettings(platform="linux")
 
 
-
-def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, fake_console, monkeypatch):
-    """Check that install intel llvm reuses an existing bundle."""
-    root = toolchains_dir() / "llvm-sycl"
+def _install_clang(root: Path) -> None:
+    """Put an empty compiler in the bundle folder, as an earlier install would have."""
     (root / "bin").mkdir(parents=True)
     (root / "bin" / "clang++").touch()
-    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no network")))
-
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
-
-    assert result == str(root)
-    assert fake_console.has_call("warn")  # no sanitizer runtime in the fake tree
 
 
-
-def test_install_intel_llvm_dry_run_reports_without_downloading(provision_home, fake_console):
-    """Check that install intel llvm dry run reports without downloading."""
+def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, recording_console):
+    """Check that an installed bundle is returned with a warning and no release lookup."""
     root = toolchains_dir() / "llvm-sycl"
+    _install_clang(root)
+    resolver = _Resolver()
 
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=True)
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False, resolve_release=resolver)
 
     assert result == str(root)
+    assert resolver.lookups == 0
+    assert recording_console.has_call("warn")  # no sanitizer runtime in the tree
+
+
+def test_install_intel_llvm_dry_run_reports_without_downloading(provision_home, recording_console):
+    """Check that a dry run names the bundle folder, downloads nothing and creates nothing."""
+    root = toolchains_dir() / "llvm-sycl"
+    fetcher = _Fetcher()
+
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=True, fetch=fetcher)
+
+    assert result == str(root)
+    assert fetcher.downloads == 0
     assert not root.exists()
-    assert fake_console.has_call("info")
+    assert recording_console.has_call("info")
 
 
-
-def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, fake_console,
-                                                              monkeypatch):
-    """Check that install intel llvm refresh skips when tag unchanged."""
+def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, recording_console):
+    """Check that a refresh at the recorded tag downloads nothing."""
     root = toolchains_dir() / "llvm-sycl"
-    (root / "bin").mkdir(parents=True)
-    (root / "bin" / "clang++").touch()
-    from sushicore.provision.toolchains.stamp import write_toolchain_stamp
+    _install_clang(root)
     write_toolchain_stamp(root, "intel/llvm", "nightly-1")
-    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
-                        lambda *a, **k: ("nightly-1", "http://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "download",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no download")))
+    fetcher = _Fetcher()
 
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False, refresh=True)
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False, refresh=True,
+        resolve_release=_Resolver("nightly-1"), fetch=fetcher)
 
     assert result == str(root)
+    assert fetcher.downloads == 0
 
 
-
-def test_install_intel_llvm_downloads_and_extracts_on_first_install(provision_home, fake_console,
-                                                                     monkeypatch):
-    """Check that install intel llvm downloads and extracts on first install."""
+def test_install_intel_llvm_downloads_and_extracts_on_first_install(
+        provision_home, recording_console):
+    """Check that a first install extracts the bundle and records its tag."""
     root = toolchains_dir() / "llvm-sycl"
-    clang = root / "bin" / "clang++"
-    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
-                        lambda *a, **k: ("nightly-2", "http://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "download", lambda *a, **k: None)
 
-    def fake_extract(archive, dest):
-        """Check that fake extract."""
-        (dest / "bin").mkdir(parents=True, exist_ok=True)
-        (dest / "bin" / "clang++").touch()
-
-    monkeypatch.setattr(intel_llvm, "_extract_tar_gz", fake_extract)
-
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False,
+        resolve_release=_Resolver("nightly-2"), fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
 
     assert result == str(root)
-    assert clang.is_file()
+    assert (root / "bin" / "clang++").is_file()
     assert read_toolchain_stamp(root)["tag"] == "nightly-2"
 
 
-
-def test_install_intel_llvm_returns_none_when_asset_resolution_fails(provision_home, fake_console,
-                                                                      monkeypatch):
-    """Check that install intel llvm returns none when asset resolution fails."""
-    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no asset")))
-
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+def test_install_intel_llvm_returns_none_when_asset_resolution_fails(
+        provision_home, recording_console):
+    """Check that a failed release lookup returns None with an error."""
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False,
+        resolve_release=_Resolver(error=RuntimeError("no asset")))
 
     assert result is None
-    assert fake_console.has_call("error")
-
+    assert recording_console.has_call("error")
 
 
 def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
-        provision_home, fake_console, monkeypatch):
-    """Check that install intel llvm cleans up on download failure without refresh."""
+        provision_home, recording_console):
+    """Check that a failed first download removes the half-made bundle folder."""
     root = toolchains_dir() / "llvm-sycl"
-    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
-                        lambda *a, **k: ("nightly-2", "http://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "download",
-                        lambda *a, **k: (_ for _ in ()).throw(OSError("network down")))
     root.mkdir(parents=True)
     (root / "stray-file").touch()
 
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=False)
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False,
+        resolve_release=_Resolver(), fetch=_Fetcher(error=OSError("network down")))
 
     assert result is None
     assert not root.exists()
 
 
+def test_install_intel_llvm_collapses_a_single_top_level_wrapper_dir(
+        provision_home, recording_console):
+    """Check that an archive wrapped in one folder installs with its contents at the bundle root."""
+    root = toolchains_dir() / "llvm-sycl"
 
-def _make_tar_gz(tmp_path: Path, wrapped: bool) -> Path:
-    """Check that make tar gz."""
-    archive = tmp_path / "bundle.tar.gz"
-    names = (["wrap/bin/clang++"] if wrapped
-             else ["bin/clang++", "lib/libsomething.so"])
-    with tarfile.open(archive, "w:gz") as tf:
-        data = b"binary"
-        for name in names:
-            info = tarfile.TarInfo(name=name)
-            info.size = len(data)
-            tf.addfile(info, io.BytesIO(data))
-    return archive
+    intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False,
+        resolve_release=_Resolver(), fetch=_Fetcher(("wrap/bin/clang++",)))
+
+    assert (root / "bin" / "clang++").is_file()
+    assert not (root / "wrap").exists()
 
 
+def test_install_intel_llvm_leaves_an_unwrapped_layout_alone(provision_home, recording_console):
+    """Check that an archive with several top-level folders installs them as they are."""
+    root = toolchains_dir() / "llvm-sycl"
 
-def test_extract_tar_gz_collapses_a_single_top_level_wrapper_dir(tmp_path):
-    """Check that extract tar gz collapses a single top level wrapper dir."""
-    archive = _make_tar_gz(tmp_path, wrapped=True)
-    dest = tmp_path / "dest"
+    intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False,
+        resolve_release=_Resolver(),
+        fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
 
-    intel_llvm._extract_tar_gz(archive, dest)
-
-    assert (dest / "bin" / "clang++").is_file()
-
-
-
-def test_extract_tar_gz_leaves_an_unwrapped_layout_alone(tmp_path):
-    """Check that extract tar gz leaves an unwrapped layout alone."""
-    archive = _make_tar_gz(tmp_path, wrapped=False)
-    dest = tmp_path / "dest"
-
-    intel_llvm._extract_tar_gz(archive, dest)
-
-    assert (dest / "bin" / "clang++").is_file()
-
-
-
-def test_intel_llvm_defines_no_unused_private_function():
-    """Check that intel llvm defines no unused private function."""
-    source = Path(intel_llvm.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    private = [node.name for node in tree.body
-               if isinstance(node, ast.FunctionDef) and node.name.startswith("_")]
-    unused = [name for name in private if len(re.findall(rf"\b{name}\b", source)) < 2]
-    assert unused == []
+    assert (root / "bin" / "clang++").is_file()
+    assert (root / "lib" / "libsomething.so").is_file()

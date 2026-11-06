@@ -29,7 +29,9 @@ _ONEAPI_URL = (
 _ELEVATION_REQUIRED = 740
 
 
-def install_oneapi(ctx: "InstallContext") -> bool:
+def install_oneapi(ctx: "InstallContext", *,
+                   download_installer: Callable[[], Path | None] | None = None,
+                   run_installer: Callable[[Path], bool] | None = None) -> bool:
     """Download and silently install Intel oneAPI DPC++, when selected and needed.
 
     A no-op when oneAPI was not selected for this run, a SYCL compiler was
@@ -38,6 +40,10 @@ def install_oneapi(ctx: "InstallContext") -> bool:
     Args:
         ctx: The shared install context; reads ``selection.oneapi``, ``detected``
             and ``dry_run``.
+        download_installer: Fetches the offline installer and returns its path, or None on
+            failure; :func:`download_oneapi_installer` when omitted.
+        run_installer: Runs the installer at a path and reports success;
+            :func:`run_oneapi_installer` when omitted.
 
     Returns:
         True on success or when nothing needed doing; False on failure.
@@ -48,10 +54,10 @@ def install_oneapi(ctx: "InstallContext") -> bool:
         console.info("(dry-run) skipping Intel oneAPI install.")
         return True
 
-    installer = download_oneapi_installer()
+    installer = (download_installer or download_oneapi_installer)()
     if installer is None:
         return False
-    return run_oneapi_installer(installer)
+    return (run_installer or run_oneapi_installer)(installer)
 
 
 def download_oneapi_installer(*, directory: Path | None = None,
@@ -82,11 +88,15 @@ def download_oneapi_installer(*, directory: Path | None = None,
     return installer
 
 
-def run_oneapi_installer(installer: Path) -> bool:
+def run_oneapi_installer(installer: Path, *,
+                         launch: Callable[..., subprocess.CompletedProcess] | None = None,
+                         ) -> bool:
     """Run the Intel oneAPI installer silently, elevating on demand.
 
     Args:
         installer: Path of the downloaded offline installer executable.
+        launch: Runs a command and returns its completed process; takes the command and,
+            for the elevated launch, a ``timeout`` keyword. ``subprocess.run`` when omitted.
 
     Returns:
         True when the installer reports success.
@@ -101,7 +111,7 @@ def run_oneapi_installer(installer: Path) -> bool:
         spinner="bouncingBar",
     ):
         try:
-            rc = subprocess.run(oneapi_cmd).returncode
+            rc = (launch or subprocess.run)(oneapi_cmd).returncode
         except OSError as exc:
             if getattr(exc, "winerror", None) != _ELEVATION_REQUIRED:
                 console.warn(f"Intel oneAPI installer failed to launch: {exc}")
@@ -117,7 +127,7 @@ def run_oneapi_installer(installer: Path) -> bool:
                     f",'-p=NEED_VS2022_INTEGRATION=1'"
                     f" -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
                 )
-                rc = subprocess.run(
+                rc = (launch or subprocess.run)(
                     ["powershell", "-Command", ps_cmd], timeout=1200,
                 ).returncode
             except Exception as exc2:
