@@ -18,22 +18,22 @@ writes each add. Nothing in a module job changes production code except a seam a
 | T5 | `tools/testing/check_test_additions.py`, `tools/tests/test_check_test_additions.py` deleted |  | done |
 | M1 | the tests of `(root)` (38 files): 133 rewrite, 33 resize, 17 split, 19 merge, 21 delete | T1, T2, T3, T4, T5 | done |
 | M2 | the tests of `backlog` (9 files): 9 rewrite, 10 resize, 19 split, 1 delete | T1, T2, T3, T4, T5 | done |
-| M3 | the tests of `design` (7 files): 7 rewrite, 2 resize, 14 split, 1 delete | T1, T2, T3, T4, T5 | todo |
-| M4 | the tests of `docs_bundle` (13 files): 11 rewrite, 30 resize, 6 split, 6 merge, 3 delete | T1, T2, T3, T4, T5 | todo |
+| M3 | the tests of `design` (7 files): 7 rewrite, 2 resize, 14 split, 1 delete | T1, T2, T3, T4, T5 | done |
+| M4 | the tests of `docs_bundle` (13 files): 11 rewrite, 30 resize, 6 split, 6 merge, 3 delete | T1, T2, T3, T4, T5 | done |
 | M5 | the tests of `help` (5 files): 1 split, 10 merge, 1 delete | T1, T2, T3, T4, T5 | done |
 | M6 | the tests of `provision` (40 files): 154 rewrite, 62 resize, 10 split, 8 merge, 13 delete | T1, T2, T3, T4, T5 | todo |
-| M7 | the tests of `provision/gpu` (26 files): 76 rewrite, 6 resize, 12 merge, 21 delete | T1, T2, T3, T4, T5 | todo |
+| M7 | the tests of `provision/gpu` (26 files): 76 rewrite, 6 resize, 12 merge, 21 delete | T1, T2, T3, T4, T5 | done |
 | M8 | the tests of `provision/sushi_packages` (25 files): 58 rewrite, 17 resize, 3 split, 3 merge, 12 delete | T1, T2, T3, T4, T5 | todo |
-| M9 | the tests of `provision/test_download_verifier` (2 files): 13 rewrite, 3 resize, 1 delete | T1, T2, T3, T4, T5 | todo |
-| M10 | the tests of `provision/test_fragments` (3 files): 16 rewrite, 2 delete | T1, T2, T3, T4, T5 | todo |
+| M9 | the tests of `provision/test_download_verifier` (2 files): 13 rewrite, 3 resize, 1 delete | T1, T2, T3, T4, T5 | done |
+| M10 | the tests of `provision/test_fragments` (3 files): 16 rewrite, 2 delete | T1, T2, T3, T4, T5 | done |
 | M11 | the tests of `provision/test_steps` (4 files): 32 rewrite, 2 merge | T1, T2, T3, T4, T5 | todo |
 | M12 | the tests of `provision/toolchains` (4 files): 38 rewrite, 6 merge, 2 delete | T1, T2, T3, T4, T5 | todo |
-| M13 | the tests of `test_deps_fragment` (2 files): 3 rewrite, 6 resize, 1 delete | T1, T2, T3, T4, T5 | todo |
-| M14 | the tests of `test_renderer` (3 files): 13 rewrite, 10 merge, 1 delete | T1, T2, T3, T4, T5 | todo |
-| M15 | the tests of `test_workspace` (3 files): 1 merge, 1 delete | T1, T2, T3, T4, T5 | todo |
-| M16 | the tests of `testing` (6 files): 9 resize, 7 split, 2 delete | T1, T2, T3, T4, T5 | todo |
-| M17 | the tests of `tools` (2 files): 6 resize, 1 split, 5 delete | T1, T2, T3, T4, T5 | todo |
-| M18 | the tests of `ui` (8 files): 13 rewrite, 3 split, 13 merge, 9 delete | T1, T2, T3, T4, T5 | todo |
+| M13 | the tests of `test_deps_fragment` (2 files): 3 rewrite, 6 resize, 1 delete | T1, T2, T3, T4, T5 | done |
+| M14 | the tests of `test_renderer` (3 files): 13 rewrite, 10 merge, 1 delete | T1, T2, T3, T4, T5 | done |
+| M15 | the tests of `test_workspace` (3 files): 1 merge, 1 delete | T1, T2, T3, T4, T5 | done |
+| M16 | the tests of `testing` (6 files): 9 resize, 7 split, 2 delete | T1, T2, T3, T4, T5 | done |
+| M17 | the tests of `tools` (2 files): 6 resize, 1 split, 5 delete | T1, T2, T3, T4, T5 | done |
+| M18 | the tests of `ui` (8 files): 13 rewrite, 3 split, 13 merge, 9 delete | T1, T2, T3, T4, T5 | done |
 
 ## Acceptance
 

@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import hashlib
+import io
+import tarfile
 import types
 import zipfile
 from pathlib import Path
@@ -18,18 +20,116 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.download_verifier import DownloadVerifier, bind_verifier
 from sushicore.provision.packages import direct_download as dd
 from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
+from sushicore.provision.toolchains.stamp import toolchains_dir
 
 
 pytestmark = pytest.mark.medium
 
 K_WRONG_DIGEST = "0" * 64
-K_PAYLOAD = b"downloaded bytes"
-K_PAYLOAD_DIGEST = hashlib.sha256(K_PAYLOAD).hexdigest()
+K_URL = "https://example.invalid/asset"
+K_ONEAPI_INSTALLER = "intel-oneapi-toolkit-offline.exe"
+
+
+def _digest(payload: bytes) -> str:
+    """Return the SHA-256 of *payload* as the manifest pins it."""
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _zip_bytes(member: str) -> bytes:
+    """Return a zip archive holding one empty entry named *member*."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(member, b"")
+    return buffer.getvalue()
+
+
+def _bundle_bytes() -> bytes:
+    """Return a ``.tar.gz`` holding the compiler the intel/llvm installer looks for."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        info = tarfile.TarInfo("llvm-sycl/bin/clang++")
+        archive.addfile(info, io.BytesIO(b""))
+    return buffer.getvalue()
+
+
+K_INSTALLER_BYTES = b"installer bytes"
+
+
+class _Fetch:
+    """A download transport that writes a fixed payload and remembers where."""
+
+    def __init__(self, payload: bytes) -> None:
+        """Serve *payload* for every URL."""
+        self.payload = payload
+        self.written: list[Path] = []
+
+    def __call__(self, url: str, dest: Path) -> None:
+        """Write the payload to *dest* in place of fetching *url*."""
+        del url
+        Path(dest).write_bytes(self.payload)
+        self.written.append(Path(dest))
+
+
+class _Launches:
+    """A process launcher that records each command and reports success."""
+
+    def __init__(self) -> None:
+        """Start with no launched command."""
+        self.commands: list[list[str]] = []
+
+    def __call__(self, command: list[str], **_kwargs: object) -> types.SimpleNamespace:
+        """Record *command* and report that it exited with 0."""
+        self.commands.append(command)
+        return types.SimpleNamespace(returncode=0)
+
+
+class _CurlWritesPayload:
+    """A launcher for curl that writes the payload where ``-o`` points."""
+
+    def __init__(self, payload: bytes) -> None:
+        """Serve *payload* for every download."""
+        self.payload = payload
+
+    def __call__(self, command: list[str]) -> types.SimpleNamespace:
+        """Write the payload to the path after ``-o`` and report success."""
+        Path(command[command.index("-o") + 1]).write_bytes(self.payload)
+        return types.SimpleNamespace(returncode=0)
+
+
+def _resolve_asset(repo: str, pattern: str) -> str:
+    """Return a fixed URL for any GitHub asset lookup."""
+    del repo, pattern
+    return K_URL
+
+
+def _resolve_tagged_asset(repo: str, tag: str, asset: str) -> str:
+    """Return a fixed URL for any tagged GitHub asset lookup."""
+    del repo, tag, asset
+    return K_URL
+
+
+def _resolve_release(repo: str, asset: str) -> tuple[str, str]:
+    """Return a fixed release tag and URL for any release lookup."""
+    del repo, asset
+    return "nightly-2", K_URL
+
+
+def _no_cmake_on_system() -> str:
+    """Report that no cmake is installed, so the installer proceeds."""
+    return ""
+
+
+def _ignore_path(directory: str) -> None:
+    """Take a directory the installer would put on the user's PATH and leave PATH alone."""
+    del directory
+
 
 K_ZIP_INSTALLS = [
-    ("_install_cmake_direct", "cmake", "cmake-1.0/bin/cmake.exe", ("cmake",)),
-    ("_install_ninja_direct", "ninja", "ninja.exe", ("ninja.exe",)),
-    ("_install_doxygen_direct", "doxygen", "doxygen-1.0/doxygen.exe", ("doxygen",)),
+    (dd._install_cmake_direct, "cmake", _zip_bytes("cmake-1.0/bin/cmake.exe"),
+     ("cmake", "bin", "cmake.exe"), {"cmake_on_system": _no_cmake_on_system}),
+    (dd._install_ninja_direct, "ninja", _zip_bytes("ninja.exe"), ("ninja.exe",), {}),
+    (dd._install_doxygen_direct, "doxygen", _zip_bytes("doxygen-1.0/doxygen.exe"),
+     ("doxygen", "doxygen.exe"), {}),
 ]
 
 
@@ -43,236 +143,158 @@ def pins():
     bind_verifier(None)
 
 
-def _write_payload(dest: Path) -> None:
-    """Write the fixed payload to *dest*, as a download would."""
-    Path(dest).write_bytes(K_PAYLOAD)
-
-
-def _write_zip(dest: Path, member: str) -> None:
-    """Write a single-entry zip archive to *dest*."""
-    with zipfile.ZipFile(dest, "w") as archive:
-        archive.writestr(member, b"")
-
-
-def _stub_zip_download(monkeypatch, member: str) -> list[Path]:
-    """Make the direct-download manager fetch a one-member zip; return where it was written."""
-    written: list[Path] = []
-
-    def download(url, dest):
-        """Write the archive in place of fetching *url*."""
-        del url
-        _write_zip(dest, member)
-        written.append(Path(dest))
-
-    monkeypatch.setattr(dd, "_cmake_on_system", lambda: "")
-    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/a.zip")
-    monkeypatch.setattr(dd, "download", download)
-    monkeypatch.setattr(dd, "_add_to_user_path_windows", lambda directory: True)
-    return written
-
-
-@pytest.mark.parametrize(("installer", "name", "member", "installed"), K_ZIP_INSTALLS)
+@pytest.mark.parametrize(("installer", "name", "payload", "installed", "extra"), K_ZIP_INSTALLS)
 def test_a_tool_archive_with_the_wrong_digest_is_not_extracted(
-        installer, name, member, installed, monkeypatch, provision_home, recording_console, pins):
+        installer, name, payload, installed, extra, provision_home, recording_console, pins):
     """Check that a mismatching archive stops the install and leaves nothing extracted."""
-    written = _stub_zip_download(monkeypatch, member)
+    fetch = _Fetch(payload)
     pins.digests[name] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        getattr(dd, installer)()
+        installer(resolve_asset=_resolve_asset, fetch=fetch, on_path=_ignore_path, **extra)
 
     assert not dd.tools_dir().joinpath(*installed).exists()
-    assert not written[0].exists()
+    assert not fetch.written[0].exists()
 
 
-@pytest.mark.parametrize(("installer", "name", "member", "installed"), K_ZIP_INSTALLS)
+@pytest.mark.parametrize(("installer", "name", "payload", "installed", "extra"), K_ZIP_INSTALLS)
 def test_a_tool_archive_with_the_pinned_digest_installs(
-        installer, name, member, installed, monkeypatch, provision_home, recording_console, pins):
+        installer, name, payload, installed, extra, provision_home, recording_console, pins):
     """Check that a matching archive installs and is not reported as unverified."""
-    written = _stub_zip_download(monkeypatch, member)
-    real_download = dd.download
+    pins.digests[name] = _digest(payload)
 
-    def download_and_pin(url, dest):
-        """Write the archive, then pin the digest it turned out to have."""
-        real_download(url, dest)
-        pins.digests[name] = hashlib.sha256(Path(dest).read_bytes()).hexdigest()
+    done = installer(resolve_asset=_resolve_asset, fetch=_Fetch(payload),
+                     on_path=_ignore_path, **extra)
 
-    monkeypatch.setattr(dd, "download", download_and_pin)
-
-    assert getattr(dd, installer)() is True
-    assert written and dd.tools_dir().joinpath(*installed).exists()
+    assert done is True
+    assert dd.tools_dir().joinpath(*installed).exists()
     assert pins.verifier.unverified() == ()
 
 
-@pytest.mark.parametrize(("installer", "name", "member", "installed"), K_ZIP_INSTALLS)
+@pytest.mark.parametrize(("installer", "name", "payload", "installed", "extra"), K_ZIP_INSTALLS)
 def test_a_tool_archive_with_no_digest_installs_and_is_named(
-        installer, name, member, installed, monkeypatch, provision_home, recording_console, pins):
+        installer, name, payload, installed, extra, provision_home, recording_console, pins):
     """Check that an unpinned archive installs as before and is recorded by name."""
-    _stub_zip_download(monkeypatch, member)
+    done = installer(resolve_asset=_resolve_asset, fetch=_Fetch(payload),
+                     on_path=_ignore_path, **extra)
 
-    assert getattr(dd, installer)() is True
+    assert done is True
     assert dd.tools_dir().joinpath(*installed).exists()
     assert pins.verifier.unverified() == (name,)
 
 
-def _stub_git_download(monkeypatch) -> list[list[str]]:
-    """Make the git installer download the payload; return the commands it then runs."""
-    runs: list[list[str]] = []
-
-    def run(command, **_kwargs):
-        """Record the installer command and report success."""
-        runs.append(command)
-        return types.SimpleNamespace(returncode=0)
-
-    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/g.exe")
-    monkeypatch.setattr(dd, "download", lambda url, dest: _write_payload(dest))
-    monkeypatch.setattr(dd.subprocess, "run", run)
-    return runs
-
-
-def test_a_git_installer_with_the_wrong_digest_is_not_run(monkeypatch, recording_console, pins):
+def test_a_git_installer_with_the_wrong_digest_is_not_run(recording_console, pins):
     """Check that a mismatching Git installer stops the install before it is launched."""
-    runs = _stub_git_download(monkeypatch)
+    launches = _Launches()
     pins.digests["git"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        dd._install_git_direct()
+        dd._install_git_direct(resolve_asset=_resolve_asset,
+                               fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
 
-    assert runs == []
+    assert launches.commands == []
 
 
-def test_a_git_installer_with_the_pinned_digest_is_run(monkeypatch, recording_console, pins):
-    """Check that a matching Git installer is launched."""
-    runs = _stub_git_download(monkeypatch)
-    pins.digests["git"] = K_PAYLOAD_DIGEST
+def test_a_git_installer_with_the_pinned_digest_is_run(recording_console, pins):
+    """Check that a matching Git installer is launched once."""
+    launches = _Launches()
+    pins.digests["git"] = _digest(K_INSTALLER_BYTES)
 
-    assert dd._install_git_direct() is True
-    assert len(runs) == 1
+    installed = dd._install_git_direct(resolve_asset=_resolve_asset,
+                                       fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
+
+    assert installed is True
+    assert len(launches.commands) == 1
     assert pins.verifier.unverified() == ()
-
-
-def _stub_intel_llvm(monkeypatch) -> list[Path]:
-    """Make the intel/llvm installer download the payload; return the archives it extracts."""
-    extracted: list[Path] = []
-
-    def extract(archive, dest):
-        """Record the archive and lay down the compiler the installer looks for."""
-        extracted.append(archive)
-        (dest / "bin").mkdir(parents=True, exist_ok=True)
-        (dest / "bin" / "clang++").touch()
-
-    monkeypatch.setattr(intel_llvm, "gh_latest_release_asset",
-                        lambda *a, **k: ("nightly-2", "https://example.invalid/a"))
-    monkeypatch.setattr(intel_llvm, "download", lambda url, dest: _write_payload(dest))
-    monkeypatch.setattr(intel_llvm, "_extract_tar_gz", extract)
-    return extracted
 
 
 def test_an_intel_llvm_bundle_with_the_wrong_digest_is_not_extracted(
-        monkeypatch, provision_home, recording_console, pins):
+        provision_home, recording_console, pins):
     """Check that a mismatching bundle stops the install before extraction."""
-    extracted = _stub_intel_llvm(monkeypatch)
     pins.digests["intel-llvm"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        intel_llvm.install_intel_llvm(ProvisionSettings(platform="linux"), dry_run=False)
+        intel_llvm.install_intel_llvm(
+            ProvisionSettings(platform="linux"), dry_run=False,
+            resolve_release=_resolve_release, fetch=_Fetch(_bundle_bytes()))
 
-    assert extracted == []
+    assert not (toolchains_dir() / "llvm-sycl" / "bin" / "clang++").exists()
 
 
 def test_an_intel_llvm_bundle_with_the_pinned_digest_is_extracted(
-        monkeypatch, provision_home, recording_console, pins):
-    """Check that a matching bundle is extracted."""
-    extracted = _stub_intel_llvm(monkeypatch)
-    pins.digests["intel-llvm"] = K_PAYLOAD_DIGEST
+        provision_home, recording_console, pins):
+    """Check that a matching bundle is extracted and not reported as unverified."""
+    bundle = _bundle_bytes()
+    pins.digests["intel-llvm"] = _digest(bundle)
 
-    assert intel_llvm.install_intel_llvm(ProvisionSettings(platform="linux"), dry_run=False)
-    assert len(extracted) == 1
+    root = intel_llvm.install_intel_llvm(
+        ProvisionSettings(platform="linux"), dry_run=False,
+        resolve_release=_resolve_release, fetch=_Fetch(bundle))
+
+    assert (Path(root) / "bin" / "clang++").is_file()
     assert pins.verifier.unverified() == ()
-
-
-def _stub_llvm_vendor(monkeypatch) -> list[list[str]]:
-    """Make the LLVM vendor step download the payload; return the commands it then runs."""
-    runs: list[list[str]] = []
-
-    def run(command, **_kwargs):
-        """Record the installer launch and report success."""
-        runs.append(command)
-        return types.SimpleNamespace(returncode=0)
-
-    monkeypatch.setattr(adaptivecpp, "gh_tagged_asset",
-                        lambda repo, tag, asset: "https://example.invalid/llvm.exe")
-    monkeypatch.setattr(adaptivecpp, "download", lambda url, dest: _write_payload(dest))
-    monkeypatch.setattr(adaptivecpp.subprocess, "run", run)
-    return runs
 
 
 def test_an_llvm_installer_with_the_wrong_digest_is_not_run(
-        monkeypatch, provision_home, recording_console, pins):
+        provision_home, recording_console, pins):
     """Check that a mismatching LLVM installer stops the install before it is launched."""
-    runs = _stub_llvm_vendor(monkeypatch)
+    launches = _Launches()
     pins.digests["adaptivecpp"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        adaptivecpp._vendor_llvm_windows()
+        adaptivecpp._vendor_llvm_windows(
+            resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES),
+            launch=launches)
 
-    assert runs == []
+    assert launches.commands == []
 
 
 def test_an_llvm_installer_with_the_pinned_digest_is_run(
-        monkeypatch, provision_home, recording_console, pins):
-    """Check that a matching LLVM installer is launched."""
-    runs = _stub_llvm_vendor(monkeypatch)
-    pins.digests["adaptivecpp"] = K_PAYLOAD_DIGEST
+        provision_home, recording_console, pins):
+    """Check that a matching LLVM installer is launched once."""
+    launches = _Launches()
+    pins.digests["adaptivecpp"] = _digest(K_INSTALLER_BYTES)
 
-    adaptivecpp._vendor_llvm_windows()
+    adaptivecpp._vendor_llvm_windows(
+        resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
 
-    assert len(runs) == 1
+    assert len(launches.commands) == 1
     assert pins.verifier.unverified() == ()
 
 
-def _stub_oneapi_curl(monkeypatch, tmp_path) -> Path:
-    """Make curl write the payload into a temporary home; return the installer path."""
-    def run(command, **_kwargs):
-        """Write the payload where curl's ``-o`` points."""
-        Path(command[command.index("-o") + 1]).write_bytes(K_PAYLOAD)
-        return types.SimpleNamespace(returncode=0)
-
-    monkeypatch.setattr(oneapi.Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(oneapi.subprocess, "run", run)
-    return tmp_path / "intel-oneapi-toolkit-offline.exe"
-
-
 def test_a_oneapi_installer_with_the_wrong_digest_is_not_returned(
-        monkeypatch, tmp_path, recording_console, pins):
+        tmp_path, recording_console, pins):
     """Check that a mismatching oneAPI installer stops the install and is deleted."""
-    installer = _stub_oneapi_curl(monkeypatch, tmp_path)
     pins.digests["oneapi"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        oneapi.download_oneapi_installer()
+        oneapi.download_oneapi_installer(
+            directory=tmp_path, launch=_CurlWritesPayload(K_INSTALLER_BYTES))
 
-    assert not installer.exists()
+    assert not (tmp_path / K_ONEAPI_INSTALLER).exists()
 
 
 def test_a_oneapi_installer_left_by_an_earlier_run_is_verified_too(
-        monkeypatch, tmp_path, recording_console, pins):
+        tmp_path, recording_console, pins):
     """Check that an installer already on disk is checked before it is reused."""
-    installer = _stub_oneapi_curl(monkeypatch, tmp_path)
+    installer = tmp_path / K_ONEAPI_INSTALLER
     installer.write_bytes(b"left by an earlier run")
-    pins.digests["oneapi"] = K_PAYLOAD_DIGEST
+    pins.digests["oneapi"] = _digest(K_INSTALLER_BYTES)
 
     with pytest.raises(DigestMismatchError):
-        oneapi.download_oneapi_installer()
+        oneapi.download_oneapi_installer(
+            directory=tmp_path, launch=_CurlWritesPayload(K_INSTALLER_BYTES))
 
     assert not installer.exists()
 
 
 def test_a_oneapi_installer_with_the_pinned_digest_is_returned(
-        monkeypatch, tmp_path, recording_console, pins):
+        tmp_path, recording_console, pins):
     """Check that a matching oneAPI installer is handed on to be run."""
-    installer = _stub_oneapi_curl(monkeypatch, tmp_path)
-    pins.digests["oneapi"] = K_PAYLOAD_DIGEST
+    pins.digests["oneapi"] = _digest(K_INSTALLER_BYTES)
 
-    assert oneapi.download_oneapi_installer() == installer
+    returned = oneapi.download_oneapi_installer(
+        directory=tmp_path, launch=_CurlWritesPayload(K_INSTALLER_BYTES))
+
+    assert returned == tmp_path / K_ONEAPI_INSTALLER
     assert pins.verifier.unverified() == ()

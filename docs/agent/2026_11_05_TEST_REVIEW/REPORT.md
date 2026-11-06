@@ -59,6 +59,9 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 4. The `TimingPolicy` contract suite stays and the concrete copies merge into it. The deletes of chunk 005 are reversed, as the report says.
 5. (Lead, 2026-11-07, T2.) The port is `sushicore.files.Files`, a module of its own rather than a part of `workspace`, because the stores need only six calls on text files and `workspace` already answers another question. `DiskFiles` is the default of the new `files=` parameter of `BacklogStore` and `DesignStore`, so every caller keeps working; `MemoryFiles` sits beside it in `files_memory.py`. A folder in memory exists while a file sits under it: an empty folder is never something the stores read.
 6. (Lead, 2026-11-07, T4.) `tools/tests/test_test_budget_settings.py` belongs to SushiSkills, which the copier makes the one home of the shared tools, so it is not edited here; RW-68 asks SushiSkills for the change. (Lead, 2026-11-07.) SushiSkills dropped the file in a528a1d, so it is deleted here and its records leave M17.
+7. (Lead, 2026-11-07, M5.) `tests/help/test_model.py` stays: the record deletes its one test, but `check_test_mirror.py` requires a test file for `help/model.py`, and the checker holds. The test is left as it was.
+8. (Lead, 2026-11-07, M18.) The two header renders merge into rows over the colour system, not into one body: a truecolour render after a 256-colour one in the same process loses its codes, a Rich cache that the suite's conftest clears between tests. KI-26 records it.
+9. (Lead, 2026-11-07, RW-70.) A changelog line names the commit that closed its entry, written in the commit after it, since the closing commit cannot name its own hash.
 
 ## Dispatches
 
@@ -67,6 +70,12 @@ dispatch: J16 M1 part A, 15 root test files — sonnet medium, 1 round, passed a
 dispatch: J16 M1 part B, 14 root test files — sonnet medium, 1 round, passed, rung 1
 dispatch: J16 M1 part C, 9 root test files — sonnet medium, 1 round, passed after one lead fix (an import path), rung 1
 dispatch: J16 M2, 9 backlog test files — sonnet medium, 1 round, passed, rung 1; RW-70 opened for the disk reads it met
+dispatch: J17 M3, 7 design test files — sonnet medium, 1 round, passed after one lead fix (a missing file size marker), rung 1
+dispatch: J17 M4, 13 docs_bundle test files — sonnet medium, 1 round, passed, rung 1
+dispatch: J17 M7, 26 provision/gpu test files — sonnet medium, 2 rounds (the mirror checker asked for tests of five new adapters), passed after lead fixes (a lost license header, two path oracles, the layer rows), rung 1
+dispatch: J17 M14, 3 renderer test files — sonnet medium, 1 round, passed after one lead fix (a helper called without its stream), rung 1
+dispatch: J17 M16, 6 testing test files — sonnet medium, 1 round, passed, rung 1
+dispatch: J17 M9, 2 download verifier test files — sonnet medium, 1 round, passed, rung 1
 
 ## Totals
 

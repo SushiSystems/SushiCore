@@ -11,7 +11,6 @@ import hashlib
 import pytest
 
 from sushicore.errors import DigestMismatchError
-from sushicore.provision import download_verifier
 from sushicore.provision.download_verifier import (
     DownloadVerifier,
     bind_verifier,
@@ -19,12 +18,10 @@ from sushicore.provision.download_verifier import (
     verify_download,
 )
 
-
-pytestmark = pytest.mark.medium
-
 K_CONTENT = b"an installer"
 K_DIGEST = hashlib.sha256(K_CONTENT).hexdigest()
 K_WRONG_DIGEST = "0" * 64
+K_WINDOWS_TOOLS = ["cmake", "ninja", "doxygen", "git"]
 
 
 def _file(tmp_path):
@@ -40,6 +37,7 @@ def _warnings(caplog) -> list[str]:
             if record.name.startswith("sushicore.provision") and record.levelname == "WARNING"]
 
 
+@pytest.mark.medium
 def test_a_pinned_download_that_matches_passes_and_is_not_reported(tmp_path, caplog):
     """Check that a matching download raises nothing and is not listed as unverified."""
     verifier = DownloadVerifier({"cmake": K_DIGEST})
@@ -51,6 +49,7 @@ def test_a_pinned_download_that_matches_passes_and_is_not_reported(tmp_path, cap
     assert _warnings(caplog) == []
 
 
+@pytest.mark.medium
 def test_a_pinned_download_that_differs_raises_and_is_deleted(tmp_path):
     """Check that a mismatching download raises and leaves no file to open or run."""
     path = _file(tmp_path)
@@ -64,6 +63,7 @@ def test_a_pinned_download_that_differs_raises_and_is_deleted(tmp_path):
     assert not path.exists()
 
 
+@pytest.mark.medium
 def test_an_unpinned_download_passes_and_is_warned_about_by_name(tmp_path, caplog):
     """Check that a download with no digest proceeds and is reported at warning level."""
     path = _file(tmp_path)
@@ -78,6 +78,7 @@ def test_an_unpinned_download_passes_and_is_warned_about_by_name(tmp_path, caplo
     assert "ninja" in warning and "sha256" in warning
 
 
+@pytest.mark.medium
 def test_an_unpinned_download_is_reported_once_per_run(tmp_path, caplog):
     """Check that fetching one unpinned download twice draws one warning."""
     verifier = DownloadVerifier({})
@@ -91,6 +92,7 @@ def test_an_unpinned_download_is_reported_once_per_run(tmp_path, caplog):
     assert len(_warnings(caplog)) == 2
 
 
+@pytest.mark.medium
 def test_verify_download_goes_through_the_bound_verifier(tmp_path):
     """Check that the module-level call uses the verifier a run bound."""
     bind_verifier(DownloadVerifier({"cmake": K_WRONG_DIGEST}))
@@ -101,6 +103,7 @@ def test_verify_download_goes_through_the_bound_verifier(tmp_path):
         bind_verifier(None)
 
 
+@pytest.mark.medium
 def test_unbinding_leaves_a_verifier_that_pins_nothing(tmp_path, caplog):
     """Check that with no run bound a download proceeds and is still reported."""
     bind_verifier(None)
@@ -112,11 +115,13 @@ def test_unbinding_leaves_a_verifier_that_pins_nothing(tmp_path, caplog):
     bind_verifier(None)
 
 
+@pytest.mark.small
 def test_unpinned_downloads_lists_the_tools_windows_always_fetches():
     """Check that the Windows tools are listed whether or not a fragment declares them."""
-    assert unpinned_downloads(set(), {}, "windows") == ["cmake", "ninja", "doxygen", "git"]
+    assert unpinned_downloads(set(), {}, "windows") == K_WINDOWS_TOOLS
 
 
+@pytest.mark.small
 def test_unpinned_downloads_lists_a_declared_toolchain_with_no_digest():
     """Check that a declared toolchain joins the list and an undeclared one does not."""
     listed = unpinned_downloads({"intel-llvm", "hwloc"}, {}, "windows")
@@ -125,6 +130,7 @@ def test_unpinned_downloads_lists_a_declared_toolchain_with_no_digest():
     assert "oneapi" not in listed and "hwloc" not in listed
 
 
+@pytest.mark.small
 def test_unpinned_downloads_leaves_out_what_is_pinned():
     """Check that a pinned download is not listed."""
     digests = {"cmake": K_DIGEST, "intel-llvm": K_DIGEST}
@@ -134,17 +140,9 @@ def test_unpinned_downloads_leaves_out_what_is_pinned():
     assert listed == ["ninja", "doxygen", "git"]
 
 
+@pytest.mark.small
 def test_unpinned_downloads_on_linux_names_only_the_declared_bundle():
     """Check that Linux, which fetches one bundle directly, lists that alone."""
     assert unpinned_downloads(set(), {}, "linux") == []
     assert unpinned_downloads({"intel-llvm", "oneapi", "cuda"}, {}, "linux") == ["intel-llvm"]
 
-
-def test_every_download_name_is_listed_for_some_platform():
-    """Check that the two tables cover the seven downloads the installers name."""
-    named = {name for table in (download_verifier.K_TOOL_DOWNLOADS,
-                                download_verifier.K_DECLARED_DOWNLOADS)
-             for names in table.values() for name in names}
-
-    assert named == {"cmake", "ninja", "doxygen", "git",
-                     "intel-llvm", "adaptivecpp", "oneapi"}

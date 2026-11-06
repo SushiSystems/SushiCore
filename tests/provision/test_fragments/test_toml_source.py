@@ -20,7 +20,7 @@ def _write(path, body):
     return path
 
 
-def test_source_reads_only_the_files_it_is_given(tmp_path, recording_console):
+def test_source_reads_only_the_files_it_is_given(tmp_path):
     """Check that source reads only the files it is given."""
     mine = _write(tmp_path / "mine.deps.toml", '[gtest]\ndescription = "t"\nrequired = false\n'
                   'linux_apt = ["libgtest-dev"]\nwindows_vcpkg = ["gtest"]\n')
@@ -30,7 +30,7 @@ def test_source_reads_only_the_files_it_is_given(tmp_path, recording_console):
     assert deps[0].owner == "sushitrack"
 
 
-def test_same_named_deps_merge_across_files(tmp_path, recording_console):
+def test_same_named_deps_merge_across_files(tmp_path):
     """Check that same named deps merge across files."""
     a = _write(tmp_path / "a.deps.toml", '[x]\ndescription = "a"\nrequired = false\n'
                'linux_apt = ["p1"]\nwindows_vcpkg = []\n')
@@ -41,7 +41,7 @@ def test_same_named_deps_merge_across_files(tmp_path, recording_console):
     assert dep.linux_apt == ["p1", "p2"]
 
 
-def test_digests_returns_the_pins_for_one_platform(tmp_path, recording_console):
+def test_digests_returns_the_pins_for_one_platform(tmp_path):
     """Check that digests names each pinned dependency of a platform and leaves out the rest."""
     digest = "3f" * 32
     mine = _write(tmp_path / "mine.deps.toml",

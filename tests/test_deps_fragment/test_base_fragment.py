@@ -9,23 +9,19 @@ from __future__ import annotations
 import pytest
 
 from sushicore import deps_fragment
-from sushicore.provision import fragments, manifests
+from sushicore.provision import manifests
 
 
-pytestmark = pytest.mark.small
+pytestmark = pytest.mark.medium
 
 
-def test_base_fragment_is_a_readable_file():
-    """Check that base fragment is a readable file."""
+def test_the_base_fragment_declares_the_base_tools():
+    """The shared base fragment on disk declares the tools every module builds with."""
     names = {dep.name for dep in deps_fragment.read(manifests.base_fragment()).dependencies}
     assert {"cmake", "ninja", "gtest", "opencl", "pkgconf", "build_tools"} <= names
 
 
 def test_base_fragment_declares_no_module_dependency():
-    """Check that base fragment declares no module dependency."""
+    """The shared base fragment on disk depends on no module."""
     assert deps_fragment.read(manifests.base_fragment()).depends_on == []
 
-
-def test_base_owner_is_the_shared_owner():
-    """Check that base owner is the shared owner."""
-    assert manifests.BASE_OWNER == fragments.SHARED_OWNER

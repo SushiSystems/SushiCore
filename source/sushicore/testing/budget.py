@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from ..files import DiskFiles, Files
 from .labels import K_DEFAULT_LABELS, LabelSelection
 from .module_tests import ModuleTests
 
@@ -42,7 +43,7 @@ def scope_of(selection: LabelSelection, *, filtered: bool, every_size: bool, rep
 
 
 def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
-                   rebuilt: bool = True) -> Optional[list[str]]:
+                   rebuilt: bool = True, *, files: Files | None = None) -> Optional[list[str]]:
     """Returns the command that prints the budget line of a run, or None when the root carries no reader.
 
     Args:
@@ -51,32 +52,36 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
         scope: What :func:`scope_of` returned.
         wall_seconds: The wall time of the whole run.
         rebuilt: Whether the run rebuilt its tree first; a run that did not is marked "(not rebuilt)" and never gates.
+        files: The file system the reader and the exemption file are looked for in; the disk when None.
     """
+    files = files if files is not None else DiskFiles()
     reader = root / K_READER
-    if not reader.is_file():
+    if not files.is_file(reader):
         return None
     command = [sys.executable, str(reader), str(junit), "--scope", scope,
                "--wall", f"{wall_seconds:.1f}", "--root", str(root)]
     if not rebuilt:
         command.append("--not-rebuilt")
-    if (root / K_EXEMPTIONS).is_file():
+    if files.is_file(root / K_EXEMPTIONS):
         command += ["--exemptions", str(root / K_EXEMPTIONS)]
     return command
 
 
 def print_budget(module: ModuleTests, junit: Path, scope: str, wall_seconds: float,
-                 rebuilt: bool = True) -> None:
+                 rebuilt: bool = True, *, files: Files | None = None) -> None:
     """Print the budget line of a run through the module's runner.
 
     Nothing is printed when the repository carries no reader. A run that wrote no JUnit file, and a reader
-    that fails, are said in a warning and change nothing else.
+    that fails, are said in a warning and change nothing else. *files* is the file system the reader, the exemption
+    file and the JUnit file are looked for in; the disk when None.
     """
+    files = files if files is not None else DiskFiles()
     root = module.project_root()
-    command = reader_command(root, junit, scope, wall_seconds, rebuilt)
+    command = reader_command(root, junit, scope, wall_seconds, rebuilt, files=files)
     if command is None:
         return
     console = module.console()
-    if not junit.is_file():
+    if not files.is_file(junit):
         console.warn("The run wrote no JUnit file, so the budget line is skipped.")
     elif module.run(command, root) != 0:
         console.warn("The budget reader failed; the run's own result is unchanged.")

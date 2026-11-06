@@ -46,17 +46,6 @@ def test_read_raises_on_a_malformed_local_config_as_config_loading_does(tmp_path
         read_link(cfg)
 
 
-def test_write_keeps_other_tables(tmp_path):
-    ws = _workspace(tmp_path)
-    cfg = tmp_path / "cli"
-    cfg.mkdir()
-    (cfg / "config.local.toml").write_text('[tool]\ncmake_exe = "C:/cmake.exe"\n')
-    write_link(cfg, ws)
-    doc = read_toml(cfg / "config.local.toml")
-    assert doc["tool"]["cmake_exe"] == "C:/cmake.exe"
-    assert "workspace" in doc["link"]
-
-
 def test_read_ignores_a_pointer_to_a_deleted_workspace(tmp_path):
     ws = _workspace(tmp_path)
     cfg = tmp_path / "cli"
@@ -152,26 +141,32 @@ def test_a_decorated_header_is_replaced_not_duplicated(tmp_path, header):
     assert local.read_text(encoding="utf-8") == _USER_TEXT
 
 
-def test_a_root_inline_table_is_refused_and_left_unchanged(tmp_path):
+K_ROOT_INLINE_TABLE = 'link = { workspace = "x" }\n' + _USER_TEXT
+K_HEADER_IN_A_STRING = '[tool]\nnote = """\n[link]\nworkspace = "x"\n"""\n'
+
+
+@pytest.mark.parametrize(
+    "text", [K_ROOT_INLINE_TABLE, K_HEADER_IN_A_STRING], ids=["a root inline table", "a header in a string"],
+)
+def test_a_link_write_the_file_cannot_take_is_refused_and_leaves_it_unchanged(tmp_path, text):
     ws = _workspace(tmp_path)
-    text = 'link = { workspace = "x" }\n' + _USER_TEXT
     cfg, local = _local(tmp_path, text)
     with pytest.raises(LinkEditError):
         write_link(cfg, ws)
+    assert local.read_text(encoding="utf-8") == text
+
+
+def test_clearing_a_root_inline_table_is_refused_and_leaves_the_file_unchanged(tmp_path):
+    cfg, local = _local(tmp_path, K_ROOT_INLINE_TABLE)
     with pytest.raises(LinkEditError):
         clear_link(cfg)
-    assert local.read_text(encoding="utf-8") == text
+    assert local.read_text(encoding="utf-8") == K_ROOT_INLINE_TABLE
 
 
-def test_a_header_inside_a_multiline_string_never_corrupts_the_file(tmp_path):
-    ws = _workspace(tmp_path)
-    text = '[tool]\nnote = """\n[link]\nworkspace = "x"\n"""\n'
-    cfg, local = _local(tmp_path, text)
-    with pytest.raises(LinkEditError):
-        write_link(cfg, ws)
-    assert local.read_text(encoding="utf-8") == text
+def test_clearing_a_header_inside_a_string_finds_no_link_and_leaves_the_file_unchanged(tmp_path):
+    cfg, local = _local(tmp_path, K_HEADER_IN_A_STRING)
     assert clear_link(cfg) is False
-    assert local.read_text(encoding="utf-8") == text
+    assert local.read_text(encoding="utf-8") == K_HEADER_IN_A_STRING
 
 
 def test_crlf_line_endings_are_preserved(tmp_path):

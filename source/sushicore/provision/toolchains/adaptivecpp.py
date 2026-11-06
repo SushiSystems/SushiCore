@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import typing
 from pathlib import Path
+from typing import Callable
 
 from sushicore.errors import DigestMismatchError
 
@@ -114,8 +115,16 @@ def _find_windows_llvm() -> tuple[str, str] | None:
     return None
 
 
-def _vendor_llvm_windows() -> tuple[str, str] | None:
+def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] = gh_tagged_asset,
+                         fetch: Callable[[str, Path], None] = download,
+                         launch: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+                         ) -> tuple[str, str] | None:
     """Download the official clang+llvm Windows tarball into the tools tree.
+
+    Args:
+        resolve_asset: Maps a repository, a tag and an asset name to the asset URL.
+        fetch: Downloads a URL into a file; the download transport.
+        launch: Runs the installer command; takes the command and a ``check`` keyword.
 
     Returns:
         ``(LLVM_DIR, clang_prefix)`` for the vendored install, or None on failure.
@@ -127,7 +136,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
     tag = f"llvmorg-{LLVM_WINDOWS_VERSION}"
     asset = f"LLVM-{LLVM_WINDOWS_VERSION}-win64.exe"
     try:
-        url = gh_tagged_asset("llvm/llvm-project", tag, asset)
+        url = resolve_asset("llvm/llvm-project", tag, asset)
     except Exception as exc:
         console.error(f"Could not resolve LLVM {LLVM_WINDOWS_VERSION} asset: {exc}")
         return None
@@ -135,7 +144,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
-            download(url, archive)
+            fetch(url, archive)
             verify_download("adaptivecpp", archive)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
@@ -144,7 +153,7 @@ def _vendor_llvm_windows() -> tuple[str, str] | None:
                 f"Start-Process -FilePath '{archive}' "
                 f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
             )
-            subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], check=True)
+            launch(["powershell", "-NoProfile", "-Command", ps_cmd], check=True)
         except DigestMismatchError:
             raise
         except Exception as exc:

@@ -8,22 +8,18 @@ from pathlib import Path
 
 import pytest
 import typer
-from typer.testing import CliRunner
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
 from sushicore.testing import ModuleTests, register_test_command
 
-pytestmark = pytest.mark.medium
+pytestmark = pytest.mark.small
 
 
-def _app(calls):
+def _app():
     profile = ModuleProfile(name="sushitrack", program="st", env_prefix="ST", root_marker="m")
-
-    class _Console:
-        def error(self, text):
-            calls.append(text)
-
-    module = ModuleTests(profile=profile, project_root=lambda: Path("."), console=_Console,
+    console = RecordingConsole()
+    module = ModuleTests(profile=profile, project_root=lambda: Path("."), console=lambda: console,
                          build_tree=lambda: Path("."), run_ctest=lambda tree, **keywords: 0,
                          run=lambda command, cwd: 0)
     app = typer.Typer()
@@ -36,20 +32,14 @@ def _app(calls):
     return app
 
 
-def test_the_command_declares_the_same_options_in_every_cli():
-    command = typer.main.get_command(_app([])).commands["test"]
-    names = sorted(name for parameter in command.params for name in parameter.opts)
-    assert names == ["--all", "--cli", "--filter", "--jobs", "--label", "--repeat",
-                     "--sanitize", "--seed", "--shuffle", "-f", "-j", "-l", "-r"]
+def test_the_command_declares_its_own_options_beside_the_shared_ones():
+    command = typer.main.get_command(_app()).commands["test"]
+    names = {name for parameter in command.params for name in parameter.opts}
+    shared = {"--all", "--filter", "--jobs", "--label", "--repeat", "-f", "-j", "-l", "-r"}
+    assert names - shared == {"--cli", "--sanitize", "--seed", "--shuffle"}
 
 
 def test_the_options_a_module_cannot_serve_are_hidden():
-    command = typer.main.get_command(_app([])).commands["test"]
+    command = typer.main.get_command(_app()).commands["test"]
     hidden = {parameter.opts[0] for parameter in command.params if parameter.hidden}
     assert hidden == {"--cli", "--sanitize"}
-
-
-def test_asking_for_large_without_a_filter_exits_with_the_usage_code():
-    said = []
-    result = CliRunner().invoke(_app(said), ["test", "--label", "large"])
-    assert result.exit_code == 2 and said

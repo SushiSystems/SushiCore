@@ -9,6 +9,7 @@ from __future__ import annotations
 import subprocess
 import typing
 from pathlib import Path
+from typing import Callable
 
 from .._output import console
 from ..download_verifier import verify_download
@@ -53,8 +54,14 @@ def install_oneapi(ctx: "InstallContext") -> bool:
     return run_oneapi_installer(installer)
 
 
-def download_oneapi_installer() -> Path | None:
+def download_oneapi_installer(*, directory: Path | None = None,
+                              launch: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+                              ) -> Path | None:
     """Download the Intel oneAPI offline installer into the user's home directory.
+
+    Args:
+        directory: Where the installer is kept; the user's home directory when omitted.
+        launch: Runs the curl command; takes the command as its one argument.
 
     Returns:
         The downloaded (or already-present) installer path, or None on failure.
@@ -63,10 +70,10 @@ def download_oneapi_installer() -> Path | None:
         DigestMismatchError: The installer's SHA-256 is not the one its manifest entry
             pins, whether it was downloaded now or left by an earlier run.
     """
-    installer = Path.home() / "intel-oneapi-toolkit-offline.exe"
+    installer = (directory or Path.home()) / "intel-oneapi-toolkit-offline.exe"
     if not installer.is_file():
         console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
-        dl_rc = subprocess.run(
+        dl_rc = launch(
             ["curl", "-L", "-o", str(installer), _ONEAPI_URL]).returncode
         if dl_rc != 0:
             console.error("Failed to download Intel oneAPI installer.")

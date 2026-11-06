@@ -11,6 +11,7 @@ import tarfile
 import tempfile
 import typing
 from pathlib import Path
+from typing import Callable
 
 from sushicore.errors import DigestMismatchError
 
@@ -27,7 +28,9 @@ __all__ = ["install_intel_llvm"]
 
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
-                       refresh: bool = False, refresh_command: str = "") -> str | None:
+                       refresh: bool = False, refresh_command: str = "", *,
+                       resolve_release: Callable[..., tuple[str, str]] = gh_latest_release_asset,
+                       fetch: Callable[[str, Path], None] = download) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
 
     Args:
@@ -35,6 +38,8 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         dry_run: Report the action without touching the filesystem.
         refresh: Re-download over an existing install.
         refresh_command: The command the consumer offers for a refresh; named in the note about a stale bundle.
+        resolve_release: Maps a repository and an asset name to the release tag and the asset URL.
+        fetch: Downloads a URL into a file; the download transport.
 
     Returns:
         The bundle root on success, None when it could not be installed.
@@ -66,7 +71,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
 
     try:
         # intel/llvm ships every SYCL build as a GitHub pre-release (nightly-*).
-        tag, url = gh_latest_release_asset("intel/llvm", asset)
+        tag, url = resolve_release("intel/llvm", asset)
     except Exception as exc:
         console.error(f"Could not resolve intel/llvm release asset: {exc}")
         return None
@@ -82,7 +87,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading intel/llvm SYCL bundle {tag} (~300-500 MB) ...")
-            download(url, archive)
+            fetch(url, archive)
             verify_download("intel-llvm", archive)
             _extract_tar_gz(archive, root)
         except DigestMismatchError:
