@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-07 — console: Gave `PlainRenderer` an optional `input_stream`, which its prompt reads instead of `input()`, as `JsonRenderer` does (`renderer.py`).
 - 2026-11-07 — provision: Matched a whole package ID in `WingetManager.is_installed`, so `Git.G` no longer reads as installed (`packages/winget.py`).
 - 2026-11-07 — provision: Read the toolchain stamp as UTF-8 on every platform (`toolchains/stamp.py`).
 - 2026-11-07 — help: Printed Click's plain help, and logged why, when Typer's own help fails too, as on a stray close tag, so `--help` never crashes (`typer_help.py`).

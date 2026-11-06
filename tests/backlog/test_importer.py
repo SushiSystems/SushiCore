@@ -132,11 +132,11 @@ def test_import_runs_once(tmp_path: Path):
         BacklogImporter(BacklogStore(root, lambda: K_TODAY)).run()
 
 
-def _git(root: Path, *arguments: str) -> str:
-    """Runs git in the repository and returns its output."""
+def _git(root: Path, *arguments: str, check: bool = True) -> str:
+    """Runs git in the repository and returns its output; a failure raises unless *check* is off."""
     completed = subprocess.run(
         ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t", *arguments],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, check=check,
     )
     return completed.stdout
 
@@ -157,7 +157,7 @@ def test_renumber_keeps_the_target_branch_entry_and_moves_the_other(tmp_path: Pa
     _git(root, "checkout", "-q", "main")
     BacklogEditor(store).add_work(area="PHYSICS_MATTER", priority="P2", title="Main work", done_when="main done")
     _git(root, "commit", "-q", "-am", "main")
-    _git(root, "merge", "-q", "side")
+    _git(root, "merge", "-q", "side", check=False)
     result = BacklogRenumberer(store, "main").run()
     assert result.renames == (("RW-9", "RW-10"),)
     assert store.find("RW-9").entry.title == "Main work"

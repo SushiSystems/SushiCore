@@ -174,9 +174,10 @@ class RichRenderer:
 class PlainRenderer:
     """Render as plain text with no markup interpretation."""
 
-    def __init__(self, stream=None) -> None:
-        """Write to ``stream``, or to stdout when none is given."""
+    def __init__(self, stream=None, input_stream=None) -> None:
+        """Write to ``stream``, or to stdout; read answers from ``input_stream``, or through ``input()``."""
         self._stream = stream or sys.stdout
+        self._input_stream = input_stream
 
     @property
     def raw(self):
@@ -233,10 +234,15 @@ class PlainRenderer:
         """Print nothing; the lines already told the reader the outcome."""
 
     def prompt(self, prompt_id: str, message: str, default: str | None) -> str:
-        """Ask through ``input()`` and return the answer."""
+        """Ask on the stream and read one line from the input stream, or ask through ``input()``."""
         suffix = f" [{default}]" if default else ""
+        question = f"{message}{suffix}: "
+        if self._input_stream is not None:
+            self._stream.write(question)
+            self._stream.flush()
+            return _answer(self._input_stream.readline(), default)
         try:
-            answer = input(f"{message}{suffix}: ")
+            answer = input(question)
         except EOFError:
             answer = None
         return _answer(answer, default)

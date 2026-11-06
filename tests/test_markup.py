@@ -96,7 +96,7 @@ def test_an_empty_name_is_left_alone(name):
     assert _shown(f"a[{name}]b") == f"a[{name}]b"
 
 
-def test_a_bracket_after_an_even_run_of_backslashes_is_not_escaped():
+def test_a_bracket_after_an_even_run_of_backslashes_is_escaped():
     assert _escape("\\\\[core,zlib]") == "\\\\\\[core,zlib]"
 
 

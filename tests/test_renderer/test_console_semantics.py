@@ -48,6 +48,18 @@ def test_plain_prompt_returns_default_on_eof(monkeypatch):
     assert PlainRenderer(stream=io.StringIO()).prompt("p1", "Continue?", "n") == "n"
 
 
+def test_plain_prompt_asks_on_its_stream_and_reads_the_input_stream_given():
+    out = io.StringIO()
+    renderer = PlainRenderer(stream=out, input_stream=io.StringIO("yes\n"))
+    assert renderer.prompt("p1", "Continue?", "n") == "yes"
+    assert out.getvalue() == "Continue? [n]: "
+
+
+def test_plain_prompt_returns_default_when_the_input_stream_is_spent():
+    renderer = PlainRenderer(stream=io.StringIO(), input_stream=io.StringIO(""))
+    assert renderer.prompt("p1", "Continue?", "n") == "n"
+
+
 def test_rich_table_renders_rows(capsys):
     r = RichRenderer(Theme(), no_color=True)
     r.table("Modules", ["Module", "State"], [["sushiruntime", "cloned"]], header_style="bold")
