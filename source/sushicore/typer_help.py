@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, ClassVar
+from typing import Any, Callable, ClassVar
 
+import click
 from rich.console import Console as RichConsole
 from typer.core import TyperGroup
 
@@ -24,9 +25,6 @@ from .help.from_click import build_model
 from .help.logo_choice import choose_logo
 from .help.page import HelpPage
 from .ui.logo import Logo
-
-if TYPE_CHECKING:
-    import click
 
 K_LOGO_COLOUR_SYSTEMS = ("256", "truecolor")
 _log = logging.getLogger(__name__)
@@ -95,7 +93,24 @@ def _write_guarded(
             type(error).__name__,
             error,
         )
+        _write_typer_or_plain(command, ctx, formatter, typer_help)
+
+
+def _write_typer_or_plain(
+    command: Any, ctx: click.Context, formatter: click.HelpFormatter, typer_help: HelpWriter
+) -> None:
+    """Let Typer write its help, or Click's plain help when Typer's fails, so help never crashes."""
+    try:
         typer_help(ctx, formatter)
+    except Exception as error:
+        _log.warning(
+            "Typer's help for %s failed too (%s: %s); Click's plain help is used instead",
+            ctx.command_path,
+            type(error).__name__,
+            error,
+        )
+        plain = click.Group if isinstance(command, click.Group) else click.Command
+        plain.format_help(command, ctx, formatter)
 
 
 def _print_page(command: Any, ctx: click.Context, console: Console) -> None:

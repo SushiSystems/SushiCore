@@ -339,14 +339,14 @@ def test_a_help_group_used_without_a_provider_falls_back_to_typers_help(caplog):
     assert len(_warnings(caplog)) == 1
 
 
-def test_a_stray_close_tag_in_rich_help_is_logged_and_handed_to_typers_help(caplog):
+def test_a_stray_close_tag_in_rich_help_prints_as_text_and_is_logged(caplog):
     console = _plain_console(io.StringIO())
     app = _guarded_app(lambda: console, "Manage [/] the stack.", rich_markup_mode="rich")
     with caplog.at_level(logging.WARNING, logger=K_LOGGER_NAME):
         result = CliRunner().invoke(app, ["--help"])
-    assert len(_warnings(caplog)) == 1
+    assert result.exit_code == 0, result.exception
+    assert "Manage [/] the stack." in K_ANSI.sub("", result.output)
     assert "MarkupError" in _warnings(caplog)[0].getMessage()
-    assert isinstance(result.exception, MarkupError)
 
 
 def test_typer_alone_fails_on_the_same_stray_close_tag():

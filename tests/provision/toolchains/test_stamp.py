@@ -145,3 +145,8 @@ def test_a_failing_replace_removes_the_temp_file(tmp_path, monkeypatch):
 
     assert not (tmp_path / (stamp.TOOLCHAIN_STAMP + ".tmp")).exists()
     assert not (tmp_path / stamp.TOOLCHAIN_STAMP).exists()
+
+
+def test_a_stamp_with_non_ascii_text_reads_back_as_utf8(tmp_path):
+    (tmp_path / stamp.TOOLCHAIN_STAMP).write_bytes(json.dumps({"source": "café"}, ensure_ascii=False).encode("utf-8"))
+    assert stamp.read_toolchain_stamp(tmp_path) == {"source": "café"}

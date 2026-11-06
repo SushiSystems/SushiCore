@@ -29,7 +29,7 @@ def read_toolchain_stamp(root: Path) -> dict:
         absent, unreadable, invalid JSON or not a JSON object.
     """
     try:
-        data = json.loads((root / TOOLCHAIN_STAMP).read_text())
+        data = json.loads((root / TOOLCHAIN_STAMP).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}

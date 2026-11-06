@@ -30,7 +30,8 @@ class WingetManager(IPackageManager):
             )
         except OSError:
             return False
-        return result.returncode == 0 and pkg.lower() in result.stdout.lower()
+        listed = {word.lower() for word in result.stdout.split()}
+        return result.returncode == 0 and pkg.lower() in listed
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
         """Install each of *pkgs* through ``winget install``."""

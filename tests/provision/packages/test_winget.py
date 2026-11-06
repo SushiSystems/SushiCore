@@ -32,6 +32,12 @@ def test_is_installed_needs_the_id_in_the_listing(monkeypatch):
     assert not winget.WingetManager().is_installed("Kitware.CMake")
 
 
+def test_is_installed_does_not_take_part_of_an_id_for_the_id(monkeypatch):
+    listing = subprocess.CompletedProcess([], 0, "Name Id\nGit Git.Git 2.4\n", "")
+    monkeypatch.setattr(winget.subprocess, "run", lambda *args, **kwargs: listing)
+    assert not winget.WingetManager().is_installed("Git.G")
+
+
 def test_is_installed_is_false_when_winget_cannot_run(monkeypatch):
     def broken(*args, **kwargs):
         raise OSError("gone")
