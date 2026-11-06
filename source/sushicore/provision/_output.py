@@ -8,7 +8,29 @@ from __future__ import annotations
 
 from typing import Callable
 
-_provider: Callable[[], object] | None = None
+
+class ConsoleProxy:
+    """Forwards every attribute to the console the bound provider returns."""
+
+    def __init__(self) -> None:
+        """Start unbound."""
+        self._provider: Callable[[], object] | None = None
+
+    def bind(self, provider: Callable[[], object] | None) -> None:
+        """Set the callable that returns the console; ``None`` unbinds."""
+        self._provider = provider
+
+    def __getattr__(self, name: str):
+        """Resolve *name* on the bound console."""
+        provider = self.__dict__.get("_provider")
+        if provider is None:
+            raise RuntimeError(
+                "sushicore.provision has no console; call "
+                "sushicore.provision.bind_console(provider) first.")
+        return getattr(provider(), name)
+
+
+console = ConsoleProxy()
 
 
 def bind_console(provider: Callable[[], object] | None) -> None:
@@ -18,20 +40,4 @@ def bind_console(provider: Callable[[], object] | None) -> None:
         provider: Returns a :class:`sushicore.console.Console`; called on each use,
             so a lazily built console stays lazy. ``None`` unbinds.
     """
-    global _provider
-    _provider = provider
-
-
-class _ConsoleProxy:
-    """Forwards every attribute to the console the bound provider returns."""
-
-    def __getattr__(self, name: str):
-        """Resolve *name* on the bound console."""
-        if _provider is None:
-            raise RuntimeError(
-                "sushicore.provision has no console; call "
-                "sushicore.provision.bind_console(provider) first.")
-        return getattr(_provider(), name)
-
-
-console = _ConsoleProxy()
+    console.bind(provider)

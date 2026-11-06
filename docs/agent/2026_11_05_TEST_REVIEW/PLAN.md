@@ -26,7 +26,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M8 | the tests of `provision/sushi_packages` (25 files): 58 rewrite, 17 resize, 3 split, 3 merge, 12 delete | T1, T2, T3, T4, T5 | todo |
 | M9 | the tests of `provision/test_download_verifier` (2 files): 13 rewrite, 3 resize, 1 delete | T1, T2, T3, T4, T5 | done |
 | M10 | the tests of `provision/test_fragments` (3 files): 16 rewrite, 2 delete | T1, T2, T3, T4, T5 | done |
-| M11 | the tests of `provision/test_steps` (4 files): 32 rewrite, 2 merge | T1, T2, T3, T4, T5 | todo |
+| M11 | the tests of `provision/test_steps` (4 files): 32 rewrite, 2 merge | T1, T2, T3, T4, T5 | done |
 | M12 | the tests of `provision/toolchains` (4 files): 38 rewrite, 6 merge, 2 delete | T1, T2, T3, T4, T5 | todo |
 | M13 | the tests of `test_deps_fragment` (2 files): 3 rewrite, 6 resize, 1 delete | T1, T2, T3, T4, T5 | done |
 | M14 | the tests of `test_renderer` (3 files): 13 rewrite, 10 merge, 1 delete | T1, T2, T3, T4, T5 | done |

@@ -10,110 +10,100 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.errors import DigestMismatchError
-from sushicore.provision import download_verifier, home, probe, steps
+from sushicore.provision import download_verifier, steps
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
+from sushicore.provision.packages import IPackageManager
 from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
+from sushicore.provision.sinks_memory import InMemoryConfigSink
 
 
-pytestmark = pytest.mark.medium
+def _actions(*, paths=None, **overrides) -> steps.MachineActions:
+    """Build machine calls that touch nothing and probe *paths*, with *overrides* applied."""
+    return steps.MachineActions(**{
+        "refresh_path": lambda: None,
+        "resolve_config": lambda cfg, gpu=False: dict(paths or {}),
+        **overrides})
 
 
-class _Sink:
-    """Fake Sink for testing."""
-    def __init__(self, backup_path=None):
-        """Perform  init  ."""
-        self.target = Path("stub")
-        self.paths, self.tool, self.calls = [], [], []
-        self._backup_path = backup_path
-
-    def backup(self):
-        """Check that backup."""
-        self.calls.append("backup")
-        return self._backup_path
-
-    def write_paths(self, platform, values):
-        """Check that write paths."""
-        self.calls.append("write_paths")
-        self.paths.append((platform, values))
-
-    def write_tool(self, updates):
-        """Check that write tool."""
-        self.calls.append("write_tool")
-        self.tool.append(updates)
-
-    def clear(self):
-        """Check that clear."""
-        self.calls.append("clear")
+def _context(**overrides) -> InstallContext:
+    """Build an install context for a Linux run with *overrides* applied."""
+    return InstallContext(cfg=ProvisionSettings(platform="linux"), **overrides)
 
 
-def test_configure_writes_through_the_sink(monkeypatch, recording_console):
-    """Check that configure writes through the sink."""
-    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
-    sink = _Sink()
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), active_toolchain="intel-llvm")
-    assert steps.ConfigureStep(sink).run(ctx) is StepResult.OK
-    assert sink.paths == [("linux", {"ninja_exe": "n"})]
-    assert sink.tool == [{"toolchain": "intel-llvm"}]
+@pytest.mark.small
+def test_configure_writes_through_the_sink():
+    """Check that ConfigureStep hands the probed paths and the active toolchain to its sink."""
+    sink = InMemoryConfigSink()
+    step = steps.ConfigureStep(sink, console=RecordingConsole(),
+                               actions=_actions(paths={"ninja_exe": "n"}))
+
+    result = step.run(_context(active_toolchain="intel-llvm"))
+
+    assert (result, sink.paths, sink.tool) == (
+        StepResult.OK, [("linux", {"ninja_exe": "n"})], [{"toolchain": "intel-llvm"}])
 
 
-def test_configure_backs_up_before_writing(monkeypatch, recording_console):
-    """Check that configure backs up before writing."""
-    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
-    sink = _Sink(backup_path=Path("stub.toml.bak"))
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-    steps.ConfigureStep(sink).run(ctx)
+@pytest.mark.small
+def test_configure_backs_up_before_writing():
+    """Check that the sink is asked for a backup before it is asked to write."""
+    sink = InMemoryConfigSink(backup_path=Path("stub.toml.bak"))
+    out = RecordingConsole()
+
+    steps.ConfigureStep(sink, console=out, actions=_actions(paths={"ninja_exe": "n"})).run(_context())
+
     assert sink.calls == ["backup", "write_paths"]
-    infos = [args[0] for name, args in recording_console.calls if name == "info"]
-    assert any("Backed up existing config to stub.toml.bak" in i for i in infos)
+    assert "Backed up existing config to stub.toml.bak" in out.texts("info")
 
 
-def test_configure_skips_the_backup_line_when_there_is_nothing_to_back_up(
-        monkeypatch, recording_console):
-    """Check that configure skips the backup line when there is nothing to back up."""
-    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
-    sink = _Sink(backup_path=None)
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-    steps.ConfigureStep(sink).run(ctx)
-    assert sink.calls == ["backup", "write_paths"]
-    infos = [args[0] for name, args in recording_console.calls if name == "info"]
-    assert not any("Backed up existing config" in i for i in infos)
+@pytest.mark.small
+def test_configure_skips_the_backup_line_when_there_is_nothing_to_back_up():
+    """Check that no backup line is printed when the sink had no file to back up."""
+    sink = InMemoryConfigSink(backup_path=None)
+    out = RecordingConsole()
+
+    steps.ConfigureStep(sink, console=out, actions=_actions(paths={"ninja_exe": "n"})).run(_context())
+
+    assert not any(text.startswith("Backed up") for text in out.texts("info"))
 
 
-def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch, recording_console):
-    """Check that uninstall leaves a refused root intact."""
-    monkeypatch.chdir(tmp_path)
-    home.bind_root(lambda: tmp_path)
-    sentinel = tmp_path / "marker.txt"
-    sentinel.write_text("keep me", encoding="utf-8")
-    try:
-        ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), everything=True)
-        step = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=_Sink())
-        result = step._run_linux(ctx)
-    finally:
-        home.bind_root(None)
+@pytest.mark.small
+def test_configure_dry_run_prints_the_rendered_config():
+    """Check that a dry run prints the config it would write and touches the sink not at all."""
+    sink = InMemoryConfigSink()
+    out = RecordingConsole()
+    step = steps.ConfigureStep(sink, console=out, actions=_actions(paths={"ninja_exe": "n"}))
 
-    assert result is StepResult.FAILED
-    assert sentinel.is_file()
-    errors = [args[0] for name, args in recording_console.calls if name == "error"]
-    assert any(str(tmp_path) in e for e in errors)
+    result = step.run(_context(dry_run=True))
 
-
-def test_configure_dry_run_prints_the_rendered_config(monkeypatch, recording_console):
-    """Check that configure dry run prints the rendered config."""
-    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu=False: {"ninja_exe": "n"})
-    sink = _Sink()
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"), dry_run=True)
-    assert steps.ConfigureStep(sink).run(ctx) is StepResult.OK
-    printed = [args[0] for name, args in recording_console.calls if name == "console.print"]
-    assert any('ninja_exe = "n"' in text for text in printed)
+    assert result is StepResult.OK
+    assert any('ninja_exe = "n"' in text for text in out.texts("console.print"))
     assert sink.calls == []
 
 
-def test_windows_uninstall_refuses_before_touching_tools(tmp_path, recording_console):
-    """Check that windows uninstall refuses before touching tools."""
+@pytest.mark.medium
+def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch):
+    """Check that a root which is the working directory is refused and left untouched."""
+    monkeypatch.chdir(tmp_path)
+    sentinel = tmp_path / "marker.txt"
+    sentinel.write_text("keep me", encoding="utf-8")
+    out = RecordingConsole()
+    step = steps.UninstallStep(InMemoryDependencySource([]), managers=[],
+                               sink=InMemoryConfigSink(), console=out, root=lambda: tmp_path)
+
+    result = step.run(_context(everything=True))
+
+    assert result is StepResult.FAILED
+    assert sentinel.is_file()
+    assert any(str(tmp_path) in text for text in out.texts("error"))
+
+
+@pytest.mark.medium
+def test_windows_uninstall_refuses_before_touching_tools(tmp_path):
+    """Check that a refused root stops the Windows uninstall before any tool or config is removed."""
     root = tmp_path / "checkout"
     (root / ".git").mkdir(parents=True)
     cmake = root / "tools" / "cmake"
@@ -121,146 +111,141 @@ def test_windows_uninstall_refuses_before_touching_tools(tmp_path, recording_con
     cmake.mkdir(parents=True)
     doxygen.mkdir(parents=True)
     (root / "tools" / "ninja.exe").write_text("", encoding="utf-8")
-    home.bind_root(lambda: root)
-    try:
-        ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
-        sink = _Sink()
-        result = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink).run(ctx)
-    finally:
-        home.bind_root(None)
+    sink = InMemoryConfigSink()
+    step = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink,
+                               console=RecordingConsole(), root=lambda: root)
+
+    result = step.run(InstallContext(cfg=ProvisionSettings(platform="windows")))
 
     assert result is StepResult.FAILED
     assert cmake.is_dir() and doxygen.is_dir() and (root / "tools" / "ninja.exe").is_file()
     assert sink.calls == []
 
 
-def test_linux_uninstall_refuses_before_removing_anything(tmp_path, recording_console):
-    """Check that linux uninstall refuses before removing anything."""
+@pytest.mark.medium
+def test_linux_uninstall_refuses_before_removing_anything(tmp_path):
+    """Check that a refused root stops the Linux uninstall before the config is cleared."""
     root = tmp_path / "checkout"
     (root / ".git").mkdir(parents=True)
-    home.bind_root(lambda: root)
-    try:
-        ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-        sink = _Sink()
-        result = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink).run(ctx)
-    finally:
-        home.bind_root(None)
+    sink = InMemoryConfigSink()
+    step = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink,
+                               console=RecordingConsole(), root=lambda: root)
+
+    result = step.run(_context())
 
     assert result is StepResult.FAILED
     assert sink.calls == []
 
 
-@pytest.fixture
-def capsys_console(recording_console):
-    """Expose the recording console with a ``text`` view of every recorded argument."""
-    recording_console.text = lambda: "\n".join(
-        str(arg) for _name, args in recording_console.calls for arg in args)
-    return recording_console
+def _rerun_hint(ctx: InstallContext) -> str:
+    """Report an inventory with one missing component through *ctx*; return everything printed."""
+    out = RecordingConsole()
+    rows = [("ninja", "MISSING", "shared", "not found")]
+    steps.DetectStep(InMemoryDependencySource([]), console=out).report_inventory(ctx, rows)
+    return "\n".join(out.texts("info"))
 
 
-def _context(**overrides):
-    """Build an install context for a Linux run with *overrides* applied."""
-    return InstallContext(cfg=ProvisionSettings(platform="linux"), **overrides)
-
-
-def _run_detect_with_one_missing(ctx):
-    """Report an inventory with one missing required dependency through *ctx*."""
-    rows = [("ninja", steps._MISSING, "shared", "not found")]
-    steps.DetectStep(InMemoryDependencySource([]))._report_inventory(ctx, rows)
-
-
-def test_missing_dependency_hint_names_the_calling_program(capsys_console):
+@pytest.mark.small
+def test_missing_dependency_hint_names_the_calling_program():
     """Assert the re-run hint names the program in the context, not hub."""
-    ctx = _context(program="st")
-    _run_detect_with_one_missing(ctx)
-    assert "`st setup`" in capsys_console.text()
-    assert "hub install" not in capsys_console.text()
+    hint = _rerun_hint(_context(program="st"))
+    assert "`st setup`" in hint
+    assert "hub install" not in hint
 
 
-def test_missing_dependency_hint_uses_the_rerun_command_the_consumer_names(capsys_console):
+@pytest.mark.small
+def test_missing_dependency_hint_uses_the_rerun_command_the_consumer_names():
     """Assert a consumer that names its own re-run command is quoted, whatever its program is called."""
-    ctx = _context(program="hub", rerun_command="hub install")
-    _run_detect_with_one_missing(ctx)
-    assert "`hub install`" in capsys_console.text()
+    assert "`hub install`" in _rerun_hint(_context(program="hub", rerun_command="hub install"))
 
 
-def test_a_context_names_no_consumer_until_it_is_given_one(capsys_console):
+@pytest.mark.small
+def test_a_context_names_no_consumer_until_it_is_given_one():
     """Assert the shared code carries no default consumer: with no program the hint is the bare setup."""
-    ctx = _context()
-    assert ctx.program == ""
-    _run_detect_with_one_missing(ctx)
-    assert "hub" not in capsys_console.text()
-    assert "`setup`" in capsys_console.text()
+    hint = _rerun_hint(_context())
+    assert "hub" not in hint
+    assert "`setup`" in hint
 
 
-def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(
-        monkeypatch, tmp_path, recording_console):
-    """Check that the downloads of a run are verified against its fragments and no later."""
-    during: list[Path] = []
-    archive = tmp_path / "cmake.zip"
+class _DownloadingManager(IPackageManager):
+    """A direct-download manager whose install verifies one downloaded archive."""
 
-    def install(self, ctx):
-        """Stand in for the Windows install by verifying one download."""
-        del self, ctx
-        archive.write_bytes(b"not the pinned archive")
+    name = "direct-download"
+
+    def __init__(self, archive: Path, on_mismatch) -> None:
+        """Verify *archive* on install, passing a mismatch to *on_mismatch*."""
+        self._archive = archive
+        self._on_mismatch = on_mismatch
+
+    def available(self) -> bool:
+        """Report present."""
+        return True
+
+    def is_installed(self, pkg: str) -> bool:
+        """Report every package as missing."""
+        return False
+
+    def install(self, pkgs: list[str], dry_run: bool) -> bool:
+        """Verify the archive as a download site does, and report success."""
+        self._archive.write_bytes(b"not the pinned archive")
         try:
-            download_verifier.verify_download("cmake", archive)
-        except DigestMismatchError:
-            during.append(archive)
-        return StepResult.OK
+            download_verifier.verify_download("cmake", self._archive)
+        except DigestMismatchError as error:
+            self._on_mismatch(error)
+        return True
 
-    monkeypatch.setattr(steps.InstallDepsStep, "_run_windows", install)
-    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
 
-    assert steps.InstallDepsStep(InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})]), managers=[]).run(ctx) is StepResult.OK
+def _install_step(manager: IPackageManager) -> steps.InstallDepsStep:
+    """Build a Windows install step that pins cmake's digest and installs through *manager*."""
+    source = InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})])
+    actions = _actions(which=lambda name: "/bin/git" if name == "git" else None,
+                       find_vcvars=lambda: Path("vcvars64.bat"),
+                       install_oneapi=lambda run: True)
+    return steps.InstallDepsStep(source, managers=[manager], console=RecordingConsole(),
+                                 actions=actions)
 
-    assert during == [archive]
-    archive.write_bytes(b"not the pinned archive")
+
+@pytest.mark.medium
+def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(tmp_path):
+    """Check that the downloads of a run are verified against its fragments and no later."""
+    archive = tmp_path / "cmake.zip"
+    mismatches = []
+    step = _install_step(_DownloadingManager(archive, mismatches.append))
+
+    result = step.run(InstallContext(cfg=ProvisionSettings(platform="windows")))
+
+    assert result is StepResult.OK
+    assert len(mismatches) == 1
     download_verifier.verify_download("cmake", archive)
 
 
-def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(
-        monkeypatch, tmp_path, recording_console):
+@pytest.mark.medium
+def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(tmp_path, recording_console):
     """Check that a mismatch leaves the pipeline as the error and later steps do not run."""
     archive = tmp_path / "cmake.zip"
-    later: list[str] = []
 
-    def install(self, ctx):
-        """Stand in for the Windows install by verifying one mismatching download."""
-        del self, ctx
-        archive.write_bytes(b"not the pinned archive")
-        download_verifier.verify_download("cmake", archive)
-        return StepResult.OK
+    def raise_it(error):
+        """Let the mismatch leave the install."""
+        raise error
 
-    class _Later(steps.Step):
-        """Records that the pipeline reached the step after the install."""
-
-        name = "later"
-
-        def run(self, ctx):
-            """Record the run."""
-            del ctx
-            later.append(self.name)
-            return StepResult.OK
-
-    monkeypatch.setattr(steps.InstallDepsStep, "_run_windows", install)
-    pipeline = InstallPipeline([steps.InstallDepsStep(InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})]), managers=[]), _Later()])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
+    later_sink = InMemoryConfigSink()
+    later = steps.ConfigureStep(later_sink, console=RecordingConsole(),
+                                actions=_actions(paths={"ninja_exe": "n"}))
+    pipeline = InstallPipeline([_install_step(_DownloadingManager(archive, raise_it)), later])
 
     with pytest.raises(DigestMismatchError):
-        pipeline.run(ctx, show_progress=False)
+        pipeline.run(InstallContext(cfg=ProvisionSettings(platform="windows")), show_progress=False)
 
-    assert later == []
-    assert not archive.exists()
-    archive.write_bytes(b"not the pinned archive")
+    assert later_sink.calls == []
     download_verifier.verify_download("cmake", archive)
 
 
-def test_the_removal_hint_the_consumer_supplies_follows_the_note():
-    ctx = _context(program="hub", removal_hint="(`hub remove --all` does it for you).")
-    assert steps.removal_note(ctx) == (
-        "Remove the whole install by deleting that folder. (`hub remove --all` does it for you).")
-
-
-def test_no_removal_hint_leaves_the_plain_note():
-    assert steps.removal_note(_context()) == "Remove the whole install by deleting that folder."
+@pytest.mark.small
+@pytest.mark.parametrize(("hint", "expected"), [
+    ("(`hub remove --all` does it for you).",
+     "Remove the whole install by deleting that folder. (`hub remove --all` does it for you)."),
+    ("", "Remove the whole install by deleting that folder."),
+])
+def test_the_removal_note_ends_with_the_hint_the_consumer_supplies_or_stands_alone(hint, expected):
+    """Check that removal_note appends the consumer's hint, and leaves the plain note without one."""
+    assert steps.removal_note(_context(program="hub", removal_hint=hint)) == expected

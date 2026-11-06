@@ -2,263 +2,262 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""``InstallDepsStep`` reaches ``provision_adapters_for_run`` only when GPU is selected."""
+"""The GPU part of an install run happens only when GPU is selected, and the VS tools only when needed."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from sushicore.provision import steps as steps_mod
+from sushicore.console_memory import RecordingConsole
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments_memory import InMemoryDependencySource
-from sushicore.provision.packages import LinuxPackageManager
-from sushicore.provision.packages import install_gpu_stack as _real_install_gpu_stack
+from sushicore.provision.gpu.adapter_builder_memory import InMemoryAdapterBuilder
+from sushicore.provision.packages import IPackageManager
 from sushicore.provision.pipeline import InstallContext, StepResult, ToolchainSelection
-from sushicore.provision.steps import InstallDepsStep, provision_adapters_for_run
+from sushicore.provision.steps import (
+    GpuStage,
+    InstallDepsStep,
+    MachineActions,
+    provision_adapters_for_run,
+)
 
 
-pytestmark = pytest.mark.medium
+def _actions(**overrides) -> MachineActions:
+    """Build machine calls that touch nothing, with *overrides* applied."""
+    return MachineActions(**{"refresh_path": lambda: None, **overrides})
 
 
-class _FakeAptManager(LinuxPackageManager):
-    """An always-available apt manager that installs nothing for real."""
-
-    name = "apt"
-
-    def available(self) -> bool:
-        """Report present, unconditionally."""
-        return True
-
-    def is_installed(self, pkg: str) -> bool:
-        """Report every package as already installed."""
-        return True
-
-    def install(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Record no work and report success."""
-        return True
-
-    def remove(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Record no work and report success."""
-        return True
+def _linux_context(**overrides) -> InstallContext:
+    """Build an install context for a Linux run with *overrides* applied."""
+    return InstallContext(cfg=ProvisionSettings(platform="linux"), **overrides)
 
 
-def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root(
-        monkeypatch, recording_console):
-    """Check that provision adapters for run skips without a resolved llvm root."""
-    calls = []
-    monkeypatch.setattr(
-        steps_mod, "provision_gpu_adapters",
-        lambda cfg, registry, root, builder, dry_run: calls.append(root))
-    monkeypatch.setattr(steps_mod.probe, "resolve_local_config", lambda cfg, gpu=False: {})
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-
-    provision_adapters_for_run(ctx)
-
-    assert calls == []
-    infos = [args[0] for name, args in recording_console.calls if name == "info"]
-    assert any("GPU adapter build skipped" in i for i in infos)
+def _windows_context(*, gpu: bool, vendor: str) -> InstallContext:
+    """Build an install context for a Windows run that selects the GPU or not."""
+    return InstallContext(cfg=ProvisionSettings(platform="windows"),
+                          selection=ToolchainSelection(gpu=gpu), gpu_vendor=vendor)
 
 
-def test_provision_adapters_for_run_uses_the_resolved_llvm_root(
-        monkeypatch, tmp_path, recording_console):
-    """Check that provision adapters for run uses the resolved llvm root."""
-    calls = []
-    monkeypatch.setattr(
-        steps_mod, "provision_gpu_adapters",
-        lambda cfg, registry, root, builder, dry_run: calls.append(root))
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-    ctx.resolved_paths["llvm_root"] = str(tmp_path)
+class _Recorded:
+    """The two GPU actions of a stage, recording what they were asked for."""
 
-    provision_adapters_for_run(ctx)
+    def __init__(self) -> None:
+        """Start with nothing recorded."""
+        self.stacks: list[str] = []
+        self.adapters: list[InstallContext] = []
 
-    assert calls == [tmp_path]
+    def stage(self) -> GpuStage:
+        """Build a stage whose SDK install and adapter build record into this object."""
+        return GpuStage(
+            console=RecordingConsole(), actions=_actions(),
+            install_stack=lambda cfg, vendor, dry_run: self.stacks.append(vendor) or True,
+            provision_adapters=self.adapters.append)
 
 
-def test_provision_adapters_for_run_drops_probed_keys_the_settings_do_not_hold(
-        monkeypatch, tmp_path, recording_console):
+@pytest.mark.small
+def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root():
+    """Check that no adapter is built, and the skip is said, when no llvm root is known."""
+    built = []
+    out = RecordingConsole()
+
+    provision_adapters_for_run(
+        _linux_context(), console=out, actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        build_adapters=lambda *args: built.append(args))
+
+    assert built == []
+    assert any("GPU adapter build skipped" in text for text in out.texts("info"))
+
+
+@pytest.mark.small
+def test_provision_adapters_for_run_uses_the_resolved_llvm_root():
+    """Check that the adapters are built against the llvm root the install resolved."""
+    built = []
+    ctx = _linux_context()
+    ctx.resolved_paths["llvm_root"] = "/opt/llvm"
+
+    provision_adapters_for_run(
+        ctx, console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(root))
+
+    assert built == [Path("/opt/llvm")]
+
+
+@pytest.mark.small
+def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine():
+    """Check that a run which installed no toolchain builds against the probed llvm root."""
+    built = []
+
+    provision_adapters_for_run(
+        _linux_context(), console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: {"llvm_root": "/usr/lib/llvm"}),
+        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(root))
+
+    assert built == [Path("/usr/lib/llvm")]
+
+
+@pytest.mark.small
+def test_provision_adapters_for_run_drops_probed_keys_the_settings_do_not_hold():
     """Check that a probed key with no field on the settings does not stop the adapter build."""
     built = []
-    monkeypatch.setattr(
-        steps_mod, "provision_gpu_adapters",
-        lambda cfg, registry, root, builder, dry_run: built.append((root, cfg.cxx)))
-    monkeypatch.setattr(
-        steps_mod.probe, "resolve_local_config",
-        lambda cfg, gpu=None: {"cxx": "clang++", "cc": "clang"})
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-    ctx.resolved_paths["llvm_root"] = str(tmp_path)
+    probed = {"llvm_root": "/opt/llvm", "cxx": "clang++", "not_a_setting": "x"}
 
-    provision_adapters_for_run(ctx)
+    provision_adapters_for_run(
+        _linux_context(), console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: probed),
+        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(cfg.cxx))
 
-    assert built == [(tmp_path, "clang++")]
+    assert built == ["clang++"]
 
 
-def _patch_heavy_windows_steps(monkeypatch, llvm_root: str) -> None:
-    """Stub every Windows sub-step except the GPU block, and mark the toolchain resolved."""
-    monkeypatch.setattr(InstallDepsStep, "_install_portable_tools",
-                        lambda self, ctx, direct: True)
-    monkeypatch.setattr(InstallDepsStep, "_install_git",
-                        lambda self, ctx, winget, direct: True)
-    monkeypatch.setattr(InstallDepsStep, "_install_vcpkg_ports",
-                        lambda self, ctx, vcpkg: ([], True))
-    monkeypatch.setattr(InstallDepsStep, "_install_vs_build_tools",
-                        lambda self, ctx, winget: True)
-    monkeypatch.setattr(InstallDepsStep, "_install_toolchains",
-                        lambda self, ctx, mgr, vcpkg: ctx.resolved_paths.update(
-                            {"llvm_root": llvm_root}))
-    monkeypatch.setattr(steps_mod.oneapi, "install_oneapi", lambda ctx: True)
-    monkeypatch.setattr(steps_mod, "install_gpu_stack", lambda cfg, vendor, dry_run: True)
-    monkeypatch.setattr(steps_mod.probe, "detect_gpu_vendor", lambda: "nvidia")
+@pytest.mark.small
+def test_provision_adapters_for_run_hands_the_builder_it_made_to_the_build():
+    """Check that the build receives the builder made from the probed configuration."""
+    builder = InMemoryAdapterBuilder()
+    received = []
+    ctx = _linux_context()
+    ctx.resolved_paths["llvm_root"] = "/opt/llvm"
+
+    provision_adapters_for_run(
+        ctx, console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        make_builder=lambda cfg: builder,
+        build_adapters=lambda cfg, registry, root, made, dry_run: received.append(made))
+
+    assert received == [builder]
 
 
-def test_run_windows_reaches_provision_adapters_for_run_when_gpu_is_selected(
-        monkeypatch, tmp_path):
-    """Check that run windows reaches provision adapters for run when gpu is selected."""
-    _patch_heavy_windows_steps(monkeypatch, str(tmp_path))
-    calls = []
-    monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
+@pytest.mark.small
+def test_the_windows_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_is_selected():
+    """Check that a selected GPU gets its SDK and then its adapters on Windows."""
+    recorded = _Recorded()
+    ctx = _windows_context(gpu=True, vendor="nvidia")
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"),
-                         selection=ToolchainSelection(gpu=True))
+    recorded.stage().provision_windows(ctx)
 
-    result = step._run_windows(ctx)
-
-    assert result is StepResult.OK
-    assert calls == [ctx]
+    assert (recorded.stacks, recorded.adapters) == (["nvidia"], [ctx])
 
 
-def test_run_windows_skips_provision_adapters_for_run_without_gpu(monkeypatch, tmp_path):
-    """Check that run windows skips provision adapters for run without gpu."""
-    _patch_heavy_windows_steps(monkeypatch, str(tmp_path))
-    calls = []
-    monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
+@pytest.mark.small
+def test_the_windows_gpu_stage_does_nothing_without_gpu():
+    """Check that a run which did not select the GPU installs and builds nothing on Windows."""
+    recorded = _Recorded()
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"),
-                         selection=ToolchainSelection(gpu=False))
+    recorded.stage().provision_windows(_windows_context(gpu=False, vendor="nvidia"))
 
-    step._run_windows(ctx)
-
-    assert calls == []
+    assert (recorded.stacks, recorded.adapters) == ([], [])
 
 
-def _patch_heavy_linux_steps(monkeypatch, llvm_root: str) -> None:
-    """Stub the toolchain install so ``ctx.resolved_paths["llvm_root"]`` is set."""
-    monkeypatch.setattr(InstallDepsStep, "_install_toolchains",
-                        lambda self, ctx, mgr, vcpkg: ctx.resolved_paths.update(
-                            {"llvm_root": llvm_root}))
-    monkeypatch.setattr(steps_mod, "install_gpu_stack", lambda cfg, vendor, dry_run: True)
-    monkeypatch.setattr(steps_mod.probe, "detect_gpu_vendor", lambda: "nvidia")
+@pytest.mark.small
+def test_the_windows_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
+    """Check that vendor none reaches the SDK install, which settles on the CPU path, and no build."""
+    recorded = _Recorded()
+
+    recorded.stage().provision_windows(_windows_context(gpu=True, vendor="none"))
+
+    assert (recorded.stacks, recorded.adapters) == (["none"], [])
 
 
-def test_run_linux_reaches_provision_adapters_for_run_when_gpu_is_selected(
-        monkeypatch, tmp_path, recording_console):
-    """Check that run linux reaches provision adapters for run when gpu is selected."""
-    _patch_heavy_linux_steps(monkeypatch, str(tmp_path))
-    calls = []
-    monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
+@pytest.mark.small
+def test_the_linux_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_is_selected():
+    """Check that a selected GPU gets its SDK and then its adapters through apt."""
+    recorded = _Recorded()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia")
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[_FakeAptManager()])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"),
-                         selection=ToolchainSelection(gpu=True))
+    recorded.stage().provision_linux(ctx, "apt")
 
-    result = step._run_linux(ctx)
-
-    assert result is StepResult.OK
-    assert calls == [ctx]
+    assert (recorded.stacks, recorded.adapters) == (["nvidia"], [ctx])
 
 
-def test_run_linux_skips_provision_adapters_for_run_without_gpu(
-        monkeypatch, tmp_path, recording_console):
-    """Check that run linux skips provision adapters for run without gpu."""
-    _patch_heavy_linux_steps(monkeypatch, str(tmp_path))
-    calls = []
-    monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
+@pytest.mark.small
+def test_the_linux_gpu_stage_does_nothing_without_gpu():
+    """Check that a run which did not select the GPU installs and builds nothing on Linux."""
+    recorded = _Recorded()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=False), gpu_vendor="nvidia")
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[_FakeAptManager()])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"),
-                         selection=ToolchainSelection(gpu=False))
+    recorded.stage().provision_linux(ctx, "apt")
 
-    step._run_linux(ctx)
-
-    assert calls == []
+    assert (recorded.stacks, recorded.adapters) == ([], [])
 
 
-def test_run_windows_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recording_console):
-    """Check that run windows with no gpu provisions nothing."""
-    _patch_heavy_windows_steps(monkeypatch, str(tmp_path))
-    monkeypatch.setattr(steps_mod, "install_gpu_stack", _real_install_gpu_stack)
-    calls = []
-    monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
+@pytest.mark.small
+def test_the_linux_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
+    """Check that vendor none reaches the SDK install, which settles on the CPU path, and no build."""
+    recorded = _Recorded()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="none")
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"),
-                         selection=ToolchainSelection(gpu=True), gpu_vendor="none")
+    recorded.stage().provision_linux(ctx, "apt")
 
-    step._run_windows(ctx)
-
-    assert calls == []
-    infos = [args[0] for name, args in recording_console.calls if name == "info"]
-    assert any("No discrete GPU detected" in i for i in infos)
+    assert (recorded.stacks, recorded.adapters) == (["none"], [])
 
 
-def test_run_linux_with_no_gpu_provisions_nothing(monkeypatch, tmp_path, recording_console):
-    """Check that run linux with no gpu provisions nothing."""
-    _patch_heavy_linux_steps(monkeypatch, str(tmp_path))
-    monkeypatch.setattr(steps_mod, "install_gpu_stack", _real_install_gpu_stack)
-    calls = []
-    monkeypatch.setattr(steps_mod, "provision_adapters_for_run", calls.append)
+@pytest.mark.medium
+def test_a_windows_run_hands_the_gpu_stage_the_context_when_gpu_is_selected():
+    """Check that a Windows install run reaches its GPU stage with the run's context."""
+    recorded = _Recorded()
+    ctx = _windows_context(gpu=True, vendor="nvidia")
+    step = InstallDepsStep(
+        InMemoryDependencySource([]), managers=[], console=RecordingConsole(),
+        actions=_actions(which=lambda name: "/bin/" + name, find_vcvars=lambda: Path("vcvars64.bat"),
+                         install_oneapi=lambda run: True),
+        gpu=recorded.stage())
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[_FakeAptManager()])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"),
-                         selection=ToolchainSelection(gpu=True), gpu_vendor="none")
+    result = step.run(ctx)
 
-    step._run_linux(ctx)
-
-    assert calls == []
-    infos = [args[0] for name, args in recording_console.calls if name == "info"]
-    assert any("No discrete GPU detected" in i for i in infos)
+    assert (result, recorded.adapters) == (StepResult.OK, [ctx])
 
 
-def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine(
-        monkeypatch, tmp_path, recording_console):
-    """Check that a run which installed no toolchain builds against the probed llvm root."""
-    calls = []
-    monkeypatch.setattr(
-        steps_mod, "provision_gpu_adapters",
-        lambda cfg, registry, root, builder, dry_run: calls.append(root))
-    monkeypatch.setattr(steps_mod.probe, "resolve_local_config",
-                        lambda cfg, gpu=False: {"llvm_root": str(tmp_path)})
-    ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
+@pytest.mark.medium
+def test_a_windows_run_without_gpu_leaves_the_gpu_stage_with_nothing_to_install():
+    """Check that a Windows install run without the GPU installs and builds no GPU part."""
+    recorded = _Recorded()
+    step = InstallDepsStep(
+        InMemoryDependencySource([]), managers=[], console=RecordingConsole(),
+        actions=_actions(which=lambda name: "/bin/" + name, find_vcvars=lambda: Path("vcvars64.bat"),
+                         install_oneapi=lambda run: True),
+        gpu=recorded.stage())
 
-    provision_adapters_for_run(ctx)
+    step.run(_windows_context(gpu=False, vendor="nvidia"))
 
-    assert calls == [tmp_path]
+    assert (recorded.stacks, recorded.adapters) == ([], [])
 
 
-class _WingetWithoutBuildTools(_FakeAptManager):
-    """A winget that reports the Build Tools missing and records an install."""
+class _WingetWithoutBuildTools(IPackageManager):
+    """A winget that is present, reports every package missing and installs nothing."""
 
     name = "winget"
 
-    def __init__(self) -> None:
-        """Start with no install recorded."""
-        self.installs = []
+    def available(self) -> bool:
+        """Report present."""
+        return True
 
     def is_installed(self, pkg: str) -> bool:
         """Report every package as missing."""
         return False
 
+    def install(self, pkgs: list[str], dry_run: bool) -> bool:
+        """Report success without installing."""
+        return True
 
-def test_vs_build_tools_are_not_installed_when_a_visual_studio_has_the_cpp_tools(
-        monkeypatch, tmp_path):
-    """Check that an edition other than Build Tools with vcvars64.bat skips the winget install."""
-    monkeypatch.setattr(steps_mod.probe, "find_vcvars", lambda: tmp_path / "vcvars64.bat")
+    def remove(self, pkgs: list[str], dry_run: bool) -> bool:
+        """Report success without removing."""
+        return True
+
+
+@pytest.mark.medium
+def test_vs_build_tools_are_not_installed_when_a_visual_studio_has_the_cpp_tools():
+    """Check that a found vcvars64.bat skips the winget install of the Build Tools."""
     ran = []
-    monkeypatch.setattr(steps_mod.subprocess, "run", lambda *a, **k: ran.append(a))
+    step = InstallDepsStep(
+        InMemoryDependencySource([]), managers=[_WingetWithoutBuildTools()],
+        console=RecordingConsole(),
+        actions=_actions(which=lambda name: "/bin/" + name,
+                         find_vcvars=lambda: Path("vcvars64.bat"),
+                         run_command=ran.append, install_oneapi=lambda run: True),
+        gpu=_Recorded().stage())
 
-    step = InstallDepsStep(InMemoryDependencySource([]), managers=[])
-    ctx = InstallContext(cfg=ProvisionSettings(platform="windows"))
+    result = step.run(_windows_context(gpu=False, vendor="none"))
 
-    assert step._install_vs_build_tools(ctx, _WingetWithoutBuildTools()) is True
-    assert ran == []
+    assert (result, ran) == (StepResult.OK, [])

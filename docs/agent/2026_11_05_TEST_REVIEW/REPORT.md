@@ -75,7 +75,8 @@ dispatch: J17 M4, 13 docs_bundle test files — sonnet medium, 1 round, passed, 
 dispatch: J17 M7, 26 provision/gpu test files — sonnet medium, 2 rounds (the mirror checker asked for tests of five new adapters), passed after lead fixes (a lost license header, two path oracles, the layer rows), rung 1
 dispatch: J17 M14, 3 renderer test files — sonnet medium, 1 round, passed after one lead fix (a helper called without its stream), rung 1
 dispatch: J17 M16, 6 testing test files — sonnet medium, 1 round, passed, rung 1
-dispatch: J17 M9, 2 download verifier test files — sonnet medium, 1 round, passed, rung 1
+dispatch: J17 M9, 2 download verifier test files — sonnet medium, 1 round, passed after a lead fix (seam defaults bound at load time let a test reach the network), rung 1
+dispatch: J17 M11, 4 provision steps test files — sonnet medium, 1 round, passed, rung 1; two package-manager stand-ins remain
 
 ## Totals
 

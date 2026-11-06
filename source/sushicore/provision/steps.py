@@ -10,7 +10,7 @@ import dataclasses
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from rich.markup import escape
 
@@ -39,24 +39,125 @@ from .toolchains import adaptivecpp, intel_llvm, oneapi
 _LINUX_TOOLCHAIN_APT = ["build-essential", "cmake", "ninja-build", "git"]
 
 
-def provision_adapters_for_run(ctx: InstallContext) -> None:
-    """Build every located GPU backend's Unified Runtime adapter for this run."""
-    refresh_windows_path()
-    probed = probe.resolve_local_config(ctx.cfg, gpu=ctx.gpu)
+@dataclasses.dataclass(frozen=True)
+class MachineActions:
+    """The calls the steps make that reach the machine, each replaceable by a test.
+
+    Every default looks its function up when called, so a replacement made on the
+    module that owns the function still takes effect.
+
+    Attributes:
+        refresh_path: Reloads ``PATH`` from the registry (Windows only).
+        which: Finds an executable on ``PATH``; ``None`` when absent.
+        find_vcvars: Finds the Visual Studio C++ tools script; ``None`` when absent.
+        run_command: Runs a command line and returns an object with ``returncode``.
+        resolve_config: Probes the machine-specific tool paths of a configuration.
+        install_oneapi: Installs Intel oneAPI for a run; returns whether it succeeded.
+        detect_vendor: Reads the discrete-GPU vendor off the machine.
+    """
+
+    refresh_path: Callable[[], None] = lambda: refresh_windows_path()
+    which: Callable[[str], str | None] = lambda name: shutil.which(name)
+    find_vcvars: Callable[[], Path | None] = lambda: probe.find_vcvars()
+    run_command: Callable[..., Any] = lambda cmd: subprocess.run(cmd)
+    resolve_config: Callable[..., dict[str, str]] = (
+        lambda cfg, gpu=False: probe.resolve_local_config(cfg, gpu=gpu))
+    install_oneapi: Callable[[InstallContext], bool] = lambda ctx: oneapi.install_oneapi(ctx)
+    detect_vendor: Callable[[], str] = lambda: probe.detect_gpu_vendor()
+
+
+def _subprocess_builder(cfg: Any) -> AdapterBuilder:
+    """Return the adapter builder that runs its commands as processes."""
+    return AdapterBuilder(cfg=cfg, runner=SubprocessCommandRunner())
+
+
+def provision_adapters_for_run(
+        ctx: InstallContext, *, console: Any = console,
+        actions: MachineActions | None = None,
+        make_builder: Callable[[Any], Any] = _subprocess_builder,
+        build_adapters: Callable[..., None] | None = None) -> None:
+    """Build every located GPU backend's Unified Runtime adapter for this run.
+
+    Args:
+        console: The console the skip message is printed through.
+        actions: The machine calls; the real ones when omitted.
+        make_builder: Builds the adapter builder from the probed configuration.
+        build_adapters: Builds the adapters of one toolchain; defaults to
+            :func:`sushicore.provision.gpu.provisioning.provision_gpu_adapters`.
+    """
+    actions = actions or MachineActions()
+    build_adapters = build_adapters or provision_gpu_adapters
+    actions.refresh_path()
+    probed = actions.resolve_config(ctx.cfg, gpu=ctx.gpu)
     llvm_root = ctx.resolved_paths.get("llvm_root") or probed.get("llvm_root")
     if not llvm_root:
         console.info("No intel/llvm toolchain installed; GPU adapter build skipped.")
         return
     held = {field.name for field in dataclasses.fields(ctx.cfg)}
     cfg = dataclasses.replace(ctx.cfg, **{key: value for key, value in probed.items() if key in held})
-    builder = AdapterBuilder(cfg=cfg, runner=SubprocessCommandRunner())
-    provision_gpu_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), builder, ctx.dry_run)
+    build_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), make_builder(cfg), ctx.dry_run)
 
 
-def _resolve_gpu_vendor(ctx: InstallContext) -> str:
+def _resolve_gpu_vendor(ctx: InstallContext, detect: Callable[[], str]) -> str:
     """Return the GPU vendor the detect step recorded, probing the machine when it did not."""
-    ctx.gpu_vendor = ctx.gpu_vendor or probe.detect_gpu_vendor() or "none"
+    ctx.gpu_vendor = ctx.gpu_vendor or detect() or "none"
     return ctx.gpu_vendor
+
+
+class GpuStage:
+    """The GPU part of an install run: the compute SDK, then the adapter builds.
+
+    Args:
+        console: The console the warnings are printed through.
+        actions: The machine calls; the real ones when omitted.
+        install_stack: Installs the compute SDK of a vendor; defaults to
+            :func:`sushicore.provision.packages.install_gpu_stack`.
+        provision_adapters: Builds the adapters for a run; defaults to
+            :func:`provision_adapters_for_run`.
+    """
+
+    def __init__(self, *, console: Any = console, actions: MachineActions | None = None,
+                 install_stack: Callable[..., bool] | None = None,
+                 provision_adapters: Callable[[InstallContext], None] | None = None) -> None:
+        """Wire the console, the machine calls and the two GPU actions."""
+        self._console = console
+        self._actions = actions or MachineActions()
+        self._install_stack = install_stack or (
+            lambda cfg, vendor, dry_run: install_gpu_stack(cfg, vendor, dry_run))
+        self._provision_adapters = provision_adapters or (
+            lambda ctx: provision_adapters_for_run(
+                ctx, console=self._console, actions=self._actions))
+
+    def provision_linux(self, ctx: InstallContext, manager_name: str) -> None:
+        """Install the GPU SDK through the manager named *manager_name*, then build the adapters.
+
+        Nothing is installed when the run did not select the GPU; the SDK is automated
+        on ``apt`` only.
+        """
+        vendor = _resolve_gpu_vendor(ctx, self._actions.detect_vendor) if ctx.gpu else "none"
+        if ctx.gpu and manager_name == "apt":
+            if not self._install_stack(ctx.cfg, vendor, ctx.dry_run) and vendor != "none":
+                message = (f"GPU compute SDK for '{vendor}' was not installed — "
+                           f"the build will fall back to the CPU (SPIR/OpenCL) path. "
+                           f"See the log above for the failing command.")
+                self._console.error(message)
+                ctx.warnings.append(message)
+        elif ctx.gpu and vendor == "none":
+            self._install_stack(ctx.cfg, vendor, ctx.dry_run)
+        elif ctx.gpu:
+            self._console.warn(f"GPU SDK auto-install for '{vendor}' is only "
+                               f"automated on apt; install it manually on {manager_name}.")
+        if vendor != "none":
+            self._provision_adapters(ctx)
+
+    def provision_windows(self, ctx: InstallContext) -> None:
+        """Install the GPU SDK, then build the adapters, when the run selected the GPU."""
+        if not ctx.gpu:
+            return
+        vendor = _resolve_gpu_vendor(ctx, self._actions.detect_vendor)
+        self._install_stack(ctx.cfg, vendor, ctx.dry_run)
+        if vendor != "none":
+            self._provision_adapters(ctx)
 
 
 def _check_cmd_ok(cmd: list[str]) -> bool:
@@ -141,9 +242,9 @@ def _status(present: bool) -> str:
     return _OK if present else _MISSING
 
 
-def _literal(text: str) -> str:
-    """Return *text* ready for ``console.info``: escaped on a terminal, untouched in JSON events."""
-    return text if console.is_machine() else escape(text)
+def _literal(text: str, out: Any) -> str:
+    """Return *text* ready for ``out.info``: escaped on a terminal, untouched in JSON events."""
+    return text if out.is_machine() else escape(text)
 
 
 def _rerun_command(ctx: InstallContext) -> str:
@@ -165,7 +266,7 @@ class DetectStep(Step):
                  managers: list[IPackageManager] | None = None,
                  after_inventory: Callable[[InstallContext, list[Dependency]], None] | None = None,
                  *, toolchain_status=probe.toolchain_status,
-                 gpu_vendor=probe.detect_gpu_vendor) -> None:
+                 gpu_vendor=probe.detect_gpu_vendor, console: Any = console) -> None:
         """Wire the dependency source, the package managers and the machine probes.
 
         Args:
@@ -173,12 +274,14 @@ class DetectStep(Step):
                 list once the inventory table has been printed.
             toolchain_status: Reads the SYCL toolchains off the machine.
             gpu_vendor: Reads the discrete-GPU vendor off the machine.
+            console: The console the step prints through.
         """
         self._source = source
         self._managers = managers or []
         self._after_inventory = after_inventory
         self._toolchain_status = toolchain_status
         self._gpu_vendor = gpu_vendor
+        self._console = console
 
     def _dep_manager(self, plat: str) -> IPackageManager | None:
         """Return the manager that knows whether a manifest dep is installed."""
@@ -334,40 +437,40 @@ class DetectStep(Step):
         all_deps = self._source.all()
 
         rows = self.inventory_rows(ctx, all_deps)
-        console.table(
+        self._console.table(
             ["Component", "Status", "Owner", "Detail"],
             [list(row) for row in rows],
             title="Environment inventory",
             group_by="Owner",
         )
 
-        console.info(f"Vendored dependencies go in one folder: {home.root()}")
-        console.info(removal_note(ctx))
+        self._console.info(f"Vendored dependencies go in one folder: {home.root()}")
+        self._console.info(removal_note(ctx))
         if ctx.cfg.platform == "windows":
-            console.info("System prerequisites kept outside that folder: the C++ "
+            self._console.info("System prerequisites kept outside that folder: the C++ "
                          "host compiler (Visual Studio Build Tools + Windows SDK), "
                          "git, and the toolkit for the detected GPU.")
         else:
-            console.info("System prerequisites kept outside that folder: the host "
+            self._console.info("System prerequisites kept outside that folder: the host "
                          "compiler (gcc) plus the -dev packages (hwloc, gtest, "
                          "opencl), git, and the toolkit for the detected GPU.")
 
-        self._report_inventory(ctx, rows)
+        self.report_inventory(ctx, rows)
         if self._after_inventory is not None:
             self._after_inventory(ctx, all_deps)
         return StepResult.OK
 
-    def _report_inventory(self, ctx: InstallContext, rows: list[_Row]) -> None:
+    def report_inventory(self, ctx: InstallContext, rows: list[_Row]) -> None:
         """Print the one-line summary of *rows* and, when any is missing, what to do about it."""
         counts, missing = self.summarize_inventory(rows)
-        console.info(" | ".join(f"{count} {_SUMMARY_LABELS.get(status, status)}"
+        self._console.info(" | ".join(f"{count} {_SUMMARY_LABELS.get(status, status)}"
                                for status, count in counts.items()))
         if not missing:
             return
-        console.warn("Needs attention")
+        self._console.warn("Needs attention")
         for component, _status_text, _owner, detail in missing:
-            console.info(_literal(f"{component}  {detail}".rstrip()))
-        console.info(f"Run `{_rerun_command(ctx)}` to provision what is missing.")
+            self._console.info(_literal(f"{component}  {detail}".rstrip(), self._console))
+        self._console.info(f"Run `{_rerun_command(ctx)}` to provision what is missing.")
 
 
 class InstallDepsStep(Step):
@@ -375,11 +478,21 @@ class InstallDepsStep(Step):
 
     name = "install-deps"
 
-    def __init__(self, source: IDependencySource,
-                 managers: list[IPackageManager]) -> None:
-        """Wire the dependency source and the package managers this step installs through."""
+    def __init__(self, source: IDependencySource, managers: list[IPackageManager],
+                 *, console: Any = console, actions: MachineActions | None = None,
+                 gpu: GpuStage | None = None) -> None:
+        """Wire the dependency source, the package managers and the machine.
+
+        Args:
+            console: The console the step prints through.
+            actions: The machine calls; the real ones when omitted.
+            gpu: The GPU part of the run; built from *console* and *actions* when omitted.
+        """
         self._source = source
         self._managers = managers
+        self._console = console
+        self._actions = actions or MachineActions()
+        self._gpu = gpu or GpuStage(console=console, actions=self._actions)
 
     def _manager(self, name: str) -> IPackageManager | None:
         """Return the wired manager named *name*, or None."""
@@ -413,7 +526,7 @@ class InstallDepsStep(Step):
             if llvm:
                 ctx.resolved_paths["llvm_root"] = llvm
             else:
-                console.warn("intel/llvm bundle not installed; the intel-llvm "
+                self._console.warn("intel/llvm bundle not installed; the intel-llvm "
                              "toolchain will be unavailable.")
 
         if ctx.selection.install_acpp:
@@ -425,7 +538,7 @@ class InstallDepsStep(Step):
             elif not ctx.selection.install_intel_llvm:
                 message = ("AdaptiveCpp is the only toolchain selected but it did "
                            "not install; the project will not build.")
-                console.warn(f"{message} {ctx.fallback_hint}".strip())
+                self._console.warn(f"{message} {ctx.fallback_hint}".strip())
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Linux."""
@@ -439,13 +552,13 @@ class InstallDepsStep(Step):
             msg = ("No supported package manager found (apt, dnf, yum, pacman, zypper). "
                    "Install python3, pip, git, cmake, and ninja manually, then re-run.")
             if ctx.dry_run:
-                console.warn(f"(dry-run) {msg}")
+                self._console.warn(f"(dry-run) {msg}")
                 return StepResult.SKIPPED
-            console.error(msg)
+            self._console.error(msg)
             return StepResult.FAILED
         assert isinstance(mgr, LinuxPackageManager)  # linux_managers only holds these
 
-        console.info(f"Using package manager: {mgr.name}")
+        self._console.info(f"Using package manager: {mgr.name}")
         vcpkg = self._manager("vcpkg")
 
         # Translate the generic apt toolchain list to native package names.
@@ -453,7 +566,7 @@ class InstallDepsStep(Step):
         vcpkg_ports: list[str] = []
         for dep in self._source.selected("linux", ctx.gpu):
             if _dep_installed(dep, mgr, "linux", vcpkg):
-                console.info(f"{dep.name}: already installed, skipping.")
+                self._console.info(f"{dep.name}: already installed, skipping.")
                 continue
             if dep.linux_apt:
                 pkgs.extend(mgr.translate_apt(dep.linux_apt))
@@ -465,60 +578,45 @@ class InstallDepsStep(Step):
 
         ok = True
         if pkgs:
-            console.info(f"Installing via {mgr.name}: {', '.join(pkgs)}")
+            self._console.info(f"Installing via {mgr.name}: {', '.join(pkgs)}")
             ok = mgr.install(pkgs, ctx.dry_run)
             ctx.installed.extend(pkgs)
         else:
-            console.info("No apt packages to install.")
+            self._console.info("No apt packages to install.")
 
         if vcpkg_ports:
             if vcpkg is None:
-                console.warn(f"No vcpkg manager available; cannot install "
+                self._console.warn(f"No vcpkg manager available; cannot install "
                              f"{', '.join(vcpkg_ports)} (no apt package exists for "
                              f"these on Linux). Install them manually.")
                 ok = False
             else:
-                console.info(f"Installing via vcpkg: {', '.join(vcpkg_ports)}")
+                self._console.info(f"Installing via vcpkg: {', '.join(vcpkg_ports)}")
                 ok = vcpkg.install(vcpkg_ports, ctx.dry_run) and ok
                 ctx.installed.extend(vcpkg_ports)
 
         if not pkgs and not vcpkg_ports:
-            console.info("All packages already present.")
+            self._console.info("All packages already present.")
 
         self._install_toolchains(ctx, mgr=mgr, vcpkg=None)
 
         if ctx.selection.oneapi and mgr.name == "apt":
-            console.info("oneAPI: configuring the Intel apt repository and installing "
+            self._console.info("oneAPI: configuring the Intel apt repository and installing "
                          "intel-oneapi-compiler-dpcpp-cpp.")
             if ensure_intel_oneapi_repo(ctx.dry_run):
                 if not mgr.install(["intel-oneapi-compiler-dpcpp-cpp"], ctx.dry_run):
-                    console.warn("oneAPI compiler install failed; continuing "
+                    self._console.warn("oneAPI compiler install failed; continuing "
                                  "(intel-llvm/AdaptiveCpp remain available).")
         elif ctx.selection.oneapi:
-            console.warn(f"oneAPI on {mgr.name} is not automated; install the "
+            self._console.warn(f"oneAPI on {mgr.name} is not automated; install the "
                          "Intel oneAPI DPC++ compiler manually.")
 
-        vendor = _resolve_gpu_vendor(ctx) if ctx.gpu else "none"
-        if ctx.gpu and mgr.name == "apt":
-            if not install_gpu_stack(ctx.cfg, vendor, ctx.dry_run) and vendor != "none":
-                message = (f"GPU compute SDK for '{vendor}' was not installed — "
-                           f"the build will fall back to the CPU (SPIR/OpenCL) path. "
-                           f"See the log above for the failing command.")
-                console.error(message)
-                ctx.warnings.append(message)
-        elif ctx.gpu and vendor == "none":
-            install_gpu_stack(ctx.cfg, vendor, ctx.dry_run)
-        elif ctx.gpu:
-            console.warn(f"GPU SDK auto-install for '{vendor}' is only "
-                         f"automated on apt; install it manually on {mgr.name}.")
-
-        if vendor != "none":
-            provision_adapters_for_run(ctx)
+        self._gpu.provision_linux(ctx, mgr.name)
         return StepResult.OK if ok else StepResult.FAILED
 
     def _run_windows(self, ctx: InstallContext) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Windows."""
-        refresh_windows_path()
+        self._actions.refresh_path()
         winget = self._manager("winget")
         direct = self._manager("direct-download")
         vcpkg  = self._manager("vcpkg")
@@ -534,13 +632,9 @@ class InstallDepsStep(Step):
 
         self._install_toolchains(ctx, mgr=None, vcpkg=vcpkg)
 
-        if ctx.gpu:
-            vendor = _resolve_gpu_vendor(ctx)
-            install_gpu_stack(ctx.cfg, vendor, ctx.dry_run)
-            if vendor != "none":
-                provision_adapters_for_run(ctx)
+        self._gpu.provision_windows(ctx)
 
-        tool_ok = oneapi.install_oneapi(ctx) and tool_ok
+        tool_ok = self._actions.install_oneapi(ctx) and tool_ok
 
         return StepResult.OK if (tool_ok and lib_ok) else StepResult.FAILED
 
@@ -548,25 +642,25 @@ class InstallDepsStep(Step):
                                 direct: IPackageManager | None) -> bool:
         """Install cmake, ninja and doxygen portably into the deps folder."""
         portable = ["Kitware.CMake", "Ninja-build.Ninja", "DimitriVanHeesch.Doxygen"]
-        missing = [pkg for pkg in portable if not shutil.which(WINGET_ID_TO_CMD.get(pkg, ""))]
+        missing = [pkg for pkg in portable if not self._actions.which(WINGET_ID_TO_CMD.get(pkg, ""))]
         if missing and direct:
-            console.info("Installing CMake, Ninja, and Doxygen portably into the deps folder ...")
+            self._console.info("Installing CMake, Ninja, and Doxygen portably into the deps folder ...")
             return direct.install(missing, ctx.dry_run)
         if not missing:
-            console.info("cmake + ninja + doxygen already present, skipping.")
+            self._console.info("cmake + ninja + doxygen already present, skipping.")
         return True
 
     def _install_git(self, ctx: InstallContext, winget: IPackageManager | None,
                      direct: IPackageManager | None) -> bool:
         """Install git through winget, or direct-download, when it is missing."""
-        if shutil.which("git"):
+        if self._actions.which("git"):
             return True
         if winget and winget.available():
-            console.info("Installing git via winget ...")
+            self._console.info("Installing git via winget ...")
             return winget.install(["Git.Git"], ctx.dry_run)
         if direct:
             return direct.install(["Git.Git"], ctx.dry_run)
-        console.warn("git not found and no installer available; install it manually.")
+        self._console.warn("git not found and no installer available; install it manually.")
         return True
 
     def _install_vcpkg_ports(self, ctx: InstallContext,
@@ -580,7 +674,7 @@ class InstallDepsStep(Step):
         ports: list[str] = []
         for dep in self._source.selected("windows", ctx.gpu):
             if vcpkg and _dep_installed(dep, vcpkg, "windows"):
-                console.info(f"{dep.name}: already installed, skipping.")
+                self._console.info(f"{dep.name}: already installed, skipping.")
                 continue
             ports.extend(dep.windows_vcpkg)
         ports = _dedup(ports)
@@ -588,9 +682,9 @@ class InstallDepsStep(Step):
         if not ports:
             return ports, True
         if vcpkg is None:
-            console.error("vcpkg manager missing; cannot install C++ libs.")
+            self._console.error("vcpkg manager missing; cannot install C++ libs.")
             return ports, None
-        console.info(f"Installing via vcpkg: {', '.join(ports)}")
+        self._console.info(f"Installing via vcpkg: {', '.join(ports)}")
         ok = vcpkg.install(ports, ctx.dry_run)
         ctx.installed.extend(ports)
         return ports, ok
@@ -602,14 +696,14 @@ class InstallDepsStep(Step):
         Any Visual Studio edition whose C++ tools vcvars64.bat is found already supplies the
         host compiler, so nothing is installed then.
         """
-        if probe.find_vcvars() is not None:
+        if self._actions.find_vcvars() is not None:
             return True
         if not (winget and winget.available()):
             return True
         if winget.is_installed("Microsoft.VisualStudio.2022.BuildTools"):
             return True
         if ctx.dry_run:
-            console.info("(dry-run) skipping VS Build Tools install.")
+            self._console.info("(dry-run) skipping VS Build Tools install.")
             return True
 
         vs_cmd = [
@@ -620,16 +714,16 @@ class InstallDepsStep(Step):
             "--add Microsoft.VisualStudio.Workload.VCTools "
             "--includeRecommended --quiet --wait --norestart",
         ]
-        with console.console.status(
+        with self._console.console.status(
             "[header]Installing Visual Studio Build Tools "
             "(C++ workloads) — this may take 10–20 minutes.",
             spinner="bouncingBar",
         ):
-            rc = subprocess.run(vs_cmd).returncode
+            rc = self._actions.run_command(vs_cmd).returncode
         if rc != 0:
-            console.warn("Visual Studio Build Tools install failed or was cancelled.")
+            self._console.warn("Visual Studio Build Tools install failed or was cancelled.")
             return False
-        console.success("Visual Studio Build Tools installed.")
+        self._console.success("Visual Studio Build Tools installed.")
         return True
 
 
@@ -638,40 +732,48 @@ class ConfigureStep(Step):
 
     name = "configure"
 
-    def __init__(self, sink: ConfigSink) -> None:
-        """Bind this step to the sink its probed values and active toolchain are written to."""
+    def __init__(self, sink: ConfigSink, *, console: Any = console,
+                 actions: MachineActions | None = None) -> None:
+        """Bind this step to the sink its probed values and active toolchain are written to.
+
+        Args:
+            console: The console the step prints through.
+            actions: The machine calls; the real ones when omitted.
+        """
         self._sink = sink
+        self._console = console
+        self._actions = actions or MachineActions()
 
     def run(self, ctx: InstallContext) -> StepResult:
         """Probe machine-specific tool paths and write them and the active toolchain to the sink."""
-        refresh_windows_path()
-        values = probe.resolve_local_config(ctx.cfg, gpu=ctx.gpu)
+        self._actions.refresh_path()
+        values = self._actions.resolve_config(ctx.cfg, gpu=ctx.gpu)
         ctx.resolved_paths = values
 
         if ctx.dry_run:
             if ctx.active_toolchain:
-                console.info(f"(dry-run) would set active toolchain to "
+                self._console.info(f"(dry-run) would set active toolchain to "
                              f"'{ctx.active_toolchain}'.")
             if values:
-                console.info(f"(dry-run) would write {self._sink.target}:")
-                console.console.print(
+                self._console.info(f"(dry-run) would write {self._sink.target}:")
+                self._console.console.print(
                     render_local_config(ctx.cfg.platform, values), markup=False)
             return StepResult.OK
 
         if not values and not ctx.active_toolchain:
-            console.info("No machine-specific paths to write; defaults suffice.")
+            self._console.info("No machine-specific paths to write; defaults suffice.")
             return StepResult.SKIPPED
 
         if values:
             backup = self._sink.backup()
             if backup is not None:
-                console.info(f"Backed up existing config to {backup.name}")
+                self._console.info(f"Backed up existing config to {backup.name}")
             written = self._sink.write_paths(ctx.cfg.platform, values)
-            console.success(f"Wrote {written}")
+            self._console.success(f"Wrote {written}")
 
         if ctx.active_toolchain:
             self._sink.write_tool({"toolchain": ctx.active_toolchain})
-            console.success(f"Active SYCL toolchain set to '{ctx.active_toolchain}'.")
+            self._console.success(f"Active SYCL toolchain set to '{ctx.active_toolchain}'.")
         return StepResult.OK
 
 
@@ -681,11 +783,20 @@ class UninstallStep(Step):
     name = "uninstall"
 
     def __init__(self, source: IDependencySource,
-                 managers: list[IPackageManager], sink: ConfigSink) -> None:
-        """Wire the dependency source, the package managers and the sink this step clears."""
+                 managers: list[IPackageManager], sink: ConfigSink,
+                 *, console: Any = console,
+                 root: Callable[[], Path] | None = None) -> None:
+        """Wire the dependency source, the package managers and the sink this step clears.
+
+        Args:
+            console: The console the step prints through.
+            root: Returns the dependency root this step may remove; the bound root when omitted.
+        """
         self._source = source
         self._managers = managers
         self._sink = sink
+        self._console = console
+        self._root = root or (lambda: home.root())
 
     def _manager(self, name: str) -> IPackageManager | None:
         """Return the wired manager named *name*, or None."""
@@ -702,7 +813,7 @@ class UninstallStep(Step):
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Remove Linux packages and vcpkg ports, and toolchains too with ``ctx.everything``."""
-        if not _root_is_safe():
+        if not _root_is_safe(self._console, self._root):
             return StepResult.FAILED
         linux_names = ["apt", "dnf", "yum", "pacman", "zypper"]
         mgr = next(
@@ -721,11 +832,11 @@ class UninstallStep(Step):
         vcpkg_ports = _dedup(vcpkg_ports)
 
         if mgr and pkgs:
-            console.info(f"Removing via {mgr.name}: {', '.join(pkgs)}")
+            self._console.info(f"Removing via {mgr.name}: {', '.join(pkgs)}")
             mgr.remove(pkgs, ctx.dry_run)
 
         if vcpkg and vcpkg_ports:
-            console.info(f"Removing vcpkg ports: {', '.join(vcpkg_ports)}")
+            self._console.info(f"Removing vcpkg ports: {', '.join(vcpkg_ports)}")
             vcpkg.remove(vcpkg_ports, ctx.dry_run)
 
         if ctx.everything:
@@ -736,7 +847,7 @@ class UninstallStep(Step):
 
     def _run_windows(self, ctx: InstallContext) -> StepResult:
         """Remove Windows vcpkg ports, portable tools, and toolchains with ``ctx.everything``."""
-        if not _root_is_safe():
+        if not _root_is_safe(self._console, self._root):
             return StepResult.FAILED
         vcpkg = self._manager("vcpkg")
 
@@ -746,31 +857,31 @@ class UninstallStep(Step):
         ports = _dedup(ports)
 
         if vcpkg and ports:
-            console.info(f"Removing vcpkg ports: {', '.join(ports)}")
+            self._console.info(f"Removing vcpkg ports: {', '.join(ports)}")
             vcpkg.remove(ports, ctx.dry_run)
 
         tools = tools_dir()
         ninja_exe = tools / "ninja.exe"
         if ninja_exe.is_file():
             if ctx.dry_run:
-                console.info(f"(dry-run) would remove {ninja_exe}")
+                self._console.info(f"(dry-run) would remove {ninja_exe}")
             else:
                 ninja_exe.unlink()
-                console.info(f"Removed {ninja_exe}")
+                self._console.info(f"Removed {ninja_exe}")
         cmake_dir = tools / "cmake"
         if cmake_dir.is_dir():
             if ctx.dry_run:
-                console.info(f"(dry-run) would remove {cmake_dir}")
+                self._console.info(f"(dry-run) would remove {cmake_dir}")
             else:
                 shutil.rmtree(cmake_dir, ignore_errors=True)
-                console.info(f"Removed {cmake_dir}")
+                self._console.info(f"Removed {cmake_dir}")
         doxygen_dir = tools / "doxygen"
         if doxygen_dir.is_dir():
             if ctx.dry_run:
-                console.info(f"(dry-run) would remove {doxygen_dir}")
+                self._console.info(f"(dry-run) would remove {doxygen_dir}")
             else:
                 shutil.rmtree(doxygen_dir, ignore_errors=True)
-                console.info(f"Removed {doxygen_dir}")
+                self._console.info(f"Removed {doxygen_dir}")
         if tools.is_dir() and not any(tools.iterdir()) and not ctx.dry_run:
             tools.rmdir()
 
@@ -788,33 +899,33 @@ class UninstallStep(Step):
             False when *ctx*'s dependency root fails the removability guard;
             True otherwise, whether or not anything was actually removed.
         """
-        dep_dir = home.root()
+        dep_dir = self._root()
         if not dep_dir.is_dir():
             return True
-        if not _root_is_safe():
+        if not _root_is_safe(self._console, self._root):
             return False
         if ctx.dry_run:
-            console.info(f"(dry-run) would remove the whole deps folder at {dep_dir}")
+            self._console.info(f"(dry-run) would remove the whole deps folder at {dep_dir}")
             return True
         shutil.rmtree(dep_dir, ignore_errors=True)
-        console.success(f"Removed the vendored deps folder at {dep_dir}")
+        self._console.success(f"Removed the vendored deps folder at {dep_dir}")
         return True
 
     def _remove_config(self, ctx: InstallContext) -> None:
         """Clear the sink's ``[tool]`` table, leaving the rest of its file intact."""
         if ctx.dry_run:
-            console.info(f"(dry-run) would clear the `tool` section of {self._sink.target}")
+            self._console.info(f"(dry-run) would clear the `tool` section of {self._sink.target}")
             return
         self._sink.clear()
-        console.success(f"Cleared the `tool` section of {self._sink.target}")
+        self._console.success(f"Cleared the `tool` section of {self._sink.target}")
 
 
-def _root_is_safe() -> bool:
+def _root_is_safe(out: Any, root: Callable[[], Path]) -> bool:
     """Return whether the dependency root is absent or passes the removability guard."""
-    dep_dir = home.root()
+    dep_dir = root()
     if not dep_dir.is_dir() or home.is_removable_root(dep_dir):
         return True
-    console.error(f"Refusing to remove {dep_dir}: not a safe dependency root.")
+    out.error(f"Refusing to remove {dep_dir}: not a safe dependency root.")
     return False
 
 

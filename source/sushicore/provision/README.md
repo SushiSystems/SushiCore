@@ -27,8 +27,9 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
 | `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers; `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
-| `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep` |
+| `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep`; `GpuStage` and `MachineActions` are the seams a test replaces |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |
+| `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |
 | `doctor.py`, `checks.py` | The doctor framework and the stock checks |
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
 | `_output.py` | The console the package prints through, bound by `bind_console` |
