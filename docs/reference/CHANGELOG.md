@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-07 — help: Imported Click only for type checking again and found Click's plain help through the command's bases, so a CLI on Typer 0.27, which ships its own Click, starts again (`typer_help.py`).
+- 2026-11-07 — testing: Gave `CommandRunner.capture` an optional `timeout`, after which `Runner` stops the command and returns exit code 124 and a stderr that says so; `RecordingRunner` records it and can script a timeout (`proc.py`, `proc_memory.py`).
 - 2026-11-07 — continuous_integration: Cleared the known findings of the shared checkers (RW-64, `f3088f0`).
 - 2026-11-07 — console: Gave `PlainRenderer` an optional `input_stream`, which its prompt reads instead of `input()`, as `JsonRenderer` does (`renderer.py`).
 - 2026-11-07 — provision: Matched a whole package ID in `WingetManager.is_installed`, so `Git.G` no longer reads as installed (`packages/winget.py`).

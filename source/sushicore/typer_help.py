@@ -14,9 +14,8 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Any, Callable, ClassVar
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
-import click
 from rich.console import Console as RichConsole
 from typer.core import TyperGroup
 
@@ -25,6 +24,9 @@ from .help.from_click import build_model
 from .help.logo_choice import choose_logo
 from .help.page import HelpPage
 from .ui.logo import Logo
+
+if TYPE_CHECKING:
+    import click
 
 K_LOGO_COLOUR_SYSTEMS = ("256", "truecolor")
 _log = logging.getLogger(__name__)
@@ -109,8 +111,15 @@ def _write_typer_or_plain(
             type(error).__name__,
             error,
         )
-        plain = click.Group if isinstance(command, click.Group) else click.Command
-        plain.format_help(command, ctx, formatter)
+        _click_format_help(command)(command, ctx, formatter)
+
+
+def _click_format_help(command: Any) -> Callable[[Any, "click.Context", "click.HelpFormatter"], None]:
+    """Return Click's own format_help for *command*, from Click or the copy Typer ships, whichever it uses."""
+    for klass in type(command).__mro__:
+        if klass.__module__.endswith("click.core") and "format_help" in vars(klass):
+            return vars(klass)["format_help"]
+    raise TypeError(f"{type(command).__name__} has no Click format_help in its bases")
 
 
 def _print_page(command: Any, ctx: click.Context, console: Console) -> None:
