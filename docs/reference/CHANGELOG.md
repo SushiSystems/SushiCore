@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-07 — testing: Added a CMake driver port, which the disk driver keeps with two new tree reads, and an in-memory driver that passes the same contract test (RW-69, `cmake_driver_memory.py`).
+
 - 2026-11-07 — continuous_integration: Deleted the budget-settings checker test that SushiSkills dropped, since it only skipped here (RW-68, `a528a1d`).
 
 ## v0.10.14 — 2026-11-07

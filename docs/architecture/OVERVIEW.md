@@ -49,7 +49,7 @@ files a CLI hands it.
 | `proc`, `proc_memory` | `CommandRunner`, the surface callers run commands through (`run`, `run_drained`, and `capture`, which takes an optional `timeout`); `Runner`, which spawns a child process for a CLI; `RecordingRunner`, which records the commands and answers scripted results |
 | `build_env` | The environment a build runs under, with the vcvars snapshot on Windows |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
-| `cmake_driver` | `CMakeDriver`, the cmake and ctest command lines |
+| `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory` | `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree |
 | `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |

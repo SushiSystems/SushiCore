@@ -18,7 +18,7 @@ from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_
 from .proc import CommandRunner
 
 
-def _option_value(args: Sequence[str], option: str) -> str | None:
+def option_value(args: Sequence[str], option: str) -> str | None:
     """Return the value of *option* in a cmake argv, given as two words or as one."""
     for index, word in enumerate(args):
         if word == option and index + 1 < len(args):
@@ -57,7 +57,9 @@ def with_scratch(env: Mapping[str, str] | None, scratch: Path) -> dict[str, str]
     return merged
 
 class CMakeDriver:
-    """The cmake and ctest half of what five project.py copies shared.
+    """The cmake and ctest half of what five project.py copies shared, over real build trees.
+
+    It keeps the promise of :class:`sushicore.cmake_driver_port.CMakeDriverPort`.
 
     @param console A CLI's console module.
     @param runner  A :class:`sushicore.proc.CommandRunner`, such as :class:`sushicore.proc.Runner`.
@@ -76,6 +78,14 @@ class CMakeDriver:
     def ctest(self, cfg) -> str:
         """The ctest executable: the configured path if set, else 'ctest'."""
         return cfg.expand(cfg.ctest_exe) if cfg.ctest_exe else "ctest"
+
+    def tree_exists(self, build_dir: Path) -> bool:
+        """Whether a build tree is at *build_dir*."""
+        return build_dir.is_dir()
+
+    def cached_value(self, build_dir: Path, entry: str) -> str | None:
+        """The value the tree's cache holds for *entry*; see :func:`sushicore.cmake_cache.cached_value`."""
+        return cached_value(build_dir, entry)
 
     def needs_configure(self, build_dir: Path, generator: str, *,
                         expect: Mapping[str, str] | None = None,
@@ -113,7 +123,7 @@ class CMakeDriver:
 
     def _drop_cache_of_another_compiler(self, args: list[str]) -> None:
         """Delete the cache of the tree *args* configures when its compiler path differs."""
-        build_dir = _option_value(args, "-B")
+        build_dir = option_value(args, "-B")
         compiler = _definition(args, "CMAKE_CXX_COMPILER")
         if not build_dir or not compiler or not compiler_changed(Path(build_dir), compiler):
             return
