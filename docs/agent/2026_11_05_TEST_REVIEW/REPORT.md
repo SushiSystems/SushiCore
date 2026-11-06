@@ -46,8 +46,8 @@ the only test that crosses the real git boundary.
 - `PlainRenderer.prompt` reads `input()` with no stream seam, where `JsonRenderer` has one.
 - `tools/testing/check_test_additions.py` and its test are a leftover: SushiSkills removed the checker in
   phase B, and the copier never removes a file upstream dropped. Both are deleted.
-- `tools/tests/test_test_budget_settings.py` skips here, since the repository has no `skills/` folder, so
-  its promise is checked nowhere; it also defines `read_budget` and `differences` in the test file.
+- `tools/tests/test_test_budget_settings.py` skipped here, since the repository has no `skills/` folder;
+  SushiSkills dropped it in a528a1d and it is deleted here (RW-68).
 
 ## Decisions
 
@@ -58,7 +58,7 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 3. The Typer fallback's stray close tag is a defect. A fallback exists so that output never crashes, so a stray tag prints as text, and the test that expects `MarkupError` is turned around.
 4. The `TimingPolicy` contract suite stays and the concrete copies merge into it. The deletes of chunk 005 are reversed, as the report says.
 5. (Lead, 2026-11-07, T2.) The port is `sushicore.files.Files`, a module of its own rather than a part of `workspace`, because the stores need only six calls on text files and `workspace` already answers another question. `DiskFiles` is the default of the new `files=` parameter of `BacklogStore` and `DesignStore`, so every caller keeps working; `MemoryFiles` sits beside it in `files_memory.py`. A folder in memory exists while a file sits under it: an empty folder is never something the stores read.
-6. (Lead, 2026-11-07, T4.) `tools/tests/test_test_budget_settings.py` belongs to SushiSkills, which the copier makes the one home of the shared tools, so it is not edited here; RW-68 asks SushiSkills for the change.
+6. (Lead, 2026-11-07, T4.) `tools/tests/test_test_budget_settings.py` belongs to SushiSkills, which the copier makes the one home of the shared tools, so it is not edited here; RW-68 asks SushiSkills for the change. (Lead, 2026-11-07.) SushiSkills dropped the file in a528a1d, so it is deleted here and its records leave M17.
 
 ## Dispatches
 
@@ -2567,15 +2567,6 @@ CheckTestAdditionsTest.test_a_fix_has_the_smaller_limit | delete | 3 | the same 
 CheckTestAdditionsTest.test_a_second_program_needs_the_owners_line | delete | 3 | the same removal: tools/testing/check_test_additions.py no longer exists upstream in sushiskills; leftover copy | tools/tests/test_check_test_additions.py; tools/testing/check_test_additions.py
 CheckTestAdditionsTest.test_the_owners_line_approves_a_second_program | delete | 3 | the same removal: tools/testing/check_test_additions.py no longer exists upstream in sushiskills; leftover copy | tools/tests/test_check_test_additions.py; tools/testing/check_test_additions.py
 CheckTestAdditionsTest.test_a_repository_that_sets_no_base_commit_is_not_checked | delete | 3 | the same removal: tools/testing/check_test_additions.py no longer exists upstream in sushiskills; leftover copy | tools/tests/test_check_test_additions.py; tools/testing/check_test_additions.py
-```
-
-### `tools/tests/test_test_budget_settings.py`
-
-```
-TestBudgetSettingsTest.test_the_skill_table_matches_the_settings | rewrite | 1 | forbidden kind: control flow in the body (the skipTest guard); it is the only test of the promise that the skill's Budget table equals K_TEST_BUDGET; in this tree skills/ is absent, so the test always skips and checks nothing; rewrite with the skip moved into the fixture and the skill path passed in | tools/tests/test_test_budget_settings.py; tools/settings.py
-TestBudgetSettingsTest.test_reads_a_number_with_a_thousands_space_and_a_trailing_note | split | 3 | several promises in one body: a thousands-spaced number parses, a trailing note is dropped, a row no key names is ignored, rows outside the Budget heading are ignored; read_budget is defined in this test file, not in a module, so it needs a home before the split tests can import it | tools/tests/test_test_budget_settings.py; tools/settings.py
-TestBudgetSettingsTest.test_names_each_key_that_differs | resize | 8 | settings: differences() names each differing key in sorted order, None for a missing side; plain values, so small; the file-level K_TEST_SIZE = "medium" is the wrong label for this test; no seam needed, the helper is pure | tools/tests/test_test_budget_settings.py; tools/settings.py
-TestBudgetSettingsTest.test_every_row_of_the_table_has_a_constant | resize | 8 | settings: the label map and K_TEST_BUDGET name the same keys; a comparison of values, so small; Q4: test_the_skill_table_matches_the_settings is the larger copy of this key check, so this smaller copy stays; file-level medium is the wrong label | tools/tests/test_test_budget_settings.py; tools/settings.py
 ```
 
 ## Adds

@@ -32,7 +32,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M14 | the tests of `test_renderer` (3 files): 13 rewrite, 10 merge, 1 delete | T1, T2, T3, T4, T5 | todo |
 | M15 | the tests of `test_workspace` (3 files): 1 merge, 1 delete | T1, T2, T3, T4, T5 | todo |
 | M16 | the tests of `testing` (6 files): 9 resize, 7 split, 2 delete | T1, T2, T3, T4, T5 | todo |
-| M17 | the tests of `tools` (3 files): 1 rewrite, 8 resize, 2 split, 5 delete | T1, T2, T3, T4, T5 | todo |
+| M17 | the tests of `tools` (2 files): 6 resize, 1 split, 5 delete | T1, T2, T3, T4, T5 | todo |
 | M18 | the tests of `ui` (8 files): 13 rewrite, 3 split, 13 merge, 9 delete | T1, T2, T3, T4, T5 | todo |
 
 ## Acceptance

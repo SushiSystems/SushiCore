@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-07 — continuous_integration: Deleted the budget-settings checker test that SushiSkills dropped, since it only skipped here (RW-68, `a528a1d`).
+
 ## v0.10.14 — 2026-11-07
 
 - 2026-11-07 — help: Imported Click only for type checking again and found Click's plain help through the command's bases, so a CLI on Typer 0.27, which ships its own Click, starts again (`typer_help.py`).
