@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — not started; the owner chooses inline or parallel
+**Status:** Open — paused by the owner on 2026-11-06; T1 and T3 done, T2 next
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
