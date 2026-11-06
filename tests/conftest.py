@@ -5,6 +5,7 @@
 """Shared fixtures for the whole suite, and the size rules every test follows."""
 
 import pytest
+import typer.rich_utils  # noqa: F401  Loaded at collection, so no small test pays for its import.
 from rich.color import Color
 from rich.style import Style
 
