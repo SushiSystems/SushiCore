@@ -66,10 +66,10 @@ class BacklogCheck:
             return
         for area in self.config.areas:
             path = self.store.area_path(area)
-            if not path.is_file():
+            if not self.store.files.is_file(path):
                 self.faults.append(Fault(path, 1, f"the area {area} has no file; `backlog check` cannot read it"))
                 continue
-            text = path.read_text(encoding="utf-8")
+            text = self.store.files.read_text(path)
             parsed, faults = parse_area(path, text)
             self.faults += faults
             if not faults and render_area(parsed) != text:
@@ -93,7 +93,7 @@ def rule_retired_files(check: BacklogCheck) -> Iterator[Fault]:
     """Yields a fault for each file the store replaced that is still in the repository."""
     for relative in K_RETIRED:
         path = check.store.root / relative
-        if path.is_file():
+        if check.store.files.is_file(path):
             yield Fault(path, 1, "the store in docs/backlog/ replaced this file; run `backlog import`")
 
 
@@ -111,7 +111,7 @@ def rule_files(check: BacklogCheck) -> Iterator[Fault]:
     for area in check.config.areas:
         if not is_area_name(area):
             yield Fault(folder / K_CONFIG, 1, f"'{area}' is not an area name: upper case words joined by _")
-    for path in sorted(folder.iterdir()):
+    for path in check.store.files.children(folder):
         if path.name not in known and path.name != K_DETAIL:
             yield Fault(path, 1, "not a file of the store; an area is named in backlog.toml")
 
@@ -149,7 +149,7 @@ def rule_sources(check: BacklogCheck) -> Iterator[Fault]:
     root = check.store.root
     for item in check.located:
         cited = source_path(item.entry.source)
-        if cited is not None and (cited.startswith(("/", "..")) or not (root / cited).exists()):
+        if cited is not None and (cited.startswith(("/", "..")) or not check.store.files.exists(root / cited)):
             yield Fault(item.path, item.line, f"{item.entry.ident}: Source '{cited}' does not exist from the repository root")
 
 
@@ -161,7 +161,7 @@ def rule_references(check: BacklogCheck) -> Iterator[Fault]:
             match = K_REFERENCE.match(reference)
             if match is None:
                 continue
-            resolved = _resolves(check.store.root, ids, match["owner"], match["id"])
+            resolved = _resolves(check.store, ids, match["owner"], match["id"])
             if resolved is False:
                 yield Fault(item.path, item.line, f"{item.entry.ident}: '{reference}' names no open entry")
 
@@ -209,8 +209,8 @@ def rule_details(check: BacklogCheck) -> Iterator[Fault]:
     """Yields a fault for a detail file whose entry is closed."""
     folder = check.store.folder / K_DETAIL
     ids = check.ids()
-    for path in sorted(folder.glob("*.md")) if folder.is_dir() else []:
-        if path.stem not in ids:
+    for path in check.store.files.children(folder):
+        if path.suffix == ".md" and path.stem not in ids:
             yield Fault(path, 1, f"{path.stem} is closed; `backlog close` deletes its detail")
 
 
@@ -219,7 +219,7 @@ def rule_index(check: BacklogCheck) -> Iterator[Fault]:
     if check.config is None or check.faults:
         return
     path = check.store.folder / K_INDEX
-    current = path.read_text(encoding="utf-8") if path.is_file() else None
+    current = check.store.files.read_text(path) if check.store.files.is_file(path) else None
     if current != check.store.render_index():
         yield Fault(path, 1, "the index is stale; any `backlog` command that writes regenerates it")
 
@@ -275,12 +275,14 @@ def late_entries(store: BacklogStore, today: datetime.date) -> list[WorkEntry]:
     return [entry for entry in store.entries() if isinstance(entry, WorkEntry) and is_late(entry, today)]
 
 
-def _resolves(root: Path, ids: set[str], owner: str | None, ident: str) -> bool | None:
+def _resolves(here: BacklogStore, ids: set[str], owner: str | None, ident: str) -> bool | None:
     """Returns whether a reference names an open entry, or None for a sibling not checked out."""
-    if owner is None or owner == root.resolve().name:
+    if owner is None:
         return ident in ids
-    sibling = root.resolve().parent / owner
-    store = BacklogStore(sibling)
+    root = here.root.resolve()
+    if owner == root.name:
+        return ident in ids
+    store = BacklogStore(root.parent / owner, files=here.files)
     if not store.exists():
         return None
     try:

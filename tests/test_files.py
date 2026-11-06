@@ -34,3 +34,12 @@ def test_a_byte_order_mark_is_dropped_on_read(tmp_path):
     path = tmp_path / "a.md"
     path.write_bytes("\ufeffbody".encode("utf-8"))
     assert DiskFiles().read_text(path) == "body"
+
+
+def test_a_removed_file_is_gone_and_removing_an_absent_one_is_no_fault(tmp_path):
+    path = tmp_path / "a.md"
+    path.write_text("")
+    files = DiskFiles()
+    files.remove(path)
+    files.remove(path)
+    assert not path.exists()

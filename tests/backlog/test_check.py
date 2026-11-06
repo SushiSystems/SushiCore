@@ -63,12 +63,12 @@ def _pins(count: int) -> tuple[str, ...]:
     return tuple(f"RW-{number}" for number in range(1, count + 1))
 
 
-@pytest.mark.medium
-def test_a_store_after_add_work_and_add_issue_is_clean(editor, store):
-    """A store built by `add work` and `add issue` checks clean."""
-    _work(editor)
-    editor.add_issue(area="BUILD", origin="toolchain", symptom="The link fails", workaround="none")
-    assert _messages(store) == []
+@pytest.mark.small
+def test_a_store_after_add_work_and_add_issue_is_clean(memory_editor, memory_store):
+    """A store built by `add work` and `add issue` checks clean, every file read through the port."""
+    _work(memory_editor)
+    memory_editor.add_issue(area="BUILD", origin="toolchain", symptom="The link fails", workaround="none")
+    assert _messages(memory_store) == []
 
 
 @pytest.mark.medium

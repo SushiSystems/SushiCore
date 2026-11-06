@@ -49,3 +49,7 @@ class MemoryFiles:
     def write_text(self, path: Path, text: str) -> None:
         """Keeps the text at the path, CRLF turned to LF as the disk adapter writes it."""
         self.files[path] = text.replace("\r\n", "\n")
+
+    def remove(self, path: Path) -> None:
+        """Drops the file at the path; an absent file is left as it is."""
+        self.files.pop(path, None)

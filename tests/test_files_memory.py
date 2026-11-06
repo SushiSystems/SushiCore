@@ -41,3 +41,10 @@ def test_children_lists_files_and_folders_one_level_down_sorted():
 def test_a_byte_order_mark_is_dropped_on_read():
     files = MemoryFiles({K_ROOT / "a.md": "\ufeffbody"})
     assert files.read_text(K_ROOT / "a.md") == "body"
+
+
+def test_a_removed_file_is_gone_and_removing_an_absent_one_is_no_fault():
+    files = MemoryFiles({K_ROOT / "a.md": "", K_ROOT / "b.md": ""})
+    files.remove(K_ROOT / "a.md")
+    files.remove(K_ROOT / "a.md")
+    assert files.children(K_ROOT) == [K_ROOT / "b.md"]

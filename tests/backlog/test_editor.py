@@ -222,11 +222,11 @@ def test_merge_areas_refuses_an_area_merged_into_itself(memory_editor):
         memory_editor.merge_areas("PHYSICS", "PHYSICS")
 
 
-@pytest.mark.medium
-def test_merge_areas_deletes_the_file_of_the_emptied_area(editor, store):
-    """The emptied area's file is gone from the disk."""
-    editor.merge_areas("PHYSICS", "BUILD")
-    assert not store.area_path("BUILD").exists()
+@pytest.mark.small
+def test_merge_areas_deletes_the_file_of_the_emptied_area(memory_editor, memory_store):
+    """The emptied area's file is gone from the store's files."""
+    memory_editor.merge_areas("PHYSICS", "BUILD")
+    assert not memory_store.files.exists(memory_store.area_path("BUILD"))
 
 
 @pytest.mark.parametrize("name", ["Rendering", "BUILD"], ids=["out of shape", "taken"])

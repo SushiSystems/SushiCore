@@ -34,6 +34,9 @@ class Files(Protocol):
     def write_text(self, path: Path, text: str) -> None:
         """Writes a file as UTF-8 with LF line ends, its folders made first."""
 
+    def remove(self, path: Path) -> None:
+        """Removes the file at the path; an absent file is left as it is."""
+
 
 class DiskFiles:
     """The files of the real file system."""
@@ -62,3 +65,7 @@ class DiskFiles:
         """Writes a file as UTF-8 with LF line ends, its folders made first."""
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8", newline="\n")
+
+    def remove(self, path: Path) -> None:
+        """Removes the file at the path; an absent file is left as it is."""
+        path.unlink(missing_ok=True)

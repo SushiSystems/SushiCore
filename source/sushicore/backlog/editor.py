@@ -109,8 +109,7 @@ class BacklogEditor:
         ledger.close(ident)
         self.store.write_ledger(ledger)
         detail = self.store.detail_path(ident)
-        if detail.is_file():
-            detail.unlink()
+        self.store.files.remove(detail)
         config = self.store.config()
         if ident in config.pins:
             self.store.write_config(BacklogConfig(config.areas, tuple(p for p in config.pins if p != ident)))
@@ -193,7 +192,7 @@ class BacklogEditor:
         for entry in moving.entries():
             target.put(entry)
         self.store.write_area(target)
-        self.store.area_path(source).unlink(missing_ok=True)
+        self.store.files.remove(self.store.area_path(source))
         config = self.store.config()
         self.store.write_config(
             BacklogConfig(tuple(area for area in config.areas if area != source), config.pins))
