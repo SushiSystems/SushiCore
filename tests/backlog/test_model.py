@@ -84,11 +84,15 @@ def test_work_problems_name_the_broken_value(changes, fragment):
     assert any(fragment in problem for problem in _work(**changes).problems())
 
 
-def test_blocked_by_a_sibling_and_an_external_reason_is_valid():
-    """A sibling's ID and an external reason are both blocks."""
+def test_blocked_by_a_sibling_names_the_blocks():
+    """A sibling's ID and a local ID are both blocks."""
     entry = _work(state="blocked", blocked_by="sushiruntime RW-22, RW-3")
     assert entry.problems() == []
     assert entry.blocks() == ["sushiruntime RW-22", "RW-3"]
+
+
+def test_blocked_by_an_external_reason_is_valid():
+    """An external reason is a block with no ID."""
     assert _work(state="blocked", blocked_by="external: the vendor's fix").problems() == []
 
 
@@ -119,4 +123,8 @@ def test_sibling_origin_names_its_issue_and_is_cited():
     entry = _issue(origin="sushiruntime KI-4", fix="")
     assert entry.problems() == []
     assert entry.cited() == ["sushiruntime KI-4"]
+
+
+def test_sibling_origin_without_an_issue_is_refused():
+    """An origin that names a repository and no issue breaks the rule."""
     assert any("Origin" in p for p in _issue(origin="sushiruntime").problems())

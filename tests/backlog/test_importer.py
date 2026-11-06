@@ -17,11 +17,10 @@ from sushicore.backlog import (
     BacklogImporter,
     BacklogRenumberer,
     BacklogStore,
+    ImportResult,
     check_backlog,
 )
 from sushicore.backlog.importer import area_key
-
-pytestmark = pytest.mark.medium
 
 K_TODAY = datetime.date(2026, 10, 28)
 K_WORK = """# Remaining work
@@ -91,6 +90,15 @@ def _repository(tmp_path: Path) -> Path:
     return root
 
 
+@pytest.fixture
+def imported(tmp_path: Path) -> tuple[Path, BacklogStore, ImportResult]:
+    """Returns the repository after its import: the root, the store and the result."""
+    root = _repository(tmp_path)
+    store = BacklogStore(root, lambda: K_TODAY)
+    return root, store, BacklogImporter(store).run()
+
+
+@pytest.mark.small
 def test_area_key_drops_small_words():
     """A section name becomes an upper case area."""
     assert area_key("Physics and matter") == "PHYSICS_MATTER"
@@ -98,32 +106,88 @@ def test_area_key_drops_small_words():
     assert area_key("") == "GENERAL"
 
 
-def test_import_writes_a_clean_store_and_deletes_the_retired_files(tmp_path: Path):
-    """Every entry lands in a row, the prose in a detail file, and the citations move."""
-    root = _repository(tmp_path)
-    store = BacklogStore(root, lambda: K_TODAY)
-    result = BacklogImporter(store).run()
+@pytest.mark.medium
+def test_import_counts_the_entries_and_names_the_areas_and_pins(imported):
+    """Every entry lands in a row; the areas come from the sections, the pins from `Next`."""
+    _, _, result = imported
     assert (result.work, result.issues) == (3, 2)
     assert result.pins == ("RW-4",)
     assert result.areas == ("GENERAL", "PHYSICS_MATTER", "TOOLCHAINS")
-    assert not (root / "docs/design/REMAINING_WORK.md").exists()
-    assert result.left == (root / "tools" / "run.py",)
-    assert "REMAINING_WORK" in (root / "tools" / "run.py").read_text(encoding="utf-8")
-    assert "docs/backlog/README.md and docs/backlog/README.md" in (root / "docs/README.md").read_text(encoding="utf-8")
-    assert (root / "docs/guides/BUILD.md").read_text(encoding="utf-8") == "Read backlog/README.md first.\n"
+
+
+@pytest.mark.medium
+def test_import_writes_the_columns_of_a_work_entry(imported):
+    """A state and a priority are read from the retired form, a Source from its line."""
+    _, store, _ = imported
     work = store.find("RW-4").entry
     assert (work.priority, work.state) == ("P1", "open")
+    assert store.find("RW-2").entry.source == "`docs/design/PHYSICS/README.md`"
+
+
+@pytest.mark.medium
+def test_import_writes_the_origin_of_a_sibling_issue(imported):
+    """An issue of a sibling keeps its repository and ID in Origin."""
+    _, store, _ = imported
+    assert store.find("KI-2").entry.origin == "sushiruntime KI-4"
+
+
+@pytest.mark.medium
+def test_import_moves_the_prose_into_a_detail_file(imported):
+    """The prose and the extra lines of an entry land in its detail file."""
+    _, store, _ = imported
     detail = store.detail_path("RW-4").read_text(encoding="utf-8")
     assert "- Where: `modules/physics`" in detail and "old buffer" in detail
+
+
+@pytest.mark.medium
+def test_import_rebases_the_links_of_the_prose(imported):
+    """A link in the prose still reaches its target from the detail folder."""
+    _, store, _ = imported
+    detail = store.detail_path("RW-4").read_text(encoding="utf-8")
     assert "[the report](../../design/PHYSICS/README.md#step)" in detail
-    assert store.find("RW-2").entry.source == "`docs/design/PHYSICS/README.md`"
-    assert store.find("KI-2").entry.origin == "sushiruntime KI-4"
+
+
+@pytest.mark.medium
+def test_import_deletes_the_retired_files(imported):
+    """Neither retired file is left."""
+    root, _, _ = imported
+    assert not (root / "docs/design/REMAINING_WORK.md").exists()
+    assert not (root / "docs/reference/KNOWN_ISSUES.md").exists()
+
+
+@pytest.mark.medium
+def test_import_rewrites_the_citations_of_the_pages(imported):
+    """A page naming a retired file names the store instead."""
+    root, _, _ = imported
+    assert "docs/backlog/README.md and docs/backlog/README.md" in (root / "docs/README.md").read_text(encoding="utf-8")
+    assert (root / "docs/guides/BUILD.md").read_text(encoding="utf-8") == "Read backlog/README.md first.\n"
+
+
+@pytest.mark.medium
+def test_import_leaves_a_citation_in_code_for_its_author(imported):
+    """A file that is not a page keeps its citation and is reported."""
+    root, _, result = imported
+    assert result.left == (root / "tools" / "run.py",)
+    assert "REMAINING_WORK" in (root / "tools" / "run.py").read_text(encoding="utf-8")
+
+
+@pytest.mark.medium
+def test_import_writes_the_ledger_with_the_counters_and_the_closed_numbers(imported):
+    """The counters follow the retired files and every number below them that is gone is closed."""
+    _, store, _ = imported
     ledger = store.ledger()
     assert ledger.next == {"RW": 9, "KI": 3}
     assert ledger.is_closed("RW-1") and not ledger.is_closed("RW-4")
+
+
+@pytest.mark.medium
+def test_import_writes_a_store_that_checks_clean(imported):
+    """The imported store passes every rule."""
+    _, store, _ = imported
     assert check_backlog(store) == []
 
 
+@pytest.mark.medium
 def test_import_runs_once(tmp_path: Path):
     """A second import is refused."""
     root = _repository(tmp_path)
@@ -141,6 +205,7 @@ def _git(root: Path, *arguments: str, check: bool = True) -> str:
     return completed.stdout
 
 
+@pytest.mark.medium
 def test_renumber_keeps_the_target_branch_entry_and_moves_the_other(tmp_path: Path):
     """Two branches that each took RW-9: main keeps it, the side's entry becomes RW-10."""
     from sushicore.backlog import BacklogEditor

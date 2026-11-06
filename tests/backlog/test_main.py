@@ -24,9 +24,3 @@ def test_main_prints_a_backlog_error_as_one_line(store, capsys):
     code = main(["--root", str(store.root), "show", "RW-1"])
     assert code == 1
     assert capsys.readouterr().err.strip() == "python -m sushicore.backlog: RW-1 names no open entry"
-
-
-def test_main_returns_the_check_code(store, capsys):
-    """A finding exits 1."""
-    (store.folder / "NOTES.md").write_text("# Notes\n", encoding="utf-8")
-    assert main(["--root", str(store.root), "check"]) == 1

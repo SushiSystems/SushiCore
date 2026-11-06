@@ -50,13 +50,16 @@ def test_pins_come_first_in_their_order():
     assert [e.ident for e in order] == ["RW-3", "RW-2", "RW-1"]
 
 
-def test_decisions_and_open_blocks_are_never_returned():
-    """A decision is the owner's; a block on an open entry holds the work back, even pinned."""
-    entries = [
-        _work("RW-1", state="decision"), _work("RW-2"),
-        _work("RW-3", state="blocked", blocked_by="RW-2"),
-    ]
-    assert [e.ident for e in next_work(entries, ("RW-3", "RW-1"), K_TODAY)] == ["RW-2"]
+def test_a_decision_is_never_returned_even_pinned():
+    """A decision is the owner's."""
+    entries = [_work("RW-1", state="decision"), _work("RW-2")]
+    assert [e.ident for e in next_work(entries, ("RW-1",), K_TODAY)] == ["RW-2"]
+
+
+def test_a_block_on_an_open_entry_holds_pinned_work_back():
+    """A block on an open entry holds the work back, even pinned."""
+    entries = [_work("RW-2"), _work("RW-3", state="blocked", blocked_by="RW-2")]
+    assert [e.ident for e in next_work(entries, ("RW-3",), K_TODAY)] == ["RW-2"]
 
 
 def test_a_block_on_a_closed_entry_releases_the_work():
@@ -65,20 +68,22 @@ def test_a_block_on_a_closed_entry_releases_the_work():
     assert [e.ident for e in next_work(entries, (), K_TODAY)] == ["RW-3"]
 
 
-def test_external_and_sibling_blocks_hold_the_work():
+@pytest.mark.parametrize(
+    "blocked_by", ["external: vendor", "sushiweb RW-1"], ids=["external", "sibling"],
+)
+def test_a_block_outside_the_repository_holds_the_work(blocked_by):
     """A block outside the repository is never known to be closed."""
-    entries = [
-        _work("RW-3", state="blocked", blocked_by="external: vendor"),
-        _work("RW-4", state="blocked", blocked_by="sushiweb RW-1"),
-    ]
+    entries = [_work("RW-3", state="blocked", blocked_by=blocked_by)]
     assert next_work(entries, (), K_TODAY) == []
 
 
-def test_count_cuts_the_list_and_decisions_lists_the_owners():
-    """`count` keeps the first entries; `decisions` lists only decisions, by priority."""
-    entries = [
-        _work("RW-1"), _work("RW-2"),
-        _work("RW-5", "P1", state="decision"), _work("RW-6", "P0", state="decision"),
-    ]
-    assert len(next_work(entries, (), K_TODAY, 1)) == 1
+def test_count_cuts_the_list():
+    """`count` keeps the first entries."""
+    entries = [_work("RW-1"), _work("RW-2")]
+    assert [e.ident for e in next_work(entries, (), K_TODAY, 1)] == ["RW-1"]
+
+
+def test_decisions_lists_the_owners_by_priority():
+    """`decisions` lists only decisions, by priority."""
+    entries = [_work("RW-1"), _work("RW-5", "P1", state="decision"), _work("RW-6", "P0", state="decision")]
     assert [e.ident for e in decisions(entries)] == ["RW-6", "RW-5"]
