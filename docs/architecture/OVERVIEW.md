@@ -11,6 +11,7 @@ and has no application of its own.
 | Module | Owns |
 | --- | --- |
 | `workspace` | The walk up to a marker file, the `[tool]` table merged with its platform override, the workspace's `[modules]` table and a module's `[link]` pointer |
+| `files`, `files_memory` | `Files`, the port the backlog and design stores read and write their text files through; `DiskFiles`, its default on the real file system; `MemoryFiles`, which holds each file by path |
 | `config_base` | `ToolConfig`, the tool-path fields every CLI shares, and the layered load and `[tool]` write around them |
 | `module_config` | `ModuleConfig`: a module's project root and its layered config, the linked workspace's `[tool]` table included |
 | `stack_config` | `StackConfig`: the compiler and vcpkg of a module that consumes a dependency root, and `locate_sibling` |

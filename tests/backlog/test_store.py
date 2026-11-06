@@ -6,16 +6,17 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 
 import pytest
 
-from sushicore.backlog import BacklogError, BacklogStore
+from sushicore.backlog import BacklogEditor, BacklogError, BacklogStore
 from sushicore.backlog.store import format_ranges, parse_area, parse_ranges, render_area
+from sushicore.files_memory import MemoryFiles
 
-pytestmark = pytest.mark.medium
 
-
+@pytest.mark.medium
 def test_an_area_file_round_trips_through_the_shape_the_tool_writes(editor, store):
     """What the tool writes it reads back unchanged."""
     editor.add_work(area="PHYSICS", priority="P1", title="Fix the step", done_when="it passes")
@@ -28,6 +29,7 @@ def test_an_area_file_round_trips_through_the_shape_the_tool_writes(editor, stor
     assert [entry.ident for entry in parsed.entries()] == ["RW-1", "KI-1"]
 
 
+@pytest.mark.medium
 def test_a_row_out_of_shape_is_a_fault_and_the_store_refuses_to_read_it(editor, store):
     """A hand-edited row stops every command until it is put back."""
     path = store.area_path("PHYSICS")
@@ -38,6 +40,7 @@ def test_a_row_out_of_shape_is_a_fault_and_the_store_refuses_to_read_it(editor, 
         store.read_area("PHYSICS")
 
 
+@pytest.mark.medium
 def test_merge_conflict_markers_are_dropped_when_tolerated(editor, store):
     """Renumber reads both sides of a conflict."""
     editor.add_work(area="PHYSICS", priority="P1", title="Fix the step", done_when="it passes")
@@ -52,6 +55,7 @@ def test_merge_conflict_markers_are_dropped_when_tolerated(editor, store):
     assert [entry.title for entry in parsed.work] == ["Fix the step", "Fix the join"]
 
 
+@pytest.mark.medium
 def test_ledger_takes_numbers_in_order_and_remembers_closed_ones(store):
     """IDs are never reused once closed."""
     ledger = store.ledger()
@@ -63,12 +67,14 @@ def test_ledger_takes_numbers_in_order_and_remembers_closed_ones(store):
     assert again.is_closed("RW-1")
 
 
+@pytest.mark.medium
 def test_ranges_compress_and_expand():
     """The closed IDs are written as ranges."""
     assert format_ranges({1, 2, 3, 7, 9, 10}) == "1-3,7,9-10"
     assert parse_ranges("1-3,7,9-10") == {1, 2, 3, 7, 9, 10}
 
 
+@pytest.mark.medium
 def test_config_without_areas_is_an_error(tmp_path: Path):
     """A store names its areas."""
     folder = tmp_path / "docs" / "backlog"
@@ -78,6 +84,7 @@ def test_config_without_areas_is_an_error(tmp_path: Path):
         BacklogStore(tmp_path).config()
 
 
+@pytest.mark.medium
 def test_index_counts_each_area(editor, store):
     """The generated README counts entries by state and priority."""
     editor.add_work(area="BUILD", priority="P0", title="Fix the gate", done_when="the gate passes")
@@ -86,9 +93,24 @@ def test_index_counts_each_area(editor, store):
     assert index == store.render_index()
 
 
+@pytest.mark.medium
 def test_find_names_the_area_and_raises_for_an_unknown_id(editor, store):
     """`find` locates an entry, or says it is not open."""
     editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="the gate passes")
     assert store.find("RW-1").area == "BUILD"
     with pytest.raises(BacklogError):
         store.find("RW-2")
+
+
+@pytest.mark.small
+def test_an_entry_is_added_and_found_with_no_disk():
+    """The store keeps its promise on the in-memory files: config, ledger, area and index."""
+    files = MemoryFiles()
+    store = BacklogStore(Path("repo"), lambda: datetime.date(2026, 10, 28), files)
+    editor = BacklogEditor(store)
+    editor.add_area("PHYSICS")
+    editor.add_work(area="PHYSICS", priority="P1", title="Fix the step", done_when="it passes")
+    [entry] = store.entries()
+    assert store.find(entry.ident).area == "PHYSICS"
+    assert files.is_file(store.area_path("PHYSICS"))
+    assert "PHYSICS" in store.render_index()

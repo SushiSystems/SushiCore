@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+import datetime
+from pathlib import Path
+
 import pytest
 
-from sushicore.design import DesignError, OwnedModuleError
+from sushicore.design import DesignError, DesignStore, OwnedModuleError
+from sushicore.files_memory import MemoryFiles
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.medium
 def test_new_topic_owns_its_modules_and_refuses_a_second_owner(store):
     """A module belongs to one topic; a module inside it is a page of that topic."""
     store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
@@ -24,6 +26,7 @@ def test_new_topic_owns_its_modules_and_refuses_a_second_owner(store):
         store.create("WORLD", modules=["modules"], about="Everything.")
 
 
+@pytest.mark.medium
 def test_new_refuses_a_bad_name_a_taken_name_a_missing_module_and_no_about(store):
     """Each refusal names what is wrong."""
     store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
@@ -34,6 +37,7 @@ def test_new_refuses_a_bad_name_a_taken_name_a_missing_module_and_no_about(store
             store.create(name, modules=modules, about=about)
 
 
+@pytest.mark.medium
 def test_deepest_named_module_owns_a_path(store, tmp_path):
     """With nested modules, the deeper one wins."""
     store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
@@ -44,6 +48,7 @@ def test_deepest_named_module_owns_a_path(store, tmp_path):
     assert store.owner("modules/atmosphere/sky/a.cpp") == "SKY"
 
 
+@pytest.mark.medium
 def test_page_and_phase_and_shipping(store):
     """A page sits beside the README; the topic ships when its last phase is built."""
     store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
@@ -59,6 +64,7 @@ def test_page_and_phase_and_shipping(store):
     assert store.topic("ATMOSPHERE").document.status == "**Status:** Open — phases A3 to be built"
 
 
+@pytest.mark.medium
 def test_open_documents_leave_out_topics_under_revision(store):
     """A topic in _REVISION is not counted as open work."""
     store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
@@ -69,6 +75,7 @@ def test_open_documents_leave_out_topics_under_revision(store):
     assert "OLD" in store.topic_paths()
 
 
+@pytest.mark.medium
 def test_a_topic_under_revision_owns_no_module(store):
     """A frozen topic does not stop a live one from owning its module."""
     held = store.design / "_REVISION" / "OLD" / "README.md"
@@ -77,3 +84,15 @@ def test_a_topic_under_revision_owns_no_module(store):
     assert store.owners() == {}
     store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
     assert store.owner("modules/atmosphere") == "ATMOSPHERE"
+
+
+@pytest.mark.small
+def test_a_topic_is_created_and_owned_with_no_disk():
+    """The store keeps its promise on the in-memory files: it writes, finds and reads a topic."""
+    root = Path("repo")
+    files = MemoryFiles({root / "modules" / "atmosphere" / "CMakeLists.txt": ""})
+    store = DesignStore(root, lambda: datetime.date(2026, 10, 28), files)
+    path = store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
+    assert files.is_file(path)
+    assert store.owner("modules/atmosphere/sky.cpp") == "ATMOSPHERE"
+    assert [topic.name for topic in store.topics()] == ["ATMOSPHERE"]

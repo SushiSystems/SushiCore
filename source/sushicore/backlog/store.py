@@ -17,8 +17,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator, Union
 
-from ..errors import ConfigError
-from ..workspace import read_toml
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # Python 3.10 fallback
+    import tomli as tomllib
+
+from ..files import DiskFiles, Files
 from .errors import BacklogError, EntryNotFoundError, RowError
 from .model import (
     K_ISSUE_PREFIX,
@@ -193,25 +197,40 @@ def parse_area(
 class BacklogStore:
     """The backlog of one repository, read from and written to `docs/backlog/`."""
 
-    def __init__(self, root: Path, today: Callable[[], datetime.date] = datetime.date.today) -> None:
-        """Keeps the repository root and the clock that dates a new entry."""
+    def __init__(
+        self,
+        root: Path,
+        today: Callable[[], datetime.date] = datetime.date.today,
+        files: Files | None = None,
+    ) -> None:
+        """Keeps the repository root, the clock that dates a new entry and the files the store is in."""
         self.root = root
         self.folder = root / K_FOLDER
         self.today = today
+        self.files: Files = files if files is not None else DiskFiles()
 
     def exists(self) -> bool:
         """Returns whether the repository has a backlog folder."""
-        return self.folder.is_dir()
+        return self.files.is_dir(self.folder)
+
+    def _read_toml(self, path: Path) -> dict:
+        """Returns a TOML file of the store, or an empty table when it is absent.
+
+        @throws BacklogError When the file is not valid TOML.
+        """
+        if not self.files.is_file(path):
+            return {}
+        try:
+            return tomllib.loads(self.files.read_text(path))
+        except tomllib.TOMLDecodeError as error:
+            raise BacklogError(f"{path}: {error}") from error
 
     def config(self) -> BacklogConfig:
         """Returns the areas and the pins.
 
         @throws BacklogError When `backlog.toml` is missing or names no area.
         """
-        try:
-            table = read_toml(self.folder / K_CONFIG).get("backlog", {})
-        except ConfigError as error:
-            raise BacklogError(str(error)) from error
+        table = self._read_toml(self.folder / K_CONFIG).get("backlog", {})
         areas = tuple(table.get("areas", ()))
         if not areas:
             raise BacklogError(f"{self.folder / K_CONFIG} names no area under [backlog] areas")
@@ -231,10 +250,7 @@ class BacklogStore:
 
         @throws BacklogError When `ids.toml` is not valid.
         """
-        try:
-            data = read_toml(self.folder / K_IDS)
-        except ConfigError as error:
-            raise BacklogError(str(error)) from error
+        data = self._read_toml(self.folder / K_IDS)
         ledger = IdLedger()
         for prefix, name in K_KIND_TABLES.items():
             table = data.get(name, {})
@@ -262,9 +278,9 @@ class BacklogStore:
         @throws BacklogError When the file is not in the shape the tool writes.
         """
         path = self.area_path(area)
-        if not path.is_file():
+        if not self.files.is_file(path):
             return AreaFile(area)
-        parsed, faults = parse_area(path, path.read_text(encoding="utf-8"))
+        parsed, faults = parse_area(path, self.files.read_text(path))
         if faults:
             first = faults[0]
             raise BacklogError(f"{first.path}:{first.line}: {first.message}; run `backlog check`")
@@ -342,8 +358,7 @@ class BacklogStore:
 
     def _write(self, path: Path, text: str) -> None:
         """Writes a file of the store with LF line ends."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8", newline="\n")
+        self.files.write_text(path, text)
 
 
 def parse_ranges(text: str) -> set[int]:

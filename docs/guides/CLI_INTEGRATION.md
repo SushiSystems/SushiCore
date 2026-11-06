@@ -152,6 +152,7 @@ so a CLI test imports it instead of writing a stand-in:
 | `provision.gpu.backend.ToolkitLocator` | `provision.gpu.backend_memory.InMemoryToolkitLocator` |
 | `provision.gpu.windows_installer.MachineEnvironment` | `provision.gpu.windows_installer_memory.InMemoryMachineEnvironment` |
 | `provision.sushi_packages.clock.Clock` | `provision.sushi_packages.clock_memory.ManualClock` |
+| `files.Files`, which `backlog.BacklogStore` and `design.DesignStore` take as `files=` | `files_memory.MemoryFiles` holds each file's text by path; a folder exists while a file sits under it |
 
 None of them starts a process or writes to a terminal, a file or the registry, or reads the real
 clock. The one exception to "writes no file" is a hook: `InMemoryGitClient` calls the `materialize`

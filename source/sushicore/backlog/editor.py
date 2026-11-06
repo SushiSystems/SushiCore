@@ -152,12 +152,13 @@ class BacklogEditor:
         """
         if not is_area_name(area):
             raise RefusedChangeError(f"'{area}' is not an area name: upper case words joined by _")
-        config = self.store.config() if (self.store.folder / "backlog.toml").is_file() else BacklogConfig(())
+        has_config = self.store.files.is_file(self.store.folder / "backlog.toml")
+        config = self.store.config() if has_config else BacklogConfig(())
         if area in config.areas:
             raise RefusedChangeError(f"the area {area} exists")
         areas = tuple(sorted((*config.areas, area)))
         self.store.write_config(BacklogConfig(areas, config.pins))
-        if not (self.store.folder / "ids.toml").is_file():
+        if not self.store.files.is_file(self.store.folder / "ids.toml"):
             self.store.write_ledger(self.store.ledger())
         self.store.write_area(self.store.read_area(area))
         self.store.write_index()

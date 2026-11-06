@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from ..files import DiskFiles, Files
 from .errors import DesignError, OwnedModuleError, TopicNotFoundError
 from .model import (
     K_CLOSED_PHASE_STATES,
@@ -57,24 +58,31 @@ class Topic:
 class DesignStore:
     """The design topics of one repository."""
 
-    def __init__(self, root: Path, today: Callable[[], datetime.date] = datetime.date.today) -> None:
-        """Keeps the repository root and the clock a status line is dated with."""
+    def __init__(
+        self,
+        root: Path,
+        today: Callable[[], datetime.date] = datetime.date.today,
+        files: Files | None = None,
+    ) -> None:
+        """Keeps the repository root, the clock a status line is dated with and the files read."""
         self.root = root
         self.design = root / K_DESIGN
         self.today = today
+        self.files: Files = files if files is not None else DiskFiles()
 
     def documents(self) -> list[Path]:
         """Returns every topic document, a loose one in docs/design and those under revision included."""
-        if not self.design.is_dir():
+        files = self.files
+        if not files.is_dir(self.design):
             return []
         revision = self.design / K_REVISION
-        found = [path for path in sorted(self.design.glob("*.md")) if path.name not in K_INDEXES]
-        found += [
-            folder / K_README for folder in sorted(self.design.iterdir())
-            if folder.is_dir() and folder != revision
+        listed = files.children(self.design)
+        found = [
+            path for path in listed
+            if path.suffix == ".md" and files.is_file(path) and path.name not in K_INDEXES
         ]
-        if revision.is_dir():
-            found += [folder / K_README for folder in sorted(revision.iterdir()) if folder.is_dir()]
+        found += [folder / K_README for folder in listed if files.is_dir(folder) and folder != revision]
+        found += [folder / K_README for folder in files.children(revision) if files.is_dir(folder)]
         return found
 
     def loose_documents(self) -> list[Path]:
@@ -85,13 +93,13 @@ class DesignStore:
         """Returns the document of each topic by name."""
         return {
             path.parent.name if path.name == K_README else path.stem: path
-            for path in self.documents() if path.is_file()
+            for path in self.documents() if self.files.is_file(path)
         }
 
     def topics(self) -> list[Topic]:
         """Returns every topic with its frame."""
         return [
-            Topic(name, path, parse_topic(path.read_text(encoding="utf-8-sig")))
+            Topic(name, path, parse_topic(self.files.read_text(path)))
             for name, path in self.topic_paths().items()
         ]
 
@@ -103,7 +111,7 @@ class DesignStore:
         path = self.topic_paths().get(name)
         if path is None:
             raise TopicNotFoundError(f"'{name}' is not a design topic")
-        return Topic(name, path, parse_topic(path.read_text(encoding="utf-8-sig")))
+        return Topic(name, path, parse_topic(self.files.read_text(path)))
 
     def open_documents(self) -> list[Path]:
         """Returns the document of each topic whose status is Open, those under revision left out."""
@@ -162,7 +170,7 @@ class DesignStore:
         if not about.strip():
             raise DesignError("--about says in one sentence what the topic is")
         for module in modules:
-            if not (self.root / module).exists():
+            if not self.files.exists(self.root / module):
                 raise DesignError(f"the module '{module}' is not in the repository")
         claimed = self.claimed(modules)
         if claimed:
@@ -188,7 +196,7 @@ class DesignStore:
         if not is_topic_name(stem):
             raise DesignError(f"'{page}' is not a page name: upper case words joined by _")
         path = topic.path.parent / f"{stem}.md"
-        if path.exists():
+        if self.files.exists(path):
             raise DesignError(f"{path} exists")
         self.write_file(path, f"# {stem.replace('_', ' ').capitalize()}\n")
         return path
@@ -225,7 +233,7 @@ class DesignStore:
         """Rewrites a topic's Modules line."""
         topic = self.topic(name)
         value = ", ".join(f"`{_normal(m)}`" for m in modules) if modules else "none"
-        text = topic.path.read_text(encoding="utf-8-sig")
+        text = self.files.read_text(topic.path)
         self.write_file(topic.path, replace_field(text, K_MODULES_FIELD, value))
 
     def relative(self, path: Path) -> str:
@@ -236,15 +244,15 @@ class DesignStore:
         """Returns the first file of each work folder, the one that carries its metadata."""
         agent = self.root / K_AGENT
         found: list[Path] = []
-        for folder in sorted(agent.iterdir()) if agent.is_dir() else []:
-            first = next((folder / n for n in K_WORK_FILES_IN_ORDER if (folder / n).is_file()), None)
+        for folder in self.files.children(agent):
+            first = next((folder / n for n in K_WORK_FILES_IN_ORDER if self.files.is_file(folder / n)), None)
             if first is not None:
                 found.append(first)
         return found
 
     def _write_phases(self, topic: Topic, phases: list[Phase]) -> str:
         """Writes a topic's phase table and the status it implies; returns the status."""
-        text = replace_phases(topic.path.read_text(encoding="utf-8-sig"), phases)
+        text = replace_phases(self.files.read_text(topic.path), phases)
         is_closed = bool(phases) and all(phase.state in K_CLOSED_PHASE_STATES for phase in phases)
         status = topic.document.status.removeprefix("**Status:** ")
         if is_closed:
@@ -256,8 +264,7 @@ class DesignStore:
 
     def write_file(self, path: Path, text: str) -> None:
         """Writes a design file with LF line ends."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8", newline="\n")
+        self.files.write_text(path, text)
 
 
 def _normal(path: str) -> str:
