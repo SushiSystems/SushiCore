@@ -6,6 +6,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-50 | P2 | open | Guard the consumer contract before a tag | CI runs the consumer command lines' suites against the package under test, with a token that reads the private ones, before a release is tagged |  |  | 2026-10-19 |
 | RW-68 | P3 | blocked | Have SushiSkills drop or relocate the budget-settings checker test that skips outside it | tools/tests/test_test_budget_settings.py no longer skips here or no longer ships to repositories without skills/ | external: the shared tools are owned by SushiSkills |  | 2026-11-07 |
+| RW-69 | P2 | open | Extract a CMake driver port so an in-memory driver can stand beside CMakeDriver | a CMakeDriver port has an in-memory adapter that passes the same contract test as CMakeDriver |  |  | 2026-11-07 |
 
 ## Known issues
 
