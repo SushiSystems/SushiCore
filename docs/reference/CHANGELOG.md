@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.10.14 — 2026-11-07
+
 - 2026-11-07 — help: Imported Click only for type checking again and found Click's plain help through the command's bases, so a CLI on Typer 0.27, which ships its own Click, starts again (`typer_help.py`).
 - 2026-11-07 — testing: Gave `CommandRunner.capture` an optional `timeout`, which ends the command with exit code 124; `RecordingRunner` records it and can script a timeout (`proc.py`, `proc_memory.py`).
 - 2026-11-07 — continuous_integration: Cleared the known findings of the shared checkers (RW-64, `f3088f0`).
@@ -11,7 +13,3 @@
 - 2026-11-07 — help: Printed Click's plain help, and logged why, when Typer's own help fails too, as on a stray close tag, so `--help` never crashes (`typer_help.py`).
 - 2026-11-07 — testing: Add the `Files` port with its disk and in-memory adapters, and let the backlog and design stores take one, so their logic is tested with no disk (`files.py`, `files_memory.py`, `backlog/store.py`, `design/store.py`).
 - 2026-11-07 — tools: Delete the test-addition checker and its tests (`tools/testing/check_test_additions.py`).
-
-## v0.10.13 — 2026-11-06
-
-- 2026-11-06 — testing: Put `capture` on the `CommandRunner` port and the recording runner, which records it and answers scripted stdout and stderr (`proc.py`, `proc_memory.py`).
