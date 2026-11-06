@@ -10,6 +10,7 @@ import os
 
 import pytest
 
+from sushicore.provision.sushi_packages.lines_memory import RecordedLines
 from sushicore.provision.sushi_packages.package_error import PackageError
 from sushicore.provision.sushi_packages.package_store import PackageStore
 
@@ -17,7 +18,22 @@ from sushicore.provision.sushi_packages.clock_memory import ManualClock
 
 from .package_fakes import install, make_key
 
-pytestmark = pytest.mark.medium
+
+class _Rename:
+    """Renames like :func:`os.replace`, refuses chosen calls and records every destination."""
+
+    def __init__(self, failures: int = 0) -> None:
+        """Refuse the first *failures* calls."""
+        self.failures = failures
+        self.refusing = False
+        self.destinations: list[str] = []
+
+    def __call__(self, source, destination) -> None:
+        """Record the call, refuse it when asked to, otherwise rename."""
+        self.destinations.append(str(destination))
+        if self.refusing or len(self.destinations) <= self.failures:
+            raise PermissionError("in use")
+        os.replace(source, destination)
 
 
 @pytest.fixture
@@ -43,6 +59,7 @@ def _install_three(store, clock, name="sushiruntime"):
     return keys
 
 
+@pytest.mark.medium
 def test_a_folder_without_a_stamp_is_not_found(store):
     """Check that an interrupted install is not a package."""
     key = make_key()
@@ -50,6 +67,7 @@ def test_a_folder_without_a_stamp_is_not_found(store):
     assert store.find(key) is None
 
 
+@pytest.mark.medium
 def test_a_committed_package_is_found(store):
     """Check that a package is found by its key once it is committed."""
     key = make_key()
@@ -57,6 +75,7 @@ def test_a_committed_package_is_found(store):
     assert store.find(key).digest == key.digest()
 
 
+@pytest.mark.medium
 def test_a_commit_without_an_install_raises(store):
     """Check that committing an empty stage is refused."""
     key = make_key()
@@ -65,30 +84,26 @@ def test_a_commit_without_an_install_raises(store):
         store.commit(key, 0.0)
 
 
-def test_the_rename_is_tried_again(store, monkeypatch):
+@pytest.mark.medium
+def test_the_rename_is_tried_again(tmp_path, clock):
     """Check that a rename that fails once is tried a second time."""
+    rename = _Rename(failures=1)
+    store = PackageStore(tmp_path / "packages", clock=clock, sleep=lambda _s: None,
+                         replace=rename)
     key = make_key()
     store.stage(key).mkdir()
-    real, calls = os.replace, []
-
-    def flaky(source, destination):
-        """Fail on the first call, then rename."""
-        calls.append(source)
-        if len(calls) == 1:
-            raise PermissionError("scanner")
-        real(source, destination)
-
-    monkeypatch.setattr(os, "replace", flaky)
     assert store.commit(key, 0.0).digest == key.digest()
-    assert len(calls) == 2
+    assert len(rename.destinations) == 2
 
 
+@pytest.mark.medium
 def test_prune_keeps_the_most_recently_chosen(store, clock):
     """Check that the oldest by last use goes when three exist and two are kept."""
     keys = _install_three(store, clock)
     assert store.prune("sushiruntime") == [keys[0].digest()]
 
 
+@pytest.mark.medium
 def test_touching_a_package_saves_it_from_prune(store, clock):
     """Check that choosing the oldest package again makes the next one the oldest."""
     keys = _install_three(store, clock)
@@ -96,12 +111,14 @@ def test_touching_a_package_saves_it_from_prune(store, clock):
     assert store.prune("sushiruntime") == [keys[1].digest()]
 
 
+@pytest.mark.medium
 def test_prune_never_removes_a_protected_digest(store, clock):
     """Check that a digest in protect stays even when it is the oldest."""
     keys = _install_three(store, clock)
     assert store.prune("sushiruntime", protect={keys[0].digest()}) == []
 
 
+@pytest.mark.medium
 def test_prune_never_removes_a_digest_a_package_below_lists(store, clock):
     """Check that a package of another library listing a digest keeps it."""
     keys = _install_three(store, clock)
@@ -109,38 +126,31 @@ def test_prune_never_removes_a_digest_a_package_below_lists(store, clock):
     assert store.prune("sushiruntime") == []
 
 
-def test_a_deletion_goes_through_trash(store, clock, monkeypatch):
+@pytest.mark.medium
+def test_a_deletion_goes_through_trash(tmp_path, clock):
     """Check that a package is renamed to .trash before it is deleted."""
+    rename = _Rename()
+    store = PackageStore(tmp_path / "packages", keep=2, clock=clock, sleep=lambda _s: None,
+                         replace=rename)
     keys = _install_three(store, clock)
-    renamed = []
-    real = os.replace
-
-    def record(source, destination):
-        """Remember the destination, then rename."""
-        renamed.append(str(destination))
-        real(source, destination)
-
-    monkeypatch.setattr(os, "replace", record)
     store.prune("sushiruntime")
-    assert renamed and renamed[0].endswith(keys[0].digest() + ".trash")
+    assert rename.destinations[-1].endswith(keys[0].digest() + ".trash")
 
 
-def test_a_rename_that_fails_is_skipped_with_a_warning(tmp_path, clock, monkeypatch):
+@pytest.mark.medium
+def test_a_rename_that_fails_is_skipped_with_a_warning(tmp_path, clock):
     """Check that a package that cannot be moved stays, and one warning says so."""
-    warnings = []
-    store = PackageStore(tmp_path / "packages", keep=2, clock=clock, warn=warnings.append)
+    warnings, rename = RecordedLines(), _Rename()
+    store = PackageStore(tmp_path / "packages", keep=2, clock=clock, warn=warnings,
+                         replace=rename)
     keys = _install_three(store, clock)
-
-    def locked(_source, _destination):
-        """Refuse every rename, as a folder an open file holds is refused."""
-        raise PermissionError("in use")
-
-    monkeypatch.setattr(os, "replace", locked)
+    rename.refusing = True
     assert store.prune("sushiruntime") == []
-    assert len(warnings) == 1
+    assert len(warnings.lines) == 1
     assert store.find(keys[0]) is not None
 
 
+@pytest.mark.medium
 def test_a_fresh_partial_of_another_process_is_left_and_a_stale_one_goes(store, tmp_path, clock):
     """Check that only a partial folder older than a day is removed."""
     install(store, make_key())
@@ -155,6 +165,7 @@ def test_a_fresh_partial_of_another_process_is_left_and_a_stale_one_goes(store, 
     assert fresh.exists() and not stale.exists()
 
 
+@pytest.mark.small
 def test_a_keep_below_one_raises(tmp_path):
     """Check that a store that keeps nothing is refused."""
     with pytest.raises(PackageError, match="at least one"):

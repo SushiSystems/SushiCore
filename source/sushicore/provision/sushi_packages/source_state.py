@@ -10,7 +10,7 @@ import fnmatch
 import hashlib
 import subprocess
 from pathlib import Path, PurePosixPath
-from typing import Protocol, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from .package_error import PackageError
 
@@ -29,6 +29,29 @@ class ISourceInspector(Protocol):
 
     def files(self, checkout: Path) -> list[Path]:
         """Return the tracked and the untracked, not ignored files, relative to *checkout*."""
+
+
+class MemoryInspector:
+    """Lists the files it was given for a checkout, as git would, and runs nothing.
+
+    Attributes:
+        listing: The files, relative to the checkout, of each checkout it knows; a test adds
+            a file by appending to the list of a checkout.
+    """
+
+    def __init__(self, listing: Mapping[Path, list[Path]]) -> None:
+        """Keep a copy of *listing*."""
+        self.listing = dict(listing)
+
+    def files(self, checkout: Path) -> list[Path]:
+        """Return the files listed for *checkout*.
+
+        Raises:
+            PackageError: *checkout* is not in the listing, as a folder that is no repository.
+        """
+        if checkout not in self.listing:
+            raise PackageError(f"{checkout} is not a git checkout, so its source is unknown.")
+        return sorted(self.listing[checkout])
 
 
 class GitSourceInspector:

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from sushicore.provision.sushi_packages.build_tree import BuildTree
@@ -31,5 +33,4 @@ def test_each_part_gives_another_folder(other):
 
 def test_the_folder_is_pkg_and_twelve_hex_digits():
     """Check the shape of the folder name."""
-    folder = BuildTree("release", (), "tc").folder
-    assert folder.startswith("pkg-") and len(folder) == len("pkg-") + 12
+    assert re.fullmatch(r"pkg-[0-9a-f]{12}", BuildTree("release", (), "tc").folder)

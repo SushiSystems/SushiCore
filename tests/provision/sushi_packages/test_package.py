@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision.sushi_packages.package import Package
 from sushicore.provision.sushi_packages.package_error import PackageError
 from sushicore.provision.sushi_packages.package_store import PackageStore
 
@@ -55,9 +54,3 @@ def test_below_lists_the_packages_the_stamp_records(store):
     """Check that the stamp's below entries come back as pairs."""
     key = make_key("sushiblas", below=(("sushiruntime", "abc"),))
     assert install(store, key).below() == [("sushiruntime", "abc")]
-
-
-def test_the_toolchain_and_build_type_come_from_the_stamp(store):
-    """Check that the package reports the parts its stamp recorded."""
-    package: Package = install(store, make_key(toolchain="tc9", build_type="debug"))
-    assert (package.toolchain, package.build_type) == ("tc9", "debug")

@@ -33,6 +33,30 @@ def _file_safe(text: str) -> str:
     return re.sub(r"[^a-z0-9._-]", "_", text.lower())
 
 
+class MemoryLocks:
+    """Opens no file: it records the lock files asked for and the ones held now.
+
+    Attributes:
+        asked: Every lock path asked for, in order.
+        held: The lock paths held now, in the order they were taken.
+    """
+
+    def __init__(self) -> None:
+        """Start with nothing asked and nothing held."""
+        self.asked: list[Path] = []
+        self.held: list[Path] = []
+
+    @contextlib.contextmanager
+    def __call__(self, path: Path, _timeout: float) -> Iterator[None]:
+        """Hold *path* until the block ends."""
+        self.asked.append(path)
+        self.held.append(path)
+        try:
+            yield
+        finally:
+            self.held.remove(path)
+
+
 class PackageLocks:
     """Hands out the locks in the one order the design allows: checkout, key, link."""
 

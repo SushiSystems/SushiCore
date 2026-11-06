@@ -6,14 +6,18 @@
 
 from __future__ import annotations
 
-import subprocess
+from pathlib import Path
 
 import pytest
 
 import sushicore.provision.sushi_packages as sushi_packages
 from sushicore.provision.sushi_packages import PackageError, default_resolver, effective_keep
+from sushicore.provision.sushi_packages.lines_memory import RecordedLines
+from sushicore.provision.sushi_packages.package_builder import MemoryRun
+from sushicore.provision.sushi_packages.package_resolver import PackageResolver
+from sushicore.provision.sushi_packages.source_state import MemoryInspector
 
-pytestmark = pytest.mark.medium
+pytestmark = pytest.mark.small
 
 
 def test_the_public_surface_is_exactly_the_documented_names():
@@ -24,25 +28,27 @@ def test_the_public_surface_is_exactly_the_documented_names():
         "effective_keep", "search_path_variable"]
 
 
-def test_default_resolver_starts_no_process(provision_home, monkeypatch):
-    """Check that assembling the resolver runs neither git nor a CLI."""
-    started = []
-
-    def refuse(*_args, **_kwargs):
-        """Record that a process started and stop it."""
-        started.append(_args)
-        raise AssertionError("a process started")
-
-    monkeypatch.setattr(subprocess, "run", refuse)
-    monkeypatch.setattr(subprocess, "Popen", refuse)
-    resolver = default_resolver(3, lambda _line: None, lambda _text: None, env={})
-    assert (resolver is not None, started) == (True, [])
+def test_default_resolver_starts_no_process():
+    """Check that assembling the resolver runs no library CLI and lists no checkout."""
+    run = MemoryRun(codes=())
+    inspector = MemoryInspector({})
+    resolver = default_resolver(3, RecordedLines(), RecordedLines(), env={}, run=run,
+                                root=Path("packages"), inspector=inspector)
+    assert (type(resolver), run.calls) == (PackageResolver, [])
 
 
-def test_the_keep_count_is_three_by_default_and_the_environment_overrides_it():
-    """Check the default, the configured value and the variable."""
+def test_an_unset_keep_count_is_three():
+    """Check that no configured count and no variable give three."""
     assert effective_keep(0, {}) == 3
+
+
+def test_the_configured_keep_count_is_used_without_the_variable():
+    """Check that a configured count stands when the variable is not set."""
     assert effective_keep(5, {}) == 5
+
+
+def test_the_environment_overrides_the_configured_keep_count():
+    """Check that the variable wins over the configured count."""
     assert effective_keep(5, {"SUSHISTACK_PACKAGE_KEEP": "2"}) == 2
 
 

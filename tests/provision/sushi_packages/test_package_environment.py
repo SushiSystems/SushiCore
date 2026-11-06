@@ -20,20 +20,36 @@ from sushicore.provision.sushi_packages.package_environment import (
 pytestmark = pytest.mark.small
 
 
-def test_the_variable_is_the_upper_case_name_with_package():
+@pytest.mark.parametrize("name, variable", [
+    ("sushiruntime", "SUSHIRUNTIME_PACKAGE"),
+    ("sushilog", "SUSHILOG_PACKAGE"),
+])
+def test_the_variable_is_the_upper_case_name_with_package(name, variable):
     """Check the spelling of the variable that hands a prefix down."""
-    assert package_variable("sushiruntime") == "SUSHIRUNTIME_PACKAGE"
+    assert package_variable(name) == variable
 
 
-def test_the_environment_carries_compiler_marker_and_prefixes():
-    """Check that the compiler, the marker and one variable per package are set."""
-    env = PackageEnvironment({"PATH": "/bin"}).assemble(
+def test_the_environment_carries_the_compiler():
+    """Check that the compiler variable holds the compiler given."""
+    assert PackageEnvironment({}).assemble("clang++", {})[K_COMPILER] == "clang++"
+
+
+def test_the_environment_carries_the_nested_marker():
+    """Check that the nested marker is set."""
+    assert PackageEnvironment({}).assemble("clang++", {})[K_MARKER] == "1"
+
+
+def test_the_environment_holds_one_variable_per_package_below():
+    """Check that each package below is named by its own variable holding its prefix."""
+    env = PackageEnvironment({}).assemble(
         "clang++", {"sushilog": Path("/p/log"), "sushiruntime": Path("/p/rt")})
-    assert env[K_COMPILER] == "clang++"
-    assert env[K_MARKER] == "1"
-    assert env["SUSHILOG_PACKAGE"] == str(Path("/p/log"))
-    assert env["SUSHIRUNTIME_PACKAGE"] == str(Path("/p/rt"))
-    assert env["PATH"] == "/bin"
+    assert (env["SUSHILOG_PACKAGE"], env["SUSHIRUNTIME_PACKAGE"]) == (
+        str(Path("/p/log")), str(Path("/p/rt")))
+
+
+def test_the_environment_keeps_the_variables_of_the_parent():
+    """Check that a variable of the parent unrelated to packages is kept."""
+    assert PackageEnvironment({"PATH": "/bin"}).assemble("clang++", {})["PATH"] == "/bin"
 
 
 def test_no_dir_variable_is_set():

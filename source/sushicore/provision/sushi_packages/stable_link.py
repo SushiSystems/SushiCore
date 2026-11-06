@@ -8,11 +8,51 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Protocol
 
 from .. import links
 
 #: What the link name starts with, so a package digest folder is never taken for a link.
 K_MARK = "@"
+
+
+class ILinkStore(Protocol):
+    """Moves the per-consumer links and says which digests they name."""
+
+    def point(self, name: str, config: str, consumer: str, target: Path) -> Path:
+        """Make the link of *consumer* name *target*, and return the link."""
+
+    def targets(self, name: str) -> set[str]:
+        """Return the digests, as folder names, that any link of *name* points at."""
+
+
+class MemoryLinks:
+    """Keeps links in a dictionary and touches no folder.
+
+    Args:
+        error: What :meth:`point` raises; None for links that always succeed.
+    """
+
+    def __init__(self, error: OSError | None = None) -> None:
+        """Start with no link."""
+        self._error = error
+        self._links: dict[Path, Path] = {}
+
+    def point(self, name: str, config: str, consumer: str, target: Path) -> Path:
+        """Keep the link of *consumer* naming *target*, and return its path.
+
+        Raises:
+            OSError: The store was made to fail.
+        """
+        if self._error is not None:
+            raise self._error
+        link = Path(name) / f"{K_MARK}{config}-{consumer}"
+        self._links[link] = target
+        return link
+
+    def targets(self, name: str) -> set[str]:
+        """Return the folder names the links of *name* name."""
+        return {target.name for link, target in self._links.items() if link.parent.name == name}
 
 
 class StableLink:

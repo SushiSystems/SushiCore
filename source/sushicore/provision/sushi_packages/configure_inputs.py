@@ -25,6 +25,30 @@ CMakeVersion = Callable[[], str]
 VcpkgHead = Callable[[Path], str]
 
 
+class MemoryCMakeVersion:
+    """Answers one CMake version text and runs nothing."""
+
+    def __init__(self, version: str = "3.28.1") -> None:
+        """Keep the *version* to answer."""
+        self._version = version
+
+    def __call__(self) -> str:
+        """Return the version text."""
+        return self._version
+
+
+class MemoryVcpkgHead:
+    """Answers one vcpkg commit for every tree and runs nothing."""
+
+    def __init__(self, head: str = "") -> None:
+        """Keep the *head* to answer; '' stands for a tree with no commit."""
+        self._head = head
+
+    def __call__(self, _vcpkg_root: Path) -> str:
+        """Return the commit."""
+        return self._head
+
+
 def probe_cmake_version(cmake: str = "cmake") -> str:
     """Return the version of *cmake* from ``cmake --version``.
 

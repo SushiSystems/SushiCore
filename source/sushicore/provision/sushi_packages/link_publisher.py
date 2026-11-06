@@ -11,13 +11,13 @@ from pathlib import Path
 from .package import Package
 from .package_error import PackageError
 from .package_locks import PackageLocks
-from .stable_link import StableLink
+from .stable_link import ILinkStore
 
 
 class LinkPublisher:
     """Sets the per-consumer link of a package under the link lock."""
 
-    def __init__(self, locks: PackageLocks, link: StableLink) -> None:
+    def __init__(self, locks: PackageLocks, link: ILinkStore) -> None:
         """Bind the publisher to the locks and the link store.
 
         Args:

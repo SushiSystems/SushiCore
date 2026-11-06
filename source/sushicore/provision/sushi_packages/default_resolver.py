@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
+from pathlib import Path
 from typing import Callable, Mapping
 
 from .. import home
@@ -24,7 +25,7 @@ from .package_locks import PackageLocks
 from .package_resolver import PackageResolver
 from .package_store import K_DEFAULT_KEEP, PackageStore
 from .source_locator import SushiSourceLocator
-from .source_state import GitSourceInspector
+from .source_state import GitSourceInspector, ISourceInspector
 from .stable_link import StableLink
 from .toolchain_identity import compiler_identity
 
@@ -63,7 +64,8 @@ def effective_keep(configured: int, env: Mapping[str, str]) -> int:
 
 def default_resolver(keep: int, report: Callable[[str], None], warn: Callable[[str], None],
                      env: Mapping[str, str] | None = None, cmake: str = "cmake",
-                     run: Run = run_process) -> PackageResolver:
+                     run: Run = run_process, root: Path | None = None,
+                     inspector: ISourceInspector | None = None) -> PackageResolver:
     """Return the resolver over ``<home>/packages`` that starts git and the library CLIs.
 
     No process starts until :meth:`PackageResolver.resolve` runs.
@@ -75,12 +77,14 @@ def default_resolver(keep: int, report: Callable[[str], None], warn: Callable[[s
         env: The environment of the CLI; ``os.environ`` when None.
         cmake: The cmake executable the key's CMake version is read from.
         run: Runs a library CLI command.
+        root: The packages folder; ``<home>/packages`` when None.
+        inspector: Lists a checkout's files for the source hash; git on PATH when None.
     """
     environment = os.environ if env is None else env
-    root = home.root() / "packages"
+    root = home.root() / "packages" if root is None else root
     store = PackageStore(root, effective_keep(keep, environment), warn=warn)
     locks = PackageLocks(root)
-    keys = KeyFactory(GitSourceInspector(),
+    keys = KeyFactory(GitSourceInspector() if inspector is None else inspector,
                       ConfigureInputs(lambda: probe_cmake_version(cmake)),
                       compiler_identity, sushicore_version())
     builder = CliPackageBuilder(run, CompilerCheck(warn=warn), PackageEnvironment(environment))

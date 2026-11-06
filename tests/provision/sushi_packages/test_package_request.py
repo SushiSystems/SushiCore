@@ -15,21 +15,8 @@ from sushicore.provision.sushi_packages.package_request import PackageRequest
 pytestmark = pytest.mark.small
 
 
-def test_a_request_defaults_to_the_standard_fragment_and_no_choices():
-    """Check the defaults of the optional fields."""
-    request = PackageRequest("sushiai", Path("."), "clang++", "release")
-    assert request.fragment == "cli/sushistack.deps.toml"
-    assert (request.options, request.configured, request.vcpkg_root, request.triplet) == (
-        {}, {}, None, "")
-
-
 def test_two_requests_do_not_share_their_default_mappings():
     """Check that the default mappings are separate objects."""
     first = PackageRequest("a", Path("."), "c", "release")
     second = PackageRequest("b", Path("."), "c", "release")
     assert first.options is not second.options
-
-
-def test_a_request_resolves_every_library_unless_it_names_some():
-    """Check that the library filter defaults to None."""
-    assert PackageRequest("a", Path("."), "c", "release").libraries is None

@@ -9,7 +9,7 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Callable, Mapping, Protocol, Sequence
 
 from .build_tree import BuildTree
 from .compiler_check import CompilerCheck
@@ -40,6 +40,33 @@ def run_process(command: list[str], cwd: Path, env: Mapping[str, str]) -> int:
         raise PackageError(f"cannot run {command[0]}: {exc}") from exc
 
 
+class MemoryRun:
+    """Runs nothing: it records each command and answers an exit code per call.
+
+    Args:
+        codes: The exit codes to answer, in call order.
+        effects: What the command at the same position leaves behind, such as a cache file.
+
+    Attributes:
+        calls: The ``(command, cwd, env)`` of every call, in order.
+    """
+
+    def __init__(self, codes: Sequence[int] = (0, 0),
+                 effects: Sequence[Callable[[], None]] = ()) -> None:
+        """Keep the exit *codes* and the *effects*; no command has run yet."""
+        self._codes = list(codes)
+        self._effects = list(effects)
+        self.calls: list[tuple[list[str], Path, dict[str, str]]] = []
+
+    def __call__(self, command: list[str], cwd: Path, env: Mapping[str, str]) -> int:
+        """Record the call, run its effect when it has one, and answer the next code."""
+        position = len(self.calls)
+        self.calls.append((list(command), cwd, dict(env)))
+        if position < len(self._effects):
+            self._effects[position]()
+        return self._codes[position]
+
+
 @dataclass(frozen=True, slots=True)
 class BuildRequest:
     """What one library build needs."""
@@ -61,6 +88,47 @@ class IPackageBuilder(Protocol):
 
     def build(self, request: BuildRequest) -> None:
         """Build and install; raise :class:`PackageError` on failure."""
+
+
+class RecordingBuilder:
+    """Builds nothing: it records each request and installs the files an install leaves.
+
+    Args:
+        spellings: The CMake spelling of each library's package; a library not in it is
+            spelled as its name.
+        fail: Whether every build raises.
+        pass_time: Called with the seconds a build takes, so a test clock moves.
+        build_seconds: The seconds each build takes.
+
+    Attributes:
+        requests: Every request built, in order.
+    """
+
+    def __init__(self, spellings: Mapping[str, str] | None = None, fail: bool = False,
+                 pass_time: Callable[[float], None] = lambda _seconds: None,
+                 build_seconds: float = 0.0) -> None:
+        """Keep the settings; nothing has been built yet."""
+        self._spellings = dict(spellings or {})
+        self._fail = fail
+        self._pass_time = pass_time
+        self._seconds = build_seconds
+        self.requests: list[BuildRequest] = []
+
+    def build(self, request: BuildRequest) -> None:
+        """Record *request*, then fill its prefix with a config file and a ``bin`` folder.
+
+        Raises:
+            PackageError: The builder was made to fail.
+        """
+        self.requests.append(request)
+        if self._fail:
+            raise PackageError("the build failed")
+        spelling = self._spellings.get(request.key.name, request.key.name)
+        config = request.prefix / "lib" / "cmake" / spelling
+        config.mkdir(parents=True)
+        (config / f"{spelling}Config.cmake").write_text("", encoding="utf-8")
+        (request.prefix / "bin").mkdir()
+        self._pass_time(self._seconds)
 
 
 class CliPackageBuilder:

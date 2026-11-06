@@ -46,7 +46,8 @@ class PackageStore:
     def __init__(self, root: Path, keep: int = K_DEFAULT_KEEP,
                  clock: Clock = time.time,
                  sleep: Callable[[float], None] = time.sleep,
-                 warn: Callable[[str], None] = lambda _text: None) -> None:
+                 warn: Callable[[str], None] = lambda _text: None,
+                 replace: Callable[[Path, Path], None] | None = None) -> None:
         """Bind the store to *root*.
 
         Args:
@@ -55,6 +56,8 @@ class PackageStore:
             clock: Returns the time in seconds; replaced in tests.
             sleep: Waits between two rename tries; replaced in tests.
             warn: Receives the warning for a folder that could not be removed.
+            replace: Renames a folder over a path; :func:`os.replace` when None. It is looked
+                up when a rename runs, so a test can replace it.
 
         Raises:
             PackageError: *keep* is below 1.
@@ -66,6 +69,7 @@ class PackageStore:
         self._clock = clock
         self._sleep = sleep
         self._warn = warn
+        self._rename = replace
 
     def find(self, key: PackageKey) -> Package | None:
         """Return the complete package of *key*, or None when there is none."""
@@ -169,7 +173,7 @@ class PackageStore:
         trash = folder.with_name(folder.name + K_TRASH)
         try:
             shutil.rmtree(trash, ignore_errors=True)
-            os.replace(folder, trash)
+            self._move(folder, trash)
         except OSError as exc:
             self._warn(f"{folder} could not be removed now ({exc}); the next prune retries.")
             return False
@@ -195,12 +199,16 @@ class PackageStore:
             try:
                 if destination.exists():
                     shutil.rmtree(destination)
-                os.replace(source, destination)
+                self._move(source, destination)
                 return
             except OSError as exc:
                 if attempt == K_RENAME_TRIES - 1:
                     raise PackageError(f"cannot move {source} to {destination}: {exc}") from exc
                 self._sleep(K_RENAME_WAIT)
+
+    def _move(self, source: Path, destination: Path) -> None:
+        """Rename *source* to *destination* through the rename the store was given."""
+        (os.replace if self._rename is None else self._rename)(source, destination)
 
     def _partial(self, key: PackageKey) -> Path:
         """Return the staging folder of *key*."""

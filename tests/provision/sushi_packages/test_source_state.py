@@ -6,104 +6,115 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from sushicore.provision.sushi_packages.package_error import PackageError
-from sushicore.provision.sushi_packages.source_state import describe_source, is_excluded
-
-pytestmark = pytest.mark.medium
-
-
-class _Files:
-    """Lists the files of a folder, as a git checkout with nothing ignored would."""
-
-    def files(self, checkout: Path) -> list[Path]:
-        """Return every file below *checkout*, relative to it."""
-        return sorted(p.relative_to(checkout) for p in checkout.rglob("*") if p.is_file())
+from sushicore.provision.sushi_packages.source_state import (
+    GitSourceInspector,
+    MemoryInspector,
+    describe_source,
+    is_excluded,
+)
 
 
-class _NotARepository:
-    """Raises the error a folder that is not a repository raises."""
+class _Source:
+    """A checkout on disk and the inspector that lists its files, as git would."""
 
-    def files(self, checkout: Path) -> list[Path]:
-        """Raise a package error."""
-        raise PackageError(f"{checkout} is not a git checkout")
+    def __init__(self, checkout: Path) -> None:
+        """List the files the checkout starts with."""
+        self.checkout = checkout
+        self.inspector = MemoryInspector({checkout: []})
+        for relative, text in (("src/a.cpp", "int a;"), ("README.md", "one"),
+                               ("docs/x.txt", "one")):
+            self.add(relative, text)
+
+    def add(self, relative: str, text: str) -> None:
+        """Write the file and list it."""
+        self.write(relative, text)
+        self.inspector.listing[self.checkout].append(Path(relative))
+
+    def write(self, relative: str, text: str) -> None:
+        """Write the file and leave the listing as it is."""
+        path = self.checkout / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def hash(self, excludes=()) -> str:
+        """Return the source hash of the checkout."""
+        return describe_source(self.checkout, self.inspector, excludes)
 
 
 @pytest.fixture
-def checkout(tmp_path):
+def source(tmp_path):
     """Return a checkout with one source file, one page and one docs file."""
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "a.cpp").write_text("int a;", encoding="utf-8")
-    (tmp_path / "README.md").write_text("one", encoding="utf-8")
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "x.txt").write_text("one", encoding="utf-8")
-    return tmp_path
+    return _Source(tmp_path)
 
 
-def _hash(checkout, excludes=()):
-    """Return the source hash of *checkout*."""
-    return describe_source(checkout, _Files(), excludes)
-
-
-def test_a_change_under_docs_or_in_a_page_does_not_change_the_hash(checkout):
+@pytest.mark.medium
+def test_a_change_under_docs_or_in_a_page_does_not_change_the_hash(source):
     """Check that docs/ and *.md leave the hash as it was."""
-    before = _hash(checkout)
-    (checkout / "README.md").write_text("two", encoding="utf-8")
-    (checkout / "docs" / "x.txt").write_text("two", encoding="utf-8")
-    (checkout / "docs" / "new.txt").write_text("new", encoding="utf-8")
-    assert _hash(checkout) == before
+    before = source.hash()
+    source.write("README.md", "two")
+    source.write("docs/x.txt", "two")
+    source.add("docs/new.txt", "new")
+    assert source.hash() == before
 
 
-def test_a_changed_source_file_changes_the_hash(checkout):
+@pytest.mark.medium
+def test_a_changed_source_file_changes_the_hash(source):
     """Check that editing a source file changes the hash."""
-    before = _hash(checkout)
-    (checkout / "src" / "a.cpp").write_text("int b;", encoding="utf-8")
-    assert _hash(checkout) != before
+    before = source.hash()
+    source.write("src/a.cpp", "int b;")
+    assert source.hash() != before
 
 
-def test_a_new_source_file_changes_the_hash(checkout):
+@pytest.mark.medium
+def test_a_new_source_file_changes_the_hash(source):
     """Check that an untracked source file changes the hash."""
-    before = _hash(checkout)
-    (checkout / "src" / "b.cpp").write_text("", encoding="utf-8")
-    assert _hash(checkout) != before
+    before = source.hash()
+    source.add("src/b.cpp", "")
+    assert source.hash() != before
 
 
-def test_a_deleted_file_changes_the_hash(checkout):
-    """Check that a file removed from the working tree changes the hash."""
-    before = _hash(checkout)
-    (checkout / "src" / "a.cpp").unlink()
-    assert _hash(checkout) != before
+@pytest.mark.medium
+def test_a_deleted_file_changes_the_hash(source):
+    """Check that a file git still lists but the working tree lost changes the hash."""
+    before = source.hash()
+    (source.checkout / "src" / "a.cpp").unlink()
+    assert source.hash() != before
 
 
-def test_the_build_folders_never_enter_the_hash(checkout):
+@pytest.mark.medium
+def test_the_build_folders_never_enter_the_hash(source):
     """Check that build/ and build-asan/ are left out whatever the ignore file says."""
-    before = _hash(checkout)
-    for folder in ("build", "build-asan"):
-        (checkout / folder).mkdir()
-        (checkout / folder / "obj.o").write_text("x", encoding="utf-8")
-    assert _hash(checkout) == before
+    before = source.hash()
+    source.add("build/obj.o", "x")
+    source.add("build-asan/obj.o", "x")
+    assert source.hash() == before
 
 
-def test_a_package_exclude_entry_is_left_out(checkout):
+@pytest.mark.medium
+def test_a_package_exclude_entry_is_left_out(source):
     """Check that a folder prefix and a glob of package_exclude are left out."""
-    (checkout / "bench").mkdir()
-    (checkout / "bench" / "b.cpp").write_text("1", encoding="utf-8")
-    (checkout / "notes.txt").write_text("1", encoding="utf-8")
-    before = _hash(checkout, ("bench/", "*.txt"))
-    (checkout / "bench" / "b.cpp").write_text("2", encoding="utf-8")
-    (checkout / "notes.txt").write_text("2", encoding="utf-8")
-    assert _hash(checkout, ("bench/", "*.txt")) == before
+    source.add("bench/b.cpp", "1")
+    source.add("notes.txt", "1")
+    before = source.hash(("bench/", "*.txt"))
+    source.write("bench/b.cpp", "2")
+    source.write("notes.txt", "2")
+    assert source.hash(("bench/", "*.txt")) == before
 
 
-def test_a_folder_that_is_not_a_repository_raises(tmp_path):
+@pytest.mark.small
+def test_a_folder_that_is_not_a_repository_raises():
     """Check that the error of the inspector reaches the caller."""
     with pytest.raises(PackageError, match="not a git checkout"):
-        describe_source(tmp_path, _NotARepository())
+        describe_source(Path("checkout"), MemoryInspector({}))
 
 
+@pytest.mark.small
 @pytest.mark.parametrize("name, excluded", [
     ("docs/a.txt", True), ("build/x", True), ("build-asan/x", True), ("a.md", True),
     ("src/build/x", False), ("src/a.cpp", False), ("docs", False),
@@ -111,3 +122,23 @@ def test_a_folder_that_is_not_a_repository_raises(tmp_path):
 def test_the_built_in_exclusions(name, excluded):
     """Check which paths the built-in exclusions leave out."""
     assert is_excluded(Path(name), ()) is excluded
+
+
+@pytest.mark.medium
+def test_git_lists_the_tracked_and_the_untracked_files_it_does_not_ignore(tmp_path):
+    """Check that a tracked and an untracked file are listed, and an ignored one is not."""
+    subprocess.run(["git", "-C", str(tmp_path), "init"], capture_output=True, check=True)
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("b", encoding="utf-8")
+    (tmp_path / "c.txt").write_text("c", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text("c.txt\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "a.txt"], capture_output=True, check=True)
+    listed = GitSourceInspector().files(tmp_path)
+    assert listed == [Path(".gitignore"), Path("a.txt"), Path("b.txt")]
+
+
+@pytest.mark.medium
+def test_git_raises_for_a_folder_that_is_not_a_repository(tmp_path):
+    """Check that a plain folder is refused as a checkout."""
+    with pytest.raises(PackageError, match="not a git checkout"):
+        GitSourceInspector().files(tmp_path)

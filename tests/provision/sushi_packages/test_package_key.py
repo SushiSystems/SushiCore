@@ -49,5 +49,5 @@ def test_the_order_of_below_does_not_matter():
 
 
 def test_the_short_form_is_the_head_of_the_digest():
-    """Check that the short form is the first 12 hex digits."""
-    assert _key().short() == _key().digest()[:12]
+    """Check that the short form is the first 12 hex digits of a fixed key's digest."""
+    assert _key().short() == "2799a07c4d9c"

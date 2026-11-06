@@ -47,6 +47,23 @@ def search_path_variable(windows: bool) -> str:
     return K_WINDOWS_PATH if windows else K_POSIX_PATH
 
 
+class MemoryDefinitions:
+    """A module config that pins some libraries and reads no file.
+
+    Args:
+        pins: The lower-case names of the pinned libraries.
+    """
+
+    def __init__(self, pins: Sequence[str]) -> None:
+        """Keep the names of the *pins*."""
+        self._pins = list(pins)
+
+    def sushi_definitions(self, root: Path, packaged: PackageSet | None = None) -> list[str]:
+        """Return ``-D<NAME>_DIR=<root>/<name>`` for each pin that *packaged* does not hold."""
+        return [f"-D{pin.upper()}_DIR={root / pin}" for pin in self._pins
+                if packaged is None or packaged.get(pin) is None]
+
+
 class RunDirs:
     """Keeps the run-time folders of the packages a build tree linked, in a file of that tree.
 

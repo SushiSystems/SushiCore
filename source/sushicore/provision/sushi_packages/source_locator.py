@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol
+from typing import Mapping, Protocol
 
 from .. import sushi_sources
 from .package_error import PackageError
@@ -18,6 +18,33 @@ class ISourceLocator(Protocol):
 
     def locate(self, root: Path, name: str, version: str, configured: str) -> Path:
         """Return the checkout of *name*; raise :class:`PackageError` when there is none."""
+
+
+class MemoryLocator:
+    """Answers the checkout set for a library and searches nothing.
+
+    Args:
+        checkouts: The checkout of each library, by name.
+
+    Attributes:
+        asked: The ``(name, version)`` of every call, in order.
+    """
+
+    def __init__(self, checkouts: Mapping[str, Path]) -> None:
+        """Keep *checkouts*; nothing has been asked yet."""
+        self._checkouts = dict(checkouts)
+        self.asked: list[tuple[str, str]] = []
+
+    def locate(self, root: Path, name: str, version: str, configured: str) -> Path:
+        """Record the name and the version, and return the checkout of *name*.
+
+        Raises:
+            PackageError: No checkout was set for *name*.
+        """
+        self.asked.append((name, version))
+        if name not in self._checkouts:
+            raise PackageError(f"{name} has no checkout.")
+        return self._checkouts[name]
 
 
 class SushiSourceLocator:

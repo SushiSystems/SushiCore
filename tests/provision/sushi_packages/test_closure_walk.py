@@ -10,75 +10,82 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.deps_fragment import Fragment, SushiPin
 from sushicore.provision.sushi_packages.closure_walk import ClosureWalk
 from sushicore.provision.sushi_packages.package_error import PackageError
 from sushicore.provision.sushi_packages.package_request import PackageRequest
-from sushicore.provision.sushi_packages.source_locator import SushiSourceLocator
+from sushicore.provision.sushi_packages.source_locator import MemoryLocator
 
-from .package_fakes import make_library
+pytestmark = pytest.mark.small
 
-pytestmark = pytest.mark.medium
-
-
-@pytest.fixture
-def workspace(tmp_path):
-    """Return a workspace holding the diamond: AI, BLAS, Runtime and Log."""
-    make_library(tmp_path, "sushilog")
-    make_library(tmp_path, "sushiruntime", ("sushilog",))
-    make_library(tmp_path, "sushiblas", ("sushiruntime", "sushilog"))
-    make_library(tmp_path, "sushiai", ("sushiblas", "sushiruntime"), cli="")
-    return tmp_path
+K_ROOT = Path("ws")
+K_FRAGMENT = "cli/sushistack.deps.toml"
+K_NAMES = ("sushilog", "sushiruntime", "sushiblas", "sushiai")
 
 
-def _walk(workspace):
-    """Return the names the walk lists for the consumer at *workspace*."""
-    request = PackageRequest("sushiai", workspace / "sushiai", "c", "release")
-    return ClosureWalk(SushiSourceLocator()).walk(request)
+def _fragment(depends_on=(), cli="x", pins=()) -> Fragment:
+    """Return a fragment that depends on *depends_on* and pins *pins*."""
+    return Fragment([], list(depends_on), list(pins), cli)
 
 
-def test_the_diamond_lists_the_runtime_once_before_blas(workspace):
+def _diamond() -> dict[Path, Fragment]:
+    """Return the fragments of the diamond: AI, BLAS, Runtime and Log, by path."""
+    return {
+        K_ROOT / "sushilog" / K_FRAGMENT: _fragment(),
+        K_ROOT / "sushiruntime" / K_FRAGMENT: _fragment(("sushilog",)),
+        K_ROOT / "sushiblas" / K_FRAGMENT: _fragment(("sushiruntime", "sushilog")),
+        K_ROOT / "sushiai" / K_FRAGMENT: _fragment(("sushiblas", "sushiruntime"), cli=""),
+    }
+
+
+def _locator() -> MemoryLocator:
+    """Return a locator that knows every library of the diamond beside the consumer."""
+    return MemoryLocator({name: K_ROOT / name for name in K_NAMES})
+
+
+def _walk(read, locator=None):
+    """Return the nodes the walk lists for the consumer, reading fragments through *read*."""
+    request = PackageRequest("sushiai", K_ROOT / "sushiai", "c", "release")
+    return ClosureWalk(locator or _locator(), read).walk(request)
+
+
+def test_the_diamond_lists_the_runtime_once_before_blas():
     """Check the dependency order and that no library appears twice."""
-    names = [node.name for node in _walk(workspace)]
+    names = [node.name for node in _walk(_diamond().get)]
     assert names == ["sushilog", "sushiruntime", "sushiblas"]
 
 
-def test_a_node_carries_its_cli_and_dependencies(workspace):
+def test_a_node_carries_its_cli_and_dependencies():
     """Check the fields of a node read from the fragment."""
-    blas = _walk(workspace)[2]
+    blas = _walk(_diamond().get)[2]
     assert (blas.cli, blas.depends_on) == ("x", ("sushiruntime", "sushilog"))
-    assert blas.checkout == (workspace / "sushiblas").resolve()
+    assert blas.checkout == K_ROOT / "sushiblas"
 
 
-def test_a_cycle_raises_naming_the_trail(workspace):
+def test_a_cycle_raises_naming_the_trail():
     """Check that two libraries depending on each other are refused."""
-    make_library(workspace, "sushilog", ("sushiruntime",))
+    fragments = _diamond()
+    fragments[K_ROOT / "sushilog" / K_FRAGMENT] = _fragment(("sushiruntime",))
     with pytest.raises(PackageError, match="sushiai -> sushiblas -> sushiruntime -> sushilog"):
-        _walk(workspace)
+        _walk(fragments.get)
 
 
-def test_a_malformed_fragment_raises_a_package_error(workspace):
+def _refuse(_path):
+    """Read a fragment the way a reader that refuses its content does."""
+    raise ValueError("cli must be a text")
+
+
+def test_a_malformed_fragment_raises_a_package_error():
     """Check that a fragment the reader refuses reaches the caller as a package error."""
-    (workspace / "sushilog" / "cli" / "sushistack.deps.toml").write_text(
-        "[module]\ncli = 3\n", encoding="utf-8")
     with pytest.raises(PackageError, match="cli"):
-        _walk(workspace)
+        _walk(_refuse)
 
 
-def test_the_pin_of_the_consumer_decides_the_version(workspace, tmp_path):
+def test_the_pin_of_the_consumer_decides_the_version():
     """Check that the consumer's pin is the version handed to the locator."""
-    seen: list[tuple[str, str]] = []
-
-    class _Locator:
-        """Records the version asked for and answers the sibling."""
-
-        def locate(self, root: Path, name: str, version: str, configured: str) -> Path:
-            """Record the call and return the sibling checkout."""
-            seen.append((name, version))
-            return workspace / name
-
-    text = ('[module]\ndepends_on = ["sushilog"]\n[sushisystems.sushilog]\n'
-            'version = "v1.0.0"\ncommit = "' + "a" * 40 + '"\n')
-    (workspace / "sushiai" / "cli" / "sushistack.deps.toml").write_text(text, encoding="utf-8")
-    request = PackageRequest("sushiai", workspace / "sushiai", "c", "release")
-    ClosureWalk(_Locator()).walk(request)
-    assert seen == [("sushilog", "v1.0.0")]
+    fragments = _diamond()
+    pin = SushiPin("sushilog", "v1.0.0", "a" * 40)
+    fragments[K_ROOT / "sushiai" / K_FRAGMENT] = _fragment(("sushilog",), cli="", pins=(pin,))
+    locator = _locator()
+    _walk(fragments.get, locator)
+    assert locator.asked == [("sushilog", "v1.0.0")]
