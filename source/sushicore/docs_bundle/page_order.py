@@ -14,6 +14,7 @@ import posixpath
 from collections import deque
 from pathlib import Path
 
+from ..files import DiskFiles, Files
 from .errors import PageError
 from .markdown_scan import iter_links, local_path
 from .page_text import is_page, read_page_text
@@ -27,13 +28,13 @@ def _is_followed(page: str) -> bool:
     return page.split("/", 1)[0] not in K_RECORD_FOLDERS
 
 
-def _linked_pages(docs_dir: Path, page: str) -> list[str]:
+def _linked_pages(docs_dir: Path, page: str, files: Files) -> list[str]:
     """Returns the Markdown files below docs/ a page links to, in reading order."""
     path = docs_dir / page
-    if not path.is_file():
+    if not files.is_file(path):
         return []
     linked: list[str] = []
-    for link in iter_links(read_page_text(path)):
+    for link in iter_links(read_page_text(path, files=files)):
         local = local_path(link.target)
         if local is None:
             continue
@@ -43,22 +44,27 @@ def _linked_pages(docs_dir: Path, page: str) -> list[str]:
     return linked
 
 
-def read_page_order(docs_dir: Path) -> dict[str, int]:
+def read_page_order(docs_dir: Path, *, files: Files | None = None) -> dict[str, int]:
     """Returns each page reached from the index, keyed by its path below docs/, with its position.
 
     Pages are numbered from 1 in the order a breadth-first walk first reaches them: the pages
     the index links to, then the pages those link to. A page under agent/ or archive/ gets a
     position and is not read.
 
+    Args:
+        docs_dir: The documentation tree.
+        files: The file system the pages are read through; the disk when None.
+
     Raises:
         PageError: The documentation tree has no index.
     """
-    if not (docs_dir / K_INDEX_NAME).is_file():
+    files = files if files is not None else DiskFiles()
+    if not files.is_file(docs_dir / K_INDEX_NAME):
         raise PageError(docs_dir / K_INDEX_NAME, 1, "does not exist; the pages take their order from it")
     order: dict[str, int] = {}
     pending = deque([K_INDEX_NAME])
     while pending:
-        for page in _linked_pages(docs_dir, pending.popleft()):
+        for page in _linked_pages(docs_dir, pending.popleft(), files):
             if page == K_INDEX_NAME or page in order:
                 continue
             order[page] = len(order) + 1

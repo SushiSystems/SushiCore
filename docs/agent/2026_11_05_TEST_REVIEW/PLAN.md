@@ -20,7 +20,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M2 | the tests of `backlog` (9 files): 9 rewrite, 10 resize, 19 split, 1 delete | T1, T2, T3, T4, T5 | done |
 | M3 | the tests of `design` (7 files): 7 rewrite, 2 resize, 14 split, 1 delete | T1, T2, T3, T4, T5 | todo |
 | M4 | the tests of `docs_bundle` (13 files): 11 rewrite, 30 resize, 6 split, 6 merge, 3 delete | T1, T2, T3, T4, T5 | todo |
-| M5 | the tests of `help` (5 files): 1 split, 10 merge, 1 delete | T1, T2, T3, T4, T5 | todo |
+| M5 | the tests of `help` (5 files): 1 split, 10 merge, 1 delete | T1, T2, T3, T4, T5 | done |
 | M6 | the tests of `provision` (40 files): 154 rewrite, 62 resize, 10 split, 8 merge, 13 delete | T1, T2, T3, T4, T5 | todo |
 | M7 | the tests of `provision/gpu` (26 files): 76 rewrite, 6 resize, 12 merge, 21 delete | T1, T2, T3, T4, T5 | todo |
 | M8 | the tests of `provision/sushi_packages` (25 files): 58 rewrite, 17 resize, 3 split, 3 merge, 12 delete | T1, T2, T3, T4, T5 | todo |

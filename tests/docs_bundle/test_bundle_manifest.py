@@ -9,11 +9,31 @@ from __future__ import annotations
 import pytest
 
 from sushicore.docs_bundle.bundle_manifest import BundleIdentity, build_manifest
-from sushicore.docs_bundle.page_set import PageCollector
-from sushicore.docs_bundle.publish_list import read_publish_list
+from sushicore.docs_bundle.page_set import Page, PageSet
+from sushicore.docs_bundle.publish_list import PublishList
 
 
 pytestmark = pytest.mark.small
+
+K_PUBLISH_LIST = PublishList(
+    name="sample",
+    title="Sample",
+    summary="A sample repository.",
+    sections=("architecture", "guides"),
+    exclude=frozenset(),
+    api=False,
+    source_url="https://github.com/SushiSystems/Sample",
+)
+
+K_PAGE_SET = PageSet(
+    pages=(
+        Page("guides/BUILDING.md", "guides", "Building", 2),
+        Page("guides/FAQ.md", "guides", "FAQ", 3),
+        Page("architecture/OVERVIEW.md", "architecture", "Overview", 1),
+    ),
+    assets=("guides/images/shot.png",),
+    faq="guides/FAQ.md",
+)
 
 K_IDENTITY = BundleIdentity(version="1.2.3", commit="c0ffee")
 
@@ -54,23 +74,14 @@ K_GOLDEN = {
 }
 
 
-def _manifest(repository, *, has_api: bool) -> dict:
-    """Builds the manifest of the sample repository."""
-    publish_list = read_publish_list(repository / "docs")
-    page_set = PageCollector(repository, publish_list).collect()
-    return build_manifest(K_IDENTITY, publish_list, page_set, has_api=has_api)
-
-
-def test_build_matches_the_golden_document(repository):
+def test_build_matches_the_golden_document():
     """Produces exactly the document the contract fixes, key order included."""
-    manifest = _manifest(repository, has_api=False)
+    manifest = build_manifest(K_IDENTITY, K_PUBLISH_LIST, K_PAGE_SET, has_api=False)
     assert manifest == K_GOLDEN
     assert list(manifest) == list(K_GOLDEN)
 
 
-def test_build_names_the_api_root_when_the_bundle_carries_one(repository):
+def test_build_names_the_api_root_when_the_bundle_carries_one():
     """Records the format and the folder of the API reference."""
-    assert _manifest(repository, has_api=True)["api"] == {
-        "format": "doxygen-xml",
-        "root": "api/xml",
-    }
+    manifest = build_manifest(K_IDENTITY, K_PUBLISH_LIST, K_PAGE_SET, has_api=True)
+    assert manifest["api"] == {"format": "doxygen-xml", "root": "api/xml"}

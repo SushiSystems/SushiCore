@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import final
 
+from ..files import DiskFiles, Files
 from .errors import PageError, PublishListError
 from .markdown_scan import MarkdownLink, first_heading, iter_links, local_path
 from .page_order import K_INDEX_NAME, read_page_order
@@ -49,8 +50,17 @@ class PageSet:
 class PageCollector:
     """Collects the published pages of one repository."""
 
-    def __init__(self, repository_root: Path, publish_list: PublishList) -> None:
-        """Stores the repository and the list that says what it publishes."""
+    def __init__(
+        self, repository_root: Path, publish_list: PublishList, *, files: Files | None = None,
+    ) -> None:
+        """Stores the repository, the list that says what it publishes and the file system.
+
+        Args:
+            repository_root: The repository to collect from.
+            publish_list: What the repository publishes.
+            files: The file system the pages are read through; the disk when None.
+        """
+        self._files: Files = files if files is not None else DiskFiles()
         self._root = repository_root
         self._docs = repository_root / K_DOCS
         self._publish_list = publish_list
@@ -63,13 +73,13 @@ class PageCollector:
             PageError: A page has no title, no order, or a link to a missing file.
         """
         sources = self._published_sources()
-        order = read_page_order(self._docs)
+        order = read_page_order(self._docs, files=self._files)
         known = frozenset(sources)
         pages: list[Page] = []
         assets: set[str] = set()
         for source in sources:
             path = self._docs / source
-            text = read_page_text(path)
+            text = read_page_text(path, files=self._files)
             title = first_heading(text)
             if title is None:
                 raise PageError(path, 1, "has no level-one heading to take its title from")
@@ -91,8 +101,8 @@ class PageCollector:
         list_path = self._docs / K_FILE_NAME
         found: list[str] = []
         for section in self._publish_list.sections:
-            for path in sorted((self._docs / section).rglob("*")):
-                if path.is_file() and is_page(path.name):
+            for path in self._files_below(self._docs / section):
+                if is_page(path.name):
                     found.append(path.relative_to(self._docs).as_posix())
         unknown = sorted(self._publish_list.exclude - set(found))
         if unknown:
@@ -103,6 +113,16 @@ class PageCollector:
         if not sources:
             raise PublishListError(f"{list_path}: the listed sections hold no page to publish.")
         return sources
+
+    def _files_below(self, folder: Path) -> list[Path]:
+        """Returns every file below *folder*, in path order."""
+        found: list[Path] = []
+        for child in self._files.children(folder):
+            if self._files.is_dir(child):
+                found.extend(self._files_below(child))
+            else:
+                found.append(child)
+        return found
 
     def _asset_of(
         self, path: Path, source: str, link: MarkdownLink, known: frozenset[str],
@@ -121,7 +141,7 @@ class PageCollector:
         target = posixpath.normpath(posixpath.join(K_DOCS, posixpath.dirname(source), local))
         if target.startswith(".."):
             raise PageError(path, link.line, f"links to {link.target}, which leaves the repository")
-        if not (self._root / target).exists():
+        if not self._files.exists(self._root / target):
             raise PageError(path, link.line, f"links to {link.target}, which does not exist")
         if not target.startswith(K_DOCS + "/"):
             return None
@@ -129,4 +149,4 @@ class PageCollector:
         if inside in known or is_page(inside):
             return None
         published = inside.split("/", 1)[0] in self._publish_list.sections
-        return inside if published and (self._root / target).is_file() else None
+        return inside if published and self._files.is_file(self._root / target) else None

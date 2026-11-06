@@ -10,12 +10,10 @@ import pytest
 
 from sushicore.docs_bundle.errors import PageError
 from sushicore.docs_bundle.markdown_scan import first_heading
-from sushicore.docs_bundle.page_text import read_page_text
+from sushicore.docs_bundle.page_text import is_page, read_page_text
 
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.medium
 def test_read_drops_a_byte_order_mark(tmp_path):
     """Returns the text without the mark, so the first heading is still found."""
     page = tmp_path / "A.md"
@@ -23,6 +21,7 @@ def test_read_drops_a_byte_order_mark(tmp_path):
     assert first_heading(read_page_text(page)) == "Title"
 
 
+@pytest.mark.medium
 def test_read_reports_a_page_that_is_not_utf_8(tmp_path):
     """Names the file when its bytes are not UTF-8, in place of a decoder traceback."""
     page = tmp_path / "A.md"
@@ -31,3 +30,13 @@ def test_read_reports_a_page_that_is_not_utf_8(tmp_path):
         read_page_text(page)
     assert caught.value.path == page
     assert "UTF-8" in str(caught.value)
+
+
+@pytest.mark.small
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [("A.md", True), ("A.MD", True), ("A.Md", True), ("A.txt", False), ("A.md.png", False)],
+)
+def test_is_page_accepts_markdown_in_any_case_and_refuses_other_suffixes(name, expected):
+    """Says a file name is a page when its suffix is `.md`, whatever the case."""
+    assert is_page(name) is expected

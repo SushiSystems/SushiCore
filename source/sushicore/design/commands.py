@@ -9,11 +9,13 @@ The behaviour of each command is in `docs/reference/DESIGN.md`.
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from ..command_groups import K_DESIGN
+from ..files import Files
 from .check import check_design
 from .merge import TopicMerger, find_overlap
 from .model import K_CLOSED_PHASE_STATES, split_values
@@ -34,6 +36,8 @@ def register_design_commands(
     project_root: Callable[[], Path],
     report: Callable[[str], None] = print,
     group_cls: type | None = None,
+    today: Callable[[], datetime.date] = datetime.date.today,
+    files: Files | None = None,
 ) -> None:
     """Adds the `design` group to *app*.
 
@@ -44,6 +48,8 @@ def register_design_commands(
         project_root: Returns the repository root; called when a command runs.
         report: Prints one line of the result the way the CLI prints.
         group_cls: The Click group class the CLI draws its help with.
+        today: The clock a shipped status is dated with; the real date by default.
+        files: The files the topics are read from and written to; the disk by default.
     """
     import typer
 
@@ -54,7 +60,7 @@ def register_design_commands(
 
     def store() -> DesignStore:
         """Returns the design store of the repository the CLI runs in."""
-        return DesignStore(project_root())
+        return DesignStore(project_root(), today, files)
 
     json_option = typer.Option(False, "--json", help="Print JSON, for an agent.")
 
@@ -173,7 +179,7 @@ def register_design_commands(
     def check() -> None:
         """Check every topic against the format and the ownership rule; exits 1 on a finding."""
         root = project_root()
-        findings = check_design(DesignStore(root))
+        findings = check_design(store())
         for finding in findings:
             report(f"{_shown(finding.path, root)}:{finding.line}: {finding.message}")
         if findings:

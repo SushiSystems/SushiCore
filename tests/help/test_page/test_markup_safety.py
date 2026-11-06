@@ -96,16 +96,12 @@ def test_a_typer_app_in_rich_mode_renders_its_markup_without_the_tags():
     assert "[cyan]" not in text
 
 
-def test_a_typer_app_in_rich_mode_shows_its_required_and_default_extras_without_a_backslash():
-    leaf, ctx = _typer_leaf(_typer_app(rich_markup_mode="rich"), "grow")
+@pytest.mark.parametrize(
+    "settings", [{"rich_markup_mode": "rich"}, {}], ids=["rich mode", "no mode set"],
+)
+def test_a_typer_app_shows_its_required_and_default_extras_without_a_backslash(settings):
+    leaf, ctx = _typer_leaf(_typer_app(**settings), "grow")
     text = _page(leaf, ctx)
     assert "The module.  [required]" in text
     assert "Kind.  [default: a]" in text
-    assert "\\" not in text
-
-
-def test_a_typer_app_with_no_mode_set_shows_its_extras_without_a_backslash():
-    leaf, ctx = _typer_leaf(_typer_app(), "grow")
-    text = _page(leaf, ctx)
-    assert "[required]" in text and "[default: a]" in text
     assert "\\" not in text

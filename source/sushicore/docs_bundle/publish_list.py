@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..files import DiskFiles, Files
 from ..workspace import read_toml
 from .errors import PublishListError
 
@@ -73,18 +74,22 @@ def _source_url(path: Path, document: dict) -> str | None:
     return value.rstrip("/")
 
 
-def read_publish_list(docs_dir: Path) -> PublishList:
+def read_publish_list(docs_dir: Path, *, files: Files | None = None) -> PublishList:
     """Reads and validates the publish list of the documentation tree at *docs_dir*.
+
+    Args:
+        docs_dir: The documentation tree.
+        files: The file system the list is read through; the disk when None.
 
     Raises:
         PublishListError: The file is missing, or a key is unknown or holds a wrong value.
     """
     path = docs_dir / K_FILE_NAME
-    if not path.is_file():
+    if not (files if files is not None else DiskFiles()).is_file(path):
         raise PublishListError(
             f"{path} does not exist; a repository lists what it publishes there."
         )
-    document = read_toml(path)
+    document = read_toml(path, files=files)
     unknown = sorted(set(document) - K_KEYS)
     if unknown:
         raise PublishListError(

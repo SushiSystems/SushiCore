@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 2026-11-07 — continuous_integration: Gave the Files port a remove call and routed the backlog check, close and merge through it, so their small tests read no disk (RW-70, `files.py`).
+- 2026-11-07 — continuous_integration: Gave the Files port a remove call and routed the backlog check, close and merge through it, so their small tests read no disk (RW-70, `f44d1ef`).
 
 ## v0.10.15 — 2026-11-07
 

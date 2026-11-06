@@ -31,6 +31,7 @@ def register_docs_commands(
     api: Callable[[], ApiSource] | None = None,
     report: Callable[[str], None] = print,
     group_cls: type | None = None,
+    producer: BundleProducer | None = None,
 ) -> None:
     """Adds the `docs` group to *app*: the bare form when *api* is given, and `bundle`.
 
@@ -42,6 +43,7 @@ def register_docs_commands(
         api: Returns how this CLI builds its API reference; None for a CLI that builds none.
         report: Prints one line of the result the way the CLI prints.
         group_cls: The Click group class the CLI draws its help with.
+        producer: The producer `bundle` runs; a default `BundleProducer` when None.
     """
     import typer
 
@@ -83,7 +85,7 @@ def register_docs_commands(
             output_dir=out if out is not None else root / K_DEFAULT_OUTPUT,
             api=None if api is None else api(),
         )
-        result = BundleProducer().produce(request)
+        result = (producer if producer is not None else BundleProducer()).produce(request)
         report(f"{result.archive} ({result.page_count} pages)")
         report(f"sha256 {result.sha256}")
 

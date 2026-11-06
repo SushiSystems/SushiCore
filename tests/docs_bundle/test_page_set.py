@@ -2,47 +2,55 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests which pages and assets a repository publishes, and which links stop the producer."""
+"""Tests that a repository's published pages and their assets are collected and checked."""
 
 from __future__ import annotations
 
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
 from sushicore.docs_bundle.errors import PageError, PublishListError
 from sushicore.docs_bundle.page_set import Page, PageCollector, PageSet
 from sushicore.docs_bundle.publish_list import read_publish_list
+from sushicore.files_memory import MemoryFiles
 
-from .sample_repository import write_file
+from .sample_repository import K_MEMORY_ROOT
 
 
 pytestmark = pytest.mark.small
 
+K_DOCS = K_MEMORY_ROOT / "docs"
+K_SAMPLE_PAGES = (
+    Page("guides/BUILDING.md", "guides", "Building", 2),
+    Page("guides/FAQ.md", "guides", "FAQ", 3),
+    Page("architecture/OVERVIEW.md", "architecture", "Overview", 1),
+)
 
-def _collect(repository: Path, **changes) -> PageSet:
+
+def _collect(files: MemoryFiles, **changes) -> PageSet:
     """Collects the sample's pages, with *changes* applied to its publish list."""
-    publish_list = replace(read_publish_list(repository / "docs"), **changes)
-    return PageCollector(repository, publish_list).collect()
+    publish_list = replace(read_publish_list(K_DOCS, files=files), **changes)
+    return PageCollector(K_MEMORY_ROOT, publish_list, files=files).collect()
 
 
-def test_collect_returns_the_pages_in_section_then_index_order(repository):
+def _put(files: MemoryFiles, relative: str, text: str) -> None:
+    """Writes one file below the sample's docs/ folder."""
+    files.write_text(K_DOCS / relative, text)
+
+
+def test_collect_returns_the_pages_in_section_then_index_order(memory_repository):
     """Orders pages by section, then by their position in the index."""
-    assert _collect(repository) == PageSet(
-        pages=(
-            Page("guides/BUILDING.md", "guides", "Building", 2),
-            Page("guides/FAQ.md", "guides", "FAQ", 3),
-            Page("architecture/OVERVIEW.md", "architecture", "Overview", 1),
-        ),
+    assert _collect(memory_repository) == PageSet(
+        pages=K_SAMPLE_PAGES,
         assets=("guides/images/shot.png",),
         faq="guides/FAQ.md",
     )
 
 
-def test_collect_leaves_out_an_excluded_page(repository):
+def test_collect_leaves_out_an_excluded_page(memory_repository):
     """Publishes neither an excluded page nor an FAQ that was excluded."""
-    page_set = _collect(repository, exclude=frozenset({"guides/FAQ.md"}))
+    page_set = _collect(memory_repository, exclude=frozenset({"guides/FAQ.md"}))
     assert [page.source for page in page_set.pages] == [
         "guides/BUILDING.md",
         "architecture/OVERVIEW.md",
@@ -50,92 +58,70 @@ def test_collect_leaves_out_an_excluded_page(repository):
     assert page_set.faq is None
 
 
-def test_collect_refuses_an_exclusion_that_names_no_file(repository):
-    """Stops on a misspelt exclusion, which would publish the page it meant to hide."""
+@pytest.mark.parametrize("name", ["guides/FAQ.MD.md", "guides/faq.md"])
+def test_collect_refuses_an_exclusion_that_names_no_page(memory_repository, name):
+    """Stops on a misspelt or differently cased exclusion, which would publish the page it hid."""
     with pytest.raises(PublishListError) as caught:
-        _collect(repository, exclude=frozenset({"guides/FAQ.MD.md"}))
-    assert "guides/FAQ.MD.md" in str(caught.value)
+        _collect(memory_repository, exclude=frozenset({name}))
+    assert f"exclude names {name}, which is not a page of a listed section." in str(caught.value)
 
 
-def test_collect_refuses_an_exclusion_spelt_in_another_case(repository):
-    """Stops on `guides/faq.md`, which a case-blind file system would accept as existing."""
-    with pytest.raises(PublishListError):
-        _collect(repository, exclude=frozenset({"guides/faq.md"}))
-
-
-def test_collect_accepts_a_link_that_leaves_the_bundle(repository):
-    """Accepts links to a design document and to the root README, and carries neither."""
-    page_set = _collect(repository)
-    assert all("SECRET" not in page.source for page in page_set.pages)
-    assert all("README" not in asset for asset in page_set.assets)
-
-
-def test_collect_reports_a_link_to_a_missing_file(repository):
+def test_collect_reports_a_link_to_a_missing_file(memory_repository):
     """Names the page and the line of a link whose target does not exist."""
-    page = write_file(repository, "docs/guides/BUILDING.md", "# Building\n\n\n[gone](NOWHERE.md)\n")
+    _put(memory_repository, "guides/BUILDING.md", "# Building\n\n\n[gone](NOWHERE.md)\n")
     with pytest.raises(PageError) as caught:
-        _collect(repository)
-    assert caught.value.path == page
-    assert caught.value.line == 4
+        _collect(memory_repository)
+    assert (caught.value.path, caught.value.line) == (K_DOCS / "guides" / "BUILDING.md", 4)
     assert "NOWHERE.md" in str(caught.value)
 
 
 @pytest.mark.parametrize("target", ["/etc/hosts", "../../../outside.md"])
-def test_collect_reports_a_link_that_cannot_be_resolved(repository, target):
+def test_collect_reports_a_link_that_cannot_be_resolved(memory_repository, target):
     """Refuses an absolute path and a path that leaves the repository."""
-    write_file(repository, "docs/guides/BUILDING.md", f"# Building\n\n[x]({target})\n")
+    _put(memory_repository, "guides/BUILDING.md", f"# Building\n\n[x]({target})\n")
     with pytest.raises(PageError) as caught:
-        _collect(repository)
+        _collect(memory_repository)
     assert caught.value.line == 3
 
 
-def test_collect_reports_a_page_without_a_title(repository):
+def test_collect_reports_a_page_without_a_title(memory_repository):
     """Names a page that has no level-one heading."""
-    page = write_file(repository, "docs/guides/BUILDING.md", "## Building\n")
+    _put(memory_repository, "guides/BUILDING.md", "## Building\n")
     with pytest.raises(PageError) as caught:
-        _collect(repository)
-    assert caught.value.path == page
+        _collect(memory_repository)
+    assert caught.value.path == K_DOCS / "guides" / "BUILDING.md"
 
 
-def test_collect_reports_a_page_the_index_does_not_link(repository):
+def test_collect_reports_a_page_the_index_does_not_link(memory_repository):
     """Names the index and the page when a published page has no order."""
-    write_file(repository, "docs/guides/ORPHAN.md", "# Orphan\n")
+    _put(memory_repository, "guides/ORPHAN.md", "# Orphan\n")
     with pytest.raises(PageError) as caught:
-        _collect(repository)
-    assert caught.value.path == repository / "docs" / "README.md"
+        _collect(memory_repository)
+    assert caught.value.path == K_DOCS / "README.md"
     assert "guides/ORPHAN.md" in str(caught.value)
 
 
-def test_collect_refuses_a_list_that_publishes_nothing(repository):
+def test_collect_refuses_a_list_that_publishes_nothing(memory_repository):
     """Stops when the listed sections hold no Markdown file."""
-    with pytest.raises(PublishListError):
-        _collect(repository, sections=("reference",))
+    with pytest.raises(PublishListError) as caught:
+        _collect(memory_repository, sections=("reference",))
+    assert "the listed sections hold no page to publish." in str(caught.value)
 
 
 @pytest.mark.parametrize("target", [r"..\design\secret.png", "..%5Cdesign%5Csecret.png"])
-def test_collect_refuses_a_link_written_with_backslashes(repository, target):
+def test_collect_refuses_a_link_written_with_backslashes(memory_repository, target):
     """Stops on a backslash, which a Windows path would follow into an unlisted folder."""
-    (repository / "docs" / "design" / "secret.png").write_bytes(b"x")
-    write_file(repository, "docs/guides/BUILDING.md", f"# Building\n\n![x]({target})\n")
+    _put(memory_repository, "design/secret.png", "x")
+    _put(memory_repository, "guides/BUILDING.md", f"# Building\n\n![x]({target})\n")
     with pytest.raises(PageError) as caught:
-        _collect(repository)
+        _collect(memory_repository)
     assert caught.value.line == 3
     assert "forward slashes" in str(caught.value)
 
 
-def test_collect_never_carries_an_excluded_page_as_an_asset(repository):
+def test_collect_never_carries_an_excluded_page_as_an_asset(memory_repository):
     """Treats `.MD` as a page, so excluding it keeps it out when a page links to it."""
-    write_file(repository, "docs/guides/HIDDEN.MD", "# Hidden\n")
-    write_file(repository, "docs/guides/BUILDING.md", "# Building\n\n[h](HIDDEN.MD)\n")
-    page_set = _collect(repository, exclude=frozenset({"guides/HIDDEN.MD"}))
-    assert page_set.assets == ()
-    assert all("HIDDEN" not in page.source for page in page_set.pages)
-
-
-def test_collect_reports_a_page_that_is_not_utf_8(repository):
-    """Names the page whose bytes cannot be read as UTF-8."""
-    page = repository / "docs" / "guides" / "BUILDING.md"
-    page.write_bytes(b"# Building \xe5\n")
-    with pytest.raises(PageError) as caught:
-        _collect(repository)
-    assert caught.value.path == page
+    _put(memory_repository, "guides/HIDDEN.MD", "# Hidden\n")
+    _put(memory_repository, "guides/BUILDING.md", "# Building\n\n[h](HIDDEN.MD)\n")
+    page_set = _collect(memory_repository, exclude=frozenset({"guides/HIDDEN.MD"}))
+    assert page_set == PageSet(pages=K_SAMPLE_PAGES, assets=(), faq="guides/FAQ.md")

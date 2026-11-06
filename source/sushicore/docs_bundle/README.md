@@ -13,9 +13,9 @@ CLI registers to build it. The archive's layout and the two files it is driven b
 | `read_page_text`, `is_page` | `page_text.py` | Read a page as UTF-8 text and say which file names are pages |
 | `PublishList`, `read_publish_list` | `publish_list.py` | Read and validate `docs/publish.toml` |
 | `read_page_order` | `page_order.py` | Give each page its position in a walk of links that starts at `docs/README.md` |
-| `ApiSource`, `stage_api` | `api_reference.py` | Build the API reference and copy the XML files `index.xml` names |
+| `ApiSource`, `RecordingApiBuild`, `stage_api` | `api_reference.py` | Build the API reference and copy the XML files `index.xml` names; `RecordingApiBuild` is the build the tests use |
 | `write_archive` | `bundle_archive.py` | Pack a folder into a reproducible gzip tar and record its SHA-256 |
-| `read_head_commit` | `source_revision.py` | Read the commit a bundle is built from |
+| `read_head_commit`, `FixedCommit` | `source_revision.py` | Read the commit a bundle is built from; `FixedCommit` is the reader for a run with no git |
 | `Page`, `PageSet`, `PageCollector` | `page_set.py` | Collect the published pages and their assets, and check every link |
 | `BundleIdentity`, `build_manifest` | `bundle_manifest.py` | Build the `bundle.json` document |
 | `BundleRequest`, `BundleResult`, `BundleProducer` | `producer.py` | Stage the pages and the API, write the manifest, pack the archive |
@@ -28,7 +28,9 @@ private to it.
 
 ## What it depends on
 
-`sushicore.errors` for the base error and `sushicore.workspace.read_toml` for the publish list.
+`sushicore.errors` for the base error, `sushicore.workspace.read_toml` for the publish list and
+`sushicore.files` for the `Files` port the readers take through a `files=` keyword; the default is the disk, and
+`sushicore.files_memory.MemoryFiles` runs them with none.
 Everything else is the standard library. `commands.py` imports Typer inside
 `register_docs_commands`, so importing the package does not need it. It never imports Click:
 Typer 0.27 carries its own, and the installed CLIs have no `click` package.

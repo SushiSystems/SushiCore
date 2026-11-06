@@ -20,7 +20,7 @@ from sushicore.errors import SushiCoreError
 pytestmark = pytest.mark.small
 
 
-@pytest.mark.parametrize("kind", [PublishListError, ApiReferenceError, ReleaseError])
+@pytest.mark.parametrize("kind", [PublishListError, ApiReferenceError, ReleaseError, PageError])
 def test_every_bundle_error_is_a_sushicore_error(kind):
     assert issubclass(kind, DocsBundleError)
     assert issubclass(kind, SushiCoreError)

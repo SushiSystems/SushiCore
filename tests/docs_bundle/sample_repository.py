@@ -9,6 +9,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from sushicore.files_memory import MemoryFiles
+
 K_PUBLISH = """name = "sample"
 title = "Sample"
 summary = "A sample repository."
@@ -38,6 +40,8 @@ K_FILES = {
     "docs/design/SECRET.md": "# Secret\n",
 }
 K_SHOT = b"\x89PNG\r\n\x1a\n"
+K_MEMORY_ROOT = Path("repo")
+K_MEMORY_SHOT = "shot"
 
 
 def write_file(root: Path, relative: str, text: str) -> Path:
@@ -73,3 +77,10 @@ def commit_all(root: Path) -> str:
     run_git(root, "add", "-A")
     run_git(root, "commit", "-q", "-m", "sample")
     return run_git(root, "rev-parse", "HEAD")
+
+
+def build_memory_sample(root: Path = K_MEMORY_ROOT) -> MemoryFiles:
+    """Returns the sample repository held in memory below *root*, its image a placeholder text."""
+    files = {root / relative: text for relative, text in K_FILES.items()}
+    files[root / "docs" / "guides" / "images" / "shot.png"] = K_MEMORY_SHOT
+    return MemoryFiles(files)

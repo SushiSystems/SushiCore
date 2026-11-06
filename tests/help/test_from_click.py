@@ -10,6 +10,8 @@ import typer
 import pytest
 
 from sushicore.help.from_click import build_model
+from sushicore.help.page import HelpPage
+from tests.ui.capture import capture
 
 
 pytestmark = pytest.mark.small
@@ -92,30 +94,22 @@ def _typer_root():
     return command, command.make_context("tool", [], resilient_parsing=True)
 
 
-def _unescaped(text: str) -> str:
-    """Return ``text`` with Rich's escaping backslash removed from every bracket.
-
-    Typer escaped a parameter's extras up to 0.20 and hands them over plain from 0.27.
-    """
-    return text.replace("\\[", "[")
-
-
 def _leaf_model(command: click.Command, parent: click.Context):
     """Return the help model of ``command`` as a child of ``parent``."""
     return build_model(command, click.Context(command, info_name=command.name, parent=parent))
 
 
-def test_commands_are_grouped_by_panel_in_order_of_first_appearance():
-    group, ctx = _root()
-    sections = build_model(group, ctx).commands
-    assert [s.heading for s in sections] == ["Workspace", "Commands", "Modules"]
-    assert [term for term, _ in sections[2].entries] == ["add", "link"]
-
-
-def test_a_plain_click_group_lists_commands_alphabetically_so_panels_follow_that_order():
-    group, ctx = _root(click.Group)
-    headings = [s.heading for s in build_model(group, ctx).commands]
-    assert headings == ["Modules", "Commands", "Workspace"]
+@pytest.mark.parametrize(
+    ("group_class", "headings"),
+    [
+        (_RegistrationOrderGroup, ["Workspace", "Commands", "Modules"]),
+        (click.Group, ["Modules", "Commands", "Workspace"]),
+    ],
+    ids=["a group in registration order", "a plain click group in alphabetical order"],
+)
+def test_commands_are_grouped_by_panel_in_order_of_first_appearance(group_class, headings):
+    group, ctx = _root(group_class)
+    assert [s.heading for s in build_model(group, ctx).commands] == headings
 
 
 def test_a_command_with_no_panel_falls_into_commands():
@@ -198,18 +192,21 @@ def test_a_typer_app_groups_by_its_panels():
     ]
 
 
-def test_a_typer_leaf_keeps_the_help_records_typer_hands_out():
+def _typer_leaf():
+    """Return the help model of the Typer leaf ``grow``."""
     command, ctx = _typer_root()
     grow = command.get_command(ctx, "grow")
-    leaf = build_model(grow, grow.make_context("grow", [], parent=ctx, resilient_parsing=True))
-    ((argument, text),) = leaf.arguments
-    # Typer names the argument MODULE up to 0.20 and module from 0.27 on.
-    assert argument.lower() == "module"
-    assert _unescaped(text) == "The module.  [required]"
-    kind = [entry for entry in leaf.options if entry[0].startswith("--kind ")]
-    assert [_unescaped(text) for _, text in kind] == ["Kind [x].  [default: a]"]
-    assert leaf.usage.startswith("tool grow [OPTIONS]")
-    assert "module" in leaf.usage.lower()
+    return build_model(grow, grow.make_context("grow", [], parent=ctx, resilient_parsing=True))
+
+
+def test_a_typer_leaf_shows_the_argument_and_option_records_typer_hands_out():
+    lines = [line.strip().lower() for line in capture(HelpPage(_typer_leaf()), width=100).splitlines()]
+    assert "module  the module.  [required]" in lines
+    assert "--kind text  kind [x].  [default: a]" in lines
+
+
+def test_a_typer_leaf_usage_begins_with_the_command_path_and_names_the_argument():
+    assert _typer_leaf().usage.lower() == "tool grow [options] module"
 
 
 def test_a_plain_click_option_has_its_default_marker_escaped():

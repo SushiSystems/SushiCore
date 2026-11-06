@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import final
 
 from .errors import ReleaseError
 
@@ -30,3 +31,16 @@ def read_head_commit(repository_root: Path) -> str:
     if done.returncode != 0:
         raise ReleaseError(f"{repository_root} is not a git checkout: {done.stderr.strip()}")
     return done.stdout.strip()
+
+
+@final
+class FixedCommit:
+    """A commit reader that returns one hash for every folder, for a run with no git."""
+
+    def __init__(self, commit: str) -> None:
+        """Stores the hash every call returns."""
+        self._commit = commit
+
+    def __call__(self, repository_root: Path) -> str:
+        """Returns the stored hash."""
+        return self._commit

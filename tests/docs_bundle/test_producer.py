@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests the producer end to end on the sample repository."""
+"""Tests that the producer stages, checks and packs a repository's documentation."""
 
 from __future__ import annotations
 
@@ -12,15 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.docs_bundle.api_reference import ApiSource
+from sushicore.docs_bundle.api_reference import ApiSource, RecordingApiBuild
 from sushicore.docs_bundle.errors import ApiReferenceError, ReleaseError
 from sushicore.docs_bundle.producer import BundleProducer, BundleRequest, BundleResult
-from sushicore.docs_bundle.source_revision import read_head_commit
+from sushicore.docs_bundle.source_revision import FixedCommit, read_head_commit
 
 from .sample_repository import K_PUBLISH, commit_all, write_file
 
-
-pytestmark = pytest.mark.medium
 
 K_COMMIT = "c0ffee"
 
@@ -28,8 +26,8 @@ K_COMMIT = "c0ffee"
 def _produce(
     repository: Path, out: Path, release: str = "1.2.3", api: ApiSource | None = None,
 ) -> BundleResult:
-    """Produces the sample's bundle into *out* with a fixed commit."""
-    producer = BundleProducer(read_commit=lambda root: K_COMMIT)
+    """Produces the repository's bundle into *out* with a fixed commit."""
+    producer = BundleProducer(read_commit=FixedCommit(K_COMMIT))
     return producer.produce(BundleRequest(repository, release, out, api))
 
 
@@ -45,48 +43,76 @@ def _manifest(archive: Path) -> dict:
         return json.loads(packed.extractfile("bundle.json").read().decode("utf-8"))
 
 
-def test_produce_writes_the_pages_the_assets_and_the_manifest(repository, tmp_path):
-    """Packs the published pages, their asset and bundle.json, and nothing unpublished."""
-    result = _produce(repository, tmp_path / "out")
-    assert result.archive == tmp_path / "out" / "docs-bundle-1.2.3.tar.gz"
-    assert result.page_count == 3
-    assert _names(result.archive) == [
+@pytest.fixture
+def produced(repository, tmp_path) -> BundleResult:
+    """Returns the result of producing the sample's bundle into a temporary folder."""
+    return _produce(repository, tmp_path / "out")
+
+
+@pytest.mark.medium
+def test_produce_names_the_archive_after_the_release_and_counts_its_pages(produced, tmp_path):
+    """Writes `docs-bundle-<release>.tar.gz` into the output folder and counts the pages."""
+    assert produced.archive == tmp_path / "out" / "docs-bundle-1.2.3.tar.gz"
+    assert produced.page_count == 3
+
+
+@pytest.mark.medium
+def test_produce_packs_the_published_pages_and_their_assets_and_nothing_unpublished(produced):
+    """Packs bundle.json, the three pages and the image, not the design page or the root README."""
+    assert _names(produced.archive) == [
         "bundle.json",
         "pages/architecture/OVERVIEW.md",
         "pages/guides/BUILDING.md",
         "pages/guides/FAQ.md",
         "pages/guides/images/shot.png",
     ]
-    manifest = _manifest(result.archive)
+
+
+@pytest.mark.medium
+def test_produce_records_the_release_and_the_commit_in_the_manifest(produced):
+    """Writes the release, the commit and no API into bundle.json."""
+    manifest = _manifest(produced.archive)
     assert (manifest["version"], manifest["commit"], manifest["api"]) == ("1.2.3", K_COMMIT, None)
 
 
-def test_produce_is_reproducible_and_replaces_an_earlier_staging(repository, tmp_path):
-    """Gives the same digest twice, and a file left in staging does not reach the archive."""
+@pytest.mark.medium
+def test_produce_gives_the_same_digest_twice(repository, tmp_path):
+    """Gives the same digest when the same repository is produced into the same folder twice."""
     first = _produce(repository, tmp_path / "out")
-    write_file(tmp_path / "out", ".docs-bundle-staging/pages/guides/LEFTOVER.md", "# Old\n")
     second = _produce(repository, tmp_path / "out")
     assert first.sha256 == second.sha256
+
+
+@pytest.mark.medium
+def test_produce_replaces_an_earlier_staging(repository, tmp_path):
+    """Keeps a file left in the staging folder out of the archive."""
+    _produce(repository, tmp_path / "out")
+    write_file(tmp_path / "out", ".docs-bundle-staging/pages/guides/LEFTOVER.md", "# Old\n")
+    second = _produce(repository, tmp_path / "out")
     assert "pages/guides/LEFTOVER.md" not in _names(second.archive)
 
 
+@pytest.mark.small
 @pytest.mark.parametrize("release", ["v1.2.3", "1.2", "1.2.3-rc1", "", "1.2.3\n"])
-def test_produce_refuses_a_release_that_is_not_three_integers(repository, tmp_path, release):
-    """Refuses a tag's v, a short version and a pre-release suffix."""
+def test_produce_refuses_a_release_that_is_not_three_integers(release):
+    """Refuses a tag's v, a short version and a pre-release suffix before it reads any file."""
+    producer = BundleProducer(read_commit=FixedCommit(K_COMMIT))
     with pytest.raises(ReleaseError):
-        _produce(repository, tmp_path / "out", release=release)
+        producer.produce(BundleRequest(Path("repo"), release, Path("out")))
 
 
+@pytest.mark.medium
 def test_produce_carries_the_api_when_the_list_asks_for_it(repository, tmp_path):
     """Packs api/xml and names it in the manifest when publish.toml sets api = true."""
     write_file(repository, "docs/publish.toml", K_PUBLISH + "api = true\n")
     xml_dir = tmp_path / "xml"
-    write_file(xml_dir, "index.xml", "<doxygenindex/>\n")
-    result = _produce(repository, tmp_path / "out", api=ApiSource(lambda: 0, xml_dir))
+    build = RecordingApiBuild(written={xml_dir / "index.xml": "<doxygenindex/>\n"})
+    result = _produce(repository, tmp_path / "out", api=ApiSource(build, xml_dir))
     assert "api/xml/index.xml" in _names(result.archive)
     assert _manifest(result.archive)["api"] == {"format": "doxygen-xml", "root": "api/xml"}
 
 
+@pytest.mark.medium
 def test_produce_stops_when_the_list_asks_for_an_api_nobody_builds(repository, tmp_path):
     """Fails before writing an archive when api = true and no source was given."""
     write_file(repository, "docs/publish.toml", K_PUBLISH + "api = true\n")
@@ -95,14 +121,8 @@ def test_produce_stops_when_the_list_asks_for_an_api_nobody_builds(repository, t
     assert not (tmp_path / "out" / "docs-bundle-1.2.3.tar.gz").exists()
 
 
+@pytest.mark.medium
 def test_read_head_commit_returns_the_checked_out_hash(repository):
     """Reads the full hash of HEAD from a real checkout."""
     committed = commit_all(repository)
     assert read_head_commit(repository) == committed
-
-
-def test_read_head_commit_reports_a_folder_that_is_no_checkout(tmp_path, monkeypatch):
-    """Reports a folder outside any repository as a release error."""
-    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
-    with pytest.raises(ReleaseError):
-        read_head_commit(tmp_path)

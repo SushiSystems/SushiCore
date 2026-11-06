@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, final
 
+from ..files import Files
 from .api_reference import ApiSource, stage_api
 from .bundle_archive import write_archive
 from .bundle_manifest import K_API_ROOT, K_PAGES_DIR, BundleIdentity, build_manifest
@@ -50,9 +51,21 @@ class BundleResult:
 class BundleProducer:
     """Produces one repository's documentation bundle."""
 
-    def __init__(self, read_commit: Callable[[Path], str] = read_head_commit) -> None:
-        """Stores the reader of the commit a bundle records."""
+    def __init__(
+        self,
+        read_commit: Callable[[Path], str] = read_head_commit,
+        *,
+        files: Files | None = None,
+    ) -> None:
+        """Stores the commit reader and the file system the sources are read through.
+
+        Args:
+            read_commit: Returns the commit a repository is at.
+            files: The file system the publish list and the pages are read through; the disk
+                when None. The staging folder and the archive are always on the disk.
+        """
         self._read_commit = read_commit
+        self._files = files
 
     def produce(self, request: BundleRequest) -> BundleResult:
         """Writes `docs-bundle-<release>.tar.gz` into the request's output folder.
@@ -66,15 +79,15 @@ class BundleProducer:
                 f"{request.release!r} is not a release; write it as 1.2.3, without the v of the tag."
             )
         root = request.repository_root
-        publish_list = read_publish_list(root / K_DOCS)
-        page_set = PageCollector(root, publish_list).collect()
+        publish_list = read_publish_list(root / K_DOCS, files=self._files)
+        page_set = PageCollector(root, publish_list, files=self._files).collect()
         identity = BundleIdentity(request.release, self._read_commit(root))
         staging = request.output_dir / K_STAGING
         if staging.exists():
             shutil.rmtree(staging)
         self._stage_pages(root, page_set, staging)
         if publish_list.api:
-            stage_api(request.api, staging / K_API_ROOT)
+            stage_api(request.api, staging / K_API_ROOT, files=self._files)
         manifest = build_manifest(identity, publish_list, page_set, has_api=publish_list.api)
         text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
         (staging / K_MANIFEST_NAME).write_bytes(text.encode("utf-8"))

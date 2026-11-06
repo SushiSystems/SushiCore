@@ -6,69 +6,92 @@
 
 from __future__ import annotations
 
-import datetime
 import json
-from pathlib import Path
 
 import pytest
-import typer
-from typer.testing import CliRunner
 
-from sushicore.design import OwnedModuleError, register_design_commands
+from sushicore.design import OwnedModuleError
 
-pytestmark = pytest.mark.medium
+pytestmark = pytest.mark.small
 
-
-def _invoke(root: Path, *arguments: str) -> tuple[int, list[str]]:
-    """Runs one command of an application named `sx` and returns its code and its lines."""
-    reported: list[str] = []
-    app = typer.Typer(name="sx", no_args_is_help=True, add_completion=False)
-
-    @app.command("build")
-    def build() -> None:
-        """Build."""
-
-    register_design_commands(app, program="sx", panel="Project", project_root=lambda: root, report=reported.append)
-    result = CliRunner().invoke(app, ["design", *arguments])
-    if result.exception and not isinstance(result.exception, SystemExit):
-        raise result.exception
-    return result.exit_code, reported
+K_NEW_ATMOSPHERE = ("new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air.")
 
 
-def test_new_then_list_and_owner(store):
-    """An agent opens a topic and reads who owns a path."""
-    root = store.root
-    code, lines = _invoke(root, "new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air.")
-    assert (code, lines) == (0, ["docs/design/ATMOSPHERE/README.md"])
-    _, lines = _invoke(root, "list", "--json")
-    assert json.loads(lines[0])[0]["modules"] == ["modules/atmosphere"]
-    assert _invoke(root, "owner", "modules/atmosphere/sky") == (0, ["ATMOSPHERE"])
-    assert _invoke(root, "owner", "modules/clouds") == (0, ["none"])
+def test_new_reports_the_document_it_wrote(cli):
+    """An agent opens a topic and is told where it is."""
+    assert cli.run(*K_NEW_ATMOSPHERE) == 0
+    assert cli.lines() == ["docs/design/ATMOSPHERE/README.md"]
 
 
-def test_new_refuses_an_owned_module(store):
+def test_list_json_gives_the_modules_of_each_topic(cli):
+    """An agent reads the topics as JSON."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("list", "--json")
+    assert json.loads(cli.lines()[-1])[0]["modules"] == ["modules/atmosphere"]
+
+
+def test_owner_names_the_topic_that_owns_a_path(cli):
+    """A path inside a module is owned by the topic that names the module."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("owner", "modules/atmosphere/sky")
+    assert cli.lines()[-1] == "ATMOSPHERE"
+
+
+def test_owner_of_an_unowned_path_is_none(cli):
+    """A path no topic names has the owner none."""
+    cli.run("owner", "modules/clouds")
+    assert cli.lines() == ["none"]
+
+
+def test_new_refuses_an_owned_module(cli):
     """The second topic on a module is refused and the owner is named."""
-    root = store.root
-    _invoke(root, "new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air.")
-    with pytest.raises(OwnedModuleError):
-        _invoke(root, "new", "SKY", "--modules", "modules/atmosphere/sky", "--about", "The sky.")
+    cli.run(*K_NEW_ATMOSPHERE)
+    with pytest.raises(OwnedModuleError, match="owned by ATMOSPHERE"):
+        cli.run("new", "SKY", "--modules", "modules/atmosphere/sky", "--about", "The sky.")
 
 
-def test_phase_commands_and_check(store):
-    """Phases are added and moved; check is clean, then fails on a hand-made overlap."""
-    root = store.root
-    _invoke(root, "new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air.")
-    assert _invoke(root, "phase", "ATMOSPHERE", "A1", "Scatter light") == (0, ["ATMOSPHERE#A1 planned"])
-    shipped = f"Shipped — {datetime.date.today().isoformat()}"
-    assert _invoke(root, "phase-state", "ATMOSPHERE", "A1", "built") == (0, [shipped])
-    assert _invoke(root, "check") == (0, ["clean"])
-    _invoke(root, "new", "CLOUDS", "--modules", "modules/clouds", "--about", "Clouds.")
-    path = store.topic("CLOUDS").path
-    path.write_text(path.read_text(encoding="utf-8").replace("`modules/clouds`", "`modules/clouds`, `modules/atmosphere`"), encoding="utf-8")
-    code, lines = _invoke(root, "check")
-    assert code == 1 and "owned by ATMOSPHERE" in lines[0]
-    _, lines = _invoke(root, "overlap")
-    assert lines[0] == "shared modules/atmosphere: ATMOSPHERE, CLOUDS"
-    code, lines = _invoke(root, "merge", "ATMOSPHERE", "CLOUDS")
-    assert lines[0] == "docs/design/ATMOSPHERE/CLOUDS.md"
-    assert _invoke(root, "check") == (0, ["clean"])
+def test_phase_reports_the_phase_as_planned(cli):
+    """A phase is added planned."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("phase", "ATMOSPHERE", "A1", "Scatter light")
+    assert cli.lines()[-1] == "ATMOSPHERE#A1 planned"
+
+
+def test_phase_state_ships_the_topic_on_the_day_of_the_clock(cli):
+    """The last built phase ships the topic, dated by the clock."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("phase", "ATMOSPHERE", "A1", "Scatter light")
+    cli.run("phase-state", "ATMOSPHERE", "A1", "built")
+    assert cli.lines()[-1] == "Shipped — 2026-10-28"
+
+
+def test_check_is_clean_after_a_topic_and_a_phase(cli):
+    """What the tool wrote passes the check."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("phase", "ATMOSPHERE", "A1", "Scatter light")
+    assert cli.run("check") == 0
+    assert cli.lines()[-1] == "clean"
+
+
+def test_check_exits_1_on_a_module_two_topics_name(cli, memory_store):
+    """A hand-made overlap fails the check."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("new", "CLOUDS", "--modules", "modules/clouds", "--about", "Clouds.")
+    path = memory_store.topic("CLOUDS").path
+    memory_store.files.write_text(
+        path, memory_store.files.read_text(path).replace("`modules/clouds`", "`modules/clouds`, `modules/atmosphere`"),
+    )
+    assert cli.run("check") == 1
+    assert "owned by ATMOSPHERE" in cli.lines()[-1]
+
+
+def test_overlap_lists_a_module_two_topics_name(cli, memory_store):
+    """The shared module is named with its topics."""
+    cli.run(*K_NEW_ATMOSPHERE)
+    cli.run("new", "CLOUDS", "--modules", "modules/clouds", "--about", "Clouds.")
+    path = memory_store.topic("CLOUDS").path
+    memory_store.files.write_text(
+        path, memory_store.files.read_text(path).replace("`modules/clouds`", "`modules/clouds`, `modules/atmosphere`"),
+    )
+    cli.run("overlap")
+    assert cli.lines()[-1] == "shared modules/atmosphere: ATMOSPHERE, CLOUDS"

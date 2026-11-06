@@ -13,11 +13,16 @@ from sushicore.design.__main__ import main
 pytestmark = pytest.mark.medium
 
 
-def test_main_opens_a_topic_and_checks_it(store, capsys):
-    """The group runs on --root and returns each command's code."""
-    root = str(store.root)
-    assert main(["--root", root, "new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air."]) == 0
-    assert main(["--root", root, "check"]) == 0
+def test_main_opens_a_topic_and_returns_0(store):
+    """The group runs on --root and returns the command's code."""
+    arguments = ["--root", str(store.root), "new", "ATMOSPHERE", "--modules", "modules/atmosphere", "--about", "The air."]
+    assert main(arguments) == 0
+
+
+def test_main_checks_a_topic_as_clean(store, capsys):
+    """A topic the tool wrote passes `check`, which says so on standard output."""
+    store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="The air.")
+    assert main(["--root", str(store.root), "check"]) == 0
     assert capsys.readouterr().out.splitlines()[-1] == "clean"
 
 

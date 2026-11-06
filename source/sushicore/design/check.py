@@ -96,7 +96,7 @@ def rule_phase_table(check: DesignCheck) -> Iterator[Finding]:
         if heading is None:
             continue
         if document.phase_header is None:
-            text = topic.path.read_text(encoding="utf-8-sig")
+            text = check.store.files.read_text(topic.path)
             if K_NO_PHASES not in _section_text(text, K_PHASES):
                 yield Finding(topic.path, heading, f"'## {K_PHASES}' holds a table of {', '.join(K_PHASE_COLUMNS)}, or '{K_NO_PHASES}'")
             continue
@@ -114,7 +114,7 @@ def rule_phase_table(check: DesignCheck) -> Iterator[Finding]:
 def rule_no_commit_hashes(check: DesignCheck) -> Iterator[Finding]:
     """Yields a finding for each commit hash in a design document."""
     for topic in check.topics:
-        for number, line in body_lines(topic.path.read_text(encoding="utf-8-sig")):
+        for number, line in body_lines(check.store.files.read_text(topic.path)):
             for match in K_HASH.finditer(line):
                 if K_HASH_DIGIT.search(match.group()) and K_HASH_LETTER.search(match.group()):
                     yield Finding(topic.path, number, "a commit hash belongs in the work folder's REPORT.md")
@@ -123,7 +123,7 @@ def rule_no_commit_hashes(check: DesignCheck) -> Iterator[Finding]:
 def rule_no_execution_record(check: DesignCheck) -> Iterator[Finding]:
     """Yields a finding for each line outside the status that dates when work was done."""
     for topic in check.topics:
-        for number, line in body_lines(topic.path.read_text(encoding="utf-8-sig")):
+        for number, line in body_lines(check.store.files.read_text(topic.path)):
             if number != topic.document.status_line and K_EXECUTION_RECORD.search(line):
                 yield Finding(topic.path, number, "when work was done belongs in the work folder's REPORT.md")
 
@@ -143,7 +143,7 @@ def rule_modules_exist(check: DesignCheck) -> Iterator[Finding]:
     for topic in check.topics:
         found = topic.document.fields.get(K_MODULES_FIELD)
         for module in topic.document.modules() or []:
-            if not (check.store.root / module).exists():
+            if not check.store.files.exists(check.store.root / module):
                 yield Finding(topic.path, found[0] if found else 1, f"the module '{module}' is not in the repository")
 
 
@@ -165,7 +165,7 @@ def rule_work_references(check: DesignCheck) -> Iterator[Finding]:
     """Yields a finding for an Implements or Designs item of a work folder that names no topic or phase."""
     known = {topic.name: topic for topic in check.topics}
     for path in check.store.work_documents():
-        fields = parse_topic(path.read_text(encoding="utf-8-sig")).fields
+        fields = parse_topic(check.store.files.read_text(path)).fields
         for name in (K_IMPLEMENTS_FIELD, K_DESIGNS_FIELD):
             found = fields.get(name)
             if found is None:

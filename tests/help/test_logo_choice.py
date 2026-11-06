@@ -13,28 +13,28 @@ from sushicore.ui.logo import Logo
 pytestmark = pytest.mark.small
 
 
-@pytest.mark.parametrize("dark", [False, True])
-def test_a_console_as_wide_as_the_lockup_gets_the_mark_and_the_wordmark(dark):
-    logo = choose_logo(width=Logo(glow=dark).width, dark_background=dark)
-    assert logo is not None and logo.wordmark
+K_LOCKUP = "the mark and the wordmark"
+K_MARK = "the mark alone"
 
 
 @pytest.mark.parametrize("dark", [False, True])
-def test_one_column_short_of_the_lockup_drops_the_wordmark(dark):
-    logo = choose_logo(width=Logo(glow=dark).width - 1, dark_background=dark)
-    assert logo is not None and not logo.wordmark
-
-
-@pytest.mark.parametrize("dark", [False, True])
-def test_a_console_as_wide_as_the_mark_gets_the_mark_alone(dark):
-    mark = Logo(wordmark=False, glow=dark)
-    assert choose_logo(width=mark.width, dark_background=dark) == mark
-
-
-@pytest.mark.parametrize("dark", [False, True])
-def test_one_column_short_of_the_mark_gets_nothing(dark):
-    width = Logo(wordmark=False, glow=dark).width - 1
-    assert choose_logo(width=width, dark_background=dark) is None
+@pytest.mark.parametrize(
+    ("width_of", "expected"),
+    [
+        (lambda lockup, mark: lockup, K_LOCKUP),
+        (lambda lockup, mark: lockup - 1, K_MARK),
+        (lambda lockup, mark: mark, K_MARK),
+        (lambda lockup, mark: mark - 1, None),
+        (lambda lockup, mark: 0, None),
+    ],
+    ids=["as wide as the lockup", "one short of the lockup", "as wide as the mark",
+         "one short of the mark", "no width"],
+)
+def test_a_console_gets_the_widest_logo_it_has_room_for(dark, width_of, expected):
+    lockup, mark = Logo(glow=dark), Logo(wordmark=False, glow=dark)
+    chosen = choose_logo(width=width_of(lockup.width, mark.width), dark_background=dark)
+    names = {lockup: K_LOCKUP, mark: K_MARK}
+    assert names.get(chosen) == expected
 
 
 @pytest.mark.parametrize("dark", [False, True])
@@ -43,7 +43,3 @@ def test_the_glow_follows_the_background(dark):
     mark = choose_logo(width=Logo(wordmark=False, glow=dark).width, dark_background=dark)
     assert lockup is not None and mark is not None
     assert lockup.glow is dark and mark.glow is dark
-
-
-def test_a_console_of_no_width_gets_nothing():
-    assert choose_logo(width=0, dark_background=True) is None

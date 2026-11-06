@@ -29,10 +29,18 @@ def test_iter_links_reports_each_target_with_its_line():
     ]
 
 
-def test_iter_links_reads_titled_and_bracketed_targets():
-    """Finds the target when a title follows it or angle brackets wrap it."""
-    text = '[a](one.md "The title")\n[b](<two.md>)\n[`c`](three.md)\n'
-    assert [link.target for link in iter_links(text)] == ["one.md", "two.md", "three.md"]
+@pytest.mark.parametrize(
+    ("text", "targets"),
+    [
+        ('[a](one.md "The title")\n', ["one.md"]),
+        ("[b](<two.md>)\n", ["two.md"]),
+        ("[`c`](three.md)\n", ["three.md"]),
+        ('[a](<b c.md> "t")\n', ["b c.md"]),
+    ],
+)
+def test_iter_links_reads_titled_and_bracketed_targets(text, targets):
+    """Finds the target when a title follows it, angle brackets wrap it or it holds a space."""
+    assert [link.target for link in iter_links(text)] == targets
 
 
 def test_iter_links_skips_code():
@@ -44,22 +52,31 @@ def test_iter_links_skips_code():
 def test_first_heading_returns_the_first_level_one_heading():
     """Returns the first `# ` heading and skips one inside a fenced block."""
     assert first_heading("```\n# not this\n```\n\n## Nor this\n\n# The title #\n") == "The title"
+
+
+def test_first_heading_is_none_when_only_deeper_headings_exist():
+    """Returns None for a page with no level-one heading."""
     assert first_heading("## Only a second level\n") is None
 
 
-def test_local_path_drops_the_fragment_and_refuses_addresses():
-    """Returns the file part of a target and None for an address or a bare anchor."""
-    assert local_path("guides/A%20B.md#part") == "guides/A B.md"
-    assert local_path("page.md?raw=1") == "page.md"
-    assert local_path("https://sushisystems.io") is None
-    assert local_path("mailto:a@b.io") is None
-    assert local_path("#part") is None
-    assert local_path("//cdn.example/x.png") is None
+@pytest.mark.parametrize(
+    ("target", "path"),
+    [
+        ("guides/A%20B.md#part", "guides/A B.md"),
+        ("page.md?raw=1", "page.md"),
+    ],
+)
+def test_local_path_drops_the_fragment_and_the_query(target, path):
+    """Returns the decoded file part of a target."""
+    assert local_path(target) == path
 
 
-def test_iter_links_reads_a_bracketed_target_that_holds_a_space():
-    """Reads the whole target between angle brackets, a title after it or not."""
-    assert [link.target for link in iter_links('[a](<b c.md> "t")\n')] == ["b c.md"]
+@pytest.mark.parametrize(
+    "target", ["https://sushisystems.io", "mailto:a@b.io", "#part", "//cdn.example/x.png"],
+)
+def test_local_path_refuses_addresses_anchors_and_protocol_relative_targets(target):
+    """Returns None for a target that names no local file."""
+    assert local_path(target) is None
 
 
 def test_iter_links_reads_both_targets_of_a_linked_image():

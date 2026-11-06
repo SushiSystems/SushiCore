@@ -10,7 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from .sample_repository import build_sample, commit_all
+from sushicore.files_memory import MemoryFiles
+
+from .sample_repository import build_memory_sample, build_sample, commit_all
 
 
 @pytest.fixture
@@ -24,3 +26,9 @@ def checkout(repository: Path) -> Path:
     """Returns the sample repository as a git checkout with one commit."""
     commit_all(repository)
     return repository
+
+
+@pytest.fixture
+def memory_repository() -> MemoryFiles:
+    """Returns the sample repository held in memory below `K_MEMORY_ROOT`."""
+    return build_memory_sample()
