@@ -38,7 +38,7 @@ class ConsoleLike(Protocol):
 
 
 class CommandRunner(Protocol):
-    """The surface callers use to run external commands: path lookup, run and run drained."""
+    """The surface callers use to run external commands: path lookup, run, run drained and capture."""
 
     def resolve_exe(self, name: str, env: Mapping[str, str] | None = None) -> str:
         """Return the executable *name* resolved against *env*'s PATH, or *name* itself."""
@@ -50,6 +50,11 @@ class CommandRunner(Protocol):
 
     def run_drained(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
         """Run *cmd* in *cwd*, re-emit its output line by line and return its exit code."""
+        ...
+
+    def capture(self, cmd: list[str], cwd: Path | None = None,
+                env: dict[str, str] | None = None) -> tuple[int, str, str]:
+        """Run *cmd* quietly and return its exit code, stdout and stderr."""
         ...
 
 

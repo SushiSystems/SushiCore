@@ -251,6 +251,21 @@ class CommandRunnerContract:
     def test_a_program_found_on_no_path_resolves_to_its_own_name(self, world):
         assert world.runner.resolve_exe("no-such-binary-anywhere") == "no-such-binary-anywhere"
 
+    @pytest.mark.parametrize("exit_code", [0, 3])
+    def test_a_capture_returns_the_exit_code_and_each_output_line(self, world, exit_code):
+        argv = world.exiting(exit_code, K_LINES)
+        code, stdout, _ = world.runner.capture(argv, Path("."))
+        assert (code, stdout.splitlines()) == (exit_code, K_LINES)
+
+    def test_a_capture_prints_nothing(self, world):
+        world.runner.capture(world.exiting(0, K_LINES), Path("."))
+        assert (world.console.texts("command"), world.console.console.printed) == ([], [])
+
+    def test_a_capture_of_a_missing_executable_returns_the_missing_exit_code_quietly(self, world):
+        code, stdout, stderr = world.runner.capture(world.missing(), Path("."))
+        assert (code, stdout, "no-such-binary-anywhere" in stderr, world.console.texts("error")) == (
+            K_MISSING_EXIT_CODE, "", True, [])
+
 
 @pytest.mark.small
 class TestRecordingRunnerKeepsTheRunnerContract(CommandRunnerContract):

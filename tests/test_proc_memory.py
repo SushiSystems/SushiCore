@@ -63,3 +63,14 @@ def test_a_plain_run_prints_none_of_the_scripted_lines():
     console = RecordingConsole()
     RecordingRunner(console).script(0, ("out",)).run(["tool"], Path("."))
     assert console.console.printed == []
+
+
+def test_the_runner_records_a_capture_as_captured(runner):
+    runner.capture(["git", "status"], Path("repo"))
+    assert runner.commands == [
+        RecordedCommand(("git", "status"), Path("repo"), None, drained=False, captured=True)]
+
+
+def test_a_capture_returns_the_scripted_error_output(runner):
+    runner.script(2, stderr="fatal: not a repository")
+    assert runner.capture(["git", "status"])[2] == "fatal: not a repository"

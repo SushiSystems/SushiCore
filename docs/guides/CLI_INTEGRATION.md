@@ -144,7 +144,7 @@ so a CLI test imports it instead of writing a stand-in:
 
 | Port | Adapter |
 | --- | --- |
-| `proc.CommandRunner` | `proc_memory.RecordingRunner` records each command's argv, folder and environment in order and answers the exit codes and output lines scripted in advance |
+| `proc.CommandRunner` | `proc_memory.RecordingRunner` records each command's argv, folder and environment in order and answers the exit codes, output lines and error output scripted in advance; a `capture` returns the lines as its stdout and prints nothing |
 | The console (`proc.ConsoleLike`, `testing.module_tests.TestConsole`) | `console_memory.RecordingConsole` records every call as a kind and its arguments, `.texts(kind)` lists the text of one kind |
 | `diag.ConfigModule` | `diag_memory.InMemoryConfigModule` |
 | `provision.git_client.IGitClient` | `provision.git_client_memory.InMemoryGitClient` |

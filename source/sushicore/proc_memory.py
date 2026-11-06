@@ -23,12 +23,14 @@ class RecordedCommand:
         cwd: The folder the command was to run in.
         env: A copy of the environment given, or ``None`` when the caller gave none.
         drained: Whether the command ran through ``run_drained``.
+        captured: Whether the command ran through ``capture``.
     """
 
     argv: tuple[str, ...]
-    cwd: Path
+    cwd: Path | None
     env: dict[str, str] | None
     drained: bool
+    captured: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,12 +39,14 @@ class ScriptedRun:
 
     Attributes:
         exit_code: The exit code returned.
-        lines: The output lines a drained run prints, one per line.
+        lines: The output lines a drained run prints, one per line, and a capture returns as stdout.
+        stderr: The error output a capture returns.
         missing: Whether the executable is missing, as if it were on no PATH.
     """
 
     exit_code: int = 0
     lines: tuple[str, ...] = ()
+    stderr: str = ""
     missing: bool = False
 
 
@@ -68,9 +72,10 @@ class RecordingRunner:
         """Return the commands recorded so far, in the order they were run."""
         return list(self._commands)
 
-    def script(self, exit_code: int = 0, lines: tuple[str, ...] = ()) -> "RecordingRunner":
+    def script(self, exit_code: int = 0, lines: tuple[str, ...] = (),
+               stderr: str = "") -> "RecordingRunner":
         """Queue the answer to the next unanswered command and return this runner."""
-        self._scripts.append(ScriptedRun(exit_code, tuple(lines)))
+        self._scripts.append(ScriptedRun(exit_code, tuple(lines), stderr))
         return self
 
     def script_missing(self) -> "RecordingRunner":
@@ -89,6 +94,17 @@ class RecordingRunner:
     def run_drained(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
         """Record *cmd*, print the next scripted lines unparsed and return its exit code."""
         return self._answer(cmd, cwd, env, drained=True)
+
+    def capture(self, cmd: list[str], cwd: Path | None = None,
+                env: dict[str, str] | None = None) -> tuple[int, str, str]:
+        """Record *cmd* quietly and return the next scripted exit code, lines as stdout, and stderr."""
+        self._commands.append(RecordedCommand(
+            tuple(cmd), cwd, dict(env) if env is not None else None, drained=False, captured=True))
+        scripted = self._scripts.pop(0) if self._scripts else ScriptedRun()
+        if scripted.missing:
+            return self._missing_exit_code, "", f"Executable not found: '{cmd[0]}'"
+        stdout = "".join(f"{line}\n" for line in scripted.lines)
+        return scripted.exit_code, stdout, scripted.stderr
 
     def _answer(self, cmd: list[str], cwd: Path, env: dict[str, str] | None,
                 *, drained: bool) -> int:
