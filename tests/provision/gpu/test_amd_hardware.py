@@ -16,9 +16,8 @@ from sushicore.provision.gpu.amd_hardware import (
 )
 
 
-pytestmark = pytest.mark.medium
 
-
+@pytest.mark.small
 @pytest.mark.parametrize(("version", "name"), [
     (90010, "gfx90a"), (110003, "gfx1103"), (100300, "gfx1030"), (120001, "gfx1201"),
     (90008, "gfx908"),
@@ -28,6 +27,7 @@ def test_target_name_spells_minor_and_stepping_in_hex(version, name):
     assert target_name(version) == name
 
 
+@pytest.mark.small
 def test_parse_targets_skips_the_cpu_and_collapses_twins():
     """Check that the CPU's 0 is dropped and two equal cards count once."""
     nodes = ["cpu_cores_count 12\ngfx_target_version 0\n",
@@ -38,11 +38,13 @@ def test_parse_targets_skips_the_cpu_and_collapses_twins():
     assert parse_targets(nodes) == AmdHardware(("gfx1030", "gfx1103"))
 
 
+@pytest.mark.small
 def test_parse_targets_without_a_card_is_none():
     """Check that a CPU-only topology yields no record."""
     assert parse_targets(["gfx_target_version 0\n"]) is None
 
 
+@pytest.mark.medium
 def test_query_hardware_reads_the_node_files(tmp_path):
     """Check that each node folder's properties file is read."""
     for index, version in enumerate((0, 110003)):
@@ -53,11 +55,13 @@ def test_query_hardware_reads_the_node_files(tmp_path):
     assert query_hardware(tmp_path) == AmdHardware(("gfx1103",))
 
 
+@pytest.mark.medium
 def test_query_hardware_without_the_driver_is_none(tmp_path):
     """Check that a missing topology folder means no AMD card."""
     assert query_hardware(tmp_path / "absent") is None
 
 
+@pytest.mark.small
 def test_fingerprint_changes_with_the_cards():
     """Check that adding a card changes the fingerprint."""
     assert (AmdHardware(("gfx1103",)).fingerprint()

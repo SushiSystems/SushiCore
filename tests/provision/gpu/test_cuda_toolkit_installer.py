@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.provision.gpu import cuda_toolkit_installer as installer_mod
 from sushicore.provision.gpu.cuda_release import RedistArchive, RedistRelease
 from sushicore.provision.gpu.cuda_toolkit_installer import (
     RedistToolkitInstaller,
@@ -25,17 +24,8 @@ from sushicore.provision.gpu.cuda_toolkit_installer import (
     nvcc_in,
 )
 
-
-pytestmark = pytest.mark.medium
-
 K_ROOT = "https://example.invalid/"
 K_NVCC_NAME = nvcc_in(Path(".")).name
-
-
-@pytest.fixture(autouse=True)
-def _console(recording_console):
-    """Give every test a console to report downloads on."""
-    return recording_console
 
 
 def _zip(top: str, files: dict[str, str]) -> bytes:
@@ -79,7 +69,8 @@ def _release(server: _Server, **overrides: RedistArchive) -> RedistRelease:
     return RedistRelease((13, 1, 2), archives)
 
 
-def test_install_merges_every_component_into_one_root(tmp_path):
+@pytest.mark.medium
+def test_install_merges_every_component_into_one_root(tmp_path, recording_console):
     """Check that the components and a published companion share one root."""
     server = _Server()
     release = _release(server, libnvvm=server.add("libnvvm", {"nvvm/libdevice/x.bc": ""}))
@@ -96,7 +87,8 @@ def test_install_merges_every_component_into_one_root(tmp_path):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["13.1.2"]
 
 
-def test_install_of_an_installed_release_downloads_nothing(tmp_path):
+@pytest.mark.medium
+def test_install_of_an_installed_release_downloads_nothing(tmp_path, recording_console):
     """Check that a release already in place is returned untouched."""
     server = _Server()
     release = _release(server)
@@ -109,7 +101,8 @@ def test_install_of_an_installed_release_downloads_nothing(tmp_path):
     assert server.fetched == []
 
 
-def test_a_mismatching_archive_installs_nothing(tmp_path):
+@pytest.mark.medium
+def test_a_mismatching_archive_installs_nothing(tmp_path, recording_console):
     """Check that a wrong digest stops the install and leaves no root behind."""
     server = _Server()
     bad = server.add("cuda_cudart", {"include/cuda.h": ""}, digest="0" * 64)
@@ -122,7 +115,8 @@ def test_a_mismatching_archive_installs_nothing(tmp_path):
     assert not list((tmp_path / "downloads").glob("*cudart*"))
 
 
-def test_a_missing_required_component_installs_nothing(tmp_path):
+@pytest.mark.medium
+def test_a_missing_required_component_installs_nothing(tmp_path, recording_console):
     """Check that a release without nvml_dev is refused."""
     server = _Server()
     release = _release(server)
@@ -132,7 +126,8 @@ def test_a_missing_required_component_installs_nothing(tmp_path):
         RedistToolkitInstaller(tmp_path, server.download).install(release)
 
 
-def test_an_archive_escaping_its_folder_is_refused(tmp_path):
+@pytest.mark.medium
+def test_an_archive_escaping_its_folder_is_refused(tmp_path, recording_console):
     """Check that a zip member with ``..`` in its path is not extracted."""
     server = _Server()
     body = _zip("cuda_nvcc-archive", {"../../escape.txt": ""})
@@ -146,7 +141,8 @@ def test_an_archive_escaping_its_folder_is_refused(tmp_path):
     assert not (tmp_path / "escape.txt").exists()
 
 
-def test_a_tar_xz_archive_unpacks(tmp_path):
+@pytest.mark.medium
+def test_a_tar_xz_archive_unpacks(tmp_path, recording_console):
     """Check that the Linux archive format installs as the zip one does."""
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:xz") as bundle:
@@ -164,36 +160,38 @@ def test_a_tar_xz_archive_unpacks(tmp_path):
     assert nvcc_in(root).read_bytes() == b"nvcc"
 
 
-def test_probe_unpacks_only_the_compiler_and_cleans_up(tmp_path, monkeypatch):
+@pytest.mark.medium
+def test_probe_unpacks_only_the_compiler_and_cleans_up(tmp_path, recording_console):
     """Check that a probe downloads nvcc alone and leaves no probe folder."""
     server = _Server()
     release = _release(server)
     seen: list[Path] = []
-    monkeypatch.setattr(installer_mod, "list_gpu_architectures",
-                        lambda nvcc: seen.append(nvcc) or frozenset({"89"}))
+    installer = RedistToolkitInstaller(
+        tmp_path, server.download, lambda nvcc: seen.append(nvcc) or frozenset({"89"}))
 
-    archs = RedistToolkitInstaller(tmp_path, server.download).probe_architectures(release)
+    archs = installer.probe_architectures(release)
 
     assert archs == frozenset({"89"})
     assert server.fetched == [f"{K_ROOT}cuda_nvcc.zip"]
     assert seen and not seen[0].exists()
 
 
-def test_list_gpu_architectures_reads_the_compute_lines(monkeypatch):
+@pytest.mark.small
+def test_list_gpu_architectures_reads_the_compute_lines():
     """Check that ``compute_89`` becomes ``89`` and other lines are ignored."""
-    monkeypatch.setattr(installer_mod.subprocess, "run", lambda *a, **k: types.SimpleNamespace(
-        stdout="compute_75\ncompute_89\nwarning: x\n"))
+    def run(*args, **kwargs):
+        """Answer the output of ``nvcc --list-gpu-arch``."""
+        return types.SimpleNamespace(stdout="compute_75\ncompute_89\nwarning: x\n")
 
-    assert list_gpu_architectures(Path("nvcc")) == frozenset({"75", "89"})
+    assert list_gpu_architectures(Path("nvcc"), run=run) == frozenset({"75", "89"})
 
 
-def test_list_gpu_architectures_of_a_broken_compiler_raises(monkeypatch):
+@pytest.mark.small
+def test_list_gpu_architectures_of_a_broken_compiler_raises():
     """Check that an nvcc that does not run is a ToolkitInstallError."""
-    def fail(*args, **kwargs):
+    def run(*args, **kwargs):
         """Fail as a missing binary does."""
         raise subprocess.CalledProcessError(1, "nvcc")
 
-    monkeypatch.setattr(installer_mod.subprocess, "run", fail)
-
     with pytest.raises(ToolkitInstallError):
-        list_gpu_architectures(Path("nvcc"))
+        list_gpu_architectures(Path("nvcc"), run=run)

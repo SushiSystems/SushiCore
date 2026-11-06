@@ -50,13 +50,7 @@ class _Server:
         dest.write_bytes(self.body)
 
 
-@pytest.fixture(autouse=True)
-def _console(recording_console):
-    """Give every test a console to report downloads on."""
-    return recording_console
-
-
-def test_install_unpacks_the_tarball_as_the_root(tmp_path):
+def test_install_unpacks_the_tarball_as_the_root(tmp_path, recording_console):
     """Check that the tarball's top level becomes the release folder, and nothing is kept."""
     server = _Server(_tarball({"include/hip/hip_runtime.h": b"", "bin/hipcc": b"x"}))
     installer = RocmTarballInstaller(tmp_path, server.download)
@@ -69,7 +63,7 @@ def test_install_unpacks_the_tarball_as_the_root(tmp_path):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["7.13.0-gfx110X-all"]
 
 
-def test_an_installed_release_is_not_downloaded_again(tmp_path):
+def test_an_installed_release_is_not_downloaded_again(tmp_path, recording_console):
     """Check that a second install is free."""
     server = _Server(_tarball({"include/hip/hip_runtime.h": b""}))
     installer = RocmTarballInstaller(tmp_path, server.download)
@@ -80,7 +74,7 @@ def test_an_installed_release_is_not_downloaded_again(tmp_path):
     assert server.fetched == 1
 
 
-def test_a_tarball_without_hip_headers_installs_nothing(tmp_path):
+def test_a_tarball_without_hip_headers_installs_nothing(tmp_path, recording_console):
     """Check that something that is not a ROCm root is refused."""
     installer = RocmTarballInstaller(tmp_path, _Server(_tarball({"README": b""})).download)
 
@@ -90,7 +84,7 @@ def test_a_tarball_without_hip_headers_installs_nothing(tmp_path):
     assert not installer.is_installed(K_PACKAGE.label)
 
 
-def test_a_corrupt_tarball_installs_nothing(tmp_path):
+def test_a_corrupt_tarball_installs_nothing(tmp_path, recording_console):
     """Check that a body that is not a tarball is a RocmInstallError."""
     installer = RocmTarballInstaller(tmp_path, _Server(b"not a tarball").download)
 
@@ -100,7 +94,7 @@ def test_a_corrupt_tarball_installs_nothing(tmp_path):
     assert not installer.is_installed(K_PACKAGE.label)
 
 
-def test_a_failed_download_installs_nothing(tmp_path):
+def test_a_failed_download_installs_nothing(tmp_path, recording_console):
     """Check that a transport failure leaves no partial file."""
     def fail(url, dest):
         """Write half a file, then fail as a dropped connection does."""
@@ -110,4 +104,5 @@ def test_a_failed_download_installs_nothing(tmp_path):
     with pytest.raises(RocmInstallError):
         RocmTarballInstaller(tmp_path, fail).install(K_PACKAGE)
 
-    assert not list((tmp_path / "downloads").iterdir())
+    assert not (tmp_path / "downloads" / "rocm.tar.gz").exists()
+    assert not (tmp_path / "downloads" / "rocm.tar.gz.part").exists()

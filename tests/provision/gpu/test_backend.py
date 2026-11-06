@@ -32,14 +32,14 @@ from sushicore.provision.gpu.rocm import ROCM
 
 
 @pytest.mark.medium
-@pytest.mark.parametrize("spec", [CUDA, ROCM, LEVEL_ZERO])
-def test_every_backend_reports_not_provided_on_darwin(spec, recording_console):
-    """Check that every backend reports not provided on darwin."""
+@pytest.mark.parametrize(("spec", "name"), [(CUDA, "CUDA"), (ROCM, "ROCm"), (LEVEL_ZERO, "Level Zero")])
+def test_every_backend_reports_not_provided_on_darwin(spec, name, recording_console):
+    """Check that every backend finds nothing on darwin and says it is not provided there."""
     cfg = SimpleNamespace(platform="darwin")
 
     assert spec.locator.locate(cfg) is None
-    assert isinstance(spec.locator._for(cfg), NotProvided)
     assert spec.locator.provision(cfg, dry_run=True) is True
+    assert recording_console.texts("info") == [f"{name} is not provided on darwin."]
 
 
 @dataclass

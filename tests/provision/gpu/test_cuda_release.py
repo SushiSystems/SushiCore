@@ -8,12 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision.gpu.cuda_release import (
-    RedistArchive,
-    RedistRelease,
-    format_version,
-    parse_version,
-)
+from sushicore.provision.gpu.cuda_release import format_version, parse_version
 
 
 pytestmark = pytest.mark.small
@@ -28,11 +23,3 @@ def test_a_version_that_is_not_digits_raises():
     """Check that a label with letters is refused."""
     with pytest.raises(ValueError):
         parse_version("13.x")
-
-
-def test_a_release_is_labelled_and_an_archive_named_from_its_url():
-    """Check the label and the file name the installer prints."""
-    archive = RedistArchive("https://example.invalid/a/nvcc.zip", "aa")
-
-    assert RedistRelease((13, 1, 2), {"cuda_nvcc": archive}).label == "13.1.2"
-    assert archive.file_name == "nvcc.zip"

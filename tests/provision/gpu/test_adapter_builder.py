@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -16,12 +17,11 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.provision import home
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.gpu.adapter_builder import AdapterBuilder
-from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP, write_toolchain_stamp
-
-
-pytestmark = pytest.mark.medium
+from sushicore.provision.gpu.adapter_builder_memory import InMemoryCommandRunner
+from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
 
@@ -45,38 +45,55 @@ class _GpuBackendSpec:
     adapter_binaries: tuple[str, ...]
 
 
-class _FakeRunner:
-    """Records every argv it was asked to run and fakes the adapter build output."""
+class _CountedReplace:
+    """Renames files like :func:`os.replace`, but raises on the call numbered *fail_on*."""
 
-    def __init__(self, build_dir: Path, binary_names: list[str],
-                fail_on: str | None = None) -> None:
-        """Store where the fake build output lands and which step should fail."""
-        self._build_dir = build_dir
-        self._binary_names = binary_names
+    def __init__(self, fail_on: int) -> None:
+        """Count calls from one, and fail the one numbered *fail_on*."""
         self._fail_on = fail_on
-        self.calls: list[list[str]] = []
+        self._count = 0
 
-    def run(self, argv: list[str], cwd: Path | None,
-           env: dict[str, str] | None) -> int:
-        """Record *argv* and simulate the step it represents."""
-        self.calls.append(argv)
-        if self._fail_on and self._fail_on in argv:
-            return 1
-        if argv[:2] == ["cmake", "--build"]:
-            output_dir = self._build_dir / "bin"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            for name in self._binary_names:
-                (output_dir / name).write_bytes(b"fake")
-        return 0
+    def __call__(self, source: Path, destination: Path) -> None:
+        """Rename *source* to *destination*, or raise :class:`OSError` on the failing call."""
+        self._count += 1
+        if self._count == self._fail_on:
+            raise OSError("disk full")
+        os.replace(source, destination)
 
 
-class _MissingExecutableRunner:
-    """Simulates git or cmake not being installed."""
+class _LockedPreviousCopies:
+    """Deletes files like :meth:`pathlib.Path.unlink`, but refuses a ``.previous`` copy."""
 
-    def run(self, argv: list[str], cwd: Path | None,
-           env: dict[str, str] | None) -> int:
-        """Raise as :func:`subprocess.Popen` would for an unknown executable."""
-        raise FileNotFoundError(argv[0])
+    def __call__(self, path: Path) -> None:
+        """Delete *path*, or raise :class:`PermissionError` for a ``.previous`` copy."""
+        if path.name.endswith(".previous"):
+            raise PermissionError(13, "file is in use", str(path))
+        path.unlink()
+
+
+class _ListHandler(logging.Handler):
+    """Keeps the formatted message of every record it receives."""
+
+    def __init__(self) -> None:
+        """Start with no messages."""
+        super().__init__()
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Keep the message of *record*."""
+        self.messages.append(record.getMessage())
+
+
+@dataclasses.dataclass
+class _Scene:
+    """What one build holds: the runner, the builder, the places it touches and its result."""
+
+    result: bool
+    runner: InMemoryCommandRunner
+    builder: AdapterBuilder
+    toolchain_root: Path
+    work_root: Path
+    install: _ToolkitInstall
 
 
 def _fake_spec(binary_bases: tuple[str, ...] = ("ur_adapter_fake",)) -> _GpuBackendSpec:
@@ -111,445 +128,330 @@ def _linux_cfg(**overrides) -> ProvisionSettings:
     return ProvisionSettings(platform="linux", cmake_exe="cmake", **overrides)
 
 
-def _build_dir_for(work_root: Path, vendor: str = "fake") -> Path:
-    """Return the build directory the builder derives for *vendor* at :data:`_COMMIT`."""
-    return work_root / f"{vendor}-{_COMMIT[:8]}"
+def _produce(work_root: Path, names: list[str]) -> None:
+    """Write the files a successful cmake build leaves in the build directory of :data:`_COMMIT`."""
+    output_dir = work_root / f"fake-{_COMMIT[:8]}" / "bin"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        (output_dir / name).write_bytes(b"fake")
 
 
-def test_a_full_build_records_the_expected_argv_and_installs_binaries(
-        tmp_path, short_work_root, recording_console):
-    """Check that a full build records the expected argv and installs binaries."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
+def _builder(tmp_path: Path, work_root: Path, *, cfg: ProvisionSettings | None = None,
+             runner: InMemoryCommandRunner | None = None, **seams) -> _Scene:
+    """Return a scene that holds a builder over *runner* and a fresh toolchain folder, not yet run."""
     toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+    toolchain_root.mkdir(exist_ok=True)
+    chosen = runner or InMemoryCommandRunner()
+    builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=chosen, work_root=work_root,
+                             environment=lambda cfg: {}, **seams)
+    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
+    return _Scene(False, chosen, builder, toolchain_root, work_root, install)
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
 
-    result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
+def _run(scene: _Scene, spec: _GpuBackendSpec | None = None, *, dry_run: bool = False) -> _Scene:
+    """Build once in *scene* and record the result in it."""
+    scene.result = scene.builder.build(spec or _fake_spec(), scene.install, scene.toolchain_root,
+                                       _COMMIT, dry_run=dry_run)
+    return scene
 
-    assert result is True
-    assert (toolchain_root / "bin" / "ur_adapter_fake.dll").is_file()
 
-    fetch_calls = [c for c in runner.calls if c[0] == "git"]
-    assert [c[1] for c in fetch_calls] == [
-        "init", "remote", "sparse-checkout", "fetch", "checkout"]
-    assert fetch_calls[1] == ["git", "remote", "add", "origin",
-                              "https://github.com/intel/llvm.git"]
-    assert fetch_calls[2] == ["git", "sparse-checkout", "set", "--no-cone",
-                              "/unified-runtime/"]
-    assert fetch_calls[3][:4] == ["git", "fetch", "--depth", "1"]
-    assert _COMMIT in fetch_calls[3]
+def _configure_call(scene: _Scene) -> list[str]:
+    """Return the cmake configure command the scene's runner recorded."""
+    return next(c for c in scene.runner.calls if "-S" in c)
 
-    configure_call = next(c for c in runner.calls if "-S" in c)
+
+@pytest.mark.medium
+def test_a_build_fetches_the_sources_with_a_sparse_checkout_of_the_commit(
+        tmp_path, short_work_root, recording_console):
+    """Check that a build fetches only unified-runtime at the commit, in five git steps."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root))
+
+    fetch_calls = [c for c in scene.runner.calls if c[0] == "git"]
+    assert fetch_calls == [
+        ["git", "init"],
+        ["git", "remote", "add", "origin", "https://github.com/intel/llvm.git"],
+        ["git", "sparse-checkout", "set", "--no-cone", "/unified-runtime/"],
+        ["git", "fetch", "--depth", "1", "--filter=blob:none", "origin", _COMMIT],
+        ["git", "checkout", "FETCH_HEAD"],
+    ]
+
+
+@pytest.mark.medium
+def test_a_build_configures_the_adapter_option_and_the_toolkit_definitions(
+        tmp_path, short_work_root, recording_console):
+    """Check that the configure command enables the adapter and passes the vendor definitions."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root))
+
+    configure_call = _configure_call(scene)
     assert "-DUR_BUILD_ADAPTER_FAKE=ON" in configure_call
-    assert "-DFAKE_ROOT=" + str(install.root) in configure_call
+    assert "-DFAKE_ROOT=" + str(scene.install.root) in configure_call
     assert "-DUR_BUILD_TESTS=OFF" in configure_call
+    assert any(a.startswith("-DFETCHCONTENT_BASE_DIR=") and _COMMIT[:8] in a
+               for a in configure_call)
+
+
+@pytest.mark.medium
+def test_a_windows_configure_forces_the_msvc_compiler(
+        tmp_path, short_work_root, recording_console):
+    """Check that a Windows configure names cl as the C and C++ compiler."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root))
+
+    configure_call = _configure_call(scene)
     assert "-DCMAKE_C_COMPILER=cl" in configure_call
     assert "-DCMAKE_CXX_COMPILER=cl" in configure_call
-    assert any(a.startswith("-DFETCHCONTENT_BASE_DIR=") and _COMMIT[:8] in a
-              for a in configure_call)
 
-    build_call = next(c for c in runner.calls if c[:2] == ["cmake", "--build"])
-    assert "--target" in build_call
+
+@pytest.mark.medium
+def test_a_build_runs_cmake_on_the_adapter_target(tmp_path, short_work_root, recording_console):
+    """Check that the build step names the vendor's adapter target."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root))
+
+    build_call = next(c for c in scene.runner.calls if c[:2] == ["cmake", "--build"])
     assert build_call[build_call.index("--target") + 1] == "ur_adapter_fake"
 
-    stamp = json.loads((toolchain_root / TOOLCHAIN_STAMP).read_text())
+
+@pytest.mark.medium
+def test_a_full_build_installs_the_binaries_into_the_toolchain(
+        tmp_path, short_work_root, recording_console):
+    """Check that a full build returns True and places the DLL under the toolchain's bin."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root))
+
+    assert scene.result is True
+    assert (scene.toolchain_root / "bin" / "ur_adapter_fake.dll").is_file()
+
+
+@pytest.mark.medium
+def test_a_full_build_stamps_the_commit_for_the_vendor(
+        tmp_path, short_work_root, recording_console):
+    """Check that a full build records the built commit under the vendor in the stamp."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root))
+
+    stamp = json.loads((scene.toolchain_root / TOOLCHAIN_STAMP).read_text())
     assert stamp["adapters"]["fake"] == _COMMIT
 
 
+@pytest.mark.medium
 def test_a_second_call_with_the_same_commit_is_skipped(
         tmp_path, short_work_root, recording_console):
-    """Check that a second call with the same commit is skipped."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+    """Check that a second call with the same commit runs no command."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    scene = _run(_builder(tmp_path, short_work_root))
+    scene.runner.calls.clear()
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    assert builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
+    again = _run(scene)
 
-    runner.calls.clear()
-    again = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert again is True
-    assert runner.calls == []
+    assert again.result is True
+    assert again.runner.calls == []
 
 
+@pytest.mark.medium
 def test_a_matching_stamp_with_a_missing_binary_rebuilds(
         tmp_path, short_work_root, recording_console):
-    """Check that a matching stamp with a missing binary rebuilds."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+    """Check that a stamp for the commit does not skip the build when a binary is gone."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    scene = _run(_builder(tmp_path, short_work_root))
+    (scene.toolchain_root / "bin" / "ur_adapter_fake.dll").unlink()
+    scene.runner.calls.clear()
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    assert builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
+    again = _run(scene)
 
-    (toolchain_root / "bin" / "ur_adapter_fake.dll").unlink()
-    runner.calls.clear()
-    shutil.rmtree(build_dir, ignore_errors=True)
-
-    again = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert again is True
-    assert runner.calls != []
-    assert (toolchain_root / "bin" / "ur_adapter_fake.dll").is_file()
+    assert again.result is True
+    assert again.runner.calls != []
+    assert (scene.toolchain_root / "bin" / "ur_adapter_fake.dll").is_file()
 
 
-def test_a_dry_run_reports_and_runs_no_commands(tmp_path, short_work_root, recording_console):
-    """Check that a dry run reports and runs no commands."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+@pytest.mark.medium
+def test_a_dry_run_runs_no_commands_and_writes_no_stamp(
+        tmp_path, short_work_root, recording_console):
+    """Check that a dry run returns True, runs nothing and leaves no stamp."""
+    scene = _run(_builder(tmp_path, short_work_root), dry_run=True)
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-
-    result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=True)
-
-    assert result is True
-    assert runner.calls == []
-    assert not (toolchain_root / TOOLCHAIN_STAMP).exists()
+    assert scene.result is True
+    assert scene.runner.calls == []
+    assert not (scene.toolchain_root / TOOLCHAIN_STAMP).exists()
 
 
+@pytest.mark.medium
+def test_a_dry_run_says_which_adapter_it_would_build(
+        tmp_path, short_work_root, recording_console):
+    """Check that a dry run prints one line naming the vendor and the short commit."""
+    _run(_builder(tmp_path, short_work_root), dry_run=True)
+
+    assert recording_console.texts("info") == [
+        f"(dry-run) would build fake adapter at {_COMMIT[:12]}"]
+
+
+@pytest.mark.medium
 def test_a_failing_configure_returns_false_and_leaves_bin_untouched(
         tmp_path, short_work_root, recording_console):
-    """Check that a failing configure returns false and leaves bin untouched."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+    """Check that a failing configure returns False, installs nothing and writes no stamp."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    runner = InMemoryCommandRunner(fail_on="-S")
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"], fail_on="-S")
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
+    scene = _run(_builder(tmp_path, short_work_root, runner=runner))
 
-    result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert result is False
-    assert not (toolchain_root / "bin").exists()
-    assert not (toolchain_root / TOOLCHAIN_STAMP).exists()
+    assert scene.result is False
+    assert not (scene.toolchain_root / "bin").exists()
+    assert not (scene.toolchain_root / TOOLCHAIN_STAMP).exists()
 
 
+@pytest.mark.medium
 def test_a_missing_git_or_cmake_returns_false_without_raising(
         tmp_path, short_work_root, recording_console):
-    """Check that a missing git or cmake returns false without raising."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
+    """Check that an executable that is on no PATH fails the build instead of raising."""
+    runner = InMemoryCommandRunner(missing=True)
 
-    builder = AdapterBuilder(cfg=cfg, runner=_MissingExecutableRunner(), work_root=work_root,
-                             environment=lambda cfg: {})
+    scene = _run(_builder(tmp_path, short_work_root, runner=runner))
 
-    result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert result is False
-    assert not (toolchain_root / "bin").exists()
+    assert scene.result is False
+    assert not (scene.toolchain_root / "bin").exists()
 
 
+@pytest.mark.medium
 def test_a_failing_install_rolls_back_every_binary_already_placed(
-        tmp_path, short_work_root, monkeypatch, recording_console):
-    """Check that a failing install rolls back every binary already placed."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+        tmp_path, short_work_root, recording_console):
+    """Check that a rename that fails after one binary landed leaves bin without either binary."""
+    _produce(short_work_root, ["ur_adapter_fake.dll", "umf.dll"])
+    scene = _builder(tmp_path, short_work_root, replace=_CountedReplace(fail_on=2))
 
-    spec = _fake_spec(binary_bases=("ur_adapter_fake", "umf"))
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll", "umf.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
+    _run(scene, _fake_spec(binary_bases=("ur_adapter_fake", "umf")))
 
-    real_replace = os.replace
-    calls = {"n": 0}
-
-    def flaky_replace(src, dst):
-        """Check that flaky replace."""
-        calls["n"] += 1
-        if calls["n"] == 2:
-            raise OSError("disk full")
-        return real_replace(src, dst)
-
-    monkeypatch.setattr(os, "replace", flaky_replace)
-
-    result = builder.build(spec, install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert result is False
-    bin_dir = toolchain_root / "bin"
-    remaining = list(bin_dir.glob("*.dll")) if bin_dir.is_dir() else []
-    assert remaining == []
-    assert not (toolchain_root / TOOLCHAIN_STAMP).exists()
+    assert scene.result is False
+    assert list((scene.toolchain_root / "bin").glob("*.dll")) == []
+    assert not (scene.toolchain_root / TOOLCHAIN_STAMP).exists()
 
 
+@pytest.mark.medium
 def test_a_failing_install_restores_a_pre_existing_binary(
-        tmp_path, short_work_root, monkeypatch, recording_console):
-    """Check that a failing install restores a pre existing binary."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    bin_dir = toolchain_root / "bin"
+        tmp_path, short_work_root, recording_console):
+    """Check that a failing install puts the old binary back and removes the new one."""
+    _produce(short_work_root, ["ur_adapter_fake.dll", "umf.dll"])
+    scene = _builder(tmp_path, short_work_root, replace=_CountedReplace(fail_on=3))
+    bin_dir = scene.toolchain_root / "bin"
     bin_dir.mkdir()
-    old_binary = bin_dir / "ur_adapter_fake.dll"
-    old_binary.write_bytes(b"old")
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+    (bin_dir / "ur_adapter_fake.dll").write_bytes(b"old")
 
-    spec = _fake_spec(binary_bases=("ur_adapter_fake", "umf"))
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll", "umf.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
+    _run(scene, _fake_spec(binary_bases=("ur_adapter_fake", "umf")))
 
-    real_replace = os.replace
-    calls = {"n": 0}
-
-    def flaky_replace(src, dst):
-        """Check that flaky replace."""
-        calls["n"] += 1
-        # Let both "move existing aside" calls through, fail the second install.
-        if calls["n"] == 3:
-            raise OSError("disk full")
-        return real_replace(src, dst)
-
-    monkeypatch.setattr(os, "replace", flaky_replace)
-
-    result = builder.build(spec, install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert result is False
-    assert old_binary.read_bytes() == b"old"
+    assert scene.result is False
+    assert (bin_dir / "ur_adapter_fake.dll").read_bytes() == b"old"
     assert not (bin_dir / "umf.dll").exists()
-    assert not (toolchain_root / TOOLCHAIN_STAMP).exists()
 
 
-def test_an_existing_stamp_keeps_its_source_and_tag_across_a_build(
-        tmp_path, short_work_root, recording_console):
-    """Check that an existing stamp keeps its source and tag across a build."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    write_toolchain_stamp(toolchain_root, "intel/llvm", "nightly-2026-09-14")
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+@pytest.mark.medium
+@pytest.mark.parametrize(("cfg", "built", "folder", "other"), [
+    (_windows_cfg(), "ur_adapter_fake.dll", "bin", "lib"),
+    (_linux_cfg(), "libur_adapter_fake.so.0", "lib", "bin"),
+], ids=["windows-dll", "linux-versioned-so"])
+def test_a_base_name_maps_to_the_platforms_file_and_folder(
+        tmp_path, short_work_root, recording_console, cfg, built, folder, other):
+    """Check that the platform picks the binary's file name and the toolchain folder it lands in."""
+    _produce(short_work_root, [built])
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
+    scene = _run(_builder(tmp_path, short_work_root, cfg=cfg))
 
-    builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    stamp = json.loads((toolchain_root / TOOLCHAIN_STAMP).read_text())
-    assert stamp["source"] == "intel/llvm"
-    assert stamp["tag"] == "nightly-2026-09-14"
-    assert stamp["adapters"]["fake"] == _COMMIT
+    assert scene.result is True
+    assert (scene.toolchain_root / folder / built).is_file()
+    assert not (scene.toolchain_root / other).exists()
 
 
-def test_windows_maps_a_base_name_to_a_dll(tmp_path, short_work_root, recording_console):
-    """Check that windows maps a base name to a dll."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
-
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert (toolchain_root / "bin" / "ur_adapter_fake.dll").is_file()
-    assert not (toolchain_root / "lib").exists()
-
-
-def test_linux_maps_a_base_name_to_a_versioned_shared_object(
-        tmp_path, short_work_root, recording_console):
-    """Check that linux maps a base name to a versioned shared object."""
-    cfg = _linux_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
-
-    runner = _FakeRunner(build_dir, ["libur_adapter_fake.so.0"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert result is True
-    assert (toolchain_root / "lib" / "libur_adapter_fake.so.0").is_file()
-    assert not (toolchain_root / "bin").exists()
-
-
+@pytest.mark.medium
 def test_linux_configure_does_not_force_the_msvc_compiler(
         tmp_path, short_work_root, recording_console):
-    """Check that linux configure does not force the msvc compiler."""
-    cfg = _linux_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+    """Check that a Linux configure names no cl compiler."""
+    _produce(short_work_root, ["libur_adapter_fake.so.0"])
 
-    runner = _FakeRunner(build_dir, ["libur_adapter_fake.so.0"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
+    scene = _run(_builder(tmp_path, short_work_root, cfg=_linux_cfg()))
 
-    configure_call = next(c for c in runner.calls if "-S" in c)
+    configure_call = _configure_call(scene)
     assert "-DCMAKE_C_COMPILER=cl" not in configure_call
     assert "-DCMAKE_CXX_COMPILER=cl" not in configure_call
 
 
-def test_configure_passes_ninja_from_config_when_set(
-        tmp_path, short_work_root, recording_console):
-    """Check that configure passes ninja from config when set."""
-    cfg = _windows_cfg(ninja_exe="ninja.exe")
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
+@pytest.mark.medium
+@pytest.mark.parametrize(("ninja_exe", "expected"), [
+    ("ninja.exe", ["-DCMAKE_MAKE_PROGRAM=ninja.exe"]),
+    ("", []),
+], ids=["configured", "not-configured"])
+def test_configure_passes_the_configured_ninja_program_only(
+        tmp_path, short_work_root, recording_console, ninja_exe, expected):
+    """Check that the make program is passed when ninja is configured and omitted when not."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
+    scene = _run(_builder(tmp_path, short_work_root, cfg=_windows_cfg(ninja_exe=ninja_exe)))
 
-    configure_call = next(c for c in runner.calls if "-S" in c)
-    assert "-DCMAKE_MAKE_PROGRAM=ninja.exe" in configure_call
+    passed = [a for a in _configure_call(scene) if a.startswith("-DCMAKE_MAKE_PROGRAM=")]
+    assert passed == expected
 
 
-def test_configure_omits_ninja_program_when_not_configured(
-        tmp_path, short_work_root, recording_console):
-    """Check that configure omits ninja program when not configured."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
-    build_dir = _build_dir_for(work_root)
-
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=lambda cfg: {})
-    builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    configure_call = next(c for c in runner.calls if "-S" in c)
-    assert not any(a.startswith("-DCMAKE_MAKE_PROGRAM=") for a in configure_call)
-
-
+@pytest.mark.medium
 def test_the_environment_provider_is_called_at_most_once_per_builder(
         tmp_path, short_work_root, recording_console):
-    """Check that the environment provider is called at most once per builder."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    work_root = short_work_root
+    """Check that two builds on one builder ask for the environment once."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    asked: list[object] = []
+    scene = _builder(tmp_path, short_work_root)
+    scene.builder.environment = lambda cfg: asked.append(cfg) or {}
+    _run(scene)
+    other = tmp_path / "llvm-sycl-2"
+    other.mkdir()
+    scene.toolchain_root = other
 
-    calls = {"n": 0}
+    _run(scene)
 
-    def counting_environment(cfg):
-        """Check that counting environment."""
-        calls["n"] += 1
-        return {}
-
-    spec = _fake_spec()
-    build_dir = _build_dir_for(work_root)
-    runner = _FakeRunner(build_dir, ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=work_root,
-                             environment=counting_environment)
-
-    builder.build(spec, install, toolchain_root, _COMMIT, dry_run=False)
-    shutil.rmtree(build_dir)
-    another_toolchain_root = tmp_path / "llvm-sycl-2"
-    another_toolchain_root.mkdir()
-    builder.build(spec, install, another_toolchain_root, _COMMIT, dry_run=False)
-
-    assert calls["n"] == 1
+    assert len(asked) == 1
 
 
+@pytest.mark.medium
 def test_a_long_work_root_is_refused_on_windows(tmp_path, recording_console):
-    """Check that a long work root is refused on windows."""
-    cfg = _windows_cfg()
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    toolchain_root.mkdir()
-    long_root = tmp_path / ("x" * 80)
+    """Check that a work root over the limit fails the build before any command runs."""
+    scene = _run(_builder(tmp_path, tmp_path / ("x" * 80)))
 
-    runner = _FakeRunner(long_root / "build", ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=cfg, runner=runner, work_root=long_root,
-                             environment=lambda cfg: {})
-
-    result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    assert result is False
-    assert runner.calls == []
+    assert scene.result is False
+    assert scene.runner.calls == []
 
 
-def test_default_work_root_follows_the_dependency_root(provision_home, recording_console):
-    """Check that default work root follows the dependency root."""
-    cfg = _linux_cfg()
-    builder = AdapterBuilder(cfg=cfg, runner=_MissingExecutableRunner())
+@pytest.mark.small
+def test_the_default_work_root_is_ur_under_the_dependency_root():
+    """Check that build trees go under ``ur`` in the root the dependency root is bound to."""
+    root = Path("dependency-root")
+    home.bind_root(lambda: root)
+    try:
+        builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryCommandRunner())
+    finally:
+        home.bind_root(None)
 
-    assert builder.work_root == provision_home.resolve() / "ur"
+    assert builder.work_root == root.resolve() / "ur"
 
 
-
+@pytest.mark.medium
 def test_a_previous_binary_that_cannot_be_removed_is_recorded(
-        tmp_path, short_work_root, monkeypatch, recording_console, caplog):
+        tmp_path, short_work_root, recording_console):
     """Check that a leftover ``.previous`` copy is logged and the install still succeeds."""
-    install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
-    toolchain_root = tmp_path / "llvm-sycl"
-    bin_dir = toolchain_root / "bin"
-    bin_dir.mkdir(parents=True)
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    handler = _ListHandler()
+    logger = logging.Logger("adapter-builder-test")
+    logger.addHandler(handler)
+    scene = _builder(tmp_path, short_work_root, unlink=_LockedPreviousCopies(), log=logger)
+    bin_dir = scene.toolchain_root / "bin"
+    bin_dir.mkdir()
     (bin_dir / "ur_adapter_fake.dll").write_bytes(b"old")
-    runner = _FakeRunner(_build_dir_for(short_work_root), ["ur_adapter_fake.dll"])
-    builder = AdapterBuilder(cfg=_windows_cfg(), runner=runner, work_root=short_work_root,
-                             environment=lambda cfg: {})
 
-    real_unlink = Path.unlink
+    _run(scene)
 
-    def locked_unlink(self, *args, **kwargs):
-        """Refuse to delete a ``.previous`` copy and delete anything else."""
-        if self.name.endswith(".previous"):
-            raise PermissionError(13, "file is in use", str(self))
-        return real_unlink(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", locked_unlink)
-
-    with caplog.at_level("WARNING", logger="sushicore.provision"):
-        result = builder.build(_fake_spec(), install, toolchain_root, _COMMIT, dry_run=False)
-
-    warnings = [r.getMessage() for r in caplog.records
-                if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
-    assert result is True
+    assert scene.result is True
     assert (bin_dir / "ur_adapter_fake.dll").read_bytes() == b"fake"
-    assert len(warnings) == 1
-    assert "ur_adapter_fake.dll.previous" in warnings[0]
+    assert len(handler.messages) == 1
+    assert "ur_adapter_fake.dll.previous" in handler.messages[0]

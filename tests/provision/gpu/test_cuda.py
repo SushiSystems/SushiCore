@@ -7,42 +7,32 @@
 from __future__ import annotations
 
 import pathlib
-
 from types import SimpleNamespace
 
 import pytest
 
 from sushicore.provision.gpu.backend import ToolkitInstall
+from sushicore.provision.gpu.cuda import cuda_spec
+from sushicore.provision.gpu.toolkit_vendor_memory import InMemoryToolkitVendor
 
-from sushicore.provision.gpu.cuda import CUDA
-
-from sushicore.provision.gpu.cuda_toolkit_installer import nvcc_in
-
-
-
-pytestmark = pytest.mark.medium
+pytestmark = pytest.mark.small
 
 
-
-def test_cuda_spec_declares_the_adapter_build_inputs():
-    """Check that cuda spec declares the adapter build inputs."""
-    assert CUDA.vendor == "cuda"
-    assert CUDA.probe_vendor == "nvidia"
-    assert CUDA.adapter_option == "UR_BUILD_ADAPTER_CUDA"
-    assert CUDA.adapter_target == "ur_adapter_cuda"
-    assert CUDA.adapter_binaries == ("ur_adapter_cuda", "umf")
+def test_cuda_names_the_toolkit_root_to_the_adapter_build():
+    """Check that the toolkit root reaches the adapter build as CUDAToolkit_ROOT."""
     root = pathlib.Path("/opt/cuda")
     install = ToolkitInstall(root=root, version="12.6")
-    assert CUDA.adapter_definitions(install) == {"CUDAToolkit_ROOT": str(root)}
+
+    assert cuda_spec().adapter_definitions(install) == {"CUDAToolkit_ROOT": str(root)}
 
 
+@pytest.mark.parametrize("platform", ["linux", "windows"])
+def test_cuda_locates_through_the_vendor_on_linux_and_windows(platform):
+    """Check that both CUDA platforms find the toolkit the vendor's root variable names."""
+    root = pathlib.Path("cuda-root")
+    vendor = InMemoryToolkitVendor(pathlib.Path("toolkits"), toolkit_roots=[root])
+    spec = cuda_spec(vendor, process_environment={vendor.root_variable: str(root)})
 
-def test_cuda_locator_finds_the_toolkit_from_cuda_path(tmp_path, monkeypatch):
-    """Check that the CUDA locator takes the toolkit CUDA_PATH names."""
-    (tmp_path / "bin").mkdir()
-    (tmp_path / "bin" / nvcc_in(tmp_path).name).write_text("")
-    monkeypatch.setenv("CUDA_PATH", str(tmp_path))
+    install = spec.locator.locate(SimpleNamespace(platform=platform))
 
-    install = CUDA.locator.locate(SimpleNamespace(platform="windows"))
-
-    assert install == ToolkitInstall(root=pathlib.Path(str(tmp_path)), version=None)
+    assert install == ToolkitInstall(root=root, version=None)

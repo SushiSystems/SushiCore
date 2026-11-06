@@ -124,6 +124,9 @@ class AdapterBuilder:
     runner: CommandRunner
     work_root: Path = dataclasses.field(default_factory=_default_work_root)
     environment: typing.Callable[["ProvisionConfig"], dict[str, str]] = _default_environment
+    replace: typing.Callable[[Path, Path], None] = os.replace
+    unlink: typing.Callable[[Path], None] = Path.unlink
+    log: logging.Logger = _log
 
     _cached_environment: dict[str, str] | None = dataclasses.field(
         default=None, init=False, repr=False)
@@ -310,7 +313,7 @@ class AdapterBuilder:
                 continue
             previous_copy = staging_dir / (destination.name + ".previous")
             try:
-                os.replace(destination, previous_copy)
+                self.replace(destination, previous_copy)
             except OSError as exc:
                 console.warn(
                     f"Could not move existing {destination} aside before install: {exc}")
@@ -322,7 +325,7 @@ class AdapterBuilder:
         for source in staged:
             destination = target_dir / source.name
             try:
-                os.replace(source, destination)
+                self.replace(source, destination)
             except OSError as exc:
                 console.warn(f"Installing {destination} failed: {exc}")
                 self._undo_installs(installed, previous)
@@ -333,9 +336,9 @@ class AdapterBuilder:
 
         for previous_copy in previous.values():
             try:
-                previous_copy.unlink()
+                self.unlink(previous_copy)
             except OSError as error:
-                _log.warning(
+                self.log.warning(
                     "%s was not deleted after the install (%s: %s); the file stays on disk",
                     previous_copy,
                     type(error).__name__,
@@ -349,9 +352,9 @@ class AdapterBuilder:
             previous_copy = previous.get(destination)
             try:
                 if previous_copy is not None:
-                    os.replace(previous_copy, destination)
+                    self.replace(previous_copy, destination)
                 else:
-                    destination.unlink()
+                    self.unlink(destination)
             except OSError as exc:
                 state = f"restore from {previous_copy}" if previous_copy else "removal"
                 console.warn(f"Rollback failed: {destination} left in place, {state} failed: {exc}")
@@ -360,7 +363,7 @@ class AdapterBuilder:
         """Restore every destination moved aside in *previous* to its original path."""
         for destination, previous_copy in previous.items():
             try:
-                os.replace(previous_copy, destination)
+                self.replace(previous_copy, destination)
             except OSError as exc:
                 console.warn(
                     f"Rollback failed: {previous_copy} could not be restored to "

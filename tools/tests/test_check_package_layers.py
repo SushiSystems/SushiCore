@@ -2,28 +2,32 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests the rules of tools/layering/check_package_layers.py on packages built on disk."""
+"""Tests the decisions of tools/layering/check_package_layers.py on layer tables and parsed source."""
 
 from __future__ import annotations
 
+import ast
 import sys
-import tempfile
-import unittest
 from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.medium
+pytestmark = pytest.mark.small
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from layering.check_package_layers import (  # noqa: E402
-    Repository,
-    rule_forbidden_import,
-    rule_ui_component,
-    rule_unlayered_module,
-    rule_upward_import,
+    K_LAYERED,
+    _component_problems,
+    _forbidden_names,
+    _import_problems,
+    _unlayered_keys,
+    _upward_imports,
 )
+
+K_PACKAGES = {package.name: package for package in K_LAYERED}
+K_PROVISION = K_PACKAGES["sushicore.provision"]
+K_DOCS_BUNDLE = K_PACKAGES["sushicore.docs_bundle"]
 
 K_COMPONENT = """from dataclasses import dataclass
 from typing import final
@@ -43,76 +47,65 @@ class Title:
 """
 
 
-class PackageLayersTest(unittest.TestCase):
-    """Builds a repository with source/sushicore/ for each test."""
-
-    def setUp(self) -> None:
-        self._folder = tempfile.TemporaryDirectory()
-        self.repository = Repository(Path(self._folder.name))
-
-    def tearDown(self) -> None:
-        self._folder.cleanup()
-
-    def write(self, relative: str, text: str = "") -> None:
-        """Writes a file below source/sushicore/."""
-        path = self.repository.root / "source" / "sushicore" / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-
-    def messages(self, rule) -> list[str]:
-        """Returns the message of each issue a rule yields."""
-        return [issue.message for issue in rule(self.repository)]
-
-    def test_reports_a_module_without_a_layer(self) -> None:
-        self.write("provision/home.py")
-        self.write("provision/brand_new.py")
-        self.assertEqual(self.messages(rule_unlayered_module),
-                         ["brand_new has no layer in the sushicore.provision table"])
-
-    def test_reports_every_form_of_an_upward_import(self) -> None:
-        self.write("provision/home.py", "from . import steps\nfrom sushicore.provision import commands\n")
-        self.write("provision/gpu/cuda.py", "def later():\n    from .. import steps\n")
-        self.assertEqual(sorted(self.messages(rule_upward_import)), [
-            "gpu.cuda imports steps, which is not in a lower layer",
-            "home imports commands, which is not in a lower layer",
-            "home imports steps, which is not in a lower layer",
-        ])
-
-    def test_a_sideways_import_passes_only_where_the_package_allows_it(self) -> None:
-        self.write("provision/config.py", "from . import home\n")
-        self.write("docs_bundle/page_text.py", "from .publish_list import read\n")
-        self.assertEqual(self.messages(rule_upward_import),
-                         ["page_text imports publish_list, which is not in a lower layer"])
-
-    def test_reports_a_forbidden_import_at_module_level_only_where_asked(self) -> None:
-        self.write("docs_bundle/commands.py", "import typer\n\ndef run():\n    import click\n")
-        self.write("provision/steps.py", "def run():\n    import sushihub.cli\n")
-        self.assertEqual(sorted(self.messages(rule_forbidden_import)), [
-            "sushicore.docs_bundle may not import typer",
-            "sushicore.provision may not import sushihub.cli",
-        ])
-
-    def test_accepts_a_component_of_the_right_shape(self) -> None:
-        self.write("ui/title.py", K_COMPONENT)
-        self.assertEqual(self.messages(rule_ui_component), [])
-
-    def test_reports_each_way_a_component_breaks_its_shape(self) -> None:
-        broken = (K_COMPONENT.replace("@final\n", "").replace("slots=True", "slots=False")
-                  .replace("self, theme: Theme", "self, theme: Theme, width: int")
-                  .replace("from ..theme import Theme", "from ..theme import Theme\nfrom ..console import Console"))
-        self.write("ui/title.py", broken)
-        self.assertEqual(self.messages(rule_ui_component), [
-            "Title is not marked final",
-            "Title is not a frozen dataclass with slots",
-            "Title.render does not take exactly self and theme",
-            "a component may not import sushicore.console",
-        ])
-
-    def test_reports_a_file_whose_class_is_not_named_after_it(self) -> None:
-        self.write("ui/header.py", K_COMPONENT)
-        self.assertEqual(self.messages(rule_ui_component),
-                         ["defines ['Title'], not the one public class Header"])
+def _problems(stem: str, text: str) -> list[str]:
+    """Returns every problem a ui file named *stem* holding *text* has, shape first, then imports."""
+    tree = ast.parse(text)
+    return [problem for _, problem in [*_component_problems(stem, tree), *_import_problems(tree)]]
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_reports_a_module_without_a_layer():
+    assert list(_unlayered_keys(K_PROVISION, ["home", "brand_new", ""])) == ["brand_new"]
+
+
+def test_reports_every_form_of_an_upward_import():
+    home = ast.parse("from . import steps\nfrom sushicore.provision import commands\n")
+    cuda = ast.parse("def later():\n    from .. import steps\n")
+    found = [*_upward_imports(K_PROVISION, "home", [], home), *_upward_imports(K_PROVISION, "gpu.cuda", ["gpu"], cuda)]
+    assert found == [(1, "steps"), (2, "commands"), (2, "steps")]
+
+
+@pytest.mark.parametrize(
+    ("package", "own", "text", "expected"),
+    [
+        (K_PROVISION, "config", "from . import home\n", []),
+        (K_DOCS_BUNDLE, "page_text", "from .publish_list import read\n", [(1, "publish_list")]),
+    ],
+    ids=["provision allows it", "docs_bundle does not"],
+)
+def test_a_sideways_import_passes_only_where_the_package_allows_it(package, own, text, expected):
+    assert list(_upward_imports(package, own, [], ast.parse(text))) == expected
+
+
+@pytest.mark.parametrize(
+    ("package", "text", "expected"),
+    [
+        (K_DOCS_BUNDLE, "import typer\n\ndef run():\n    import click\n", [(1, "typer")]),
+        (K_PROVISION, "def run():\n    import sushihub.cli\n", [(2, "sushihub.cli")]),
+    ],
+    ids=["module level only", "nested too"],
+)
+def test_reports_a_forbidden_import_at_module_level_only_where_asked(package, text, expected):
+    assert list(_forbidden_names(package, ast.parse(text))) == expected
+
+
+def test_accepts_a_component_of_the_right_shape():
+    assert _problems("title", K_COMPONENT) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "problem"),
+    [
+        ("@final\n", "", "Title is not marked final"),
+        ("slots=True", "slots=False", "Title is not a frozen dataclass with slots"),
+        ("self, theme: Theme", "self, theme: Theme, width: int", "Title.render does not take exactly self and theme"),
+        ("from ..theme import Theme", "from ..theme import Theme\nfrom ..console import Console",
+         "a component may not import sushicore.console"),
+    ],
+    ids=["not final", "not a frozen slots dataclass", "a wrong render signature", "a forbidden import"],
+)
+def test_reports_each_way_a_component_breaks_its_shape(old, new, problem):
+    assert _problems("title", K_COMPONENT.replace(old, new)) == [problem]
+
+
+def test_reports_a_file_whose_class_is_not_named_after_it():
+    assert _problems("header", K_COMPONENT) == ["defines ['Title'], not the one public class Header"]

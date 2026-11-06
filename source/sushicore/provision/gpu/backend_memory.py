@@ -20,19 +20,23 @@ class InMemoryToolkitLocator:
     Args:
         install: What ``locate`` returns; ``None`` stands for a toolkit that is not installed.
         provisioned: What ``provision`` returns.
+        fail_with: Raised by ``locate`` after it records the call; ``None`` raises nothing.
     """
 
     def __init__(self, install: ToolkitInstall | None = None, *,
-                 provisioned: bool = True) -> None:
+                 provisioned: bool = True, fail_with: Exception | None = None) -> None:
         """Start with no recorded calls."""
         self._install = install
         self._provisioned = provisioned
+        self._fail_with = fail_with
         self.located: list["ProvisionConfig"] = []
         self.provisioned_with: list[tuple["ProvisionConfig", bool]] = []
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Record *cfg* and return the fixed install."""
+        """Record *cfg*, then raise the configured error or return the fixed install."""
         self.located.append(cfg)
+        if self._fail_with is not None:
+            raise self._fail_with
         return self._install
 
     def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:

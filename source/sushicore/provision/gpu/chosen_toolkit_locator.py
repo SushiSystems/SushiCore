@@ -36,20 +36,24 @@ class ChosenToolkitLocator:
         vendor: Answers every vendor-specific question.
         choices: The record of the last choice; ``<toolkits_dir>/choice.json`` when None.
         environment: The user's persistent variables; the platform's default when None.
+        process_environment: The variables of this process, read for the root and the
+            override and written with the root; :data:`os.environ` when None.
     """
 
     def __init__(self, vendor: ToolkitVendor, choices: ToolkitChoiceFile | None = None,
-                 environment: UserEnvironment | None = None) -> None:
+                 environment: UserEnvironment | None = None,
+                 process_environment: typing.MutableMapping[str, str] | None = None) -> None:
         """Store the vendor and where the choice and the root variable are kept."""
         self._vendor = vendor
         self._choices = choices
         self._environment = environment
+        self._process = os.environ if process_environment is None else process_environment
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
         """Return the toolkit the root variable names, in this process or the user's
         variables, else one installed by other means."""
         variable = self._vendor.root_variable
-        for raw in (os.environ.get(variable, ""),
+        for raw in (self._process.get(variable, ""),
                     read_user_variable(variable, self._environment) or ""):
             if raw and self._vendor.is_toolkit_root(pathlib.Path(os.path.normpath(raw))):
                 return ToolkitInstall(root=pathlib.Path(os.path.normpath(raw)), version=None)
@@ -82,7 +86,7 @@ class ChosenToolkitLocator:
         if root is None:
             return True
         variable = self._vendor.root_variable
-        os.environ[variable] = str(root)
+        self._process[variable] = str(root)
         write_user_variable(variable, str(root), self._environment)
         console.success(f"{name} toolkit at {root}; {variable} points to it.")
         return True
@@ -90,7 +94,7 @@ class ChosenToolkitLocator:
     def _provide(self, hardware: GpuHardware) -> pathlib.Path | None:
         """Return the root of the release to use, installing it when needed."""
         vendor = self._vendor
-        override = os.environ.get(vendor.override_variable, "").strip()
+        override = self._process.get(vendor.override_variable, "").strip()
         if override:
             label = vendor.resolve_override(override)
             console.info(f"{vendor.override_variable} asks for {vendor.name} {label}.")

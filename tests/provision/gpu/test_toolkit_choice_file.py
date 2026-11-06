@@ -25,22 +25,18 @@ def test_a_written_choice_reads_back(tmp_path):
     assert choices.read() == choice
 
 
-def test_a_missing_file_reads_as_none(tmp_path):
-    """Check that no file means no choice."""
-    assert ToolkitChoiceFile(tmp_path / "choice.json").read() is None
-
-
-def test_another_format_reads_as_none(tmp_path):
-    """Check that a file of a future layout is ignored."""
+def _file_holding(tmp_path, text: str | None) -> ToolkitChoiceFile:
+    """Return the choice file at a path under *tmp_path*, holding *text* or absent when None."""
     path = tmp_path / "choice.json"
-    path.write_text('{"format": 2, "release": "13.1.2"}', encoding="utf-8")
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(text or "", encoding="utf-8")
+    if text is None:
+        path.unlink()
+    return ToolkitChoiceFile(path)
 
-    assert ToolkitChoiceFile(path).read() is None
 
-
-def test_a_corrupt_file_reads_as_none(tmp_path):
-    """Check that a file that does not parse is ignored."""
-    path = tmp_path / "choice.json"
-    path.write_text("{", encoding="utf-8")
-
-    assert ToolkitChoiceFile(path).read() is None
+@pytest.mark.parametrize("text", [None, '{"format": 2, "release": "13.1.2"}', "{"],
+                         ids=["missing", "another-format", "corrupt"])
+def test_an_unusable_file_reads_as_none(tmp_path, text):
+    """Check that a missing file, a file of a future layout and one that does not parse read as no choice."""
+    assert _file_holding(tmp_path, text).read() is None

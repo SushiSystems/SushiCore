@@ -100,7 +100,9 @@ K_LAYERED = (
             "sushi_fetch": 5, "pin_chain": 2, "sushi_setup": 5, "module_checks": 5, "sushi_source_check": 5,
             "links": 0, "user_environment": 0, "migrate": 2,
             "sushi_packages": 2, "package_install": 1, "package_command": 7,
-            "fragments_memory": 1, "git_client_memory": 4, "gpu.backend_memory": 2,
+            "fragments_memory": 1, "sinks_memory": 0, "git_client_memory": 4, "gpu.backend_memory": 2, "gpu.adapter_builder_memory": 2,
+            "gpu.toolkit_vendor_memory": 1, "gpu.cuda_selection_memory": 1, "gpu.cuda_vendor_memory": 2,
+            "gpu.rocm_vendor_memory": 2,
             "gpu.windows_installer_memory": 1,
         },
         strict=False,
@@ -150,9 +152,11 @@ def _imported(tree: ast.Module, nested: bool) -> Iterator[ast.Import | ast.Impor
     yield from (node for node in nodes if isinstance(node, (ast.Import, ast.ImportFrom)))
 
 
-def _targets(package: LayeredPackage, folder: Path, path: Path, node: ast.AST) -> Iterator[tuple[int, str]]:
-    """Yields the line and the layer-table key of each module of the package an import names."""
-    own_package = list(path.relative_to(folder).parts[:-1])
+def _targets(package: LayeredPackage, own_package: list[str], node: ast.AST) -> Iterator[tuple[int, str]]:
+    """Yields the line and the layer-table key of each module of the package an import names.
+
+    *own_package* holds the folders between the package and the importing file.
+    """
     if isinstance(node, ast.Import):
         bases = [alias.name for alias in node.names]
         named: list[list[str]] = [[]]
@@ -182,13 +186,33 @@ def _modules(repository: Repository, package: LayeredPackage) -> Iterator[tuple[
         yield from ((folder, path) for path in sorted(folder.rglob("*.py")))
 
 
+def _unlayered_keys(package: LayeredPackage, keys: Iterable[str]) -> Iterator[str]:
+    """Yields each layer-table key the package's table does not list, the package's own "" aside."""
+    yield from (key for key in keys if key and key not in package.layers)
+
+
 def rule_unlayered_module(repository: Repository) -> Iterator[Issue]:
     """Yields an issue for each module of a layered package that its layer table does not list."""
     for package in K_LAYERED:
         for folder, path in _modules(repository, package):
-            key = _key(package, folder, path)
-            if key and key not in package.layers:
+            for key in _unlayered_keys(package, [_key(package, folder, path)]):
                 yield Issue(path, 1, f"{key} has no layer in the {package.name} table")
+
+
+def _upward_imports(
+    package: LayeredPackage, own: str, own_package: list[str], tree: ast.Module,
+) -> Iterator[tuple[int, str]]:
+    """Yields the line and the target of each import of a higher layer, or the same one when strict.
+
+    *own* is the importing module's layer-table key and *own_package* the folders between the
+    package and the importing file.
+    """
+    for node in _imported(tree, package.nested):
+        for line, target in _targets(package, own_package, node):
+            upward = package.layers[target] >= package.layers[own] if package.strict \
+                else package.layers[target] > package.layers[own]
+            if target != own and upward:
+                yield line, target
 
 
 def rule_upward_import(repository: Repository) -> Iterator[Issue]:
@@ -198,24 +222,27 @@ def rule_upward_import(repository: Repository) -> Iterator[Issue]:
             own = _key(package, folder, path)
             if own not in package.layers:
                 continue
-            for node in _imported(_parse(path), package.nested):
-                for line, target in _targets(package, folder, path, node):
-                    upward = package.layers[target] >= package.layers[own] if package.strict \
-                        else package.layers[target] > package.layers[own]
-                    if target != own and upward:
-                        yield Issue(path, line, f"{own} imports {target}, which is not in a lower layer")
+            own_package = list(path.relative_to(folder).parts[:-1])
+            for line, target in _upward_imports(package, own, own_package, _parse(path)):
+                yield Issue(path, line, f"{own} imports {target}, which is not in a lower layer")
+
+
+def _forbidden_names(package: LayeredPackage, tree: ast.Module) -> Iterator[tuple[int, str]]:
+    """Yields the line and the name of each import the package's modules may not make."""
+    for node in _imported(tree, package.nested):
+        names = [alias.name for alias in node.names] if isinstance(node, ast.Import) \
+            else [node.module or ""] if not node.level else []
+        for name in names:
+            if name.split(".")[0] in package.forbidden:
+                yield node.lineno, name
 
 
 def rule_forbidden_import(repository: Repository) -> Iterator[Issue]:
     """Yields an issue for each import a layered package's modules may not make."""
     for package in K_LAYERED:
         for _, path in _modules(repository, package):
-            for node in _imported(_parse(path), package.nested):
-                names = [alias.name for alias in node.names] if isinstance(node, ast.Import) \
-                    else [node.module or ""] if not node.level else []
-                for name in names:
-                    if name.split(".")[0] in package.forbidden:
-                        yield Issue(path, node.lineno, f"{package.name} may not import {name}")
+            for line, name in _forbidden_names(package, _parse(path)):
+                yield Issue(path, line, f"{package.name} may not import {name}")
 
 
 def _pascal(stem: str) -> str:
@@ -232,9 +259,9 @@ def _decorator_names(definition: ast.ClassDef) -> dict[str, ast.expr]:
     return named
 
 
-def _component_problems(path: Path, tree: ast.Module) -> Iterator[tuple[int, str]]:
-    """Yields the line and the problem of each way a ui file breaks the component shape."""
-    expected = _pascal(path.stem)
+def _component_problems(stem: str, tree: ast.Module) -> Iterator[tuple[int, str]]:
+    """Yields the line and the problem of each way a ui file named *stem* breaks the component shape."""
+    expected = _pascal(stem)
     public = [node for node in tree.body if isinstance(node, ast.ClassDef) and not node.name.startswith("_")]
     if [node.name for node in public] != [expected]:
         yield 1, f"defines {[node.name for node in public]}, not the one public class {expected}"
@@ -261,6 +288,18 @@ def _absolute(node: ast.ImportFrom) -> str:
     return ".".join([*base, *([node.module] if node.module else [])])
 
 
+def _import_problems(tree: ast.Module) -> Iterator[tuple[int, str]]:
+    """Yields the line and the problem of each import a ui component may not make."""
+    for node in ast.walk(tree):
+        names = [alias.name for alias in node.names] if isinstance(node, ast.Import) \
+            else [_absolute(node)] if isinstance(node, ast.ImportFrom) else []
+        for name in names:
+            root = name.split(".")[0]
+            if root not in sys.stdlib_module_names and root not in K_COMPONENT_PACKAGES \
+                    and name not in K_COMPONENT_IMPORTS:
+                yield node.lineno, f"a component may not import {name}"
+
+
 def rule_ui_component(repository: Repository) -> Iterator[Issue]:
     """Yields an issue for each ui file that is not one final frozen component importing what it may."""
     folder = repository.folder(K_COMPONENTS)
@@ -268,16 +307,8 @@ def rule_ui_component(repository: Repository) -> Iterator[Issue]:
         if path.name in K_COMPONENT_EXEMPT:
             continue
         tree = _parse(path)
-        for line, problem in _component_problems(path, tree):
+        for line, problem in [*_component_problems(path.stem, tree), *_import_problems(tree)]:
             yield Issue(path, line, problem)
-        for node in ast.walk(tree):
-            names = [alias.name for alias in node.names] if isinstance(node, ast.Import) \
-                else [_absolute(node)] if isinstance(node, ast.ImportFrom) else []
-            for name in names:
-                root = name.split(".")[0]
-                if root not in sys.stdlib_module_names and root not in K_COMPONENT_PACKAGES \
-                        and name not in K_COMPONENT_IMPORTS:
-                    yield Issue(path, node.lineno, f"a component may not import {name}")
 
 
 K_CHECKER = Checker(

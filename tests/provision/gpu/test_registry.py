@@ -59,18 +59,14 @@ def test_an_unknown_vendor_or_probe_key_returns_none():
     assert registry.for_probe_vendor("missing") is None
 
 
-def test_a_duplicate_vendor_name_is_refused():
-    """Check that a duplicate vendor name is refused."""
+@pytest.mark.parametrize(("first", "second"), [
+    (("fake", "a"), ("fake", "b")),
+    (("a", "fakevendor"), ("b", "fakevendor")),
+], ids=["duplicate-vendor-name", "duplicate-probe-vendor"])
+def test_a_duplicate_vendor_or_probe_vendor_is_refused(first, second):
+    """Check that two specs sharing a vendor name, or a probe key, are refused."""
     with pytest.raises(ValueError):
-        Registry((_fake_spec(vendor="fake", probe_vendor="a"),
-                  _fake_spec(vendor="fake", probe_vendor="b")))
-
-
-def test_a_duplicate_probe_vendor_is_refused():
-    """Check that a duplicate probe vendor is refused."""
-    with pytest.raises(ValueError):
-        Registry((_fake_spec(vendor="a", probe_vendor="fakevendor"),
-                  _fake_spec(vendor="b", probe_vendor="fakevendor")))
+        Registry((_fake_spec(*first), _fake_spec(*second)))
 
 
 def test_platform_locator_dispatches_to_the_matching_platform():
@@ -93,6 +89,7 @@ def test_platform_locator_falls_back_to_not_provided(recording_console):
 
     assert dispatcher.locate(cfg) is None
     assert dispatcher.provision(cfg, dry_run=False) is True
+    assert recording_console.texts("info") == ["fake is not provided on windows."]
 
 
 def test_not_provided_always_locates_nothing_and_reports_success(recording_console):
@@ -101,14 +98,4 @@ def test_not_provided_always_locates_nothing_and_reports_success(recording_conso
     cfg = SimpleNamespace(platform="windows")
     assert locator.locate(cfg) is None
     assert locator.provision(cfg, dry_run=True) is True
-
-
-def test_platform_locator_works_with_a_plain_config_stand_in():
-    """Check that platform locator works with a plain config stand in."""
-    dispatcher = PlatformLocator("fake", {"linux": _locator("/opt/fake-linux")})
-    cfg = SimpleNamespace(platform="linux")
-
-    install = dispatcher.locate(cfg)
-
-    assert install is not None
-    assert install.root == pathlib.Path("/opt/fake-linux")
+    assert recording_console.texts("info") == ["fake is not provided on windows."]

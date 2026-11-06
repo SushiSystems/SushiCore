@@ -100,7 +100,15 @@ def _md5_of(path: Path) -> str:
 
 
 class HttpDownloader:
-    """Downloads over HTTPS to a ``.part`` file and renames it only when its MD5 matches."""
+    """Downloads over HTTPS to a ``.part`` file and renames it only when its MD5 matches.
+
+    :param open_url: Opens a request and returns a readable, closable response, as
+        :func:`urllib.request.urlopen` does. Defaults to :func:`urllib.request.urlopen`.
+    """
+
+    def __init__(self, open_url: typing.Callable[..., typing.Any] | None = None) -> None:
+        """Store the function that opens a URL."""
+        self._open_url = open_url or urllib.request.urlopen
 
     def fetch(self, download: InstallerDownload, dest_dir: Path) -> Path | None:
         """Reuse a verified copy in *dest_dir*, else download and verify a fresh one."""
@@ -132,7 +140,7 @@ class HttpDownloader:
         try:
             request = urllib.request.Request(download.url,
                                              headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(request, timeout=300) as resp, open(part, "wb") as fh:
+            with self._open_url(request, timeout=300) as resp, open(part, "wb") as fh:
                 while chunk := resp.read(1 << 16):
                     fh.write(chunk)
             actual = _md5_of(part)
@@ -152,7 +160,15 @@ def _ps_quote(text: str) -> str:
 
 
 class PowerShellElevatedRunner:
-    """Starts a process through ``Start-Process -Verb RunAs``, showing one UAC prompt."""
+    """Starts a process through ``Start-Process -Verb RunAs``, showing one UAC prompt.
+
+    :param run: Runs a command line and returns an object with ``returncode`` and ``stderr``, as
+        :func:`subprocess.run` does. Defaults to :func:`subprocess.run`.
+    """
+
+    def __init__(self, run: typing.Callable[..., typing.Any] | None = None) -> None:
+        """Store the function that runs the command."""
+        self._run = run or subprocess.run
 
     def command(self, exe: Path, args: typing.Sequence[str]) -> list[str]:
         """Return the PowerShell command line that runs *exe* elevated and exits with its code."""
@@ -170,21 +186,40 @@ class PowerShellElevatedRunner:
     def run(self, exe: Path, args: typing.Sequence[str]) -> ElevatedResult:
         """Run the elevated command and return its exit code and any launch error."""
         try:
-            done = subprocess.run(self.command(exe, args), stderr=subprocess.PIPE, text=True)
+            done = self._run(self.command(exe, args), stderr=subprocess.PIPE, text=True)
         except OSError as exc:
             return ElevatedResult(LAUNCH_FAILED, str(exc))
         return ElevatedResult(done.returncode, (done.stderr or "").strip())
 
 
+def _query_machine_registry(name: str) -> object:
+    """Return the raw machine value of *name* from the registry.
+
+    Raises:
+        OSError: The value is absent or unreadable.
+        ImportError: The platform has no registry.
+    """
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _MACHINE_ENVIRONMENT_KEY) as key:
+        value, _kind = winreg.QueryValueEx(key, name)
+    return value
+
+
 class RegistryMachineEnvironment:
-    """Reads the machine environment block under HKLM, expanding embedded variables."""
+    """Reads the machine environment block under HKLM, expanding embedded variables.
+
+    :param query: Returns the raw machine value of a name, or raises :class:`OSError`.
+        Defaults to a read of the registry.
+    """
+
+    def __init__(self, query: typing.Callable[[str], object] | None = None) -> None:
+        """Store the function that reads one raw value."""
+        self._query = query or _query_machine_registry
 
     def read(self, name: str) -> str | None:
         """Return the expanded machine value of *name*, or None when absent or unreadable."""
         try:
-            import winreg
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _MACHINE_ENVIRONMENT_KEY) as key:
-                value, _kind = winreg.QueryValueEx(key, name)
+            value = self._query(name)
         except (ImportError, OSError):
             return None
         return os.path.expandvars(str(value)) if value else None
@@ -198,14 +233,25 @@ def adopt_machine_variable(environment: MachineEnvironment, name: str) -> str | 
     return value
 
 
+def merged_path(process_path: str, machine_path: str) -> str:
+    """Return *process_path* with the entries of *machine_path* it lacks put in front.
+
+    Entries are compared without regard to case; empty entries are dropped from the front part.
+    """
+    known = {entry.lower() for entry in process_path.split(os.pathsep) if entry}
+    fresh = [entry for entry in machine_path.split(os.pathsep)
+             if entry and entry.lower() not in known]
+    if not fresh:
+        return process_path
+    return os.pathsep.join([*fresh, process_path] if process_path else fresh)
+
+
 def prepend_machine_path(environment: MachineEnvironment) -> None:
     """Prepend the machine PATH entries this process's PATH does not already hold."""
     current = os.environ.get("PATH", "")
-    known = {entry.lower() for entry in current.split(os.pathsep) if entry}
-    fresh = [entry for entry in (environment.read("Path") or "").split(os.pathsep)
-             if entry and entry.lower() not in known]
-    if fresh:
-        os.environ["PATH"] = os.pathsep.join([*fresh, current] if current else fresh)
+    merged = merged_path(current, environment.read("Path") or "")
+    if merged != current:
+        os.environ["PATH"] = merged
 
 
 @dataclasses.dataclass(frozen=True)

@@ -25,32 +25,30 @@ def test_parse_hardware_collapses_identical_cards_and_sorts_numerically():
     assert hardware == NvidiaHardware(("89", "120"), (13, 1))
 
 
-def test_parse_hardware_without_a_ceiling_is_none():
-    """Check that a banner with no CUDA version yields no record."""
-    assert parse_hardware("8.9\n", "NVIDIA-SMI has failed") is None
+@pytest.mark.parametrize(("capability", "banner"), [
+    ("8.9\n", "NVIDIA-SMI has failed"),
+    ("", K_BANNER),
+], ids=["without-a-ceiling", "without-a-card"])
+def test_parse_hardware_with_a_missing_part_is_none(capability, banner):
+    """Check that a banner with no CUDA version, or no compute capability, yields no record."""
+    assert parse_hardware(capability, banner) is None
 
 
-def test_parse_hardware_without_a_card_is_none():
-    """Check that no compute capability yields no record."""
-    assert parse_hardware("", K_BANNER) is None
+def _failing_with(error: Exception):
+    """Return a run function that raises *error*, as a missing or broken nvidia-smi does."""
+    def run(command):
+        """Raise *error*."""
+        raise error
+    return run
 
 
-def test_query_hardware_without_a_driver_is_none():
-    """Check that a missing nvidia-smi is reported as no hardware."""
-    def missing(command):
-        """Fail as a missing binary does."""
-        raise FileNotFoundError(command[0])
-
-    assert query_hardware(missing) is None
-
-
-def test_query_hardware_with_a_failing_driver_is_none():
-    """Check that nvidia-smi exiting non-zero is reported as no hardware."""
-    def failing(command):
-        """Fail as a broken driver does."""
-        raise subprocess.CalledProcessError(9, command)
-
-    assert query_hardware(failing) is None
+@pytest.mark.parametrize("error", [
+    FileNotFoundError("nvidia-smi"),
+    subprocess.CalledProcessError(9, ["nvidia-smi"]),
+], ids=["no-driver", "failing-driver"])
+def test_query_hardware_with_a_driver_that_cannot_answer_is_none(error):
+    """Check that a missing nvidia-smi, or one exiting non-zero, is reported as no hardware."""
+    assert query_hardware(_failing_with(error)) is None
 
 
 def test_query_hardware_reads_both_commands():

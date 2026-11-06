@@ -150,6 +150,11 @@ so a CLI test imports it instead of writing a stand-in:
 | `provision.git_client.IGitClient` | `provision.git_client_memory.InMemoryGitClient` |
 | `provision.fragments.IDependencySource` | `provision.fragments_memory.InMemoryDependencySource` |
 | `provision.gpu.backend.ToolkitLocator` | `provision.gpu.backend_memory.InMemoryToolkitLocator` |
+| `provision.gpu.adapter_builder`'s command runner and builder | `provision.gpu.adapter_builder_memory.InMemoryCommandRunner` and `InMemoryAdapterBuilder` |
+| `provision.gpu.toolkit_vendor.ToolkitVendor` and the GPU hardware probe | `provision.gpu.toolkit_vendor_memory.InMemoryToolkitVendor` and `FixedHardware` |
+| The CUDA architecture probe of `provision.gpu.cuda_selection` | `provision.gpu.cuda_selection_memory.TableArchitectureProbe` |
+| The CUDA redist index and installer | `provision.gpu.cuda_vendor_memory.InMemoryRedistIndex` and `InMemoryRedistInstaller` |
+| The ROCm tarball index and installer | `provision.gpu.rocm_vendor_memory.InMemoryTarballIndex` and `InMemoryTarballInstaller` |
 | `provision.gpu.windows_installer.MachineEnvironment` | `provision.gpu.windows_installer_memory.InMemoryMachineEnvironment` |
 | `provision.sushi_packages.clock.Clock` | `provision.sushi_packages.clock_memory.ManualClock` |
 | `cmake_driver_port.CMakeDriverPort`, which `cmake_driver.CMakeDriver` keeps | `cmake_driver_memory.MemoryCMakeDriver` holds build trees by path, seeded with `add_tree` or left by a `configure` argv's `-B`, `-G` and `-D` values; it records each command as a `CMakeCall` and answers the exit codes queued with `script`, else 0 |

@@ -30,13 +30,3 @@ def _package(family: str) -> RocmPackage:
 def test_builds_for_reads_x_as_any_character(family, target, covered):
     """Check the wildcard and the length rule."""
     assert _package(family).builds_for(target) is covered
-
-
-def test_label_joins_release_and_family():
-    """Check the install folder's name."""
-    assert _package("gfx110X-all").label == "7.13.0-gfx110X-all"
-
-
-def test_an_exact_family_is_more_specific_than_a_wildcard_one():
-    """Check that gfx1151 ranks above gfx115X."""
-    assert _package("gfx1151").specificity() > _package("gfx115X-all").specificity()

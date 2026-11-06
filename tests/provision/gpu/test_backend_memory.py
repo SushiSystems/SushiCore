@@ -37,3 +37,12 @@ def test_locate_records_each_configuration_it_was_asked_about():
     locator = InMemoryToolkitLocator()
     locator.locate(_CFG)
     assert locator.located == [_CFG]
+
+
+def test_a_locator_told_to_fail_raises_on_locate_and_records_the_call():
+    locator = InMemoryToolkitLocator(fail_with=OSError("disk unreadable"))
+
+    with pytest.raises(OSError):
+        locator.locate(_CFG)
+
+    assert locator.located == [_CFG]

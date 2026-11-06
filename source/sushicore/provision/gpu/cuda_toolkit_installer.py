@@ -55,14 +55,19 @@ def nvcc_in(root: Path) -> Path:
     return root / "bin" / K_NVCC
 
 
-def list_gpu_architectures(nvcc: Path) -> frozenset[str]:
+def list_gpu_architectures(nvcc: Path, *, run: typing.Callable[..., typing.Any] = subprocess.run,
+                           ) -> frozenset[str]:
     """Return the architectures *nvcc* builds for, without the ``compute_`` prefix.
+
+    Args:
+        nvcc: The compiler to ask.
+        run: Runs the command with the signature of :func:`subprocess.run`.
 
     Raises:
         ToolkitInstallError: nvcc did not run.
     """
     try:
-        done = subprocess.run([str(nvcc), "--list-gpu-arch"], capture_output=True, text=True,
+        done = run([str(nvcc), "--list-gpu-arch"], capture_output=True, text=True,
                               check=True, timeout=60)
     except (OSError, subprocess.SubprocessError) as error:
         raise ToolkitInstallError(f"{nvcc} --list-gpu-arch failed: {error}") from error
@@ -77,13 +82,18 @@ class RedistToolkitInstaller:
     Args:
         target_dir: The folder releases are installed under; defaults to :func:`toolkits_dir`.
         download: Writes the body at a URL to a path; raises ``OSError`` on failure.
+        list_architectures: Asks an unpacked nvcc for its architectures; defaults to
+            :func:`list_gpu_architectures`.
     """
 
     def __init__(self, target_dir: Path | None = None,
-                 download: typing.Callable[[str, Path], None] | None = None) -> None:
-        """Store the target folder and the download function."""
+                 download: typing.Callable[[str, Path], None] | None = None,
+                 list_architectures: typing.Callable[[Path], frozenset[str]] | None = None,
+                 ) -> None:
+        """Store the target folder, the download function and the architecture query."""
         self._target_dir = target_dir
         self._download = download or _download
+        self._list_architectures = list_architectures or list_gpu_architectures
 
     @property
     def base_dir(self) -> Path:
@@ -105,12 +115,12 @@ class RedistToolkitInstaller:
             ToolkitInstallError: The compiler archive is missing, mismatching or does not run.
         """
         if self.is_installed(release.label):
-            return list_gpu_architectures(nvcc_in(self.root_of(release.label)))
+            return self._list_architectures(nvcc_in(self.root_of(release.label)))
         probe_root = self._base() / f".{release.label}-probe"
         _remove_tree(probe_root)
         try:
             self._unpack(self._archive(release, "cuda_nvcc"), probe_root)
-            return list_gpu_architectures(nvcc_in(probe_root))
+            return self._list_architectures(nvcc_in(probe_root))
         finally:
             _remove_tree(probe_root)
 
