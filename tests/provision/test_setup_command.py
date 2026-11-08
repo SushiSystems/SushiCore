@@ -6,6 +6,7 @@
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
 from sushicore.provision import setup_command
 from sushicore.provision.config import ProvisionSettings
@@ -16,36 +17,21 @@ from sushicore.provision.module_provision import ModuleProvision
 pytestmark = pytest.mark.medium
 
 
-class _Console:
-    def __init__(self):
-        self.errors = []
-
-    def error(self, text):
-        self.errors.append(text)
-
-    def info(self, text):
-        pass
-
-    def warn(self, text):
-        pass
-
-    def success(self, text):
-        pass
-
-
 def _offline_git() -> InMemoryGitClient:
     """Return a git whose clones fail and whose every HEAD is a fixed commit."""
     return InMemoryGitClient(clones=False, default_head="0" * 40)
 
 
 def test_an_unknown_toolchain_stops_setup_with_the_usage_code(tmp_path, provision_home):
-    console = _Console()
+    """Check that an unknown toolchain ends setup with the usage code and an error."""
+    console = RecordingConsole()
     profile = ModuleProfile(name="sushidsp", program="sd", env_prefix="SD", root_marker="m")
     (tmp_path / "cli").mkdir()
     (tmp_path / "cli" / "sushistack.deps.toml").write_text('[widget]\ndescription = "w"\n', encoding="utf-8")
     module = ModuleProvision(profile=profile, project_root=lambda: tmp_path,
                              load_config=lambda: ProvisionSettings(platform="linux"),
-                             console=lambda: console, git=_offline_git)
+                             console=lambda: console, git=_offline_git,
+                             toolchains=lambda cfg, gpu: [])
     outcome = setup_command.run_setup(module, dry_run=True, yes=False, toolchains=["nonesuch"], gpu=False)
     assert (outcome.ok, outcome.code) == (False, 2)
-    assert console.errors
+    assert [name for name, _ in console.calls if name == "error"]

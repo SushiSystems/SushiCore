@@ -68,16 +68,22 @@ def capture_command(command: list[str], cwd: Path,
     return CapturedRun(done.returncode, done.stdout or "")
 
 
-def install_summary(output: str, prefix: Path) -> str:
+def install_summary(output: str, prefix: Path,
+                    is_file: Callable[[Path], bool] | None = None) -> str:
     """Return one line counting the files a ``cmake --install`` *output* copied and kept.
 
     cmake prints a folder with the same prefix as a file, so a line counts only when its path
     is a file once the install is done.
+
+    Args:
+        is_file: Asked whether a printed path is a file; ``Path.is_file`` when ``None``.
     """
+    is_file = is_file or Path.is_file
+
     def files(marker: str) -> int:
         """Return how many lines start with *marker* and name a file."""
         return sum(1 for line in output.splitlines()
-                   if line.startswith(marker) and Path(line[len(marker):].strip()).is_file())
+                   if line.startswith(marker) and is_file(Path(line[len(marker):].strip())))
 
     return (f"Installed {files(K_INSTALLED_LINE)} files, {files(K_UP_TO_DATE_LINE)} up to date, "
             f"into {prefix}")

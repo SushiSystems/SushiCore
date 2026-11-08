@@ -22,11 +22,12 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |
 | `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
-| `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack |
+| `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryLinuxPackageManager`, which holds its packages in memory and runs no command |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
 | `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers; `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
+| `pipeline_memory.py` | `ScriptedStep`, a `Step` that answers a scripted result and logs that it ran |
 | `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep`; `GpuStage` and `MachineActions` are the seams a test replaces |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |
 | `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |

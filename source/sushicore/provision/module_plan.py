@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 from ..deps_fragment import pins_at
 from . import closure as closure_module
@@ -48,9 +49,14 @@ def presence_of(module: ModuleProvision, cfg: ProvisionConfig) -> dict[str, bool
     return {name: present for name, present, _detail in read(cfg, False)}
 
 
-def fragment_of(module: ModuleProvision, root: Path) -> str:
-    """Returns the dependency fragment of *module*: the one it names, else the one its manifest declares."""
-    return module.fragment or fragment_path(root)
+def fragment_of(module: ModuleProvision, root: Path,
+                declared: Callable[[Path], str] = fragment_path) -> str:
+    """Returns the dependency fragment of *module*: the one it names, else the one its manifest declares.
+
+    Args:
+        declared: Reads the fragment the manifest at a root declares.
+    """
+    return module.fragment or declared(root)
 
 
 def closure_for(module: ModuleProvision, root: Path) -> Closure:

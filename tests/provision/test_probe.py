@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for tool probing."""
+"""Tests for what the machine probes read: adapters, Visual Studio, toolchains and binaries."""
 
 from __future__ import annotations
 
@@ -15,92 +15,87 @@ from sushicore.provision import probe
 from sushicore.provision.config import ProvisionSettings
 
 
-pytestmark = pytest.mark.medium
+_CLANG = Path("bin") / "clang++"
+K_ROOT = Path("/machine/root")
+K_LEGACY = Path("/machine/legacy")
 
 
+@pytest.mark.small
 def test_classify_prefers_a_discrete_adapter():
     """Check that classification prefers a discrete adapter."""
     adapters = "Intel(R) UHD Graphics 770\nNVIDIA GeForce RTX 4070\n"
     assert probe.classify_display_adapters(adapters) == "nvidia"
 
 
+@pytest.mark.small
 def test_integrated_only_falls_back_to_its_vendor():
     """Check that integrated-only falls back to its vendor."""
     assert probe.classify_display_adapters("Intel(R) UHD Graphics 770\n") == "intel"
 
 
+@pytest.mark.small
+def test_an_intel_arc_a_series_line_is_discrete_not_integrated():
+    """Check that an Intel Arc A-series adapter is not reported as integrated."""
+    assert probe.is_integrated_adapter("Intel(R) Arc(TM) A770 Graphics") is False
+
+
+@pytest.mark.medium
 def test_binary_works_rejects_a_missing_command():
     """Check that binary_works rejects a missing command."""
     assert probe.binary_works("sushi-no-such-binary-xyz") is False
 
 
-def test_tools_dir_follows_the_root(provision_home):
-    """Check that tools_dir follows the root."""
-    assert probe._tools_dir() == provision_home.resolve() / "tools"
+@pytest.mark.small
+def test_find_vcvars_is_none_off_windows():
+    """Check that no Visual Studio script is looked for off Windows."""
+    assert probe.find_vcvars(platform="linux", vswhere=lambda: Path("never")) is None
 
 
 def _vs_tree(root, year, edition):
+    """Create a vcvars64.bat of *year* and *edition* below *root* and return it."""
     bat = root / "Microsoft Visual Studio" / year / edition / "VC" / "Auxiliary" / "Build"
     bat.mkdir(parents=True)
     (bat / "vcvars64.bat").write_text("")
     return bat / "vcvars64.bat"
 
 
-def _no_vswhere(monkeypatch):
-    monkeypatch.setattr(probe, "_vcvars_from_vswhere", lambda: None)
-    monkeypatch.setattr(probe.sys, "platform", "win32")
-
-
-def test_find_vcvars_is_none_off_windows(monkeypatch):
-    monkeypatch.setattr(probe.sys, "platform", "linux")
-    assert probe.find_vcvars() is None
-
-
-def test_find_vcvars_scans_the_newest_year_first(monkeypatch, tmp_path):
-    _no_vswhere(monkeypatch)
+@pytest.mark.medium
+def test_find_vcvars_scans_the_newest_year_first(tmp_path):
+    """Check that the disk scan takes the newest year's install."""
     _vs_tree(tmp_path, "2019", "Community")
     newest = _vs_tree(tmp_path, "2026", "BuildTools")
-    monkeypatch.setenv("ProgramFiles", str(tmp_path))
-    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
-    assert probe.find_vcvars() == newest
+    found = probe.find_vcvars(platform="win32", vswhere=lambda: None, program_files=[tmp_path])
+    assert found == newest
 
 
-def test_find_vcvars_prefers_vswhere(monkeypatch, tmp_path):
-    monkeypatch.setattr(probe.sys, "platform", "win32")
-    hit = tmp_path / "vcvars64.bat"
-    monkeypatch.setattr(probe, "_vcvars_from_vswhere", lambda: hit)
-    assert probe.find_vcvars() == hit
+@pytest.mark.small
+def test_find_vcvars_prefers_vswhere():
+    """Check that the install vswhere reports wins over the disk scan."""
+    hit = Path("/machine/vcvars64.bat")
+    assert probe.find_vcvars(platform="win32", vswhere=lambda: hit, program_files=[]) == hit
 
 
-def test_find_vcvars_is_none_when_nothing_is_installed(monkeypatch, tmp_path):
-    _no_vswhere(monkeypatch)
-    monkeypatch.setenv("ProgramFiles", str(tmp_path))
-    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
-    assert probe.find_vcvars() is None
+@pytest.mark.small
+def test_find_vcvars_is_none_when_nothing_is_installed():
+    """Check that no vswhere answer and no scanned folder give None."""
+    assert probe.find_vcvars(platform="win32", vswhere=lambda: None, program_files=[]) is None
 
 
-def test_resolve_windows_keeps_the_2022_glob_first(monkeypatch):
-    from types import SimpleNamespace
-    monkeypatch.setattr(probe, "_first_glob", lambda patterns: "C:/VS/2022/x.bat")
-    monkeypatch.setattr(probe, "find_vcvars", lambda: None)
-    cfg = SimpleNamespace(vs_vcvars="", oneapi_root="", vcpkg_root="", vcpkg_triplet="",
-                          llvm_root="", acpp_exe="", platform="windows",
-                          expand=lambda s: s)
-    assert probe._resolve_windows(cfg)["vs_vcvars"] == "C:/VS/2022/x.bat"
+def _windows_cfg():
+    """Return a Windows configuration naming no tool path."""
+    return ProvisionSettings(platform="windows")
 
 
-def test_resolve_windows_falls_back_to_find_vcvars(monkeypatch, tmp_path):
-    from types import SimpleNamespace
-    hit = tmp_path / "vcvars64.bat"
-    monkeypatch.setattr(probe, "_first_glob", lambda patterns: "")
-    monkeypatch.setattr(probe, "find_vcvars", lambda: hit)
-    cfg = SimpleNamespace(vs_vcvars="", oneapi_root="", vcpkg_root="", vcpkg_triplet="",
-                          llvm_root="", acpp_exe="", platform="windows",
-                          expand=lambda s: s)
-    assert probe._resolve_windows(cfg)["vs_vcvars"] == str(hit)
-
-
-_CLANG = Path("bin") / "clang++"
+@pytest.mark.small
+@pytest.mark.parametrize(("glob_hit", "found", "expected"), [
+    ("C:/VS/2022/x.bat", None, "C:/VS/2022/x.bat"),
+    ("", Path("/machine/vcvars64.bat"), str(Path("/machine/vcvars64.bat"))),
+], ids=["the 2022 glob comes first", "find_vcvars is the fallback"])
+def test_resolve_windows_takes_the_glob_first_and_find_vcvars_second(glob_hit, found, expected):
+    """Check the order in which the Visual Studio script is looked for."""
+    values = probe._resolve_windows(_windows_cfg(), first_glob=lambda patterns: glob_hit,
+                                    vcvars_finder=lambda: found)
+    assert values["vs_vcvars"] == expected
 
 
 def _bundle(root):
@@ -111,45 +106,37 @@ def _bundle(root):
     return exe
 
 
-def test_installed_toolchain_prefers_the_current_root(provision_home, tmp_path, monkeypatch):
-    """Check that installed toolchain prefers the current root."""
-    legacy = tmp_path / "legacy"
-    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
-    _bundle(legacy)
-    current = _bundle(provision_home)
-    assert probe.installed_toolchain("llvm-sycl", _CLANG) == current.resolve()
+@pytest.mark.small
+@pytest.mark.parametrize(("held", "expected"), [
+    ({K_ROOT / "toolchains" / "llvm-sycl" / _CLANG, K_LEGACY / "toolchains" / "llvm-sycl" / _CLANG},
+     K_ROOT / "toolchains" / "llvm-sycl" / _CLANG),
+    ({K_LEGACY / "toolchains" / "llvm-sycl" / _CLANG},
+     K_LEGACY / "toolchains" / "llvm-sycl" / _CLANG),
+    (set(), None),
+], ids=["the current root first", "a legacy root as the fallback", "no root holds it"])
+def test_installed_toolchain_returns_the_first_root_holding_the_file(held, expected):
+    """Check that the first root holding the file wins, and that none gives None."""
+    found = probe.installed_toolchain("llvm-sycl", _CLANG, roots=[K_ROOT, K_LEGACY],
+                                      is_file=lambda path: path in held)
+    assert found == expected
 
 
-def test_installed_toolchain_falls_back_to_a_legacy_root(provision_home, tmp_path, monkeypatch):
-    """Check that installed toolchain falls back to a legacy root."""
-    legacy = tmp_path / "legacy"
-    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
-    exe = _bundle(legacy)
-    assert probe.installed_toolchain("llvm-sycl", _CLANG) == exe.resolve()
-
-
-def test_installed_toolchain_is_none_when_no_root_holds_it(provision_home):
-    """Check that installed toolchain is none when no root holds it."""
-    assert probe.installed_toolchain("llvm-sycl", _CLANG) is None
-
-
+@pytest.mark.medium
 def test_discovery_records_a_legacy_bundle(provision_home, tmp_path, monkeypatch):
-    """Check that discovery records a legacy bundle."""
+    """Check that a bundle in a legacy root reaches the local config as llvm_root."""
     legacy = tmp_path / "legacy"
     monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
     _bundle(legacy)
-    values: dict[str, str] = {}
-    probe._discover_installed_toolchains(ProvisionSettings(platform="linux"), values)
+    values = probe.resolve_local_config(ProvisionSettings(platform="linux"))
     assert values["llvm_root"] == str((legacy / "toolchains" / "llvm-sycl").resolve())
 
 
-
-def _failing_run(monkeypatch, error: Exception) -> None:
-    """Make every ``subprocess.run`` the probe starts raise *error*."""
+def _failing_run(error: Exception):
+    """Return a run that raises *error* in place of running a process."""
     def run(*_args, **_kwargs):
         """Raise the configured error in place of running a process."""
         raise error
-    monkeypatch.setattr(probe.subprocess, "run", run)
+    return run
 
 
 def _probe_records(caplog, level: str) -> list[str]:
@@ -158,76 +145,75 @@ def _probe_records(caplog, level: str) -> list[str]:
             if r.name.startswith("sushicore.provision") and r.levelname == level]
 
 
-def test_a_missing_lspci_is_recorded(monkeypatch, caplog):
+@pytest.mark.small
+def test_a_missing_lspci_is_recorded(caplog):
     """Check that an lspci that cannot start yields no adapters and one warning."""
-    _failing_run(monkeypatch, FileNotFoundError("lspci"))
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        assert probe._linux_display_adapters() == ""
+        assert probe._linux_display_adapters(run=_failing_run(FileNotFoundError("lspci"))) == ""
     assert len(_probe_records(caplog, "WARNING")) == 1
     assert "lspci" in _probe_records(caplog, "WARNING")[0]
 
 
-def test_a_video_controller_query_that_times_out_is_recorded(monkeypatch, caplog):
+@pytest.mark.small
+def test_a_video_controller_query_that_times_out_is_recorded(caplog):
     """Check that a PowerShell query that times out yields no adapters and one warning."""
-    _failing_run(monkeypatch, subprocess.TimeoutExpired("powershell", 30))
+    run = _failing_run(subprocess.TimeoutExpired("powershell", 30))
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        assert probe._windows_display_adapters() == ""
+        assert probe._windows_display_adapters(run=run) == ""
     assert len(_probe_records(caplog, "WARNING")) == 1
     assert "timed out" in _probe_records(caplog, "WARNING")[0]
 
 
-@pytest.mark.parametrize("reader", ["_linux_display_adapters", "_windows_display_adapters"])
-def test_a_defect_in_an_adapter_query_is_not_reported_as_no_adapters(monkeypatch, reader):
-    """Check that an error no process raises escapes the adapter readers."""
-    _failing_run(monkeypatch, TypeError("defect"))
+@pytest.mark.small
+@pytest.mark.parametrize("reader", [
+    probe._linux_display_adapters, probe._windows_display_adapters, probe.binary_works],
+    ids=["linux adapters", "windows adapters", "binary_works"])
+def test_a_defect_in_a_process_query_is_not_reported_as_a_missing_one(reader):
+    """Check that an error no process raises escapes the readers that run a process."""
+    argument = ("cmake",) if reader is probe.binary_works else ()
     with pytest.raises(TypeError):
-        getattr(probe, reader)()
+        reader(*argument, run=_failing_run(TypeError("defect")))
 
 
-def test_binary_works_records_why_a_command_did_not_run(monkeypatch, caplog):
+@pytest.mark.small
+def test_binary_works_records_why_a_command_did_not_run(caplog):
     """Check that binary_works logs the error behind a False answer."""
-    _failing_run(monkeypatch, PermissionError(13, "Access is denied"))
+    run = _failing_run(PermissionError(13, "Access is denied"))
     with caplog.at_level("DEBUG", logger="sushicore.provision"):
-        assert probe.binary_works("cmake") is False
+        assert probe.binary_works("cmake", run=run) is False
     assert len(_probe_records(caplog, "DEBUG")) == 1
     assert "cmake" in _probe_records(caplog, "DEBUG")[0]
 
 
-def test_binary_works_does_not_report_a_defect_as_a_broken_binary(monkeypatch):
-    """Check that an error no process raises escapes binary_works."""
-    _failing_run(monkeypatch, TypeError("defect"))
-    with pytest.raises(TypeError):
-        probe.binary_works("cmake")
-
-
-def _fake_vswhere(monkeypatch, tmp_path):
-    """Put a vswhere.exe file where the probe looks and make Windows the platform."""
+def _fake_vswhere(tmp_path):
+    """Put a vswhere.exe file where the probe looks and return the folder holding it."""
     vswhere = tmp_path / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
     vswhere.parent.mkdir(parents=True)
     vswhere.write_text("")
-    monkeypatch.setattr(probe.sys, "platform", "win32")
-    monkeypatch.setenv("ProgramFiles(x86)", str(tmp_path))
-    monkeypatch.delenv("ProgramFiles", raising=False)
+    return tmp_path
 
 
-def test_find_vcvars_logs_a_vswhere_that_did_not_run(monkeypatch, tmp_path, caplog):
-    """Check that a vswhere which cannot start is recorded with its error, and nothing is found."""
-    _fake_vswhere(monkeypatch, tmp_path)
+def _refuse(*arguments, **keywords):
+    """Refuse to start vswhere, as a locked-down machine does."""
+    raise OSError("access denied")
 
-    def refuse(*arguments, **keywords):
-        raise OSError("access denied")
 
-    monkeypatch.setattr(probe.subprocess, "run", refuse)
+def _exit_three(*arguments, **keywords):
+    """Answer as a vswhere that exits with status 3."""
+    return subprocess.CompletedProcess([], 3, stdout="", stderr="")
+
+
+@pytest.mark.medium
+@pytest.mark.parametrize(("run", "logged"), [
+    (_refuse, "vswhere did not run (OSError: access denied)"),
+    (_exit_three, "vswhere exited with status 3"),
+], ids=["did not run", "exited non-zero"])
+def test_find_vcvars_logs_a_vswhere_that_failed(tmp_path, caplog, run, logged):
+    """Check that a vswhere that cannot start or exits non-zero is recorded and finds nothing."""
+    program_files = str(_fake_vswhere(tmp_path))
     with caplog.at_level("WARNING", logger=probe.__name__):
-        assert probe.find_vcvars() is None
-    assert "vswhere did not run (OSError: access denied)" in caplog.text
-
-
-def test_find_vcvars_logs_a_vswhere_that_failed(monkeypatch, tmp_path, caplog):
-    """Check that a vswhere exiting non-zero is recorded with its status."""
-    _fake_vswhere(monkeypatch, tmp_path)
-    failed = subprocess.CompletedProcess([], 3, stdout="", stderr="")
-    monkeypatch.setattr(probe.subprocess, "run", lambda *arguments, **keywords: failed)
-    with caplog.at_level("WARNING", logger=probe.__name__):
-        assert probe.find_vcvars() is None
-    assert "vswhere exited with status 3" in caplog.text
+        found = probe.find_vcvars(
+            platform="win32", vswhere=lambda: probe._vcvars_from_vswhere(program_files, run),
+            program_files=[])
+    assert found is None
+    assert logged in caplog.text

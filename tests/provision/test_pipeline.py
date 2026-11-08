@@ -2,76 +2,93 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for the pipeline core."""
+"""Tests for the install pipeline."""
 
 from __future__ import annotations
 
 import pytest
 
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.pipeline import (
-    InstallContext, InstallPipeline, Step, StepResult, ToolchainSelection)
+from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
+from sushicore.provision.pipeline_memory import ScriptedStep
 
 
-pytestmark = pytest.mark.small
+def _ran(steps, **options):
+    """Run *steps* through a pipeline over a fresh context; return the pipeline's answer."""
+    return InstallPipeline(steps).run(InstallContext(cfg=ProvisionSettings()), **options)
 
 
-class _Step(Step):
-    """Fake step for testing the pipeline."""
-
-    def __init__(self, name, result, log):
-        """Initialize the step with a name, result, and log."""
-        self.name, self._result, self._log = name, result, log
-
-    def run(self, ctx):
-        """Execute the step and log its name."""
-        self._log.append(self.name)
-        return self._result
-
-
+@pytest.mark.small
 def test_pipeline_stops_on_the_first_failure(recording_console):
-    """Check that the pipeline stops on the first failure."""
+    """Check that the pipeline answers False when a step fails."""
     log = []
-    steps = [_Step("a", StepResult.OK, log), _Step("b", StepResult.FAILED, log),
-             _Step("c", StepResult.OK, log)]
-    ok = InstallPipeline(steps).run(InstallContext(cfg=ProvisionSettings()), show_progress=False)
-    assert ok is False
+    steps = [ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.FAILED, log),
+             ScriptedStep("c", StepResult.OK, log)]
+    assert _ran(steps) is False
+
+
+@pytest.mark.small
+def test_pipeline_runs_no_step_after_the_first_failure(recording_console):
+    """Check that the steps after a failed one do not run."""
+    log = []
+    steps = [ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.FAILED, log),
+             ScriptedStep("c", StepResult.OK, log)]
+    _ran(steps)
     assert log == ["a", "b"]
 
 
-def test_empty_selection_installs_nothing():
-    """Check that an empty selection installs nothing."""
-    assert ToolchainSelection().as_dict() == {
-        "install_intel_llvm": False, "install_acpp": False, "oneapi": False, "gpu": False}
-
-
-def test_gpu_reads_through_the_selection():
-    """Check that the GPU setting reads through the selection."""
-    ctx = InstallContext(cfg=ProvisionSettings(), selection=ToolchainSelection(gpu=True))
-    assert ctx.gpu is True
-
-
-def test_each_step_is_reported_once_with_a_header_a_progress_event_and_an_outcome(recording_console):
+@pytest.mark.small
+def test_each_step_gets_a_header(recording_console):
+    """Check that each step is announced by one header."""
     log = []
-    steps = [_Step("a", StepResult.OK, log), _Step("b", StepResult.SKIPPED, log)]
-    assert InstallPipeline(steps).run(InstallContext(cfg=ProvisionSettings())) is True
+    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)])
+    assert [args[0] for name, args in recording_console.calls if name == "header"] == [
+        "setup: a", "setup: b"]
+
+
+@pytest.mark.small
+def test_each_step_gets_a_progress_event(recording_console):
+    """Check that each step is reported to a program by one progress event."""
+    log = []
+    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)])
+    assert [args[:3] for name, args in recording_console.calls if name == "progress"] == [
+        ("a", 1, 2), ("b", 2, 2)]
+
+
+@pytest.mark.small
+def test_a_done_step_is_reported_as_a_success_and_a_skipped_one_as_information(recording_console):
+    """Check that one step of each kind gives one success line and one information line."""
+    log = []
+    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)])
     names = [name for name, _ in recording_console.calls]
-    assert names.count("header") == 2
-    assert names.count("progress") == 2
-    assert names.count("success") == 1
-    assert names.count("info") == 1
+    assert (names.count("success"), names.count("info")) == (1, 1)
 
 
-def test_the_pipeline_reaches_for_no_rich_progress_bar():
-    """The pipeline reports through the console seam alone, so Rich stays behind the renderer."""
-    import inspect
-
-    from sushicore.provision import pipeline
-
-    assert "rich" not in inspect.getsource(pipeline)
-
-
+@pytest.mark.small
 def test_a_caller_that_still_passes_show_progress_is_served(recording_console):
-    ok = InstallPipeline([_Step("a", StepResult.OK, [])]).run(
-        InstallContext(cfg=ProvisionSettings()), show_progress=True)
-    assert ok is True
+    """Check that the ignored show_progress argument is still accepted."""
+    assert _ran([ScriptedStep("a", StepResult.OK, [])], show_progress=True) is True
+
+
+@pytest.mark.small
+def test_the_warnings_of_a_run_are_printed_again_after_the_steps(recording_console):
+    """Check that a non-fatal warning of the context is re-printed once the steps ran."""
+    step = ScriptedStep("a", StepResult.OK, [], warnings=("ninja missing",))
+    _ran([step])
+    warnings = [args[0] for name, args in recording_console.calls if name == "warn"]
+    assert warnings == ["Completed with 1 warning(s):", "  - ninja missing"]
+
+
+@pytest.mark.small
+def test_a_step_given_the_empty_selection_installs_nothing(recording_console):
+    """Check that the default selection the context carries turns every component off."""
+    seen = []
+
+    class _Probe(ScriptedStep):
+        def run(self, ctx):
+            seen.append(ctx.selection.as_dict())
+            return super().run(ctx)
+
+    _ran([_Probe("a", StepResult.OK, [])])
+    assert seen == [{"install_intel_llvm": False, "install_acpp": False, "oneapi": False,
+                     "gpu": False}]

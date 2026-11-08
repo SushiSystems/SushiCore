@@ -10,13 +10,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
 from sushicore.provision.commands import ModuleProvision
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.package_command import register_package_command
 from sushicore.provision.package_install import CapturedRun
-
-pytestmark = pytest.mark.medium
 
 
 def _app(root, runner, console):
@@ -44,10 +43,8 @@ def _built(root, tree="build/default-debug"):
         f"CMAKE_HOME_DIRECTORY:INTERNAL={root}\n", encoding="utf-8")
 
 
-def test_the_command_installs_the_default_tree_to_the_default_prefix(tmp_path, recording_console):
-    """Check that package with no argument installs the default Debug tree into build/dist."""
-    root = tmp_path / "lib"
-    _built(root)
+def _install_command(root, *arguments):
+    """Run ``package --no-archive`` with *arguments* over *root*; return the exit code and the first command."""
     calls = []
 
     def runner(command, cwd, env=None):
@@ -55,32 +52,44 @@ def test_the_command_installs_the_default_tree_to_the_default_prefix(tmp_path, r
         calls.append(command)
         return 0
 
-    result = CliRunner().invoke(_app(root, runner, recording_console), ["package", "--no-archive"])
-    assert result.exit_code == 0
-    assert calls[0][:3] == ["/c/cmake", "--install", str(root / "build" / "default-debug")]
-    assert calls[0][4] == str((root / "build" / "dist").resolve())
+    result = CliRunner().invoke(_app(root, runner, RecordingConsole()),
+                                ["package", "--no-archive", *arguments])
+    return result.exit_code, calls[0] if calls else []
 
 
-def test_the_command_installs_the_tree_it_is_told_to(tmp_path, recording_console):
+@pytest.mark.medium
+def test_the_command_installs_the_default_tree(tmp_path):
+    """Check that package with no argument installs the default Debug tree."""
+    root = tmp_path / "lib"
+    _built(root)
+    code, command = _install_command(root)
+    assert code == 0
+    assert command[:3] == ["/c/cmake", "--install", str(root / "build" / "default-debug")]
+
+
+@pytest.mark.medium
+def test_the_command_installs_to_the_default_prefix(tmp_path):
+    """Check that package with no argument installs into build/dist."""
+    root = tmp_path / "lib"
+    _built(root)
+    _, command = _install_command(root)
+    assert str((root / "build" / "dist").resolve()) in command
+
+
+@pytest.mark.medium
+def test_the_command_installs_the_tree_it_is_told_to(tmp_path):
     """Check that --build-dir overrides the default tree."""
     root = tmp_path / "lib"
     _built(root, "build/pkg-x")
-    calls = []
-
-    def runner(command, cwd, env=None):
-        """Record the command and succeed."""
-        calls.append(command)
-        return 0
-
-    result = CliRunner().invoke(_app(root, runner, recording_console),
-                                ["package", "--no-archive", "--build-dir", "build/pkg-x"])
-    assert result.exit_code == 0
-    assert calls[0][:3] == ["/c/cmake", "--install", str(root / "build" / "pkg-x")]
+    code, command = _install_command(root, "--build-dir", "build/pkg-x")
+    assert code == 0
+    assert command[:3] == ["/c/cmake", "--install", str(root / "build" / "pkg-x")]
 
 
-def test_the_command_exits_non_zero_for_a_tree_that_is_not_built(tmp_path, recording_console):
+@pytest.mark.medium
+def test_the_command_exits_non_zero_for_a_tree_that_is_not_built(tmp_path):
     """Check the exit code of a package run with no build."""
     root = tmp_path / "lib"
     root.mkdir()
-    result = CliRunner().invoke(_app(root, lambda *_a, **_k: 0, recording_console), ["package"])
+    result = CliRunner().invoke(_app(root, lambda *_a, **_k: 0, RecordingConsole()), ["package"])
     assert result.exit_code == 1

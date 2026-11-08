@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable, Sequence
 
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
@@ -66,9 +67,16 @@ def _first_existing(paths: list[str]) -> str:
     return ""
 
 
-def _vcvars_from_vswhere() -> Path | None:
-    """Return the vcvars64.bat of the latest VS install vswhere reports, or None."""
-    program_files = os.environ.get("ProgramFiles(x86)") or os.environ.get(
+def _vcvars_from_vswhere(program_files: str | None = None,
+                         run: Callable[..., subprocess.CompletedProcess] | None = None
+                         ) -> Path | None:
+    """Return the vcvars64.bat of the latest VS install vswhere reports, or None.
+
+    Args:
+        program_files: The folder holding ``Microsoft Visual Studio``; the environment's when ``None``.
+        run: Runs vswhere as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+    """
+    program_files = program_files or os.environ.get("ProgramFiles(x86)") or os.environ.get(
         "ProgramFiles", r"C:\Program Files")
     vswhere = Path(program_files) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
     if not vswhere.is_file():
@@ -77,8 +85,8 @@ def _vcvars_from_vswhere() -> Path | None:
            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
            "-property", "installationPath"]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, errors="replace",
-                                timeout=30)
+        result = (run or subprocess.run)(cmd, capture_output=True, text=True, errors="replace",
+                                         timeout=30)
     except (OSError, subprocess.SubprocessError) as error:
         _log.warning(
             "vswhere did not run (%s: %s); no Visual Studio install is reported",
@@ -99,10 +107,16 @@ def _vcvars_from_vswhere() -> Path | None:
     return None
 
 
-def _vcvars_from_disk_scan() -> Path | None:
-    """Return the first vcvars64.bat under the Program Files VS roots, newest year first."""
-    roots = [Path(os.environ[var]) / "Microsoft Visual Studio"
-             for var in ("ProgramFiles", "ProgramFiles(x86)") if os.environ.get(var)]
+def _vcvars_from_disk_scan(program_files: Sequence[Path] | None = None) -> Path | None:
+    """Return the first vcvars64.bat under the Program Files VS roots, newest year first.
+
+    Args:
+        program_files: The folders holding ``Microsoft Visual Studio``; the environment's when ``None``.
+    """
+    if program_files is None:
+        program_files = [Path(os.environ[var]) for var in ("ProgramFiles", "ProgramFiles(x86)")
+                         if os.environ.get(var)]
+    roots = [folder / "Microsoft Visual Studio" for folder in program_files]
     for root in roots:
         if not root.is_dir():
             continue
@@ -116,11 +130,19 @@ def _vcvars_from_disk_scan() -> Path | None:
     return None
 
 
-def find_vcvars() -> Path | None:
-    """Return the vcvars64.bat of an installed Visual Studio, or None off Windows."""
-    if sys.platform != "win32":
+def find_vcvars(platform: str | None = None,
+                vswhere: Callable[[], Path | None] | None = None,
+                program_files: Sequence[Path] | None = None) -> Path | None:
+    """Return the vcvars64.bat of an installed Visual Studio, or None off Windows.
+
+    Args:
+        platform: The ``sys.platform`` value to judge; the running one's when ``None``.
+        vswhere: Gives the install vswhere reports; asks vswhere when ``None``.
+        program_files: The folders the disk scan reads; the environment's when ``None``.
+    """
+    if (platform or sys.platform) != "win32":
         return None
-    return _vcvars_from_vswhere() or _vcvars_from_disk_scan()
+    return (vswhere or _vcvars_from_vswhere)() or _vcvars_from_disk_scan(program_files)
 
 
 def _tools_dir() -> Path:
@@ -133,11 +155,18 @@ def _toolchains_dir() -> Path:
     return home.toolchains_dir()
 
 
-def installed_toolchain(name: str, relative: Path) -> Path | None:
-    """Return the first ``toolchains/<name>/<relative>`` file across the dependency roots."""
-    for root in home.search_roots():
+def installed_toolchain(name: str, relative: Path, roots: Sequence[Path] | None = None,
+                        is_file: Callable[[Path], bool] | None = None) -> Path | None:
+    """Return the first ``toolchains/<name>/<relative>`` file across the dependency roots.
+
+    Args:
+        roots: The roots to look through, in order; the search roots when ``None``.
+        is_file: Asked whether a candidate is a file; ``Path.is_file`` when ``None``.
+    """
+    present = is_file or Path.is_file
+    for root in (home.search_roots() if roots is None else roots):
         candidate = root / "toolchains" / name / relative
-        if candidate.is_file():
+        if present(candidate):
             return candidate
     return None
 
@@ -285,11 +314,15 @@ def classify_display_adapters(adapters: str) -> str:
     return min(ranked)[2] if ranked else "none"
 
 
-def _linux_display_adapters() -> str:
-    """Return the lower-case display-controller lines ``lspci`` reports, or ''."""
+def _linux_display_adapters(run: Callable[..., subprocess.CompletedProcess] | None = None) -> str:
+    """Return the lower-case display-controller lines ``lspci`` reports, or ''.
+
+    Args:
+        run: Runs ``lspci`` as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+    """
     try:
-        out = subprocess.run(["lspci"], capture_output=True, text=True,
-                             timeout=10).stdout.lower()
+        out = (run or subprocess.run)(["lspci"], capture_output=True, text=True,
+                                      timeout=10).stdout.lower()
     except (OSError, subprocess.SubprocessError) as error:
         _log.warning(
             "lspci did not run (%s: %s); no display adapter is reported",
@@ -304,13 +337,17 @@ def _linux_display_adapters() -> str:
     )
 
 
-def _windows_display_adapters() -> str:
-    """Return the lower-case names of the video controllers Windows reports, or ''."""
+def _windows_display_adapters(run: Callable[..., subprocess.CompletedProcess] | None = None) -> str:
+    """Return the lower-case names of the video controllers Windows reports, or ''.
+
+    Args:
+        run: Runs PowerShell as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+    """
     cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
            "Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name }"]
     try:
-        return subprocess.run(cmd, capture_output=True, text=True,
-                              timeout=30).stdout.lower()
+        return (run or subprocess.run)(cmd, capture_output=True, text=True,
+                                       timeout=30).stdout.lower()
     except (OSError, subprocess.SubprocessError) as error:
         _log.warning(
             "the Win32_VideoController query did not run (%s: %s); no display adapter is reported",
@@ -320,16 +357,20 @@ def _windows_display_adapters() -> str:
         return ""
 
 
-def binary_works(cmd: str) -> bool:
+def binary_works(cmd: str, run: Callable[..., subprocess.CompletedProcess] | None = None) -> bool:
     """Return True only if *cmd* is on PATH (or an absolute path) and runs cleanly.
 
     Tries --version first; falls back to -version for tools that use that flag.
     A missing binary, a crash, or a non-zero exit all return False.
+
+    Args:
+        run: Runs the command as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
     """
+    start = run or subprocess.run
     try:
-        if subprocess.run([cmd, "--version"], capture_output=True, timeout=15).returncode == 0:
+        if start([cmd, "--version"], capture_output=True, timeout=15).returncode == 0:
             return True
-        return subprocess.run([cmd, "-version"], capture_output=True, timeout=15).returncode == 0
+        return start([cmd, "-version"], capture_output=True, timeout=15).returncode == 0
     except (OSError, subprocess.SubprocessError) as error:
         _log.debug(
             "%s did not run (%s: %s); it is reported as not working",
@@ -403,13 +444,21 @@ def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False) -> dict[str, s
     return _resolve_linux(cfg)
 
 
-def _resolve_windows(cfg: ProvisionConfig) -> dict[str, str]:
-    """Probe Windows-specific tool paths for :func:`resolve_local_config`."""
+def _resolve_windows(cfg: ProvisionConfig,
+                     first_glob: Callable[[list[str]], str] | None = None,
+                     vcvars_finder: Callable[[], Path | None] | None = None) -> dict[str, str]:
+    """Probe Windows-specific tool paths for :func:`resolve_local_config`.
+
+    Args:
+        first_glob: Gives the best match among glob patterns, or ''; :func:`_first_glob` when ``None``.
+        vcvars_finder: Gives the Visual Studio script the scan finds; :func:`find_vcvars` when ``None``.
+    """
     values: dict[str, str] = {}
 
+    glob_of = first_glob or _first_glob
     vcvars = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
     if not (vcvars and Path(vcvars).is_file()):
-        vcvars = _first_glob(_VS_VCVARS_GLOBS) or str(find_vcvars() or "")
+        vcvars = glob_of(_VS_VCVARS_GLOBS) or str((vcvars_finder or find_vcvars)() or "")
     if vcvars:
         values["vs_vcvars"] = vcvars
 

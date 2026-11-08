@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from sushicore.provision.registry import Component, Registry, RegistryError
 
-
-pytestmark = pytest.mark.medium
 
 
 def _llvm(consumer):
@@ -20,6 +20,7 @@ def _llvm(consumer):
                      (consumer,))
 
 
+@pytest.mark.medium
 def test_empty_registry_has_no_components(tmp_path):
     """Check that empty registry has no components."""
     reg = Registry(tmp_path / "registry.toml")
@@ -27,6 +28,7 @@ def test_empty_registry_has_no_components(tmp_path):
     assert reg.components() == []
 
 
+@pytest.mark.medium
 def test_add_save_load_round_trips(tmp_path):
     """Check that add save load round trips."""
     path = tmp_path / "registry.toml"
@@ -39,26 +41,30 @@ def test_add_save_load_round_trips(tmp_path):
     assert again.find("intel-llvm", "nightly-1").consumers == ("sushidsp",)
 
 
-def test_second_consumer_merges_instead_of_duplicating(tmp_path):
+K_UNSAVED = Path("registry.toml")
+
+
+@pytest.mark.small
+def test_second_consumer_merges_instead_of_duplicating():
     """Check that second consumer merges instead of duplicating."""
-    reg = Registry(tmp_path / "r.toml")
-    reg.load()
+    reg = Registry(K_UNSAVED)
     reg.add(_llvm("sushidsp"))
     reg.add(_llvm("sushiruntime"))
     assert len(reg.components()) == 1
     assert set(reg.find("intel-llvm").consumers) == {"sushidsp", "sushiruntime"}
 
 
-def test_release_keeps_a_component_another_consumer_uses(tmp_path):
+@pytest.mark.small
+def test_release_keeps_a_component_another_consumer_uses():
     """Check that release keeps a component another consumer uses."""
-    reg = Registry(tmp_path / "r.toml")
-    reg.load()
+    reg = Registry(K_UNSAVED)
     reg.add(_llvm("sushidsp"))
     reg.add(_llvm("sushiruntime"))
     assert reg.release("intel-llvm", "nightly-1", "sushidsp") is False
     assert reg.release("intel-llvm", "nightly-1", "sushiruntime") is True
 
 
+@pytest.mark.medium
 def test_corrupt_registry_raises_instead_of_emptying(tmp_path):
     """Check that corrupt registry raises instead of emptying."""
     path = tmp_path / "registry.toml"
@@ -67,6 +73,7 @@ def test_corrupt_registry_raises_instead_of_emptying(tmp_path):
         Registry(path).load()
 
 
+@pytest.mark.medium
 def test_save_leaves_no_temp_file(tmp_path):
     """Check that save leaves no temp file."""
     reg = Registry(tmp_path / "r.toml")
@@ -76,6 +83,7 @@ def test_save_leaves_no_temp_file(tmp_path):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["r.toml"]
 
 
+@pytest.mark.medium
 def test_round_trip_preserves_unicode_and_special_characters(tmp_path):
     """Check that round trip preserves unicode and special characters."""
     path = tmp_path / "r.toml"
@@ -91,10 +99,16 @@ def test_round_trip_preserves_unicode_and_special_characters(tmp_path):
     assert component.consumers == ("\U0001F363",)
 
 
-def test_find_without_version_raises_when_ambiguous(tmp_path):
+@pytest.mark.small
+def test_release_of_an_unregistered_component_returns_false():
+    """Check that releasing a component no one registered answers False."""
+    assert Registry(K_UNSAVED).release("intel-llvm", "nightly-1", "sushidsp") is False
+
+
+@pytest.mark.small
+def test_find_without_version_raises_when_ambiguous():
     """Check that find without version raises when ambiguous."""
-    reg = Registry(tmp_path / "r.toml")
-    reg.load()
+    reg = Registry(K_UNSAVED)
     reg.add(Component("intel-llvm", "nightly-1", "/x", "intel/llvm",
                       "2026-09-23T00:00:00Z", ("sushidsp",)))
     reg.add(Component("intel-llvm", "nightly-2", "/y", "intel/llvm",
@@ -103,6 +117,7 @@ def test_find_without_version_raises_when_ambiguous(tmp_path):
         reg.find("intel-llvm")
 
 
+@pytest.mark.medium
 def test_entry_missing_a_field_raises_naming_the_file(tmp_path):
     """Check that entry missing a field raises naming the file."""
     path = tmp_path / "registry.toml"
@@ -112,6 +127,7 @@ def test_entry_missing_a_field_raises_naming_the_file(tmp_path):
         Registry(path).load()
 
 
+@pytest.mark.medium
 def test_seed_records_each_component_with_its_stamp_version(tmp_path):
     """Check that seed records each component with the tag its stamp holds."""
     root = tmp_path / "root"
@@ -135,6 +151,7 @@ def test_seed_records_each_component_with_its_stamp_version(tmp_path):
     assert reg.find("llvm-sycl").consumers == ("hub",)
 
 
+@pytest.mark.medium
 def test_seed_skips_components_already_recorded(tmp_path):
     """Check that seed skips components already recorded."""
     root = tmp_path / "root"
@@ -144,6 +161,7 @@ def test_seed_skips_components_already_recorded(tmp_path):
     assert reg.seed_from_tree(root, consumer="hub") == []
 
 
+@pytest.mark.medium
 def test_seed_of_an_empty_tree_adds_nothing(tmp_path):
     """Check that seed of a tree with no component adds nothing."""
     reg = Registry(tmp_path / "registry.toml")

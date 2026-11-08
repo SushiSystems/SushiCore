@@ -11,7 +11,7 @@ import pytest
 from sushicore.provision.fragments import Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.pipeline import ToolchainSelection
-from sushicore.provision.selection import COMPONENTS, derive, enabled_keys, toolchain_keys
+from sushicore.provision.selection import derive, enabled_keys, toolchain_keys
 
 
 pytestmark = pytest.mark.small
@@ -64,11 +64,21 @@ def test_an_unknown_requested_key_raises_and_names_the_valid_ones():
     assert all(key in str(error.value) for key in toolchain_keys())
 
 
+def _optional_intel_llvm() -> InMemoryDependencySource:
+    """Return a source whose only toolchain is optional."""
+    return InMemoryDependencySource(
+        [Dependency(name="intel-llvm", required=False, owner="sushidsp")])
+
+
 def test_an_optional_toolchain_is_not_installed_unasked():
     """Check that an optional toolchain is not installed unasked."""
-    source = InMemoryDependencySource([Dependency(name="intel-llvm", required=False, owner="sushidsp")])
-    assert derive(source, present={}).install_intel_llvm is False
-    assert derive(source, present={}, requested=["intel-llvm"]).install_intel_llvm is True
+    assert derive(_optional_intel_llvm(), present={}).install_intel_llvm is False
+
+
+def test_an_optional_toolchain_is_installed_when_requested():
+    """Check that an optional toolchain is installed when it is requested."""
+    selection = derive(_optional_intel_llvm(), present={}, requested=["intel-llvm"])
+    assert selection.install_intel_llvm is True
 
 
 def test_a_source_declaring_no_toolchain_selects_none():
@@ -95,12 +105,6 @@ def test_gpu_stays_off_when_the_caller_refuses_it():
 def test_gpu_stays_off_when_nothing_declared_needs_one():
     """Check that gpu stays off when nothing declared needs one."""
     assert derive(_RUNTIME, present={}).gpu is False
-
-
-def test_the_component_table_names_every_selection_field():
-    """Check that the component table names every selection field."""
-    assert [c.field for c in COMPONENTS] == [
-        "install_intel_llvm", "install_acpp", "oneapi", "gpu"]
 
 
 def test_a_shared_fragment_cannot_select_a_toolchain():

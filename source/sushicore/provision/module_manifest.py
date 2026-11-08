@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Mapping
 
 from ..workspace import read_toml
 from .closure import DEFAULT_FRAGMENT
@@ -15,11 +16,19 @@ K_MANIFEST = "sushi-module.toml"
 K_FRAGMENT_KEY = "fragment"
 
 
+def fragment_from(manifest: Mapping) -> str:
+    """Returns the dependency fragment a parsed manifest names, relative to the module.
+
+    The manifest's ``[module] fragment`` key names it; a manifest without the key or with a
+    malformed value leaves the default.
+    """
+    declared = manifest.get("module", {}).get(K_FRAGMENT_KEY)
+    return declared if isinstance(declared, str) and declared.strip() else DEFAULT_FRAGMENT
+
+
 def fragment_path(root: Path) -> str:
     """Returns the dependency fragment of the module at *root*, relative to it.
 
-    The manifest's ``[module] fragment`` key names it; a manifest without the key, a malformed
-    value or no manifest leaves the default.
+    No manifest leaves the default; otherwise :func:`fragment_from` reads the manifest.
     """
-    declared = read_toml(root / K_MANIFEST).get("module", {}).get(K_FRAGMENT_KEY)
-    return declared if isinstance(declared, str) and declared.strip() else DEFAULT_FRAGMENT
+    return fragment_from(read_toml(root / K_MANIFEST))

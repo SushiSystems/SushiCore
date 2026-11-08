@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision.sinks import ModuleSink, WorkspaceSink
+from sushicore.provision.sinks import ModuleSink, WorkspaceSink, render_local_config
 from sushicore.workspace import read_toml, workspace_file, write_module
 
 
-pytestmark = pytest.mark.medium
 
-
+@pytest.mark.medium
 def test_module_sink_writes_config_local(tmp_path):
     """Check that module sink writes config local."""
     sink = ModuleSink(tmp_path, ["# test"])
@@ -23,15 +22,32 @@ def test_module_sink_writes_config_local(tmp_path):
     assert doc["tool"]["windows"]["cmake_exe"] == "C:/cmake.exe"
 
 
+@pytest.mark.medium
 def test_workspace_sink_keeps_modules(tmp_path):
-    """Check that workspace sink keeps modules."""
+    """Check that write_paths keeps the modules table of the workspace file."""
     write_module(tmp_path, "sushidsp", tmp_path)
     WorkspaceSink(tmp_path).write_paths("linux", {"ninja_exe": "/usr/bin/ninja"})
     doc = read_toml(workspace_file(tmp_path))
     assert doc["modules"]["sushidsp"] == str(tmp_path).replace("\\", "/")
+
+
+@pytest.mark.medium
+def test_workspace_sink_writes_the_platform_tool_table(tmp_path):
+    """Check that write_paths writes the paths under the platform's tool table."""
+    WorkspaceSink(tmp_path).write_paths("linux", {"ninja_exe": "/usr/bin/ninja"})
+    doc = read_toml(workspace_file(tmp_path))
     assert doc["tool"]["linux"]["ninja_exe"] == "/usr/bin/ninja"
 
 
+@pytest.mark.small
+def test_render_local_config_sorts_the_keys_and_writes_forward_slashes():
+    """Check that the rendered config lists keys in order with forward slashes."""
+    text = render_local_config("windows", {"ninja_exe": "C:\\tools\\ninja.exe", "cmake_exe": "C:/cmake.exe"})
+    assert text.index("cmake_exe") < text.index("ninja_exe")
+    assert 'ninja_exe = "C:/tools/ninja.exe"' in text
+
+
+@pytest.mark.medium
 def test_write_tool_sets_a_top_level_key(tmp_path):
     """Check that write tool sets a top level key."""
     sink = ModuleSink(tmp_path, ["# test"])
@@ -39,6 +55,7 @@ def test_write_tool_sets_a_top_level_key(tmp_path):
     assert read_toml(sink.target)["tool"]["toolchain"] == "intel-llvm"
 
 
+@pytest.mark.medium
 def test_clear_removes_only_the_tool_table(tmp_path):
     """Check that clear removes only the tool table."""
     write_module(tmp_path, "a", tmp_path)
@@ -49,6 +66,7 @@ def test_clear_removes_only_the_tool_table(tmp_path):
     assert not doc.get("tool") and "a" in doc["modules"]
 
 
+@pytest.mark.medium
 def test_backup_copies_the_existing_file_before_it_changes(tmp_path):
     """Check that backup copies the existing file before it changes."""
     sink = ModuleSink(tmp_path, ["# test"])
@@ -60,6 +78,7 @@ def test_backup_copies_the_existing_file_before_it_changes(tmp_path):
     assert backup.read_bytes() == before
 
 
+@pytest.mark.medium
 def test_backup_returns_none_when_the_target_is_absent(tmp_path):
     """Check that backup returns none when the target is absent."""
     sink = ModuleSink(tmp_path, ["# test"])

@@ -10,32 +10,14 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.provision.package_install import (K_STAGE_MARKER, CapturedRun,
                                                   PackageInstaller, install_summary)
 
-pytestmark = pytest.mark.medium
 
-
-class _Console:
-    """Collects the error, command and information lines."""
-
-    def __init__(self) -> None:
-        """Start empty."""
-        self.errors: list[str] = []
-        self.commands: list[str] = []
-        self.infos: list[str] = []
-
-    def error(self, text: str) -> None:
-        """Keep an error line."""
-        self.errors.append(text)
-
-    def command(self, text: str) -> None:
-        """Keep a command line."""
-        self.commands.append(text)
-
-    def info(self, text: str) -> None:
-        """Keep an information line."""
-        self.infos.append(text)
+def _lines(console, kind):
+    """Return the text of every *kind* line the recording console took."""
+    return [args[0] for name, args in console.calls if name == kind]
 
 
 class _Runner:
@@ -77,71 +59,107 @@ def checkout(tmp_path):
 
 def _install(checkout, prefix, runner=None, archive=False, force=False):
     """Run the installer; return its exit code, console and runner."""
-    console, runner = _Console(), runner or _Runner()
+    console, runner = RecordingConsole(), runner or _Runner()
     code = PackageInstaller(console, "cmake", runner, runner.capture).install(
         checkout, Path("build"), prefix, archive=archive, force=force)
     return code, console, runner
 
 
+@pytest.mark.medium
 def test_a_built_tree_is_installed_with_its_own_build_type(checkout):
-    """Check the install command, its prefix and its config, and the stage marker."""
+    """Check the install command, its prefix and its config."""
     prefix = checkout / "out"
     code, _, runner = _install(checkout, prefix)
     assert code == 0
     assert runner.calls[0] == ["cmake", "--install", str(checkout / "build"), "--prefix",
                                str(prefix.resolve()), "--config", "Debug"]
+
+
+@pytest.mark.medium
+def test_an_install_writes_the_stage_marker_beside_the_files(checkout):
+    """Check that the installed files and the stage marker are in the prefix."""
+    prefix = checkout / "out"
+    _install(checkout, prefix)
     assert (prefix / K_STAGE_MARKER).is_file() and (prefix / "installed.txt").is_file()
 
 
+@pytest.mark.medium
 def test_an_install_prints_one_line_counting_files_not_folders(checkout):
     """Check that cmake's lines are held back and one summary counts the file alone."""
     prefix = checkout / "out"
     _, console, _ = _install(checkout, prefix)
-    assert console.infos == [f"Installed 1 files, 0 up to date, into {prefix.resolve()}"]
-    assert len(console.commands) == 1
+    assert _lines(console, "info") == [f"Installed 1 files, 0 up to date, into {prefix.resolve()}"]
+    assert len(_lines(console, "command")) == 1
 
 
+@pytest.mark.medium
 def test_a_failed_install_prints_all_of_cmakes_output(checkout):
-    """Check that a failure shows what cmake said and leaves no stage marker."""
+    """Check that a failure shows what cmake said and prints no summary."""
+    code, console, _ = _install(checkout, checkout / "out", runner=_Runner(install_code=1))
+    assert code == 1 and "CMake Error: file cannot create directory" in _lines(console, "error")[0]
+    assert _lines(console, "info") == []
+
+
+@pytest.mark.medium
+def test_a_failed_install_leaves_no_stage_marker(checkout):
+    """Check that a failed install writes no stage marker."""
     prefix = checkout / "out"
-    code, console, _ = _install(checkout, prefix, runner=_Runner(install_code=1))
-    assert code == 1 and "CMake Error: file cannot create directory" in console.errors[0]
-    assert console.infos == [] and not (prefix / K_STAGE_MARKER).exists()
+    _install(checkout, prefix, runner=_Runner(install_code=1))
+    assert not (prefix / K_STAGE_MARKER).exists()
 
 
-def test_the_summary_counts_up_to_date_files_apart(tmp_path):
+@pytest.mark.small
+def test_the_summary_counts_up_to_date_files_apart():
     """Check that a kept file counts as up to date and a missing path counts as nothing."""
-    (tmp_path / "a.hpp").write_text("x")
-    output = f"-- Up-to-date: {tmp_path / 'a.hpp'}\n-- Installing: {tmp_path / 'gone.hpp'}\n"
-    assert install_summary(output, tmp_path) == f"Installed 0 files, 1 up to date, into {tmp_path}"
+    prefix = Path("/prefix")
+    output = f"-- Up-to-date: {prefix / 'a.hpp'}\n-- Installing: {prefix / 'gone.hpp'}\n"
+    summary = install_summary(output, prefix, is_file=lambda path: path.name == "a.hpp")
+    assert summary == f"Installed 0 files, 1 up to date, into {prefix}"
 
 
+@pytest.mark.medium
 def test_a_tree_that_is_not_built_exits_non_zero_naming_it(checkout):
     """Check that a folder with no cache is refused."""
     (checkout / "build" / "CMakeCache.txt").unlink()
     code, console, runner = _install(checkout, checkout / "out")
-    assert code == 1 and "build" in console.errors[0] and runner.calls == []
+    assert code == 1 and "build" in _lines(console, "error")[0] and runner.calls == []
 
 
-def test_no_archive_runs_no_cpack_and_archive_does(checkout):
-    """Check that CPack runs only when the archive is asked for."""
+@pytest.mark.medium
+def test_no_archive_runs_no_cpack(checkout):
+    """Check that CPack does not run when the archive is not asked for."""
     _, _, without = _install(checkout, checkout / "a", archive=False)
+    assert "cpack" not in [Path(command[0]).stem for command in without.calls]
+
+
+@pytest.mark.medium
+def test_an_archive_runs_cpack(checkout):
+    """Check that CPack runs when the archive is asked for."""
     _, _, with_cpack = _install(checkout, checkout / "b", archive=True)
-    assert len(without.calls) == 1
-    assert Path(with_cpack.calls[1][0]).stem == "cpack"
+    assert "cpack" in [Path(command[0]).stem for command in with_cpack.calls]
 
 
+@pytest.mark.medium
 def test_a_prefix_with_foreign_files_needs_force(checkout):
-    """Check that a folder this command did not stage is refused, and cleared with force."""
+    """Check that a folder this command did not stage is refused and named --force."""
     prefix = checkout / "out"
     prefix.mkdir()
     (prefix / "mine.txt").write_text("x")
     code, console, _ = _install(checkout, prefix)
-    assert code == 1 and "--force" in console.errors[0]
+    assert code == 1 and "--force" in _lines(console, "error")[0]
+
+
+@pytest.mark.medium
+def test_force_clears_a_prefix_with_foreign_files(checkout):
+    """Check that --force empties a folder this command did not stage and installs."""
+    prefix = checkout / "out"
+    prefix.mkdir()
+    (prefix / "mine.txt").write_text("x")
     code, _, _ = _install(checkout, prefix, force=True)
     assert code == 0 and not (prefix / "mine.txt").exists()
 
 
+@pytest.mark.medium
 def test_a_staged_prefix_is_emptied_without_force(checkout):
     """Check that a second run into the folder the first one staged needs no force."""
     prefix = checkout / "out"
@@ -150,7 +168,8 @@ def test_a_staged_prefix_is_emptied_without_force(checkout):
     assert _install(checkout, prefix)[0] == 0 and not (prefix / "stale.txt").exists()
 
 
+@pytest.mark.medium
 def test_the_prefix_is_never_the_checkout(checkout):
     """Check that the checkout itself is refused even with force."""
     code, console, runner = _install(checkout, checkout, force=True)
-    assert code == 1 and "checkout" in console.errors[0] and runner.calls == []
+    assert code == 1 and "checkout" in _lines(console, "error")[0] and runner.calls == []

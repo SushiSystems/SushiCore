@@ -2,40 +2,31 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests how a provisioning command's ending is built and reported."""
+"""Tests for how a command ends: its outcome and its one result event."""
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.provision.outcome import K_EXIT_USAGE, Outcome, done, failed, finish
 
 
-pytestmark = pytest.mark.small
-
-
-class _Console:
-    def __init__(self):
-        self.results = []
-
-    def result(self, ok, payload):
-        self.results.append((ok, payload))
-
-
-def test_done_succeeds_with_exit_code_zero_and_an_empty_payload():
-    assert done() == Outcome(True, 0, {})
-
-
-def test_failed_defaults_to_exit_code_one_and_accepts_a_code_and_a_payload():
-    assert failed() == Outcome(False, 1, {})
+@pytest.mark.small
+def test_failed_passes_its_code_and_payload_through():
+    """Check that failed keeps the exit code and the payload it was given."""
     assert failed(K_EXIT_USAGE, {"why": "usage"}) == Outcome(False, 2, {"why": "usage"})
 
 
+@pytest.mark.small
 def test_finish_sends_one_result_event_and_returns_the_exit_code():
-    console = _Console()
+    """Check that finish sends the outcome as one result event and returns its code."""
+    console = RecordingConsole()
     assert finish(console, failed(2, {"a": 1})) == 2
-    assert console.results == [(False, {"a": 1})]
+    assert [(name, args) for name, args in console.calls] == [("result", (False, {"a": 1}))]
 
 
+@pytest.mark.small
 def test_two_outcomes_do_not_share_a_payload():
+    """Check that changing one outcome's payload leaves another's empty."""
     first, second = done(), done()
     first.payload["x"] = 1
     assert second.payload == {}

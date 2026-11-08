@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Optional, Sequence
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import SushiPin
@@ -33,7 +33,21 @@ class PinConflict:
                 f"{self.second_version} by {self.second_owner}; move both pins to one version.")
 
 
-def conflicts(owner: str, root: Path, pins: Sequence[SushiPin]) -> list[PinConflict]:
+#: Gives the checkout and the pins of the library *name* at *version* seen from a checkout, or None.
+PinsOf = Callable[[Path, str, str], Optional[tuple[Path, Sequence[SushiPin]]]]
+
+
+def _pins_on_disk(checkout: Path, name: str, version: str) -> tuple[Path, Sequence[SushiPin]] | None:
+    """Return the checkout of *name* at *version* and the pins of its fragment, or None."""
+    source = resolve(checkout, name, version)
+    fragment = source.path / DEFAULT_FRAGMENT if source is not None else None
+    if source is None or not fragment.is_file():
+        return None
+    return source.path, deps_fragment.read(fragment).pins
+
+
+def conflicts(owner: str, root: Path, pins: Sequence[SushiPin],
+              pins_of: PinsOf | None = None) -> list[PinConflict]:
     """Return every library the chain under *owner* pins at more than one version.
 
     The walk reads the fragment of each pinned library whose checkout resolves; a
@@ -43,6 +57,7 @@ def conflicts(owner: str, root: Path, pins: Sequence[SushiPin]) -> list[PinConfl
         owner: The name of the repository at *root*.
         root: Its checkout.
         pins: The pins of its own fragment.
+        pins_of: Gives a pinned library's checkout and pins; reads the disk when ``None``.
 
     Raises:
         ValueError: A library's fragment is malformed.
@@ -64,10 +79,9 @@ def conflicts(owner: str, root: Path, pins: Sequence[SushiPin]) -> list[PinConfl
             if (pin.name, pin.version) in walked:
                 continue
             walked.add((pin.name, pin.version))
-            source = resolve(checkout, pin.name, pin.version)
-            fragment = source.path / DEFAULT_FRAGMENT if source is not None else None
-            if fragment is not None and fragment.is_file():
-                visit(pin.name, source.path, deps_fragment.read(fragment).pins)
+            library = (pins_of or _pins_on_disk)(checkout, pin.name, pin.version)
+            if library is not None:
+                visit(pin.name, *library)
 
     visit(owner, root, pins)
     return found
