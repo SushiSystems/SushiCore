@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import types
 import zipfile
 from pathlib import Path
@@ -15,9 +14,6 @@ from pathlib import Path
 import pytest
 
 from sushicore.provision.packages import direct_download as dd
-
-
-pytestmark = pytest.mark.medium
 
 
 def _write_zip(path: Path, member: str) -> None:
@@ -44,6 +40,7 @@ def _recording_rmtree(target: Path, monkeypatch, removed: list[Path]) -> None:
     monkeypatch.setattr(dd.shutil, "rmtree", recording)
 
 
+@pytest.mark.medium
 def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
         tmp_path, monkeypatch, provision_home, recording_console):
     """Check that cmake direct install only removes paths under the bound root."""
@@ -66,6 +63,7 @@ def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
     assert (dd.tools_dir() / "cmake" / "bin" / "cmake.exe").is_file()
 
 
+@pytest.mark.medium
 def test_doxygen_direct_install_only_removes_paths_under_the_bound_root(
         tmp_path, monkeypatch, provision_home, recording_console):
     """Check that doxygen direct install only removes paths under the bound root."""
@@ -88,8 +86,8 @@ def test_doxygen_direct_install_only_removes_paths_under_the_bound_root(
 
 
 
-def _fake_winreg(monkeypatch, open_key) -> dict[str, str]:
-    """Install a ``winreg`` whose ``OpenKey`` is *open_key*; return the values it stores."""
+def _winreg(open_key):
+    """Return the calls of ``winreg`` with *open_key* as ``OpenKey``, and the values it stores."""
     stored: dict[str, str] = {}
 
     def query(_key, name):
@@ -102,12 +100,11 @@ def _fake_winreg(monkeypatch, open_key) -> dict[str, str]:
         """Record the value ``SetValueEx`` was asked to write."""
         stored[name] = value
 
-    fake = types.SimpleNamespace(
+    module = types.SimpleNamespace(
         HKEY_CURRENT_USER=1, KEY_READ=1, KEY_WRITE=2, REG_EXPAND_SZ=2,
         OpenKey=open_key, QueryValueEx=query, SetValueEx=store, CloseKey=lambda _key: None,
     )
-    monkeypatch.setitem(sys.modules, "winreg", fake)
-    return stored
+    return module, stored
 
 
 def _raising(error: Exception):
@@ -118,33 +115,52 @@ def _raising(error: Exception):
     return open_key
 
 
-def test_a_refused_user_path_write_is_recorded_and_reported(monkeypatch, caplog):
-    """Check that a refused registry write returns False, warns, and still serves this process."""
-    _fake_winreg(monkeypatch, _raising(PermissionError(5, "Access is denied")))
-    monkeypatch.setenv("PATH", "C:/base")
+def _refused_write(caplog):
+    """Run a PATH write the registry refuses; return the result, the warnings and the environment."""
+    module, _stored = _winreg(_raising(PermissionError(5, "Access is denied")))
+    environ = {"PATH": "C:/base"}
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        assert dd._add_to_user_path_windows("C:/tools") is False
+        result = dd._add_to_user_path_windows("C:/tools", module, environ)
     warnings = [r.getMessage() for r in caplog.records
                 if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
-    assert len(warnings) == 1
-    assert "C:/tools" in warnings[0]
-    assert os.environ["PATH"] == os.pathsep.join(["C:/base", "C:/tools"])
+    return result, warnings, environ
 
 
-def test_a_user_path_write_that_lands_reports_success(monkeypatch):
+@pytest.mark.small
+def test_a_refused_user_path_write_returns_false(caplog):
+    """Check that a refused registry write answers False."""
+    assert _refused_write(caplog)[0] is False
+
+
+@pytest.mark.small
+def test_a_refused_user_path_write_is_recorded_naming_the_directory(caplog):
+    """Check that a refused registry write logs one warning that names the directory."""
+    warnings = _refused_write(caplog)[1]
+    assert len(warnings) == 1 and "C:/tools" in warnings[0]
+
+
+@pytest.mark.small
+def test_a_refused_user_path_write_still_serves_this_process(caplog):
+    """Check that this process finds the directory on its PATH although the registry refused."""
+    assert _refused_write(caplog)[2]["PATH"] == os.pathsep.join(["C:/base", "C:/tools"])
+
+
+@pytest.mark.small
+def test_a_user_path_write_that_lands_reports_success():
     """Check that a stored PATH value returns True and reaches this process."""
-    stored = _fake_winreg(monkeypatch, lambda *_args: object())
-    monkeypatch.setenv("PATH", "C:/base")
-    assert dd._add_to_user_path_windows("C:/tools") is True
+    module, stored = _winreg(lambda *_args: object())
+    environ = {"PATH": "C:/base"}
+    assert dd._add_to_user_path_windows("C:/tools", module, environ) is True
     assert stored == {"Path": "C:/tools"}
-    assert os.environ["PATH"] == os.pathsep.join(["C:/base", "C:/tools"])
+    assert environ["PATH"] == os.pathsep.join(["C:/base", "C:/tools"])
 
 
-def test_a_defect_in_the_user_path_write_is_not_swallowed(monkeypatch):
+@pytest.mark.small
+def test_a_defect_in_the_user_path_write_is_not_swallowed():
     """Check that an error the registry does not raise escapes the PATH write."""
-    _fake_winreg(monkeypatch, _raising(TypeError("defect")))
+    module, _stored = _winreg(_raising(TypeError("defect")))
     with pytest.raises(TypeError):
-        dd._add_to_user_path_windows("C:/tools")
+        dd._add_to_user_path_windows("C:/tools", module, {"PATH": ""})
 
 
 K_DIRECT_INSTALLS = [
@@ -163,6 +179,7 @@ def _run_direct_install(monkeypatch, installer: str, member: str, path_written: 
     return getattr(dd, installer)()
 
 
+@pytest.mark.medium
 @pytest.mark.parametrize(("installer", "member", "path_parts"), K_DIRECT_INSTALLS)
 def test_direct_install_warns_when_the_user_path_write_is_refused(
         installer, member, path_parts, monkeypatch, provision_home, recording_console):
@@ -173,6 +190,7 @@ def test_direct_install_warns_when_the_user_path_write_is_refused(
     assert str(dd.tools_dir().joinpath(*path_parts)) in warnings[0]
 
 
+@pytest.mark.medium
 @pytest.mark.parametrize(("installer", "member", "path_parts"), K_DIRECT_INSTALLS)
 def test_direct_install_stays_quiet_when_the_user_path_write_lands(
         installer, member, path_parts, monkeypatch, provision_home, recording_console):

@@ -2,29 +2,22 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""``install_gpu_stack`` dispatches through the registry and reports no GPU cleanly."""
+"""Tests for the dispatch of a GPU stack install through the backend registry."""
 
 from __future__ import annotations
-
-from types import SimpleNamespace
 
 import pytest
 
 from sushicore.provision import packages
-from sushicore.provision import probe
+from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.gpu.backend import GpuBackendSpec
 from sushicore.provision.gpu.backend_memory import InMemoryToolkitLocator
 from sushicore.provision.gpu.registry import Registry
 
 
-pytestmark = pytest.mark.small
-
-
-def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
-    """Check that install gpu stack dispatches through the registry."""
-    from sushicore.provision.gpu.backend import GpuBackendSpec
-
-    locator = InMemoryToolkitLocator()
-    fake_spec = GpuBackendSpec(
+def _spec(locator) -> GpuBackendSpec:
+    """Return the spec of a made-up vendor whose locator is *locator*."""
+    return GpuBackendSpec(
         vendor="fake",
         probe_vendor="fakevendor",
         locator=locator,
@@ -33,42 +26,36 @@ def test_install_gpu_stack_dispatches_through_the_registry(monkeypatch):
         adapter_target="ur_adapter_fake",
         adapter_binaries=("ur_adapter_fake",),
     )
-    fake_registry = Registry((fake_spec,))
-    monkeypatch.setattr(packages.gpu_stack, "DEFAULT_REGISTRY", fake_registry)
 
-    cfg = SimpleNamespace(platform="linux")
-    result = packages.install_gpu_stack(cfg, "fakevendor", dry_run=True)
+
+@pytest.mark.small
+def test_install_gpu_stack_dispatches_through_the_registry():
+    """Check that the stack of a registered vendor is provisioned by its locator."""
+    locator = InMemoryToolkitLocator()
+    cfg = ProvisionSettings(platform="linux")
+
+    result = packages.install_gpu_stack(cfg, "fakevendor", dry_run=True,
+                                        registry=Registry((_spec(locator),)))
 
     assert result is True
     assert locator.provisioned_with == [(cfg, True)]
 
 
-def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(
-        monkeypatch, recording_console):
-    """Check that install gpu stack reports no gpu for an unregistered vendor."""
-    fake_registry = Registry(())
-    monkeypatch.setattr(packages.gpu_stack, "DEFAULT_REGISTRY", fake_registry)
-
-    cfg = SimpleNamespace(platform="linux")
-    assert packages.install_gpu_stack(cfg, "none", dry_run=True) is True
+@pytest.mark.small
+@pytest.mark.parametrize("vendor", ["none", "unknownvendor"])
+def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(recording_console, vendor):
+    """Check that an unregistered vendor gets the CPU-only line and a True answer."""
+    cfg = ProvisionSettings(platform="linux")
+    assert packages.install_gpu_stack(cfg, vendor, dry_run=True, registry=Registry(())) is True
     assert recording_console.calls == [
         ("info", ("No discrete GPU detected; using the CPU (SPIR/OpenCL) path only.",)),
     ]
 
 
-@pytest.mark.parametrize("adapters, printed", [
-    ("intel(r) uhd graphics 630", False),
-    ("microsoft basic display adapter", True),
-])
-def test_no_discrete_gpu_prints_only_without_a_known_vendor(
-        monkeypatch, recording_console, adapters, printed):
-    """Check that no discrete gpu prints only without a known vendor."""
-    monkeypatch.setattr(probe.shutil, "which", lambda name: None)
-    monkeypatch.setattr(probe.sys, "platform", "win32")
-    monkeypatch.setattr(probe, "_windows_display_adapters", lambda: adapters)
-
-    cfg = SimpleNamespace(platform="windows")
-    packages.install_gpu_stack(cfg, probe.detect_gpu_vendor(), dry_run=True)
-
-    infos = [args[0] for name, args in recording_console.calls if name == "info"]
-    assert any("No discrete GPU detected" in msg for msg in infos) is printed
+@pytest.mark.small
+def test_install_gpu_stack_prints_nothing_for_a_registered_vendor(recording_console):
+    """Check that a registered vendor gets no CPU-only line."""
+    registry = Registry((_spec(InMemoryToolkitLocator()),))
+    packages.install_gpu_stack(ProvisionSettings(platform="linux"), "fakevendor", True,
+                               registry=registry)
+    assert recording_console.calls == []

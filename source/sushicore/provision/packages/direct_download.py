@@ -14,7 +14,7 @@ import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, MutableMapping
 
 from sushicore.errors import DigestMismatchError
 
@@ -43,15 +43,22 @@ def download(url: str, dest: Path) -> None:
             fh.write(chunk)
 
 
-def _add_to_user_path_windows(directory: str) -> bool:
+def _add_to_user_path_windows(directory: str, winreg: Any = None,
+                              environ: MutableMapping[str, str] | None = None) -> bool:
     """Append *directory* to this process's PATH and the user's PATH registry key.
+
+    Args:
+        winreg: The ``winreg`` module, or an object with its calls; the real module when ``None``.
+        environ: The environment whose PATH is extended; the process's when ``None``.
 
     Returns:
         True when the registry holds *directory*, False when only this process does.
     """
-    os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + directory
+    env = os.environ if environ is None else environ
+    env["PATH"] = env.get("PATH", "") + os.pathsep + directory
     try:
-        import winreg
+        if winreg is None:
+            import winreg
         key = winreg.OpenKey(
             winreg.HKEY_CURRENT_USER, r"Environment",
             0, winreg.KEY_READ | winreg.KEY_WRITE,

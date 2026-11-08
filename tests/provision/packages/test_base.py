@@ -2,49 +2,54 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""A PATH refresh the registry refuses is recorded and a defect in it escapes."""
+"""Tests for the helpers the package managers share: the PATH refresh."""
 
 from __future__ import annotations
 
 import os
-import sys
-import types
 
 import pytest
 
 from sushicore.provision.packages import base
 
-pytestmark = [
-    pytest.mark.small,
-    pytest.mark.skipif(os.name != "nt", reason="the PATH refresh reads the registry"),
-]
+
+def _reading(*values):
+    """Return a reader that gives the registry Path *values*."""
+    return lambda: list(values)
 
 
-def _winreg_raising(monkeypatch, error: Exception) -> None:
-    """Install a ``winreg`` whose ``OpenKey`` raises *error*."""
-    def open_key(*_args):
-        """Raise the configured error in place of opening the key."""
+def _raising(error: Exception):
+    """Return a reader that raises *error* in place of reading the registry."""
+    def read():
+        """Raise the configured error."""
         raise error
-
-    fake = types.SimpleNamespace(HKEY_LOCAL_MACHINE=1, HKEY_CURRENT_USER=2, OpenKey=open_key)
-    monkeypatch.setitem(sys.modules, "winreg", fake)
+    return read
 
 
-def test_a_refused_registry_read_is_recorded_and_leaves_path_alone(monkeypatch, caplog):
+@pytest.mark.small
+def test_a_refused_registry_read_is_recorded_and_leaves_path_alone(caplog):
     """Check that a registry the process may not read yields one warning and the old PATH."""
-    _winreg_raising(monkeypatch, PermissionError(5, "Access is denied"))
-    monkeypatch.setenv("PATH", "C:/base")
+    environ = {"PATH": "C:/base"}
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        base.refresh_windows_path()
+        base.refresh_windows_path(_raising(PermissionError(5, "Access is denied")), environ)
     warnings = [r.getMessage() for r in caplog.records
                 if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
     assert len(warnings) == 1
     assert "Access is denied" in warnings[0]
-    assert os.environ["PATH"] == "C:/base"
+    assert environ["PATH"] == "C:/base"
 
 
-def test_a_defect_in_the_registry_read_is_not_swallowed(monkeypatch):
+@pytest.mark.small
+def test_a_defect_in_the_registry_read_is_not_swallowed():
     """Check that an error the registry does not raise escapes the refresh."""
-    _winreg_raising(monkeypatch, TypeError("defect"))
     with pytest.raises(TypeError):
-        base.refresh_windows_path()
+        base.refresh_windows_path(_raising(TypeError("defect")), {"PATH": ""})
+
+
+@pytest.mark.small
+def test_the_machine_and_user_paths_join_the_old_one_with_the_first_spelling_kept():
+    """Check that machine, user and process paths merge in order and a repeat in other case is dropped."""
+    environ = {"PATH": os.pathsep.join(["C:/Tools", "C:/old"])}
+    base.refresh_windows_path(_reading("C:/tools", "C:/user"), environ)
+    assert environ["PATH"] == os.pathsep.join(["C:/tools", "C:/user", "C:/Tools", "C:/old"][:2]
+                                              + ["C:/old"])

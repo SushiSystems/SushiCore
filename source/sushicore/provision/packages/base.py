@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from typing import Callable, MutableMapping
 
 from .._output import console
 from ..system import is_root
@@ -65,28 +66,46 @@ def prime_sudo() -> None:
             tty.close()
 
 
-def refresh_windows_path() -> None:
-    """Reload PATH from the registry into this process (Windows only, else no-op)."""
-    if os.name != "nt":
-        return
-    try:
-        import winreg
-        parts: list[str] = []
-        for root, sub in (
-            (winreg.HKEY_LOCAL_MACHINE,
-             r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
-            (winreg.HKEY_CURRENT_USER, r"Environment"),
-        ):
+def _registry_paths() -> list[str]:
+    """Return the machine and the user ``Path`` values of the registry, variables expanded.
+
+    Raises:
+        OSError: The registry may not be read.
+    """
+    import winreg
+    parts: list[str] = []
+    for root, sub in (
+        (winreg.HKEY_LOCAL_MACHINE,
+         r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+        (winreg.HKEY_CURRENT_USER, r"Environment"),
+    ):
+        try:
+            key = winreg.OpenKey(root, sub)
             try:
-                key = winreg.OpenKey(root, sub)
-                try:
-                    val, _ = winreg.QueryValueEx(key, "Path")
-                    parts.append(os.path.expandvars(str(val)))
-                finally:
-                    winreg.CloseKey(key)
-            except FileNotFoundError:
-                _log.debug("registry key %s has no Path value; skipped", sub)
-        parts.append(os.environ.get("PATH", ""))
+                val, _ = winreg.QueryValueEx(key, "Path")
+                parts.append(os.path.expandvars(str(val)))
+            finally:
+                winreg.CloseKey(key)
+        except FileNotFoundError:
+            _log.debug("registry key %s has no Path value; skipped", sub)
+    return parts
+
+
+def refresh_windows_path(read_paths: Callable[[], list[str]] | None = None,
+                         environ: MutableMapping[str, str] | None = None) -> None:
+    """Reload PATH from the registry into this process (Windows only, else no-op).
+
+    Args:
+        read_paths: Gives the registry's ``Path`` values or raises ``OSError``; given, it is
+            read on any platform. The registry on Windows when ``None``.
+        environ: The environment to update; the process's when ``None``.
+    """
+    if os.name != "nt" and read_paths is None:
+        return
+    env = os.environ if environ is None else environ
+    try:
+        parts = (read_paths or _registry_paths)()
+        parts.append(env.get("PATH", ""))
         seen: set[str] = set()
         out: list[str] = []
         for entry in os.pathsep.join(parts).split(os.pathsep):
@@ -94,7 +113,7 @@ def refresh_windows_path() -> None:
             if entry and key_l not in seen:
                 seen.add(key_l)
                 out.append(entry)
-        os.environ["PATH"] = os.pathsep.join(out)
+        env["PATH"] = os.pathsep.join(out)
     except OSError as error:
         _log.warning(
             "PATH was not reloaded from the registry (%s: %s); this process keeps its old PATH",

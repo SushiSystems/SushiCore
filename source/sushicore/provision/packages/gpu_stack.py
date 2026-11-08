@@ -9,15 +9,20 @@ from __future__ import annotations
 import typing
 
 from .._output import console
-from ..gpu.registry import DEFAULT_REGISTRY
+from ..gpu.registry import DEFAULT_REGISTRY, Registry
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
 
-def install_gpu_stack(cfg: "ProvisionConfig", vendor: str, dry_run: bool) -> bool:
-    """Provision *vendor*'s compute SDK through its registered backend spec."""
-    spec = DEFAULT_REGISTRY.for_probe_vendor(vendor)
+def install_gpu_stack(cfg: "ProvisionConfig", vendor: str, dry_run: bool,
+                      registry: Registry | None = None) -> bool:
+    """Provision *vendor*'s compute SDK through its registered backend spec.
+
+    Args:
+        registry: The backend registry to ask; the stock one when ``None``.
+    """
+    spec = (registry or DEFAULT_REGISTRY).for_probe_vendor(vendor)
     if spec is None:
         console.info("No discrete GPU detected; using the CPU (SPIR/OpenCL) path only.")
         return True

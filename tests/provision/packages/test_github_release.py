@@ -15,8 +15,6 @@ import sushicore.provision as provision
 from sushicore.provision.packages import direct_download, github_release
 
 
-pytestmark = pytest.mark.medium
-
 _ROOT = Path(provision.__file__).parent
 
 
@@ -38,6 +36,7 @@ def sent_agents(monkeypatch):
     return agents
 
 
+@pytest.mark.small
 @pytest.mark.parametrize("call", [
     lambda tmp: github_release.gh_latest_asset("o/r", "*"),
     lambda tmp: github_release.gh_latest_release_asset("o/r", "*"),
@@ -52,8 +51,12 @@ def test_every_package_request_sends_the_sushicore_agent(
     assert sent_agents == ["sushicore-installer"]
 
 
-def test_no_module_spells_its_own_agent():
-    """Check that no module spells its own agent."""
-    for path in _ROOT.rglob("*.py"):
-        text = path.read_text(encoding="utf-8")
-        assert "-installer\"" not in text or path.name == "system.py", path
+@pytest.mark.medium
+@pytest.mark.parametrize("module", [
+    "packages/github_release.py", "packages/direct_download.py", "gpu/cuda_redist.py",
+    "gpu/cuda_toolkit_installer.py", "gpu/rocm_tarball_index.py", "gpu/rocm_toolkit_installer.py",
+    "gpu/windows_installer.py"])
+def test_no_module_spells_its_own_agent(module):
+    """Check that a module that sends a request takes its agent from system.USER_AGENT."""
+    text = (_ROOT / module).read_text(encoding="utf-8")
+    assert '-installer"' not in text

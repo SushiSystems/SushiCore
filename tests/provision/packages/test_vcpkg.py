@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""A port asked for with a feature list is the port vcpkg lists without one."""
+"""Tests for the vcpkg package manager's view of what is installed."""
 
 from __future__ import annotations
 
@@ -10,38 +10,31 @@ from types import SimpleNamespace
 
 import pytest
 
+from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.packages import vcpkg as vcpkg_mod
 from sushicore.provision.packages.vcpkg import VcpkgManager
 
-
-pytestmark = pytest.mark.small
 
 #: One line of `vcpkg list --triplet x64-windows` output for an installed imgui.
 LISTED = "imgui:x64-windows                        1.92.8    Dear ImGui\n"
 
 
 @pytest.fixture
-def manager(monkeypatch):
-    """Return a Windows VcpkgManager whose `vcpkg list` reports imgui alone."""
-    monkeypatch.setattr(VcpkgManager, "available", lambda self: True)
+def manager(tmp_path, monkeypatch):
+    """Return a Windows VcpkgManager with a vcpkg file under a folder of its own, listing imgui alone."""
+    (tmp_path / "vcpkg.exe").write_text("")
     monkeypatch.setattr(
         vcpkg_mod.subprocess, "run",
         lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=LISTED))
-    cfg = SimpleNamespace(platform="windows", vcpkg_triplet="", vcpkg_root="",
-                           expand=lambda value: value)
-    return VcpkgManager(cfg)
+    return VcpkgManager(ProvisionSettings(platform="windows", vcpkg_root=str(tmp_path)))
 
 
-def test_a_port_with_features_is_seen_as_installed(manager):
-    """Check that a port with features is seen as installed."""
-    assert manager.is_installed("imgui[glfw-binding,opengl3-binding]")
-
-
-def test_a_bare_port_name_still_matches(manager):
-    """Check that a bare port name still matches."""
-    assert manager.is_installed("imgui")
-
-
-def test_a_port_that_is_not_listed_is_not_installed(manager):
-    """Check that a port that is not listed is not installed."""
-    assert not manager.is_installed("glfw3[wayland]")
+@pytest.mark.medium
+@pytest.mark.parametrize(("package", "installed"), [
+    ("imgui[glfw-binding,opengl3-binding]", True),
+    ("imgui", True),
+    ("glfw3[wayland]", False),
+], ids=["a port with features", "a bare port name", "a port that is not listed"])
+def test_a_port_is_installed_when_the_listing_holds_its_name(manager, package, installed):
+    """Check that a port reads as installed by its name, with or without features."""
+    assert manager.is_installed(package) is installed
