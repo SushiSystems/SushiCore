@@ -17,6 +17,8 @@ from sushicore.provision.sushi_source_check import (
 )
 from sushicore.provision.sushi_sources import fetched_dir
 
+from sushicore.provision.git_client_memory import InMemoryGitClient
+
 from .sushi_fakes import K_OTHER, K_PINNED, pinned_git, write_fragment
 
 pytestmark = pytest.mark.medium
@@ -35,14 +37,14 @@ def root(tmp_path, provision_home, monkeypatch):
 
 def test_a_missing_library_fails_with_the_fix(root):
     """Check that no checkout fails and names setup as the fix."""
-    result = sushi_source_check(root, K_PIN, pinned_git(), "sr setup").run()
+    result = sushi_source_check(root, K_PIN, InMemoryGitClient(), "sr setup").run()
     assert result.state is State.FAIL and result.fix == "sr setup"
 
 
 def test_a_fetched_library_reports_fetched(root):
     """Check that the fetched copy is named as the source."""
     fetched_dir("sushilog", "v1.0.0").mkdir(parents=True)
-    result = sushi_source_check(root, K_PIN, pinned_git(), "sr setup").run()
+    result = sushi_source_check(root, K_PIN, InMemoryGitClient(), "sr setup").run()
     assert result.state is State.OK and result.detail.startswith("fetched")
 
 
@@ -65,21 +67,27 @@ def test_a_sibling_off_the_pin_warns(root):
     assert K_OTHER in result.detail and K_PINNED in result.detail
 
 
-def test_the_pin_check_fails_on_a_conflict_and_passes_without_one(tmp_path, provision_home):
-    """Check that the pin check fails naming both pinners, and passes when they agree."""
+def _blas_chain(tmp_path, log_version_of_runtime):
+    """Lay out sushiblas -> sushiruntime, both pinning sushilog; return the root and pins of sushiblas."""
     ws = tmp_path / "ws"
     root = ws / "sushiblas"
     write_fragment(root, {"sushiruntime": "v3.0.0", "sushilog": "v1.0.0"})
-    runtime = write_fragment(ws / "sushiruntime", {"sushilog": "v1.1.0"})
+    write_fragment(ws / "sushiruntime", {"sushilog": log_version_of_runtime})
     (ws / "sushilog").mkdir()
-    pins = read(root / "cli" / "sushistack.deps.toml").pins
+    return root, read(root / "cli" / "sushistack.deps.toml").pins
 
+
+def test_the_pin_check_fails_on_a_conflict_naming_both_pinners(tmp_path, provision_home):
+    """Check that the pin check fails naming both pinners when they disagree."""
+    root, pins = _blas_chain(tmp_path, "v1.1.0")
     failed = pin_conflict_check("sushiblas", root, pins).run()
     assert failed.state is State.FAIL
     assert "sushiblas" in failed.detail and "sushiruntime" in failed.detail
 
-    write_fragment(ws / "sushiruntime", {"sushilog": "v1.0.0"})
-    assert runtime.is_file()
+
+def test_the_pin_check_passes_when_the_pinners_agree(tmp_path, provision_home):
+    """Check that the pin check passes when both pinners pin one version."""
+    root, pins = _blas_chain(tmp_path, "v1.0.0")
     assert pin_conflict_check("sushiblas", root, pins).run().state is State.OK
 
 

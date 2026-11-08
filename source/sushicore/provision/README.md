@@ -15,9 +15,11 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `links.py` | Makes, reads and removes a directory link: a junction on Windows, a symlink elsewhere |
 | `migrate.py` | Moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it |
 | `user_environment.py` | Reads and writes the user's persistent environment variables: the registry on Windows, one block of `~/.profile` elsewhere |
+| `user_environment_memory.py` | `InMemoryEnvironmentKey`, a registry key that holds its values in a dict |
 | `fragments.py` | Merges dependency fragments from a caller-supplied source list |
 | `fragments_memory.py` | `InMemoryDependencySource`, an `IDependencySource` that serves a list given in memory |
 | `closure.py` | Follows a fragment's `depends_on` to each module's checkout |
+| `closure_memory.py` | `TableLocator`, a module locator that answers from a table and looks at no folder |
 | `selection.py` | Decides which toolchain components a run installs |
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |

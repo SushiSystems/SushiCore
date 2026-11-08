@@ -8,13 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision import home
-from sushicore.provision.sushi_sources import (
-    SourceKind,
-    directory_variable,
-    fetched_dir,
-    resolve,
-)
+from sushicore.provision.sushi_sources import SourceKind, fetched_dir, resolve
 
 pytestmark = pytest.mark.medium
 
@@ -28,14 +22,10 @@ def root(tmp_path, provision_home, monkeypatch):
     return checkout
 
 
-def test_the_directory_variable_is_upper_case():
-    """Check that the variable of sushilog is SUSHILOG_DIR."""
-    assert directory_variable("sushilog") == "SUSHILOG_DIR"
-
-
-def test_the_fetched_copy_sits_under_the_home(root):
+def test_the_fetched_copy_sits_under_the_home(provision_home):
     """Check that the fetched copy is <home>/sources/<name>/<version>."""
-    assert fetched_dir("sushilog", "v1.0.0") == home.root() / "sources" / "sushilog" / "v1.0.0"
+    assert fetched_dir("sushilog", "v1.0.0") == (
+        provision_home.resolve() / "sources" / "sushilog" / "v1.0.0")
 
 
 def test_nothing_resolves_without_a_checkout(root):
@@ -63,19 +53,41 @@ def test_a_sibling_wins_over_the_fetched_copy(root):
     assert found.kind is SourceKind.SIBLING and found.path == (root.parent / "sushilog").resolve()
 
 
-def test_a_configured_directory_wins_over_the_environment_and_the_sibling(
-        root, tmp_path, monkeypatch):
-    """Check that the configured directory beats the variable, which beats the sibling."""
+def test_the_directory_variable_wins_over_the_sibling(root, tmp_path, monkeypatch):
+    """Check that SUSHILOG_DIR beats the sibling checkout."""
     (root.parent / "sushilog").mkdir()
+    from_env = tmp_path / "env"
+    from_env.mkdir()
+    monkeypatch.setenv("SUSHILOG_DIR", str(from_env))
+    assert resolve(root, "sushilog", "v1.0.0").path == from_env.resolve()
+
+
+def test_a_configured_directory_wins_over_the_directory_variable(root, tmp_path, monkeypatch):
+    """Check that the configured directory beats SUSHILOG_DIR."""
     from_env = tmp_path / "env"
     from_env.mkdir()
     configured = tmp_path / "configured"
     configured.mkdir()
     monkeypatch.setenv("SUSHILOG_DIR", str(from_env))
-
-    assert resolve(root, "sushilog", "v1.0.0").path == from_env.resolve()
     found = resolve(root, "sushilog", "v1.0.0", str(configured))
     assert found.kind is SourceKind.DIRECTORY and found.path == configured.resolve()
+
+
+def test_a_configured_directory_naming_no_folder_falls_through_to_the_variable(
+        root, tmp_path, monkeypatch):
+    """Check that a configured directory that is no folder gives way to SUSHILOG_DIR."""
+    from_env = tmp_path / "env"
+    from_env.mkdir()
+    monkeypatch.setenv("SUSHILOG_DIR", str(from_env))
+    found = resolve(root, "sushilog", "v1.0.0", str(tmp_path / "absent"))
+    assert found.path == from_env.resolve()
+
+
+def test_a_configured_directory_naming_no_folder_falls_through_to_the_sibling(root, tmp_path):
+    """Check that a configured directory that is no folder gives way to the sibling."""
+    (root.parent / "sushilog").mkdir()
+    found = resolve(root, "sushilog", "v1.0.0", str(tmp_path / "absent"))
+    assert found.kind is SourceKind.SIBLING
 
 
 def test_a_directory_that_does_not_exist_falls_through(root, tmp_path, monkeypatch):

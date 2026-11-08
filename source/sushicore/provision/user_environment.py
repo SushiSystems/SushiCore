@@ -154,36 +154,47 @@ def _export_line(name: str, value: str) -> str:
     return f'export {name}="{escaped}"'
 
 
-def default_environment() -> UserEnvironment:
-    """Return the store this platform keeps the user's variables in."""
-    return RegistryEnvironment() if _IS_WINDOWS else ProfileEnvironment()
+def default_environment(windows: bool | None = None) -> UserEnvironment:
+    """Return the store this platform keeps the user's variables in.
+
+    Args:
+        windows: Whether to answer for Windows; the running platform when None.
+    """
+    return RegistryEnvironment() if (_IS_WINDOWS if windows is None else windows) \
+        else ProfileEnvironment()
 
 
-def read_user_variable(name: str, store: UserEnvironment | None = None) -> str | None:
+def read_user_variable(name: str, store: UserEnvironment | None = None,
+                       windows: bool | None = None) -> str | None:
     """Return the user's persistent value of *name*, or None when it is not set.
 
     Args:
         store: Where to read; :func:`default_environment` when None.
+        windows: The platform to pick the default store for; the running one when None.
     """
-    return (store or default_environment()).read(name)
+    return (store or default_environment(windows)).read(name)
 
 
-def write_user_variable(name: str, value: str, store: UserEnvironment | None = None) -> None:
+def write_user_variable(name: str, value: str, store: UserEnvironment | None = None,
+                        windows: bool | None = None) -> None:
     """Set the user's persistent variable *name* to *value*.
 
     Args:
         store: Where to write; :func:`default_environment` when None.
+        windows: The platform to pick the default store for; the running one when None.
     """
-    (store or default_environment()).write(name, value)
+    (store or default_environment(windows)).write(name, value)
 
 
-def remove_user_variable(name: str, store: UserEnvironment | None = None) -> None:
+def remove_user_variable(name: str, store: UserEnvironment | None = None,
+                         windows: bool | None = None) -> None:
     """Unset the user's persistent variable *name*.
 
     Args:
         store: Where to write; :func:`default_environment` when None.
+        windows: The platform to pick the default store for; the running one when None.
     """
-    (store or default_environment()).remove(name)
+    (store or default_environment(windows)).remove(name)
 
 
 @final

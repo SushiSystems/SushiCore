@@ -10,6 +10,7 @@ import pytest
 
 from sushicore.deps_fragment import pins_at
 from sushicore.provision import sushi_setup
+from sushicore.provision.closure_memory import TableLocator
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import InstallContext
 
@@ -32,9 +33,9 @@ def test_the_locator_tries_the_base_first_then_the_fetched_copy(
     fetched = provision_home / "sources" / "sushilog" / "v1.0.0"
     fetched.mkdir(parents=True)
 
-    assert sushi_setup.locator(lambda name: tmp_path, root, pins)("sushilog") == tmp_path
-    assert sushi_setup.locator(lambda name: None, root, pins)("sushilog") == fetched.resolve()
-    assert sushi_setup.locator(lambda name: None, root, [])("sushilog") is None
+    assert sushi_setup.locator(TableLocator({"sushilog": tmp_path}), root, pins)("sushilog") == tmp_path
+    assert sushi_setup.locator(TableLocator(), root, pins)("sushilog") == fetched.resolve()
+    assert sushi_setup.locator(TableLocator(), root, [])("sushilog") is None
 
 
 def test_prepare_fetches_a_chain_that_agrees(tmp_path, provision_home, recording_console):

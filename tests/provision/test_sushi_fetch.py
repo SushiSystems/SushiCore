@@ -12,7 +12,7 @@ from sushicore.deps_fragment import read
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import InstallContext, StepResult
 from sushicore.provision.sushi_fetch import FetchSushiSourcesStep
-from sushicore.provision.sushi_sources import SourceKind, resolve
+from sushicore.provision.sushi_sources import SourceKind, fetched_dir, resolve
 
 from .sushi_fakes import K_OTHER, K_PINNED, pinned_git, write_fragment
 
@@ -104,6 +104,17 @@ def test_a_failed_clone_names_the_url_the_tag_and_the_directory_variable(
                  "SUSHILOG_DIR"):
         assert part in message
     assert not git.calls[0][2].exists()
+
+
+def test_a_dry_run_keeps_an_existing_fetched_folder(consumer, recording_console):
+    """Check that a dry run clones nothing over a fetched folder and leaves it in place."""
+    folder = fetched_dir("sushilog", "v1.0.0")
+    folder.mkdir(parents=True)
+    git = pinned_git()
+
+    _step(consumer, git).run(InstallContext(cfg=ProvisionSettings(platform="linux"), dry_run=True))
+
+    assert folder.is_dir()
 
 
 def test_a_fetched_copy_at_the_pin_is_not_cloned_again(consumer, recording_console):

@@ -10,6 +10,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
+from typing import Callable
 
 from sushicore.provision._output import console
 
@@ -34,11 +35,16 @@ def is_root() -> bool:
         return False
 
 
-def os_release() -> dict[str, str]:
-    """Parse /etc/os-release into a dict (empty off Linux or when unreadable)."""
+def os_release(read_text: Callable[[], str] | None = None) -> dict[str, str]:
+    """Parse /etc/os-release into a dict (empty off Linux or when unreadable).
+
+    Args:
+        read_text: Gives the file's text or raises ``OSError``; reads ``/etc/os-release`` when ``None``.
+    """
     data: dict[str, str] = {}
     try:
-        for line in Path("/etc/os-release").read_text(encoding="utf-8").splitlines():
+        text = read_text() if read_text else Path("/etc/os-release").read_text(encoding="utf-8")
+        for line in text.splitlines():
             if "=" in line and not line.startswith("#"):
                 key, _, val = line.partition("=")
                 data[key.strip()] = val.strip().strip('"')
