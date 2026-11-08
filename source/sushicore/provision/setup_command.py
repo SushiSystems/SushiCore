@@ -28,12 +28,18 @@ K_SINK_HEADER = [
 K_LOCK_TIMEOUT = 600.0
 
 
+def _detect_options(module: ModuleProvision) -> dict:
+    """Return the keyword arguments of the detect step that *module* replaces."""
+    return {"toolchain_status": module.toolchains} if module.toolchains else {}
+
+
 def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
               toolchains: Sequence[str], gpu: bool) -> Outcome:
     """Provisions *module*'s closure, then reports readiness, and returns how the run ended."""
     console = module.console()
     root = module.project_root()
     cfg = module.load_config()
+    timeout = K_LOCK_TIMEOUT if module.lock_timeout is None else module.lock_timeout
     try:
         pins = pins_at(root / module_plan.fragment_of(module, root))
     except ValueError as exc:
@@ -41,7 +47,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return failed()
     fetch = InstallContext(cfg=cfg, consumer=module.profile.key,
                            program=module.profile.program, dry_run=dry_run)
-    if not sushi_setup.prepare(fetch, root, pins, module.git(), K_LOCK_TIMEOUT):
+    if not sushi_setup.prepare(fetch, root, pins, module.git(), timeout):
         return failed()
     try:
         found = module_plan.closure_for(module, root)
@@ -54,16 +60,17 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return failed(K_EXIT_USAGE)
     source = module_plan.source_for(module, root, found)
     try:
-        chosen = selection.derive(source, probe.toolchain_presence(cfg),
+        chosen = selection.derive(source, module_plan.presence_of(module, cfg),
                                   requested=toolchains, gpu=gpu)
     except ValueError as exc:
         console.error(str(exc))
         return failed(K_EXIT_USAGE)
-    managers = module_plan.managers_for(cfg)
+    managers = module_plan.managers_of(module, cfg)
     pipeline = InstallPipeline([
-        DetectStep(source, managers),
-        InstallDepsStep(source, managers),
-        ConfigureStep(ModuleSink(root / module.config_dir, K_SINK_HEADER)),
+        DetectStep(source, managers, **_detect_options(module)),
+        InstallDepsStep(source, managers, actions=module.actions),
+        ConfigureStep(ModuleSink(root / module.config_dir, K_SINK_HEADER),
+                      actions=module.actions),
     ])
     ctx = InstallContext(
         cfg=cfg,
@@ -74,7 +81,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         assume_acpp_llvm=yes,
     )
     try:
-        with ProvisionLock(home.root() / ".lock", timeout=K_LOCK_TIMEOUT):
+        with ProvisionLock(home.root() / ".lock", timeout=timeout):
             ok = pipeline.run(ctx)
     except LockTimeout as exc:
         console.error(str(exc))

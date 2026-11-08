@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for the dependency root resolution."""
+"""Tests for the dependency root and the legacy trees read beside it."""
 
 from __future__ import annotations
 
@@ -11,144 +11,163 @@ from pathlib import Path
 import pytest
 
 from sushicore.provision import home
+from sushicore.workspace import WORKSPACE_MARKER
 
 
-pytestmark = pytest.mark.medium
+K_ROOT = Path("/machine/root").resolve()
+K_USER = Path("/users/me")
+K_WORK = Path("/work").resolve()
+K_WORKSPACE = Path("/workspace").resolve()
+K_LEGACY = Path("/legacy").resolve()
 
 
-def test_default_root_is_in_the_user_home(monkeypatch):
+def _legacy(environ, *, workspace=None, existing=(), current=K_ROOT):
+    """Return the legacy roots for *environ*, a workspace walk giving *workspace*, and *existing* folders."""
+    return home.legacy_roots(environ=environ, cwd=K_WORK, current=current,
+                             is_dir=lambda path: path in existing,
+                             workspace_of=lambda start: workspace)
+
+
+def _removable(path, *, marker=None, cwd=K_WORK):
+    """Return whether *path* is removable when only the folder named *marker* exists as a marker."""
+    return home.is_removable_root(path, user_home=K_USER, cwd=cwd,
+                                  exists=lambda candidate: candidate.name == marker)
+
+
+@pytest.mark.small
+def test_default_root_is_in_the_user_home():
     """Check that default root is in the user home."""
-    monkeypatch.delenv(home.ENV_HOME, raising=False)
-    home.bind_root(None)
-    assert home.root() == Path.home() / ".sushisystems"
+    assert home.root(environ={}, user_home=K_USER) == K_USER / ".sushisystems"
 
 
-def test_env_var_wins_and_is_expanded_and_absolute(monkeypatch, tmp_path):
+@pytest.mark.small
+def test_env_var_wins_and_is_expanded_and_absolute():
     """Check that env var wins and is expanded and absolute."""
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv(home.ENV_HOME, "relative/deps")
-    home.bind_root(None)
-    assert home.root() == (tmp_path / "relative" / "deps").resolve()
+    root = home.root(environ={home.ENV_HOME: "relative/deps"}, cwd=K_WORK)
+    assert root == (K_WORK / "relative" / "deps").resolve()
 
 
-def test_bound_root_wins_over_env(provision_home, tmp_path):
-    """Check that bound root wins over env."""
-    bound = tmp_path / "bound"
-    home.bind_root(lambda: bound)
-    assert home.root() == bound.resolve()
+@pytest.mark.small
+def test_bound_root_wins_over_env():
+    """Check that a bound provider wins over the env var."""
+    root = home.root(environ={home.ENV_HOME: "/from/env"}, bound=lambda: Path("/bound"))
+    assert root == Path("/bound").resolve()
 
 
-def test_subdirectories_hang_off_the_root(provision_home):
-    """Check that subdirectories hang off the root."""
-    assert home.toolchains_dir() == provision_home.resolve() / "toolchains"
-    assert home.tools_dir() == provision_home.resolve() / "tools"
-    assert home.vcpkg_dir() == provision_home.resolve() / "vcpkg"
-    assert home.ur_dir() == provision_home.resolve() / "ur"
-    assert home.build_dir() == provision_home.resolve() / "build"
+@pytest.mark.small
+@pytest.mark.parametrize("name", ["toolchains", "tools", "vcpkg", "ur", "build"])
+def test_subdirectories_hang_off_the_root(name):
+    """Check that each subdirectory is named for its purpose and hangs off the given root."""
+    assert getattr(home, f"{name}_dir")(K_ROOT) == K_ROOT / name
 
 
-def test_no_legacy_root_outside_a_workspace(provision_home):
-    """Check that no legacy root outside a workspace."""
-    assert home.legacy_roots() == []
-    assert home.search_roots() == [home.root()]
+@pytest.mark.small
+def test_no_legacy_root_outside_a_workspace():
+    """Check that no legacy root exists without an override or a workspace."""
+    assert _legacy({}) == []
 
 
-def test_workspace_dependencies_is_a_legacy_root(provision_home, tmp_path, monkeypatch):
-    """Check that workspace dependencies is a legacy root."""
-    ws = tmp_path / "ws"
-    (ws / ".sushistack").mkdir(parents=True)
-    (ws / "dependencies").mkdir()
-    monkeypatch.chdir(ws)
-    assert home.legacy_roots() == [(ws / "dependencies").resolve()]
-    assert home.search_roots() == [home.root(), (ws / "dependencies").resolve()]
+@pytest.mark.small
+def test_the_search_roots_are_the_root_alone_without_a_legacy_root():
+    """Check that the search starts and ends at the root when no legacy root exists."""
+    assert home.search_roots(current=K_ROOT, legacy=[]) == [K_ROOT]
 
 
-def test_legacy_env_override_is_a_legacy_root(provision_home, tmp_path, monkeypatch):
-    """Check that legacy env override is a legacy root."""
-    legacy = tmp_path / "old"
-    legacy.mkdir()
-    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
-    assert home.legacy_roots() == [legacy.resolve()]
+@pytest.mark.small
+def test_workspace_dependencies_is_a_legacy_root():
+    """Check that the workspace's dependencies folder is a legacy root."""
+    dependencies = (K_WORKSPACE / "dependencies").resolve()
+    assert _legacy({}, workspace=K_WORKSPACE, existing={dependencies}) == [dependencies]
 
 
-def test_the_bound_root_is_never_its_own_legacy_root(provision_home, tmp_path, monkeypatch):
-    """Check that the bound root is never its own legacy root."""
-    ws = tmp_path / "ws"
-    (ws / ".sushistack").mkdir(parents=True)
-    (ws / "dependencies").mkdir()
-    monkeypatch.chdir(ws)
-    home.bind_root(lambda: ws / "dependencies")
-    assert home.legacy_roots() == []
+@pytest.mark.small
+def test_the_search_roots_list_the_legacy_roots_after_the_root():
+    """Check that the legacy roots follow the root in lookup order."""
+    assert home.search_roots(current=K_ROOT, legacy=[K_LEGACY]) == [K_ROOT, K_LEGACY]
 
 
-def test_an_ordinary_directory_is_removable(tmp_path):
+@pytest.mark.small
+def test_legacy_env_override_is_a_legacy_root():
+    """Check that the legacy env override is a legacy root."""
+    assert _legacy({"SUSHISTACK_DEPS_DIR": str(K_LEGACY)}, existing={K_LEGACY}) == [K_LEGACY]
+
+
+@pytest.mark.small
+def test_a_legacy_root_that_is_no_folder_is_left_out():
+    """Check that a candidate that is not a folder is not a legacy root."""
+    assert _legacy({"SUSHISTACK_DEPS_DIR": str(K_LEGACY)}, existing=set()) == []
+
+
+@pytest.mark.small
+def test_the_bound_root_is_never_its_own_legacy_root():
+    """Check that the current root is never its own legacy root."""
+    dependencies = (K_WORKSPACE / "dependencies").resolve()
+    legacy = _legacy({}, workspace=K_WORKSPACE, existing={dependencies}, current=dependencies)
+    assert legacy == []
+
+
+@pytest.mark.small
+def test_an_ordinary_directory_is_removable():
     """Check that an ordinary directory is removable."""
-    target = tmp_path / "deps"
-    target.mkdir()
-    assert home.is_removable_root(target) is True
+    assert _removable(Path("/machine/deps")) is True
 
 
+@pytest.mark.small
 def test_the_users_home_directory_is_refused():
     """Check that the users home directory is refused."""
-    assert home.is_removable_root(Path.home()) is False
+    assert _removable(K_USER) is False
 
 
-def test_a_filesystem_anchor_is_refused(tmp_path):
+@pytest.mark.small
+def test_a_filesystem_anchor_is_refused():
     """Check that a filesystem anchor is refused."""
-    assert home.is_removable_root(Path(tmp_path.anchor)) is False
+    assert _removable(Path(K_ROOT.anchor)) is False
 
 
-def test_the_current_directory_is_refused(tmp_path, monkeypatch):
+@pytest.mark.small
+def test_the_current_directory_is_refused():
     """Check that the current directory is refused."""
-    monkeypatch.chdir(tmp_path)
-    assert home.is_removable_root(tmp_path) is False
+    assert _removable(K_WORK, cwd=K_WORK) is False
 
 
-def test_an_ancestor_of_the_current_directory_is_refused(tmp_path, monkeypatch):
+@pytest.mark.small
+def test_an_ancestor_of_the_current_directory_is_refused():
     """Check that an ancestor of the current directory is refused."""
-    child = tmp_path / "a" / "b"
-    child.mkdir(parents=True)
-    monkeypatch.chdir(child)
-    assert home.is_removable_root(tmp_path) is False
+    assert _removable(K_WORK, cwd=K_WORK / "a" / "b") is False
 
 
-def test_a_directory_holding_a_git_marker_is_refused(tmp_path):
+@pytest.mark.small
+def test_a_directory_holding_a_git_marker_is_refused():
     """Check that a directory holding a git marker is refused."""
-    target = tmp_path / "repo"
-    (target / ".git").mkdir(parents=True)
-    assert home.is_removable_root(target) is False
+    assert _removable(Path("/machine/repo"), marker=".git") is False
 
 
-def test_a_directory_holding_a_workspace_marker_is_refused(tmp_path):
+@pytest.mark.small
+def test_a_directory_holding_a_workspace_marker_is_refused():
     """Check that a directory holding a workspace marker is refused."""
-    target = tmp_path / "workspace"
-    (target / ".sushistack").mkdir(parents=True)
-    assert home.is_removable_root(target) is False
+    assert _removable(Path("/machine/workspace"), marker=WORKSPACE_MARKER) is False
 
 
-def test_env_var_with_tilde_is_expanded(monkeypatch, tmp_path):
-    """Check that env var with tilde is expanded."""
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv(home.ENV_HOME, "~/x")
-    home.bind_root(None)
-    assert home.root() == (Path.home() / "x").resolve()
-    assert home.root() == (tmp_path / "x").resolve()
+@pytest.mark.small
+def test_env_var_with_tilde_is_expanded():
+    """Check that a leading tilde in the env var stands for the user home."""
+    assert home.root(environ={home.ENV_HOME: "~/x"}, user_home=K_USER) == (K_USER / "x").resolve()
 
 
-def test_found_vcpkg_dir_prefers_an_existing_legacy_tree(provision_home, tmp_path, monkeypatch):
-    """Check that found vcpkg dir prefers an existing legacy tree."""
-    legacy = tmp_path / "legacy"
-    (legacy / "vcpkg").mkdir(parents=True)
-    monkeypatch.setenv("SUSHISTACK_DEPS_DIR", str(legacy))
-    assert home.found_vcpkg_dir() == (legacy / "vcpkg").resolve()
+@pytest.mark.small
+def test_found_vcpkg_dir_prefers_an_existing_legacy_tree():
+    """Check that a vcpkg tree in a legacy root is found when the current root has none."""
+    found = home.found_vcpkg_dir([K_ROOT, K_LEGACY], is_dir=lambda path: path == K_LEGACY / "vcpkg")
+    assert found == K_LEGACY / "vcpkg"
 
 
-def test_found_vcpkg_dir_defaults_to_the_current_root(provision_home):
-    """Check that found vcpkg dir defaults to the current root."""
-    assert home.found_vcpkg_dir() == home.vcpkg_dir()
+@pytest.mark.small
+def test_found_vcpkg_dir_defaults_to_the_current_root():
+    """Check that no tree anywhere gives the current root's vcpkg folder."""
+    assert home.found_vcpkg_dir([K_ROOT], is_dir=lambda path: False) == K_ROOT / "vcpkg"
 
 
-def test_sources_dir_is_under_the_root(provision_home):
+@pytest.mark.small
+def test_sources_dir_is_under_the_root():
     """Check that the fetched Sushi sources sit in <root>/sources."""
-    assert home.sources_dir() == home.root() / "sources"
+    assert home.sources_dir(K_ROOT) == K_ROOT / "sources"

@@ -74,7 +74,7 @@ def run_link(module: ModuleProvision, workspace: Optional[Path]) -> Outcome:
         console.error(str(exc))
         return failed()
     try:
-        write_module(target, module.profile.key, root)
+        (module.register or write_module)(target, module.profile.key, root)
     except (OSError, SushiCoreError) as exc:
         _restore_link(config_dir, previous)
         console.error(f"Could not register {module.profile.name} in {target}: {exc}")

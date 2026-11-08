@@ -8,26 +8,28 @@ from __future__ import annotations
 
 import os
 
+import pytest
 import typer
+import typer.main
 from typer.testing import CliRunner
 
-import pytest
-
+from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
-from sushicore.provision import module_checks, module_plan, probe, setup_command
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.doctor import CheckResult, FunctionCheck, State
 from sushicore.provision.git_client_memory import InMemoryGitClient
 from sushicore.provision.lock import ProvisionLock
-from sushicore.provision.pipeline import InstallPipeline
-from sushicore.provision.packages import LinuxPackageManager
+from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
+from sushicore.provision.steps import MachineActions
 from sushicore.workspace import read_link, registered_modules, write_module
 
 
-pytestmark = pytest.mark.medium
-
 #: A commit every fixture fragment pins its Sushi libraries to.
 K_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+K_CHECK_HEADER = ["Check", "Group", "Result", "Detail", "Fix"]
+K_COMPONENT_HEADER = ["Component", "Status", "Owner", "Detail"]
 
 
 def _offline_git() -> InMemoryGitClient:
@@ -35,22 +37,17 @@ def _offline_git() -> InMemoryGitClient:
     return InMemoryGitClient(clones=False, default_head=K_COMMIT)
 
 
-class _FakeAptManager(LinuxPackageManager):
-    """A Linux package manager stand-in that reports success without shelling out."""
+def _no_toolchains(cfg, gpu):
+    """Report a machine that has no SYCL toolchain row at all."""
+    return []
 
-    name = "apt"
 
-    def available(self) -> bool:
-        """Report itself as always present."""
-        return True
-
-    def is_installed(self, pkg: str) -> bool:
-        """Report every package as already installed."""
-        return True
-
-    def install(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Report every install as successful, without running one."""
-        return True
+def _machine() -> MachineActions:
+    """Return machine calls that touch nothing and probe the single path the tests expect."""
+    return MachineActions(
+        refresh_path=lambda: None,
+        resolve_config=lambda cfg, gpu=False: {"cmake_exe": "/x/cmake"},
+        detect_vendor=lambda: "none")
 
 
 def _write_fragment(root):
@@ -62,29 +59,36 @@ def _write_fragment(root):
     return fragment
 
 
-def _table_rows(calls, header):
+def _table_rows(console, header):
     """Return the rows of the first recorded ``console.table`` call with *header*."""
-    for name, args in calls:
+    for name, args in console.calls:
         if name == "table" and args and args[0] == header:
             return args[1]
-    raise AssertionError(f"no table call with header {header} in {calls}")
+    raise AssertionError(f"no table call with header {header} in {console.calls}")
 
 
-def _quiet_setup(monkeypatch, provision_home, managers):
-    """Silence the pieces of ``setup`` a unit test must not depend on.
-
-    Fakes the package managers, skips the standard doctor checks (which read this
-    machine's real toolchain) and turns off the progress bar (which needs a real Rich
-    console, not the recording fake).
-    """
-    monkeypatch.setattr(module_plan, "managers_for", lambda cfg: managers)
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+def _check_rows(console):
+    """Return the doctor table of *console* keyed by check name."""
+    return {row[0]: row for row in _table_rows(console, K_CHECK_HEADER)}
 
 
-def _app(tmp_path, recording_console, **overrides):
+def _errors(console):
+    """Return the text of every error the recording console took."""
+    return [args[0] for name, args in console.calls if name == "error"]
+
+
+def _results(console):
+    """Return the arguments of every ``result`` event the recording console took."""
+    return [args for name, args in console.calls if name == "result"]
+
+
+def _profile(name="sushidsp"):
+    """Return the profile of the module under test."""
+    return ModuleProfile(name=name, program="sd", env_prefix="SD", root_marker="sushidsp.marker")
+
+
+def _app(tmp_path, console, *, name="sushidsp", **overrides):
     """Return an app carrying the provision commands, *overrides* passed to ModuleProvision."""
-    profile = ModuleProfile(name="sushidsp", program="sd", env_prefix="SD",
-                            root_marker="sushidsp.marker")
     app = typer.Typer()
 
     @app.callback()
@@ -92,214 +96,23 @@ def _app(tmp_path, recording_console, **overrides):
         """Test app."""
 
     overrides.setdefault("git", _offline_git)
+    overrides.setdefault("managers", lambda cfg: [])
+    overrides.setdefault("base_checks", lambda cfg, fix: [])
+    overrides.setdefault("toolchains", _no_toolchains)
+    overrides.setdefault("actions", _machine())
     register_provision_commands(app, ModuleProvision(
-        profile=profile, project_root=lambda: tmp_path / "dsp",
+        profile=_profile(name), project_root=lambda: tmp_path / "dsp",
         load_config=lambda: ProvisionSettings(platform="linux"),
-        console=lambda: recording_console, **overrides))
+        console=lambda: console, **overrides))
     return app
 
 
-def test_link_and_unlink_without_hub(tmp_path, recording_console):
-    """Check that link and unlink without hub."""
+def _workspace(tmp_path):
+    """Create a workspace and the module's config folder; return the workspace."""
     ws = tmp_path / "ws"
     (ws / ".sushistack").mkdir(parents=True)
     (tmp_path / "dsp" / "cli").mkdir(parents=True)
-    app = _app(tmp_path, recording_console)
-    runner = CliRunner()
-    assert runner.invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
-    assert registered_modules(ws) == {"sushidsp": str(tmp_path / "dsp").replace("\\", "/")}
-    assert read_link(tmp_path / "dsp" / "cli") == ws.resolve()
-    assert runner.invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
-    assert registered_modules(ws) == {}
-    assert read_link(tmp_path / "dsp" / "cli") is None
-
-
-def test_link_outside_a_workspace_exits_two(tmp_path, recording_console, monkeypatch):
-    """Check that link outside a workspace exits two."""
-    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
-    monkeypatch.chdir(tmp_path)
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["link"])
-    assert result.exit_code == 2
-    assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
-
-
-def test_doctor_filters_by_group(tmp_path, recording_console):
-    """Check that doctor filters by group."""
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor", "--for", "infer"])
-    assert result.exit_code == 0
-
-
-def test_doctor_rejects_an_unknown_group(tmp_path, recording_console):
-    """Check that doctor rejects an unknown group."""
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor", "--for", "typo"])
-    assert result.exit_code == 2
-    errors = [args[0] for name, args in recording_console.calls if name == "error"]
-    assert any("build" in e and "eval" in e and "typo" in e for e in errors)
-
-
-def test_doctor_reports_the_module_fragment_and_toolchain_stamps(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that doctor reports the module fragment and toolchain stamps."""
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
-    fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
-    fragment.parent.mkdir(parents=True)
-    fragment.write_text(
-        '[widget]\nlinux_apt = ["widget-dev"]\ncheck_cmd = ["sushi-no-such-tool-xyz"]\n',
-        encoding="utf-8")
-    (provision_home / "toolchains" / "llvm-sycl").mkdir(parents=True)
-
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
-
-    assert result.exit_code == 1
-    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
-    by_name = {row[0]: row for row in rows}
-    assert "widget" in by_name["dependencies"][3]
-    assert "llvm-sycl" in by_name["toolchain stamps"][3]
-
-
-def test_setup_dry_run_detects_the_module_fragment_and_writes_nothing(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup dry run detects the module fragment and writes nothing."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    root = tmp_path / "dsp"
-    _write_fragment(root)
-
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
-
-    assert result.exit_code == 0
-    rows = _table_rows(recording_console.calls, ["Component", "Status", "Owner", "Detail"])
-    widget_row = next(row for row in rows if row[0] == "widget")
-    assert widget_row[2] == "sushidsp"
-    assert not (root / "cli" / "config.local.toml").exists()
-    assert {p.name for p in root.iterdir()} == {"cli"}
-    assert {p.name for p in (root / "cli").iterdir()} == {"sushistack.deps.toml"}
-
-
-def test_setup_writes_the_module_sink_without_dry_run(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup writes the module sink without dry run."""
-    _quiet_setup(monkeypatch, provision_home, managers=[_FakeAptManager()])
-    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu: {"cmake_exe": "/x/cmake"})
-    root = tmp_path / "dsp"
-    _write_fragment(root)
-
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup"])
-
-    assert result.exit_code == 0
-    written = root / "cli" / "config.local.toml"
-    assert written.is_file()
-    assert 'cmake_exe = "/x/cmake"' in written.read_text(encoding="utf-8")
-
-
-def test_setup_dry_run_prints_the_probed_config_and_writes_nothing(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup dry run prints the probed config and writes nothing."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    monkeypatch.setattr(probe, "resolve_local_config", lambda cfg, gpu: {"cmake_exe": "/x/cmake"})
-    root = tmp_path / "dsp"
-    _write_fragment(root)
-
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
-
-    assert result.exit_code == 0, result.exception
-    printed = [args[0] for name, args in recording_console.calls if name == "console.print"]
-    assert any('cmake_exe = "/x/cmake"' in text for text in printed)
-    assert not (root / "cli" / "config.local.toml").exists()
-
-
-def test_setup_creates_a_missing_dependency_root(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup creates a missing dependency root."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    root = tmp_path / "dsp"
-    _write_fragment(root)
-    assert not provision_home.exists()
-
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
-
-    assert result.exit_code == 0, result.exception
-    assert (provision_home / ".lock").is_file()
-
-
-def test_setup_exits_one_when_the_lock_is_held(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup exits one when the lock is held."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    monkeypatch.setattr(setup_command, "K_LOCK_TIMEOUT", 0.2)
-    root = tmp_path / "dsp"
-    _write_fragment(root)
-
-    holder = ProvisionLock(provision_home / ".lock")
-    with holder:
-        result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
-
-    assert result.exit_code == 1
-    errors = [args[0] for name, args in recording_console.calls if name == "error"]
-    assert any(str(os.getpid()) in message for message in errors)
-
-
-def test_setup_exits_one_when_a_step_fails(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup exits one when a step fails."""
-    # No linux package manager is available, so InstallDepsStep reports StepResult.FAILED.
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    root = tmp_path / "dsp"
-    _write_fragment(root)
-
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup"])
-
-    assert result.exit_code == 1
-
-
-def test_setup_builds_the_package_managers_once(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup builds the package managers once."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    built = []
-    monkeypatch.setattr(module_plan, "managers_for", lambda cfg: built.append(cfg) or [])
-    _write_fragment(tmp_path / "dsp")
-
-    CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
-
-    assert len(built) == 1
-
-
-def _mixed_case_app(tmp_path, recording_console):
-    """Return an app whose profile carries a display name in mixed case."""
-    profile = ModuleProfile(name="SushiDSP", program="sd", env_prefix="SD",
-                            root_marker="sushidsp.marker")
-    app = typer.Typer()
-
-    @app.callback()
-    def _root():
-        """Test app."""
-
-    register_provision_commands(app, ModuleProvision(
-        profile=profile, project_root=lambda: tmp_path / "dsp",
-        load_config=lambda: ProvisionSettings(platform="linux"),
-        console=lambda: recording_console))
-    return app
-
-
-def test_link_records_the_lower_cased_key(tmp_path, recording_console):
-    """Check that link records the lower cased key."""
-    ws = tmp_path / "ws"
-    (ws / ".sushistack").mkdir(parents=True)
-    (tmp_path / "dsp" / "cli").mkdir(parents=True)
-    app = _mixed_case_app(tmp_path, recording_console)
-    assert CliRunner().invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
-    assert list(registered_modules(ws)) == ["sushidsp"]
-
-
-def test_unlink_removes_an_entry_written_under_the_display_name(tmp_path, recording_console):
-    """Check that unlink removes an entry written under the display name."""
-    ws = tmp_path / "ws"
-    (ws / ".sushistack").mkdir(parents=True)
-    (tmp_path / "dsp" / "cli").mkdir(parents=True)
-    write_module(ws, "SushiDSP", tmp_path / "dsp")
-    app = _mixed_case_app(tmp_path, recording_console)
-    assert CliRunner().invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
-    assert registered_modules(ws) == {}
+    return ws
 
 
 def _sibling_locator(tmp_path):
@@ -321,68 +134,289 @@ def _depending_fragment(root, depends_on):
                         + fragment.read_text(encoding="utf-8"), encoding="utf-8")
 
 
-def test_setup_fails_and_installs_nothing_when_a_pinned_module_cannot_be_fetched(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup exits one and installs nothing when a pinned module cannot be cloned."""
-    installs = []
+def _unpinned_fragment(root, depends_on):
+    """Write a fragment under *root* naming *depends_on* with no pins, and a widget."""
+    fragment = _write_fragment(root)
+    names = ", ".join(f'"{name}"' for name in depends_on)
+    fragment.write_text(f"[module]\ndepends_on = [{names}]\n"
+                        + fragment.read_text(encoding="utf-8"), encoding="utf-8")
 
-    class _Recording(_FakeAptManager):
-        """Records every install call."""
 
-        def install(self, pkgs, dry_run):
-            """Record the call and report success."""
-            installs.append(pkgs)
-            return True
+def _two_toolchain_fragment(root):
+    """Write a fragment declaring intel-llvm and adaptivecpp as members of one capability."""
+    _write_fragment(root).write_text(
+        '[intel-llvm]\nprovides = "sycl-toolchain"\n[adaptivecpp]\nprovides = "sycl-toolchain"\n',
+        encoding="utf-8")
 
-    _quiet_setup(monkeypatch, provision_home, managers=[_Recording()])
+
+def _toolchain_rows(intel_present):
+    """Return a toolchain reader whose intel-llvm row is *intel_present*."""
+    rows = [("intel-llvm", intel_present, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")]
+    return lambda cfg, gpu: rows
+
+
+def _option(app, command, name):
+    """Return the Click option *name* of *command* in the Typer *app*."""
+    return next(param for param in typer.main.get_command(app).commands[command].params
+                if param.name == name)
+
+
+@pytest.mark.medium
+def test_link_registers_the_module_in_the_workspace(tmp_path, recording_console):
+    """Check that link registers the module and links its config folder to the workspace."""
+    ws = _workspace(tmp_path)
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["link", "--workspace", str(ws)])
+    assert result.exit_code == 0
+    assert registered_modules(ws) == {"sushidsp": str(tmp_path / "dsp").replace("\\", "/")}
+    assert read_link(tmp_path / "dsp" / "cli") == ws.resolve()
+
+
+@pytest.mark.medium
+def test_unlink_clears_the_workspace_entry_and_the_link(tmp_path, recording_console):
+    """Check that unlink removes the registry entry and the link link wrote."""
+    ws = _workspace(tmp_path)
+    app = _app(tmp_path, recording_console)
+    CliRunner().invoke(app, ["link", "--workspace", str(ws)])
+    result = CliRunner().invoke(app, ["unlink", "--workspace", str(ws)])
+    assert result.exit_code == 0
+    assert (registered_modules(ws), read_link(tmp_path / "dsp" / "cli")) == ({}, None)
+
+
+@pytest.mark.medium
+def test_link_outside_a_workspace_exits_two(tmp_path, recording_console, monkeypatch):
+    """Check that link outside a workspace exits two and writes no local config."""
+    monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["link"])
+    assert result.exit_code == 2
+    assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
+
+
+@pytest.mark.medium
+def test_doctor_filters_by_group(tmp_path, recording_console):
+    """Check that doctor --for lists only the checks of that group."""
+    extra = [FunctionCheck("kept", "infer", True, lambda: CheckResult(State.OK, "")),
+             FunctionCheck("dropped", "eval", True, lambda: CheckResult(State.OK, ""))]
+    app = _app(tmp_path, recording_console, extra_checks=lambda: extra)
+    result = CliRunner().invoke(app, ["doctor", "--for", "infer"])
+    assert result.exit_code == 0
+    assert list(_check_rows(recording_console)) == ["kept"]
+
+
+@pytest.mark.medium
+def test_doctor_rejects_an_unknown_group(tmp_path, recording_console):
+    """Check that an unknown group exits two and names the groups."""
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor", "--for", "typo"])
+    assert result.exit_code == 2
+    assert any("build" in e and "eval" in e and "typo" in e for e in _errors(recording_console))
+
+
+@pytest.mark.medium
+def test_doctor_reports_the_module_fragment_and_toolchain_stamps(
+        tmp_path, recording_console, provision_home):
+    """Check that doctor reports a failing fragment dependency and an unstamped toolchain."""
+    fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
+    fragment.parent.mkdir(parents=True)
+    fragment.write_text(
+        '[widget]\nlinux_apt = ["widget-dev"]\ncheck_cmd = ["sushi-no-such-tool-xyz"]\n',
+        encoding="utf-8")
+    (provision_home / "toolchains" / "llvm-sycl").mkdir(parents=True)
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
+
+    by_name = _check_rows(recording_console)
+    assert result.exit_code == 1
+    assert "widget" in by_name["dependencies"][3]
+    assert "llvm-sycl" in by_name["toolchain stamps"][3]
+
+
+@pytest.mark.medium
+def test_setup_dry_run_detects_the_module_fragment(tmp_path, recording_console, provision_home):
+    """Check that setup --dry-run lists the module's component under the module's name."""
+    _write_fragment(tmp_path / "dsp")
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    rows = _table_rows(recording_console, K_COMPONENT_HEADER)
+    assert result.exit_code == 0
+    assert next(row for row in rows if row[0] == "widget")[2] == "sushidsp"
+
+
+@pytest.mark.medium
+def test_setup_dry_run_writes_nothing(tmp_path, recording_console, provision_home):
+    """Check that setup --dry-run leaves the module's folder as it found it."""
+    root = tmp_path / "dsp"
+    _write_fragment(root)
+
+    CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    assert {p.name for p in root.iterdir()} == {"cli"}
+    assert {p.name for p in (root / "cli").iterdir()} == {"sushistack.deps.toml"}
+
+
+@pytest.mark.medium
+def test_setup_writes_the_module_sink_without_dry_run(tmp_path, recording_console, provision_home):
+    """Check that setup writes the probed values to the module's local config."""
+    root = tmp_path / "dsp"
+    _write_fragment(root)
+    app = _app(tmp_path, recording_console,
+               managers=lambda cfg: [InMemoryLinuxPackageManager()])
+
+    result = CliRunner().invoke(app, ["setup"])
+
+    written = root / "cli" / "config.local.toml"
+    assert result.exit_code == 0
+    assert 'cmake_exe = "/x/cmake"' in written.read_text(encoding="utf-8")
+
+
+@pytest.mark.medium
+def test_setup_dry_run_prints_the_probed_config(tmp_path, recording_console, provision_home):
+    """Check that setup --dry-run prints the config it would write."""
+    _write_fragment(tmp_path / "dsp")
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    printed = [args[0] for name, args in recording_console.calls if name == "console.print"]
+    assert result.exit_code == 0, result.exception
+    assert any('cmake_exe = "/x/cmake"' in text for text in printed)
+
+
+@pytest.mark.medium
+def test_setup_creates_a_missing_dependency_root(tmp_path, recording_console, provision_home):
+    """Check that setup creates the dependency root, so its lock file can exist."""
+    _write_fragment(tmp_path / "dsp")
+    assert not provision_home.exists()
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+
+    assert result.exit_code == 0, result.exception
+    assert (provision_home / ".lock").is_file()
+
+
+@pytest.mark.medium
+def test_setup_exits_one_when_the_lock_is_held(tmp_path, recording_console, provision_home):
+    """Check that setup exits one and names the pid when another run holds the lock."""
+    _write_fragment(tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, lock_timeout=0.2)
+
+    with ProvisionLock(provision_home / ".lock"):
+        result = CliRunner().invoke(app, ["setup", "--dry-run"])
+
+    assert result.exit_code == 1
+    assert any(str(os.getpid()) in message for message in _errors(recording_console))
+
+
+@pytest.mark.medium
+def test_setup_exits_one_when_a_step_fails(tmp_path, recording_console, provision_home):
+    """Check that setup exits one when no package manager is available to install."""
+    _write_fragment(tmp_path / "dsp")
+
+    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup"])
+
+    assert result.exit_code == 1
+
+
+@pytest.mark.medium
+def test_setup_builds_the_package_managers_once(tmp_path, recording_console, provision_home):
+    """Check that setup builds the package managers once for the run and its doctor."""
+    built = []
+    _write_fragment(tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, managers=lambda cfg: built.append(cfg) or [])
+
+    CliRunner().invoke(app, ["setup", "--dry-run"])
+
+    assert len(built) == 1
+
+
+@pytest.mark.medium
+def test_link_records_the_lower_cased_key(tmp_path, recording_console):
+    """Check that link records the module under its lower-cased key, not its display name."""
+    ws = _workspace(tmp_path)
+    app = _app(tmp_path, recording_console, name="SushiDSP")
+    assert CliRunner().invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
+    assert list(registered_modules(ws)) == ["sushidsp"]
+
+
+@pytest.mark.medium
+def test_unlink_removes_an_entry_written_under_the_display_name(tmp_path, recording_console):
+    """Check that unlink removes an entry an older link wrote under the display name."""
+    ws = _workspace(tmp_path)
+    write_module(ws, "SushiDSP", tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, name="SushiDSP")
+    assert CliRunner().invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
+    assert registered_modules(ws) == {}
+
+
+@pytest.mark.medium
+def test_setup_fails_when_a_pinned_module_cannot_be_fetched(
+        tmp_path, recording_console, provision_home):
+    """Check that setup exits one and names the module when a pinned module cannot be cloned."""
     _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
-    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path))
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path),
+               managers=lambda cfg: [InMemoryLinuxPackageManager()])
 
     result = CliRunner().invoke(app, ["setup"])
 
     assert result.exit_code == 1
-    errors = [args[0] for name, args in recording_console.calls if name == "error"]
-    assert any("sushiruntime" in e and "failed" in e for e in errors)
-    assert installs == []
+    assert any("sushiruntime" in e and "failed" in e for e in _errors(recording_console))
+
+
+@pytest.mark.medium
+def test_setup_installs_nothing_when_a_pinned_module_cannot_be_fetched(
+        tmp_path, recording_console, provision_home):
+    """Check that no package is installed and no config written when a fetch fails."""
+    manager = InMemoryLinuxPackageManager()
+    _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path),
+               managers=lambda cfg: [manager])
+
+    CliRunner().invoke(app, ["setup"])
+
+    assert manager.installs == []
     assert not (provision_home / "sources" / "sushiruntime" / "v1.0.0").exists()
     assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
 
 
-class _FetchingGit(InMemoryGitClient):
-    """A git whose clone writes a checkout holding a fragment that declares gtest."""
-
-    def __init__(self) -> None:
-        """Report the pin as the HEAD of every checkout."""
-        super().__init__(default_head=K_COMMIT)
-
-    def clone_tag(self, url, tag, destination, dry_run):
-        """Create the checkout and report success."""
-        fragment = destination / "cli" / "sushistack.deps.toml"
-        fragment.parent.mkdir(parents=True)
-        fragment.write_text('[gtest]\nlinux_apt = ["libgtest-dev"]\n', encoding="utf-8")
-        return True
+def _declare_gtest(destination):
+    """Write the checkout a clone makes: a fragment that declares gtest."""
+    fragment = destination / "cli" / "sushistack.deps.toml"
+    fragment.parent.mkdir(parents=True)
+    fragment.write_text('[gtest]\nlinux_apt = ["libgtest-dev"]\n', encoding="utf-8")
 
 
+@pytest.mark.medium
 def test_setup_fetches_a_pinned_module_and_reads_its_fragment(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup clones a pinned module with no sibling and reads the clone's fragment."""
-    _quiet_setup(monkeypatch, provision_home, managers=[_FakeAptManager()])
+        tmp_path, recording_console, provision_home):
+    """Check that setup clones a pinned module with no sibling and reports it fetched."""
     _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
-    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=_FetchingGit)
+    git = InMemoryGitClient(default_head=K_COMMIT, materialize=_declare_gtest)
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path),
+               git=lambda: git, managers=lambda cfg: [InMemoryLinuxPackageManager()])
 
     result = CliRunner().invoke(app, ["setup"])
 
     assert result.exit_code == 0, recording_console.calls
-    assert (provision_home / "sources" / "sushiruntime" / "v1.0.0").is_dir()
-    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
-    by_name = {row[0]: row for row in rows}
-    assert "fetched" in by_name["sushi sushiruntime"][3]
+    assert "fetched" in _check_rows(recording_console)["sushi sushiruntime"][3]
 
 
+@pytest.mark.medium
+def test_setup_reads_the_fragment_of_a_fetched_module(tmp_path, recording_console, provision_home):
+    """Check that the components of a fetched module's fragment join the setup table."""
+    _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
+    git = InMemoryGitClient(default_head=K_COMMIT, materialize=_declare_gtest)
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git,
+               managers=lambda cfg: [InMemoryLinuxPackageManager()])
+
+    CliRunner().invoke(app, ["setup"])
+
+    owners = {row[0]: row[2] for row in _table_rows(recording_console, K_COMPONENT_HEADER)}
+    assert owners["gtest"] == "sushiruntime"
+
+
+@pytest.mark.medium
 def test_setup_reads_the_fragment_of_a_located_dependency(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup reads the fragment of a located dependency."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
+        tmp_path, recording_console, provision_home):
+    """Check that setup reads the fragment of a dependency found beside the module."""
     runtime = tmp_path / "sushiruntime" / "cli" / "sushistack.deps.toml"
     runtime.parent.mkdir(parents=True)
     runtime.write_text('[gadget]\ndescription = "g"\nlinux_apt = ["gadget-dev"]\n',
@@ -392,17 +426,15 @@ def test_setup_reads_the_fragment_of_a_located_dependency(
 
     result = CliRunner().invoke(app, ["setup", "--dry-run"])
 
+    owners = {row[0]: row[2] for row in _table_rows(recording_console, K_COMPONENT_HEADER)}
     assert result.exit_code == 0, result.exception
-    rows = _table_rows(recording_console.calls, ["Component", "Status", "Owner", "Detail"])
-    owners = {row[0]: row[2] for row in rows}
-    assert owners["gadget"] == "sushiruntime"
-    assert owners["widget"] == "sushidsp"
+    assert (owners["gadget"], owners["widget"]) == ("sushiruntime", "sushidsp")
 
 
+@pytest.mark.medium
 def test_setup_rejects_an_unknown_toolchain_before_the_lock(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup rejects an unknown toolchain before the lock."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
+        tmp_path, recording_console, provision_home):
+    """Check that an unknown toolchain exits two before the lock file is made."""
     _write_fragment(tmp_path / "dsp")
     result = CliRunner().invoke(_app(tmp_path, recording_console),
                                 ["setup", "--dry-run", "--toolchain", "typo"])
@@ -410,117 +442,109 @@ def test_setup_rejects_an_unknown_toolchain_before_the_lock(
     assert not (provision_home / ".lock").exists()
 
 
+def _dry_run_downloads(console):
+    """Return the dry-run lines announcing an intel/llvm download."""
+    return [args[0] for name, args in console.calls
+            if name == "info" and "would download intel/llvm" in args[0]]
+
+
+@pytest.mark.medium
 def test_setup_selects_the_first_declared_toolchain_when_none_is_present(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup selects the first declared toolchain when none is present."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    seen = []
-    monkeypatch.setattr(InstallPipeline, "run",
-                        lambda self, ctx: seen.append(ctx.selection) or True)
-    monkeypatch.setattr(probe, "toolchain_status", lambda cfg, gpu: [
-        ("intel-llvm", False, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")])
-    fragment = _write_fragment(tmp_path / "dsp")
-    fragment.write_text(
-        '[intel-llvm]\nprovides = "sycl-toolchain"\n[adaptivecpp]\nprovides = "sycl-toolchain"\n',
-        encoding="utf-8")
+        tmp_path, recording_console, provision_home):
+    """Check that setup installs the first declared toolchain when none is present."""
+    _two_toolchain_fragment(tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, toolchains=_toolchain_rows(False),
+               managers=lambda cfg: [InMemoryLinuxPackageManager()])
 
-    CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+    CliRunner().invoke(app, ["setup", "--dry-run"])
 
-    assert (seen[0].install_intel_llvm, seen[0].install_acpp, seen[0].gpu) == (
-        True, False, False)
+    assert len(_dry_run_downloads(recording_console)) == 1
 
 
+@pytest.mark.medium
 def test_setup_selects_nothing_when_a_toolchain_is_present(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that setup selects nothing when a toolchain is present."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
-    seen = []
-    monkeypatch.setattr(InstallPipeline, "run",
-                        lambda self, ctx: seen.append(ctx.selection) or True)
-    monkeypatch.setattr(probe, "toolchain_status", lambda cfg, gpu: [
-        ("intel-llvm", True, ""), ("adaptivecpp", False, ""), ("oneapi", False, "")])
-    fragment = _write_fragment(tmp_path / "dsp")
-    fragment.write_text(
-        '[intel-llvm]\nprovides = "sycl-toolchain"\n[adaptivecpp]\nprovides = "sycl-toolchain"\n',
-        encoding="utf-8")
+        tmp_path, recording_console, provision_home):
+    """Check that setup installs no toolchain when one of the capability is present."""
+    _two_toolchain_fragment(tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, toolchains=_toolchain_rows(True),
+               managers=lambda cfg: [InMemoryLinuxPackageManager()])
 
-    CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--dry-run"])
+    CliRunner().invoke(app, ["setup", "--dry-run"])
 
-    assert not (seen[0].install_intel_llvm or seen[0].install_acpp)
+    assert _dry_run_downloads(recording_console) == []
 
 
-def test_uses_base_adds_the_shared_fragment(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that uses base adds the shared fragment."""
-    _quiet_setup(monkeypatch, provision_home, managers=[])
+@pytest.mark.medium
+def test_uses_base_adds_the_shared_fragment(tmp_path, recording_console, provision_home):
+    """Check that uses_base adds the shared fragment's components."""
     _write_fragment(tmp_path / "dsp")
     app = _app(tmp_path, recording_console, uses_base=True)
 
     CliRunner().invoke(app, ["setup", "--dry-run"])
 
-    rows = _table_rows(recording_console.calls, ["Component", "Status", "Owner", "Detail"])
+    rows = _table_rows(recording_console, K_COMPONENT_HEADER)
     assert any(row[0] == "gtest" and row[2] == "shared" for row in rows)
 
 
+@pytest.mark.medium
 def test_doctor_reports_a_missing_module_and_keeps_running(
-        tmp_path, recording_console, provision_home, monkeypatch):
-    """Check that doctor reports a missing module and keeps running."""
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+        tmp_path, recording_console, provision_home):
+    """Check that doctor names a module with no checkout and still reports the dependencies."""
     _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
     app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path))
 
     result = CliRunner().invoke(app, ["doctor"])
 
+    by_name = _check_rows(recording_console)
     assert result.exit_code == 1
-    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
-    by_name = {row[0]: row for row in rows}
     assert "sushiruntime" in by_name["modules"][3]
     assert "dependencies" in by_name
 
 
-def test_a_binary_install_registers_doctor_alone(tmp_path, recording_console):
+@pytest.mark.small
+def test_a_binary_install_registers_doctor_alone(tmp_path):
     """Check that a binary install registers doctor alone."""
-    app = _app(tmp_path, recording_console, is_binary=lambda: True)
+    app = _app(tmp_path, RecordingConsole(), is_binary=lambda: True)
     names = {command.callback.__name__ for command in app.registered_commands}
     assert names == {"doctor"}
 
 
-def test_the_panel_is_set_on_every_command(tmp_path, recording_console):
+@pytest.mark.small
+def test_the_panel_is_set_on_every_command(tmp_path):
     """Check that the panel is set on every command."""
-    app = _app(tmp_path, recording_console, panel="Environment")
+    app = _app(tmp_path, RecordingConsole(), panel="Environment")
     assert {command.rich_help_panel for command in app.registered_commands} == {"Environment"}
 
 
+@pytest.mark.medium
 def test_doctor_agrees_with_the_inventory_on_a_package_the_manager_holds(
-        tmp_path, recording_console, provision_home, monkeypatch):
+        tmp_path, recording_console, provision_home):
     """Check that doctor passes a dependency whose check cmd fails but whose package is held."""
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
-    monkeypatch.setattr(module_plan, "managers_for", lambda cfg: [_FakeAptManager()])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
     fragment.write_text(
         '[widget]\nlinux_apt = ["widget-dev"]\ncheck_cmd = ["sushi-no-such-tool-xyz"]\n',
         encoding="utf-8")
+    app = _app(tmp_path, recording_console,
+               managers=lambda cfg: [InMemoryLinuxPackageManager(installed=["widget-dev"])])
 
-    CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
+    CliRunner().invoke(app, ["doctor"])
 
-    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
-    by_name = {row[0]: row for row in rows}
-    assert "widget" not in by_name["dependencies"][3]
+    assert "widget" not in _check_rows(recording_console)["dependencies"][3]
 
 
-def test_every_command_help_carries_examples(tmp_path, recording_console):
+@pytest.mark.small
+def test_every_command_help_carries_examples(tmp_path):
     """Check that each command's help ends with examples naming the module's program."""
-    app = _app(tmp_path, recording_console)
-    for command in app.registered_commands:
-        name = command.callback.__name__
-        assert f"sd {name}" in command.epilog
+    app = _app(tmp_path, RecordingConsole())
+    assert all(f"sd {command.callback.__name__}" in command.epilog
+               for command in app.registered_commands)
 
 
+@pytest.mark.medium
 def test_doctor_lists_the_downloads_with_no_pinned_digest(
-        tmp_path, recording_console, provision_home, monkeypatch):
+        tmp_path, recording_console, provision_home):
     """Check that doctor carries a row naming the downloads a setup would not verify."""
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     fragment = tmp_path / "dsp" / "cli" / "sushistack.deps.toml"
     fragment.parent.mkdir(parents=True)
     fragment.write_text('[intel-llvm]\ndescription = "SYCL bundle"\nrequired = false\n',
@@ -528,61 +552,44 @@ def test_doctor_lists_the_downloads_with_no_pinned_digest(
 
     CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
 
-    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
-    by_name = {row[0]: row for row in rows}
-    assert "intel-llvm" in by_name["download digests"][3]
-    assert "warn" in by_name["download digests"][2]
+    row = _check_rows(recording_console)["download digests"]
+    assert "intel-llvm" in row[3]
+    assert "warn" in row[2]
 
 
+@pytest.mark.medium
 def test_setup_stops_before_fetching_when_two_pins_conflict(
-        tmp_path, recording_console, provision_home, monkeypatch):
+        tmp_path, recording_console, provision_home):
     """Check that a chain pinning one library at two versions stops setup before any clone."""
-    _quiet_setup(monkeypatch, provision_home, managers=[_FakeAptManager()])
     root = tmp_path / "dsp"
     _depending_fragment(root, ["sushiruntime"])
     fragment = root / "cli" / "sushistack.deps.toml"
     text = fragment.read_text(encoding="utf-8")
-    text = text.replace('depends_on = ["sushiruntime"]', 'depends_on = ["sushiruntime", "sushilog"]')
-    fragment.write_text(text + f'[sushisystems.sushilog]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n',
-                        encoding="utf-8")
+    text = text.replace('depends_on = ["sushiruntime"]',
+                        'depends_on = ["sushiruntime", "sushilog"]')
+    fragment.write_text(
+        text + f'[sushisystems.sushilog]\nversion = "v1.0.0"\ncommit = "{K_COMMIT}"\n',
+        encoding="utf-8")
     runtime = tmp_path / "sushiruntime" / "cli" / "sushistack.deps.toml"
     runtime.parent.mkdir(parents=True)
     runtime.write_text(f'[module]\ndepends_on = ["sushilog"]\n[sushisystems.sushilog]\n'
                        f'version = "v1.1.0"\ncommit = "{K_COMMIT}"\n', encoding="utf-8")
     git = _offline_git()
-    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git)
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git,
+               managers=lambda cfg: [InMemoryLinuxPackageManager()])
 
     result = CliRunner().invoke(app, ["setup"])
 
     assert result.exit_code == 1
     assert git.calls == []
-    errors = [args[0] for name, args in recording_console.calls if name == "error"]
     assert any("sushilog" in e and "sushidsp" in e and "sushiruntime" in e
-               and "v1.0.0" in e and "v1.1.0" in e for e in errors)
+               and "v1.0.0" in e and "v1.1.0" in e for e in _errors(recording_console))
 
 
-def _unpinned_fragment(root, depends_on):
-    """Write a fragment under *root* naming *depends_on* with no pins, and a widget."""
-    fragment = _write_fragment(root)
-    names = ", ".join(f'"{name}"' for name in depends_on)
-    fragment.write_text(f"[module]\ndepends_on = [{names}]\n"
-                        + fragment.read_text(encoding="utf-8"), encoding="utf-8")
-
-
-def test_setup_exits_two_and_installs_nothing_when_an_unpinned_module_is_missing(
-        tmp_path, recording_console, provision_home, monkeypatch):
+@pytest.mark.medium
+def test_setup_exits_two_when_an_unpinned_module_is_missing(
+        tmp_path, recording_console, provision_home):
     """Check that an unpinned module with no checkout is never fetched and setup exits two."""
-    installs = []
-
-    class _Recording(_FakeAptManager):
-        """Records every install call."""
-
-        def install(self, pkgs, dry_run):
-            """Record the call and report success."""
-            installs.append(pkgs)
-            return True
-
-    _quiet_setup(monkeypatch, provision_home, managers=[_Recording()])
     _unpinned_fragment(tmp_path / "dsp", ["sushiruntime"])
     git = _offline_git()
     app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git)
@@ -590,47 +597,59 @@ def test_setup_exits_two_and_installs_nothing_when_an_unpinned_module_is_missing
     result = CliRunner().invoke(app, ["setup"])
 
     assert result.exit_code == 2
-    errors = [args[0] for name, args in recording_console.calls if name == "error"]
-    assert any("sushiruntime" in e and "SUSHIRUNTIME_DIR" in e for e in errors)
+    assert any("sushiruntime" in e and "SUSHIRUNTIME_DIR" in e for e in _errors(recording_console))
     assert git.calls == []
-    assert installs == []
+
+
+@pytest.mark.medium
+def test_setup_installs_nothing_when_an_unpinned_module_is_missing(
+        tmp_path, recording_console, provision_home):
+    """Check that no package is installed, no lock made and no config written then."""
+    manager = InMemoryLinuxPackageManager()
+    _unpinned_fragment(tmp_path / "dsp", ["sushiruntime"])
+    app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path),
+               managers=lambda cfg: [manager])
+
+    CliRunner().invoke(app, ["setup"])
+
+    assert manager.installs == []
     assert not (provision_home / ".lock").exists()
     assert not (tmp_path / "dsp" / "cli" / "config.local.toml").exists()
 
 
-def test_doctor_warns_on_an_unpinned_module(
-        tmp_path, recording_console, provision_home, monkeypatch):
+@pytest.mark.medium
+def test_doctor_warns_on_an_unpinned_module(tmp_path, recording_console, provision_home):
     """Check that doctor shows a warning row for a depends_on module with no pin."""
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
     _unpinned_fragment(tmp_path / "dsp", ["sushiruntime"])
     (tmp_path / "sushiruntime").mkdir()
     app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path))
 
     CliRunner().invoke(app, ["doctor"])
 
-    rows = _table_rows(recording_console.calls, ["Check", "Group", "Result", "Detail", "Fix"])
-    by_name = {row[0]: row for row in rows}
-    assert "not pinned; pin it in [sushisystems.sushiruntime]" in by_name["sushi sushiruntime"][3]
+    row = _check_rows(recording_console)["sushi sushiruntime"]
+    assert "not pinned; pin it in [sushisystems.sushiruntime]" in row[3]
 
 
-def _results(console):
-    """Return the arguments of every ``result`` event the recording console took."""
-    return [args for name, args in console.calls if name == "result"]
-
-
-def test_link_and_unlink_each_end_with_one_result_event(tmp_path, recording_console):
-    ws = tmp_path / "ws"
-    (ws / ".sushistack").mkdir(parents=True)
-    (tmp_path / "dsp" / "cli").mkdir(parents=True)
-    app = _app(tmp_path, recording_console)
-    runner = CliRunner()
-    assert runner.invoke(app, ["link", "--workspace", str(ws)]).exit_code == 0
+@pytest.mark.medium
+def test_link_ends_with_one_result_event(tmp_path, recording_console):
+    """Check that a link ends with one passing result event."""
+    ws = _workspace(tmp_path)
+    CliRunner().invoke(_app(tmp_path, recording_console), ["link", "--workspace", str(ws)])
     assert _results(recording_console) == [(True, {})]
-    assert runner.invoke(app, ["unlink", "--workspace", str(ws)]).exit_code == 0
-    assert _results(recording_console) == [(True, {}), (True, {})]
 
 
-def test_a_failed_link_still_ends_with_a_failing_result_event(tmp_path, recording_console, monkeypatch):
+@pytest.mark.medium
+def test_unlink_ends_with_one_result_event(tmp_path, recording_console):
+    """Check that an unlink ends with one passing result event."""
+    ws = _workspace(tmp_path)
+    CliRunner().invoke(_app(tmp_path, recording_console), ["unlink", "--workspace", str(ws)])
+    assert _results(recording_console) == [(True, {})]
+
+
+@pytest.mark.medium
+def test_a_failed_link_still_ends_with_a_failing_result_event(
+        tmp_path, recording_console, monkeypatch):
+    """Check that a link that finds no workspace exits two with one failing result event."""
     monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(_app(tmp_path, recording_console), ["link"])
@@ -638,15 +657,20 @@ def test_a_failed_link_still_ends_with_a_failing_result_event(tmp_path, recordin
     assert _results(recording_console) == [(False, {})]
 
 
-def test_setup_that_stops_early_ends_with_a_failing_result_event(tmp_path, recording_console, provision_home):
-    result = CliRunner().invoke(_app(tmp_path, recording_console), ["setup", "--toolchain", "nonesuch"])
+@pytest.mark.medium
+def test_setup_that_stops_early_ends_with_a_failing_result_event(
+        tmp_path, recording_console, provision_home):
+    """Check that a setup refused for its toolchain ends with one failing result event."""
+    result = CliRunner().invoke(_app(tmp_path, recording_console),
+                                ["setup", "--toolchain", "nonesuch"])
     assert result.exit_code == 2
     assert _results(recording_console) == [(False, {})]
 
 
+@pytest.mark.medium
 def test_doctor_ends_with_exactly_one_result_event_carrying_its_checks(
-        tmp_path, recording_console, monkeypatch):
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+        tmp_path, recording_console, provision_home):
+    """Check that doctor ends with one result event that carries the checks."""
     _write_fragment(tmp_path / "dsp")
     CliRunner().invoke(_app(tmp_path, recording_console), ["doctor"])
     results = _results(recording_console)
@@ -654,27 +678,37 @@ def test_doctor_ends_with_exactly_one_result_event_carrying_its_checks(
     assert results[0][1]["checks"]
 
 
-def _option(app, command, name):
-    """Return the Click option *name* of *command* in the Typer *app*."""
-    import typer.main
-
-    return next(param for param in typer.main.get_command(app).commands[command].params
-                if param.name == name)
-
-
-def test_the_doctor_help_lists_the_check_groups(tmp_path, recording_console):
-    option = _option(_app(tmp_path, recording_console), "doctor", "for_group")
+@pytest.mark.small
+def test_the_doctor_help_lists_the_check_groups(tmp_path):
+    """Check that the doctor option help lists the stock check groups."""
+    option = _option(_app(tmp_path, RecordingConsole()), "doctor", "for_group")
     assert "build | test | infer | eval" in option.help
 
 
-def test_a_group_a_module_contributes_is_accepted_and_listed(tmp_path, recording_console, monkeypatch):
-    monkeypatch.setattr(module_checks, "standard_checks", lambda cfg, fix: [])
+@pytest.mark.small
+def test_a_group_a_module_contributes_is_listed(tmp_path):
+    """Check that a group the module contributes is listed in the doctor option help."""
+    app = _app(tmp_path, RecordingConsole(), groups=("track",))
+    assert "infer | eval | track" in _option(app, "doctor", "for_group").help
+
+
+@pytest.mark.medium
+def test_a_group_a_module_contributes_is_accepted(tmp_path, recording_console, provision_home):
+    """Check that doctor --for accepts a group the module contributes."""
     _write_fragment(tmp_path / "dsp")
     app = _app(tmp_path, recording_console, groups=("track",))
-    assert "infer | eval | track" in _option(app, "doctor", "for_group").help
-    assert CliRunner().invoke(app, ["doctor", "--for", "track"]).exit_code in (0, 1)
+    assert CliRunner().invoke(app, ["doctor", "--for", "track"]).exit_code != 2
+
+
+@pytest.mark.medium
+def test_a_group_nobody_contributes_is_refused(tmp_path, recording_console, provision_home):
+    """Check that doctor --for refuses a group no module contributes."""
+    _write_fragment(tmp_path / "dsp")
+    app = _app(tmp_path, recording_console, groups=("track",))
     assert CliRunner().invoke(app, ["doctor", "--for", "nonesuch"]).exit_code == 2
 
 
-def test_setup_accepts_the_short_form_of_yes(tmp_path, recording_console):
-    assert "-y" in _option(_app(tmp_path, recording_console), "setup", "yes").opts
+@pytest.mark.small
+def test_setup_accepts_the_short_form_of_yes(tmp_path):
+    """Check that setup accepts -y for --yes."""
+    assert "-y" in _option(_app(tmp_path, RecordingConsole()), "setup", "yes").opts

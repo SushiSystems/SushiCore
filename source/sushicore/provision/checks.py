@@ -37,22 +37,34 @@ def _first_version_line(exe: str) -> str:
     return lines[0].strip() if lines else ""
 
 
-def python_check(minimum: tuple[int, int] = (3, 10)) -> FunctionCheck:
-    """Return a check passing when this interpreter meets *minimum*."""
+def python_check(minimum: tuple[int, int] = (3, 10), version: tuple[int, int] | None = None,
+                 executable: str | None = None) -> FunctionCheck:
+    """Return a check passing when this interpreter meets *minimum*.
+
+    Args:
+        version: The ``(major, minor)`` to judge; the running interpreter's when ``None``.
+        executable: The interpreter path to report; the running one's when ``None``.
+    """
     def fn() -> CheckResult:
-        version = sys.version_info[:2]
-        detail = f"{sys.executable} (Python {sys.version_info.major}.{sys.version_info.minor})"
-        if version >= minimum:
+        actual = version or tuple(sys.version_info[:2])
+        path = executable or sys.executable
+        detail = f"{path} (Python {actual[0]}.{actual[1]})"
+        version_ok = actual >= minimum
+        if version_ok:
             return CheckResult(State.OK, detail)
         return CheckResult(State.FAIL, detail, f"install Python {minimum[0]}.{minimum[1]}+")
     return FunctionCheck("python", "build", True, fn)
 
 
 def tool_check(name: str, exe: str, group: str = "build", required: bool = True,
-               fix: str = "") -> FunctionCheck:
-    """Return a check passing when ``exe`` runs, its detail from ``<exe> --version``."""
+               fix: str = "", works: Callable[[str], bool] | None = None) -> FunctionCheck:
+    """Return a check passing when ``exe`` runs, its detail from ``<exe> --version``.
+
+    Args:
+        works: Asked whether *exe* runs; ``probe.binary_works`` when ``None``.
+    """
     def fn() -> CheckResult:
-        if not probe.binary_works(exe):
+        if not (works or probe.binary_works)(exe):
             return CheckResult(State.FAIL, f"'{exe}' not found on PATH", fix)
         return CheckResult(State.OK, _first_version_line(exe) or exe)
     return FunctionCheck(name, group, required, fn)
@@ -81,11 +93,17 @@ def compiler_check(cfg: ProvisionConfig, fix: str = "") -> FunctionCheck:
     return FunctionCheck("c++ compiler", "build", True, fn)
 
 
-def python_module_check(module: str, group: str, required: bool, fix: str) -> FunctionCheck:
-    """Return a check passing when *module* is importable, without importing it."""
+def python_module_check(module: str, group: str, required: bool, fix: str,
+                        finder: Callable[[str], object | None] | None = None) -> FunctionCheck:
+    """Return a check passing when *module* is importable, without importing it.
+
+    Args:
+        finder: Asked for the spec of *module*, ``None`` when absent; ``importlib.util.find_spec``
+            when ``None``.
+    """
     def fn() -> CheckResult:
         try:
-            found = importlib.util.find_spec(module) is not None
+            found = (finder or importlib.util.find_spec)(module) is not None
         except (ImportError, ValueError):
             found = False
         if found:
@@ -94,22 +112,36 @@ def python_module_check(module: str, group: str, required: bool, fix: str) -> Fu
     return FunctionCheck(module, group, required, fn)
 
 
-def path_check(name: str, path: Path, group: str, required: bool, fix: str) -> FunctionCheck:
-    """Return a check passing when *path* exists on disk."""
+def path_check(name: str, path: Path, group: str, required: bool, fix: str,
+               exists: Callable[[Path], bool] | None = None) -> FunctionCheck:
+    """Return a check passing when *path* exists.
+
+    Args:
+        exists: Asked whether *path* exists; ``Path.exists`` when ``None``.
+    """
     def fn() -> CheckResult:
-        if path.exists():
+        if (exists or Path.exists)(path):
             return CheckResult(State.OK, str(path))
         return CheckResult(State.FAIL, f"{path} missing", fix)
     return FunctionCheck(name, group, required, fn)
 
 
+def _command_succeeds(command: Sequence[str]) -> bool:
+    """Return whether *command* exits zero within the version timeout."""
+    return subprocess.run(command, capture_output=True,
+                          timeout=_VERSION_TIMEOUT).returncode == 0
+
+
 def fragment_check(source: IDependencySource, platform: str, gpu: bool, fix: str,
-                   installed: Callable[[Dependency], bool] | None = None) -> FunctionCheck:
+                   installed: Callable[[Dependency], bool] | None = None,
+                   succeeds: Callable[[Sequence[str]], bool] | None = None) -> FunctionCheck:
     """Return a check reporting every selected dependency whose ``check_cmd`` fails.
 
     Args:
         installed: Asked about a dependency whose ``check_cmd`` failed; a true
             answer passes it, as the install inventory does.
+        succeeds: Asked to run a ``check_cmd``; true when it exits zero. It may raise what
+            ``subprocess.run`` raises. ``_command_succeeds`` when ``None``.
     """
     def fn() -> CheckResult:
         failing: list[str] = []
@@ -118,8 +150,7 @@ def fragment_check(source: IDependencySource, platform: str, gpu: bool, fix: str
             if not dep.check_cmd:
                 continue
             try:
-                ok = subprocess.run(dep.check_cmd, capture_output=True,
-                                     timeout=_VERSION_TIMEOUT).returncode == 0
+                ok = (succeeds or _command_succeeds)(dep.check_cmd)
             except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
                 ok = False
             if not ok and installed is not None:
@@ -168,18 +199,35 @@ def capability_check(source: IDependencySource, present: Mapping[str, bool],
     return FunctionCheck("toolchains", "build", True, fn)
 
 
-def stamp_check(root: Path) -> FunctionCheck:
-    """Return a check warning about a toolchain directory under *root* with no stamp."""
+def _disk_stamps(toolchains: Path) -> dict[str, bool] | None:
+    """Return each toolchain folder under *toolchains* mapped to whether it holds a stamp.
+
+    Returns ``None`` when *toolchains* is not a folder; raises ``OSError`` when it cannot be read.
+    """
+    if not toolchains.is_dir():
+        return None
+    return {d.name: (d / TOOLCHAIN_STAMP).is_file()
+            for d in sorted(toolchains.iterdir()) if d.is_dir()}
+
+
+def stamp_check(root: Path,
+                stamps: Callable[[Path], Mapping[str, bool] | None] | None = None) -> FunctionCheck:
+    """Return a check warning about a toolchain directory under *root* with no stamp.
+
+    Args:
+        stamps: Asked for the ``toolchains`` folder of *root*; answers each toolchain folder
+            mapped to whether it is stamped, ``None`` when there is no folder, or raises
+            ``OSError``. A disk reader when ``None``.
+    """
     def fn() -> CheckResult:
         toolchains = root / "toolchains"
-        if not toolchains.is_dir():
-            return CheckResult(State.OK, "no toolchains installed")
         try:
-            entries = sorted(toolchains.iterdir())
+            found = (stamps or _disk_stamps)(toolchains)
         except OSError as exc:
             return CheckResult(State.WARN, f"cannot read {toolchains}: {exc}")
-        unstamped = [d.name for d in entries
-                     if d.is_dir() and not (d / TOOLCHAIN_STAMP).is_file()]
+        if found is None:
+            return CheckResult(State.OK, "no toolchains installed")
+        unstamped = [name for name, stamped in found.items() if not stamped]
         if not unstamped:
             return CheckResult(State.OK, "every installed toolchain is stamped")
         detail = "unstamped toolchain(s): " + ", ".join(unstamped)

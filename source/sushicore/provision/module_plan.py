@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ..deps_fragment import pins_at
 from . import closure as closure_module
-from . import manifests, sushi_setup
+from . import manifests, probe, sushi_setup
 from .closure import Closure
 from .config import ProvisionConfig
 from .fragments import TomlDependencySource
@@ -35,6 +35,17 @@ def managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
         return [WingetManager(), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
     return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
             VcpkgManager(cfg)]
+
+
+def managers_of(module: ModuleProvision, cfg: ProvisionConfig) -> list[IPackageManager]:
+    """Returns the package managers of *module*: the ones it names, else the platform's."""
+    return (module.managers or managers_for)(cfg)
+
+
+def presence_of(module: ModuleProvision, cfg: ProvisionConfig) -> dict[str, bool]:
+    """Returns each SYCL toolchain mapped to whether *module*'s machine has it."""
+    read = module.toolchains or probe.toolchain_status
+    return {name: present for name, present, _detail in read(cfg, False)}
 
 
 def fragment_of(module: ModuleProvision, root: Path) -> str:

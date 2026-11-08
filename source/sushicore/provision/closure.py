@@ -28,7 +28,9 @@ class Closure:
 
 
 def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRAGMENT,
-            shared: Sequence[tuple[Path, str]] = ()) -> Closure:
+            shared: Sequence[tuple[Path, str]] = (),
+            is_file: Callable[[Path], bool] | None = None,
+            read: Callable[[Path], deps_fragment.Fragment] | None = None) -> Closure:
     """Return the closure of the module *key* checked out at *root*.
 
     Args:
@@ -37,10 +39,14 @@ def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRA
         locate: Finds the checkout of a module named in ``depends_on``.
         fragment: The module's own fragment, relative to *root*.
         shared: Fragments placed before every module's.
+        is_file: Asked whether a fragment path holds a fragment; ``Path.is_file`` when ``None``.
+        read: Asked to read one fragment; ``deps_fragment.read`` when ``None``.
 
     Raises:
         ValueError: The modules depend on one another in a cycle.
     """
+    exists = is_file or Path.is_file
+    read_fragment = read or deps_fragment.read
     sources: list[tuple[Path, str]] = list(shared)
     missing: list[tuple[str, str]] = []
     done: set[str] = set()
@@ -54,9 +60,9 @@ def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRA
             return
         done.add(name)
         path = checkout / relative
-        if not path.is_file():
+        if not exists(path):
             return
-        for dependency in deps_fragment.read(path).depends_on:
+        for dependency in read_fragment(path).depends_on:
             found = locate(dependency)
             if found is None:
                 if (dependency, name) not in missing:

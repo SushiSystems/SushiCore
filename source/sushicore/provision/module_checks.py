@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from sushicore.deps_fragment import Fragment
 
@@ -64,15 +64,22 @@ def _sushi_checks(state: ModuleState, git: IGitClient, fix: str) -> list[Check]:
     return rows
 
 
-def doctor_checks(state: ModuleState, managers: list[IPackageManager],
-                  git: IGitClient) -> list[Check]:
-    """Return every check ``doctor`` runs for *state*'s module, before its own extra checks."""
+def doctor_checks(state: ModuleState, managers: list[IPackageManager], git: IGitClient,
+                  base_checks: Optional[Callable[[ProvisionConfig, str], list[Check]]] = None,
+                  presence: Optional[dict[str, bool]] = None) -> list[Check]:
+    """Return every check ``doctor`` runs for *state*'s module, before its own extra checks.
+
+    Args:
+        base_checks: Builds the stock checks the rows open with; the standard ones when None.
+        presence: Each toolchain mapped to whether the machine has it; probed when None.
+    """
     cfg = state.cfg
     fix = f"{state.program} setup"
     clone = "clone it beside this repository"
-    return (standard_checks(cfg, fix=fix)
+    return ((base_checks or standard_checks)(cfg, fix)
             + [modules_check(state.missing, clone),
-               capability_check(state.source, probe.toolchain_presence(cfg), fix),
+               capability_check(state.source, (presence if presence is not None
+                                       else probe.toolchain_presence(cfg)), fix),
                fragment_check(state.source, cfg.platform, False, fix,
                               held_by_managers(managers, cfg.platform)),
                stamp_check(home.root()),

@@ -45,9 +45,10 @@ def run_doctor(module: ModuleProvision, groups: Optional[set[str]],
         console.error(str(exc))
         return failed()
     if managers is None:
-        managers = module_plan.managers_for(cfg)
+        managers = module_plan.managers_of(module, cfg)
     state = ModuleState(cfg=cfg, root=root, owner=module.profile.key,
                         program=module.profile.program, own=own,
                         source=module_plan.source_for(module, root, found), missing=found.missing)
-    checks = doctor_checks(state, managers, module.git()) + module.extra_checks()
+    checks = doctor_checks(state, managers, module.git(), module.base_checks,
+                           module_plan.presence_of(module, cfg)) + module.extra_checks()
     return _report(checks, groups, console)

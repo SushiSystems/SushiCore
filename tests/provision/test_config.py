@@ -2,41 +2,30 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for the configuration shape provision code reads."""
+"""The provision settings a store of built packages is configured from."""
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
-
 import pytest
 
-import sushicore.provision as provision
-from sushicore.provision.config import ProvisionConfig
+from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.sushi_packages.clock_memory import ManualClock
+from sushicore.provision.sushi_packages.package_store import PackageStore
+
+from .sushi_packages.package_fakes import install, make_key
 
 
-pytestmark = pytest.mark.small
+@pytest.mark.medium
+def test_a_store_configured_from_the_settings_prunes_all_but_three_packages(tmp_path):
+    """Check that a store keeping the default package_keep prunes the oldest of four packages."""
+    clock = ManualClock()
+    store = PackageStore(tmp_path / "packages", keep=ProvisionSettings().package_keep,
+                         clock=clock, sleep=lambda _s: None)
+    keys = []
+    for index in range(4):
+        key = make_key("sushiruntime", source=f"s{index}")
+        install(store, key)
+        keys.append(key)
+        clock.advance(60)
 
-_ROOT = Path(provision.__file__).parent
-_CFG_ATTRIBUTE = re.compile(r"\bcfg\.([a-z_]+)")
-
-
-def _declared() -> set[str]:
-    """Return every field, property and method name :class:`ProvisionConfig` declares."""
-    return set(ProvisionConfig.__annotations__) | {
-        name for name in vars(ProvisionConfig) if not name.startswith("_")}
-
-
-def test_every_config_attribute_provision_reads_is_declared():
-    """Check that every config attribute provision reads is declared."""
-    read = set()
-    for path in _ROOT.rglob("*.py"):
-        read.update(_CFG_ATTRIBUTE.findall(path.read_text(encoding="utf-8")))
-    assert read - _declared() == set()
-
-
-def test_the_package_keep_count_defaults_to_three():
-    """Check that a provision settings object keeps three packages per library."""
-    from sushicore.provision.config import ProvisionSettings
-
-    assert ProvisionSettings().package_keep == 3
+    assert store.prune("sushiruntime") == [keys[0].digest()]

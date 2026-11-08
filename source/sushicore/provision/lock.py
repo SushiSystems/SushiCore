@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Callable
 
 from ..errors import SushiCoreError
 
@@ -54,15 +55,27 @@ def _unlock(fd: int) -> None:
 class ProvisionLock:
     """A context manager guarding *path* against concurrent provisioning."""
 
-    def __init__(self, path: Path, timeout: float = 600.0) -> None:
+    def __init__(self, path: Path, timeout: float = 600.0, *,
+                 clock: Callable[[], float] | None = None,
+                 sleep: Callable[[float], None] | None = None,
+                 unlock: Callable[[int], None] | None = None,
+                 write: Callable[[int, bytes], int] | None = None) -> None:
         """Bind the lock to *path*, acquired for at most *timeout* seconds.
 
         Args:
             path: The lock file to open and lock.
             timeout: Seconds to keep retrying before raising :class:`LockTimeout`.
+            clock: Reads the time in seconds; ``time.monotonic`` when ``None``.
+            sleep: Waits between two attempts; ``time.sleep`` when ``None``.
+            unlock: Releases the OS lock of a descriptor; the platform's own when ``None``.
+            write: Writes the PID to the lock file; ``os.write`` when ``None``.
         """
         self._path = path
         self._timeout = timeout
+        self._clock = clock or time.monotonic
+        self._sleep = sleep or time.sleep
+        self._unlock = unlock or _unlock
+        self._write = write or os.write
         self._fd: int | None = None
 
     def __enter__(self) -> "ProvisionLock":
@@ -72,7 +85,7 @@ class ProvisionLock:
             LockTimeout: The lock is still held by another process at timeout.
         """
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        deadline = time.monotonic() + self._timeout
+        deadline = self._clock() + self._timeout
         fd = os.open(self._path, os.O_CREAT | os.O_RDWR)
         try:
             self._acquire(fd, deadline)
@@ -88,7 +101,7 @@ class ProvisionLock:
             return
         fd, self._fd = self._fd, None
         try:
-            _unlock(fd)
+            self._unlock(fd)
         finally:
             os.close(fd)
 
@@ -99,16 +112,16 @@ class ProvisionLock:
             LockTimeout: The lock is still held by another process at *deadline*.
         """
         while not _try_lock(fd):
-            if time.monotonic() >= deadline:
+            if self._clock() >= deadline:
                 holder = self._read_holder(fd)
                 raise LockTimeout(f"{self._path}: still held by process {holder}")
-            time.sleep(_POLL_INTERVAL)
+            self._sleep(_POLL_INTERVAL)
         try:
             os.ftruncate(fd, 0)
             os.lseek(fd, 0, os.SEEK_SET)
-            os.write(fd, str(os.getpid()).encode("utf-8"))
+            self._write(fd, str(os.getpid()).encode("utf-8"))
         except BaseException:
-            _unlock(fd)
+            self._unlock(fd)
             raise
 
     def _read_holder(self, fd: int) -> str:

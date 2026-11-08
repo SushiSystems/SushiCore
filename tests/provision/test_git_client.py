@@ -12,51 +12,28 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.provision import git_client
 from sushicore.provision.git_client import GitClient, IGitClient
 from sushicore.provision.git_client_memory import InMemoryGitClient
 
 
 
 @pytest.mark.small
-def test_clone_tag_runs_a_shallow_single_tag_clone(monkeypatch, tmp_path):
+def test_clone_tag_runs_a_shallow_single_tag_clone():
     """Check that the clone asks git for the tag only, at depth one."""
     seen = []
-    monkeypatch.setattr(git_client, "run", lambda cmd, dry_run, check: seen.append(cmd) or 0)
+    client = GitClient(runner=lambda command, dry_run, check: seen.append(command) or 0)
 
-    assert GitClient().clone_tag("https://x/y.git", "v1.0.0", tmp_path / "y", False)
+    client.clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
 
     assert seen == [["git", "clone", "--depth", "1", "--branch", "v1.0.0", "--single-branch",
-                     "https://x/y.git", str(tmp_path / "y")]]
+                     "https://x/y.git", "y"]]
 
 
 @pytest.mark.small
-def test_clone_tag_reports_a_failed_clone(monkeypatch, tmp_path):
+def test_clone_tag_reports_a_failed_clone():
     """Check that a nonzero exit is a failed clone."""
-    monkeypatch.setattr(git_client, "run", lambda cmd, dry_run, check: 128)
-    assert not GitClient().clone_tag("https://x/y.git", "v1.0.0", tmp_path / "y", False)
-
-
-@pytest.mark.small
-def test_head_returns_the_lower_case_commit(monkeypatch, tmp_path):
-    """Check that HEAD is git rev-parse's output, stripped and lower-cased."""
-    done = subprocess.CompletedProcess([], 0, stdout="ABCDEF\n", stderr="")
-    monkeypatch.setattr(git_client.subprocess, "run", lambda *a, **k: done)
-    assert GitClient().head(tmp_path) == "abcdef"
-
-
-@pytest.mark.small
-def test_head_is_empty_when_git_fails_or_is_missing(monkeypatch, tmp_path):
-    """Check that a failing or absent git gives ''."""
-    failed = subprocess.CompletedProcess([], 128, stdout="", stderr="not a repository")
-    monkeypatch.setattr(git_client.subprocess, "run", lambda *a, **k: failed)
-    assert GitClient().head(tmp_path) == ""
-
-    def missing(*args, **kwargs):
-        """Raise as a missing git does."""
-        raise OSError("no git")
-    monkeypatch.setattr(git_client.subprocess, "run", missing)
-    assert GitClient().head(tmp_path) == ""
+    client = GitClient(runner=lambda command, dry_run, check: 128)
+    assert not client.clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
 
 
 K_TAG = "v1.0.0"
@@ -135,3 +112,19 @@ class TestGitClientKeepsTheGitClientContract(GitClientContract):
         elsewhere.mkdir()
         return GitWorld(GitClient(), source.as_uri(), _git(source, "rev-parse", "HEAD"),
                         tmp_path / "clone", elsewhere)
+
+
+@pytest.mark.medium
+def test_head_of_a_real_checkout_is_a_lower_case_commit(tmp_path):
+    """Check that head gives the 40 lower-case hex digits of the checkout's commit."""
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "file.txt").write_text("content", encoding="utf-8")
+    _git(tmp_path, "add", "file.txt")
+    _git(tmp_path, "commit", "-q", "-m", "first")
+    assert GitClient().head(tmp_path) == _git(tmp_path, "rev-parse", "HEAD").lower()
+
+
+@pytest.mark.medium
+def test_head_is_empty_when_git_is_missing(tmp_path):
+    """Check that an executable that cannot start gives ''."""
+    assert GitClient(git="sushi-no-such-git").head(tmp_path) == ""

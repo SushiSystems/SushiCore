@@ -10,11 +10,7 @@ import os
 
 import pytest
 
-from sushicore.provision import lock
 from sushicore.provision.lock import LockTimeout, ProvisionLock
-
-
-pytestmark = pytest.mark.medium
 
 
 def _acquires(path) -> bool:
@@ -23,6 +19,7 @@ def _acquires(path) -> bool:
         return True
 
 
+@pytest.mark.medium
 def test_lock_is_released_on_exit(tmp_path):
     """Check that lock is released on exit."""
     path = tmp_path / ".lock"
@@ -31,15 +28,34 @@ def test_lock_is_released_on_exit(tmp_path):
     assert _acquires(path)
 
 
+class _ManualTime:
+    """A clock that moves only when the lock sleeps, so a wait costs no wall-clock time."""
+
+    def __init__(self) -> None:
+        """Start at zero."""
+        self.now = 0.0
+
+    def clock(self) -> float:
+        """Return the current time."""
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        """Move the time on by *seconds*."""
+        self.now += seconds
+
+
+@pytest.mark.medium
 def test_second_holder_times_out_naming_the_pid(tmp_path):
     """Check that second holder times out naming the pid."""
     path = tmp_path / ".lock"
+    waiting = _ManualTime()
     with ProvisionLock(path):
         with pytest.raises(LockTimeout, match=str(os.getpid())):
-            with ProvisionLock(path, timeout=0.3):
+            with ProvisionLock(path, timeout=0.3, clock=waiting.clock, sleep=waiting.sleep):
                 pass
 
 
+@pytest.mark.medium
 def test_lock_with_garbage_content_does_not_block(tmp_path):
     """Check that lock with garbage content does not block."""
     path = tmp_path / ".lock"
@@ -47,6 +63,7 @@ def test_lock_with_garbage_content_does_not_block(tmp_path):
     assert _acquires(path)
 
 
+@pytest.mark.medium
 def test_lock_creates_its_parent_directory(tmp_path):
     """Check that lock creates its parent directory."""
     path = tmp_path / "missing" / "root" / ".lock"
@@ -54,66 +71,44 @@ def test_lock_creates_its_parent_directory(tmp_path):
         assert path.is_file()
 
 
-def _track_closes(monkeypatch):
-    """Record every descriptor ``lock`` closes, still closing it."""
-    closed = []
-    real_close = os.close
-
-    def close(fd):
-        """Check that close."""
-        closed.append(fd)
-        real_close(fd)
-
-    monkeypatch.setattr(lock.os, "close", close)
-    return closed
-
-
-def test_a_failing_pid_write_closes_the_descriptor(tmp_path, monkeypatch):
-    """Check that a failing pid write closes the descriptor."""
-    closed = _track_closes(monkeypatch)
-
+@pytest.mark.medium
+def test_a_failing_pid_write_leaves_the_lock_usable(tmp_path):
+    """Check that a failed pid write raises and leaves the lock file free to take again."""
     def failing_write(fd, data):
-        """Check that failing write."""
+        """Fail as a full disk does."""
         raise OSError("disk full")
 
-    monkeypatch.setattr(lock.os, "write", failing_write)
     with pytest.raises(OSError, match="disk full"):
-        with ProvisionLock(tmp_path / ".lock", timeout=0.5):
+        with ProvisionLock(tmp_path / ".lock", timeout=0.5, write=failing_write):
             pass
-    assert len(closed) == 1
-    monkeypatch.undo()
-    with ProvisionLock(tmp_path / ".lock", timeout=0.3):
-        pass
+    assert _acquires(tmp_path / ".lock")
 
 
-def test_an_interrupt_while_polling_closes_the_descriptor(tmp_path, monkeypatch):
-    """Check that an interrupt while polling closes the descriptor."""
+@pytest.mark.medium
+def test_an_interrupt_while_polling_leaves_the_lock_usable(tmp_path):
+    """Check that an interrupt while waiting propagates and the lock can be taken once freed."""
     path = tmp_path / ".lock"
+
+    def interrupt(_seconds):
+        """Interrupt as a user pressing Ctrl+C does."""
+        raise KeyboardInterrupt
+
     with ProvisionLock(path):
-        closed = _track_closes(monkeypatch)
-
-        def interrupt(_seconds):
-            """Check that interrupt."""
-            raise KeyboardInterrupt
-
-        monkeypatch.setattr(lock.time, "sleep", interrupt)
         with pytest.raises(KeyboardInterrupt):
-            with ProvisionLock(path, timeout=5.0):
+            with ProvisionLock(path, timeout=5.0, sleep=interrupt):
                 pass
-        assert len(closed) == 1
+    assert _acquires(path)
 
 
-def test_a_failing_unlock_still_closes_the_descriptor(tmp_path, monkeypatch):
-    """Check that a failing unlock still closes the descriptor."""
-    held = ProvisionLock(tmp_path / ".lock", timeout=0.5)
-    held.__enter__()
-    closed = _track_closes(monkeypatch)
-
+@pytest.mark.medium
+def test_a_failing_unlock_propagates_and_frees_the_lock(tmp_path):
+    """Check that a failed unlock raises and the file is free to take afterwards."""
     def failing_unlock(fd):
-        """Check that failing unlock."""
+        """Fail as an unlock of a broken descriptor does."""
         raise OSError("unlock failed")
 
-    monkeypatch.setattr(lock, "_unlock", failing_unlock)
+    held = ProvisionLock(tmp_path / ".lock", timeout=0.5, unlock=failing_unlock)
+    held.__enter__()
     with pytest.raises(OSError, match="unlock failed"):
         held.__exit__(None, None, None)
-    assert len(closed) == 1
+    assert _acquires(tmp_path / ".lock")

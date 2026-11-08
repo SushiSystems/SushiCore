@@ -10,6 +10,7 @@ import logging
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Callable, Optional
 
 from .packages.base import run
 
@@ -29,18 +30,30 @@ class IGitClient(ABC):
 
 
 class GitClient(IGitClient):
-    """Runs the git on PATH."""
+    """Runs the git on PATH, or the executable it was given.
+
+    Args:
+        git: The git executable; ``git`` on PATH by default.
+        runner: Runs a clone command as ``(command, dry_run, check=True)`` and returns its exit code;
+            ``packages.base.run`` when ``None``.
+    """
+
+    def __init__(self, git: str = "git",
+                 runner: Optional[Callable[..., int]] = None) -> None:
+        """Store the executable and the runner."""
+        self._git = git
+        self._runner = runner
 
     def clone_tag(self, url: str, tag: str, destination: Path, dry_run: bool) -> bool:
         """Run ``git clone --depth 1 --branch <tag> --single-branch``; report success."""
-        command = ["git", "clone", "--depth", "1", "--branch", tag, "--single-branch",
+        command = [self._git, "clone", "--depth", "1", "--branch", tag, "--single-branch",
                    url, str(destination)]
-        return run(command, dry_run, check=True) == 0
+        return (self._runner or run)(command, dry_run, check=True) == 0
 
     def head(self, checkout: Path) -> str:
         """Run ``git rev-parse HEAD`` in *checkout*; return '' when it fails."""
         try:
-            result = subprocess.run(["git", "-C", str(checkout), "rev-parse", "HEAD"],
+            result = subprocess.run([self._git, "-C", str(checkout), "rev-parse", "HEAD"],
                                     capture_output=True, text=True)
         except OSError as exc:
             _log.warning("git could not run in %s: %s", checkout, exc)

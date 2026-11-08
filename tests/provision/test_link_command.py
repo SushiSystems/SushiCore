@@ -6,33 +6,28 @@
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
 from sushicore.provision import link_command
 from sushicore.provision.module_provision import ModuleProvision
 from sushicore.workspace import read_link, registered_modules
 
 
-pytestmark = pytest.mark.small
-
-
-class _Console:
-    def __init__(self):
-        self.errors = []
-
-    def error(self, text):
-        self.errors.append(text)
-
-    def success(self, text):
-        pass
-
-    def info(self, text):
-        pass
-
-
 def _module(tmp_path, console, **overrides):
+    """Return the module under test, its console *console*."""
     profile = ModuleProfile(name="sushidsp", program="sd", env_prefix="SD", root_marker="m")
     return ModuleProvision(profile=profile, project_root=lambda: tmp_path / "dsp",
                            load_config=lambda: None, console=lambda: console, **overrides)
+
+
+def _errors(console):
+    """Return the text of every error the recording console took."""
+    return [args[0] for name, args in console.calls if name == "error"]
+
+
+def _refuse(workspace, key, root):
+    """Refuse to record a module, as a full disk does."""
+    raise OSError("disk full")
 
 
 def _workspace(path):
@@ -40,8 +35,9 @@ def _workspace(path):
     return path
 
 
+@pytest.mark.medium
 def test_link_refuses_a_path_that_is_not_a_workspace_and_writes_nothing(tmp_path):
-    console = _Console()
+    console = RecordingConsole()
     plain = tmp_path / "plain"
     plain.mkdir()
     (tmp_path / "dsp" / "cli").mkdir(parents=True)
@@ -49,42 +45,36 @@ def test_link_refuses_a_path_that_is_not_a_workspace_and_writes_nothing(tmp_path
     assert (outcome.ok, outcome.code) == (False, 2)
     assert read_link(tmp_path / "dsp" / "cli") is None
     assert registered_modules(plain) == {}
-    assert "is not a workspace" in console.errors[0]
+    assert "is not a workspace" in _errors(console)[0]
 
 
-def test_link_puts_the_old_link_back_when_the_registry_write_fails(tmp_path, monkeypatch):
+@pytest.mark.medium
+def test_link_puts_the_old_link_back_when_the_registry_write_fails(tmp_path):
     old, new = _workspace(tmp_path / "old"), _workspace(tmp_path / "new")
     (tmp_path / "dsp" / "cli").mkdir(parents=True)
-    module = _module(tmp_path, _Console())
-    assert link_command.run_link(module, old).ok
+    assert link_command.run_link(_module(tmp_path, RecordingConsole()), old).ok
 
-    def refuse(*arguments, **keywords):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(link_command, "write_module", refuse)
-    outcome = link_command.run_link(module, new)
+    outcome = link_command.run_link(_module(tmp_path, RecordingConsole(), register=_refuse), new)
     assert (outcome.ok, outcome.code) == (False, 1)
     assert read_link(tmp_path / "dsp" / "cli") == old.resolve()
 
 
-def test_link_leaves_no_link_when_the_first_registry_write_fails(tmp_path, monkeypatch):
+@pytest.mark.medium
+def test_link_leaves_no_link_when_the_first_registry_write_fails(tmp_path):
     ws = _workspace(tmp_path / "ws")
     (tmp_path / "dsp" / "cli").mkdir(parents=True)
 
-    def refuse(*arguments, **keywords):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(link_command, "write_module", refuse)
-    console = _Console()
-    assert link_command.run_link(_module(tmp_path, console), ws).ok is False
+    console = RecordingConsole()
+    assert link_command.run_link(_module(tmp_path, console, register=_refuse), ws).ok is False
     assert read_link(tmp_path / "dsp" / "cli") is None
-    assert "disk full" in console.errors[0]
+    assert "disk full" in _errors(console)[0]
 
 
+@pytest.mark.medium
 def test_the_config_folder_comes_from_the_module(tmp_path):
     ws = _workspace(tmp_path / "ws")
     (tmp_path / "dsp" / "tooling").mkdir(parents=True)
-    module = _module(tmp_path, _Console(), config_dir="tooling")
+    module = _module(tmp_path, RecordingConsole(), config_dir="tooling")
     assert link_command.run_link(module, ws).ok
     assert read_link(tmp_path / "dsp" / "tooling") == ws.resolve()
     assert link_command.run_unlink(module, ws).ok
