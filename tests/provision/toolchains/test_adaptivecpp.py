@@ -302,7 +302,7 @@ def test_install_adaptivecpp_on_another_manager_translates_the_generic_packages(
     assert not any(arg.startswith("-DCLANG_INSTALL_PREFIX") for arg in configure.commands[0])
 
 
-@pytest.mark.medium
+@pytest.mark.small
 def test_confirm_timeout_returns_the_default_when_unanswered(recording_console):
     """Check that a closed input keeps the default answer."""
     result = adaptivecpp._confirm_timeout(

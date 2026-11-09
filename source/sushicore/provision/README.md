@@ -35,7 +35,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |
 | `doctor.py`, `checks.py` | The doctor framework and the stock checks |
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
-| `_output.py` | The console the package prints through, bound by `bind_console` |
+| `_output.py` | The console the package prints through, bound by `bind_console`, and `MemoryConsole`, the in-memory adapter beside it, bound for a block by `bound_memory_console` |
 | `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
 | `pin_chain.py` | Walks the `[sushisystems.<name>]` pins of a chain and finds a library pinned at two versions |
 | `git_client.py` | Clones one tag of a repository and reads a checkout's HEAD |

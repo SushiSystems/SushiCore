@@ -57,7 +57,7 @@ def test_an_absent_os_release_is_not_a_warning(caplog):
     assert _system_warnings(caplog) == []
 
 
-@pytest.mark.medium
+@pytest.mark.small
 def test_a_dry_run_of_the_oneapi_repository_succeeds_without_an_error(recording_console):
     """Check that a dry run answers True and records no error line."""
     assert system.ensure_intel_oneapi_repo(True) is True

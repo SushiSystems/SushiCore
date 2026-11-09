@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Callable
+import contextlib
+from typing import Callable, Iterator
+
+from ..console_memory import RecordingConsole
 
 
 class ConsoleProxy:
@@ -41,3 +44,26 @@ def bind_console(provider: Callable[[], object] | None) -> None:
             so a lazily built console stays lazy. ``None`` unbinds.
     """
     console.bind(provider)
+
+
+class MemoryConsole(RecordingConsole):
+    """The in-memory console adapter beside the real one: it records every call and prints nothing.
+
+    Bind it with :func:`bound_memory_console`; read what provision printed through ``calls``,
+    ``texts`` and ``has_call``.
+    """
+
+
+@contextlib.contextmanager
+def bound_memory_console() -> Iterator[MemoryConsole]:
+    """Bind a fresh :class:`MemoryConsole` for the block, then unbind it.
+
+    Yields:
+        The console that records what provision prints inside the block.
+    """
+    memory = MemoryConsole()
+    bind_console(lambda: memory)
+    try:
+        yield memory
+    finally:
+        bind_console(None)

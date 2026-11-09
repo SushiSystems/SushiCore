@@ -8,14 +8,11 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore import provision
-from sushicore.console_memory import RecordingConsole
+from sushicore.provision._output import bound_memory_console
 
 
 @pytest.fixture
 def recording_console():
-    """Bind a recording console for the test, then unbind it."""
-    fake = RecordingConsole()
-    provision.bind_console(lambda: fake)
-    yield fake
-    provision.bind_console(None)
+    """Bind the in-memory console adapter for the test, then unbind it."""
+    with bound_memory_console() as memory:
+        yield memory
