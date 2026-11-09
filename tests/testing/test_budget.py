@@ -78,3 +78,27 @@ def test_print_budget_warns_and_leaves_the_run_unchanged_when_the_reader_fails()
     files = MemoryFiles({K_READER: "", K_JUNIT: "<testsuite/>"})
     print_budget(_module(console, runner), K_JUNIT, "default", 3.0, files=files)
     assert console.texts("warn") == ["The budget reader failed; the run's own result is unchanged."]
+
+
+def test_the_reader_command_hands_the_shard_folder_and_the_rerun_results_to_the_reader():
+    files = MemoryFiles({K_READER: ""})
+    command = reader_command(K_ROOT, K_JUNIT, "default", 3.0, files=files,
+                             cases=K_ROOT / "build" / "cases", rerun=K_ROOT / "build" / "rerun")
+    assert command[-4:] == ["--cases", str(K_ROOT / "build" / "cases"), "--rerun", str(K_ROOT / "build" / "rerun")]
+
+
+def test_print_budget_leaves_out_a_shard_folder_that_does_not_exist():
+    console = RecordingConsole()
+    runner = RecordingRunner(console)
+    files = MemoryFiles({K_READER: "", K_JUNIT: "<testsuite/>"})
+    print_budget(_module(console, runner), K_JUNIT, "default", 3.0, files=files, cases=K_ROOT / "build" / "cases")
+    assert "--cases" not in runner.commands[0].argv
+
+
+def test_print_budget_hands_the_reader_the_shard_folder_that_exists():
+    console = RecordingConsole()
+    runner = RecordingRunner(console)
+    cases = K_ROOT / "build" / "cases"
+    files = MemoryFiles({K_READER: "", K_JUNIT: "<testsuite/>", cases / "a.xml": "<testsuites/>"})
+    print_budget(_module(console, runner), K_JUNIT, "default", 3.0, files=files, cases=cases)
+    assert runner.commands[0].argv[-2:] == ("--cases", str(cases))

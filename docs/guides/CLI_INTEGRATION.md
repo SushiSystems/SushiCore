@@ -73,6 +73,10 @@ what it needs, and ends with `run_tests(module, selection, ...)`, which refuses 
 the JUnit file and, where the repository carries the budget reader, prints the budget line. Only the shared
 options are guaranteed identical across CLIs.
 
+A CLI whose repository registers its test cases in shards also gives `ModuleTests` a `run_program(program, arguments)`, which runs the
+named test program with the CLI's runtime environment, and a CTest call that takes `gtest_filter`; `CMakeDriver.ctest_run` does.
+Without the first, a failed shard reruns whole.
+
 `register_root_options` installs the application's callback, so the application must not have
 one of its own. A CLI that needs a root option of its own builds its callback from
 `version_option` and `describe_option` in the same module.

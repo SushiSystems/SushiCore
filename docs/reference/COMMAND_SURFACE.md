@@ -44,7 +44,7 @@ exit code is the installer's.
 
 | Command | Options | Does |
 | --- | --- | --- |
-| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j` (one per core, lowered to fit the free memory, when absent; the count is printed), `--all`, `--shuffle/--no-shuffle`, `--seed N`, `--sanitize NAME`, `--cli` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, in a shuffled order whose seed it prints, then prints the budget line |
+| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j` (one per core, lowered to fit the free memory at 256 MB per `small` test or 1024 MB per `medium` or `large` one, when absent; the count is printed), `--all`, `--shuffle/--no-shuffle`, `--seed N`, `--sanitize NAME`, `--cli` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, in a shuffled order whose seed it prints, then prints the budget line |
 
 `--label quarantined` alone runs the quarantined tests and no size. `--label large` without `--filter` exits
 `2` before anything runs; `--all` adds every size and lifts that rule. A tree that is absent, or that the
@@ -60,6 +60,20 @@ The shuffle is on unless `--no-shuffle` is given. The seed is `--seed`, or a ran
 command prints; it reaches the GoogleTest programs as `GTEST_SHUFFLE` and `GTEST_RANDOM_SEED`, which CTest passes on
 to each test. `--cli` does not shuffle. A module whose CTest call neither names `shuffle_seed` nor takes `**keywords` runs in the
 given order, and the command warns.
+
+A build can register the cases of a program in shards, CTest tests named `<program>.<size>_shard_<i>of<N>` that each
+write GoogleTest XML to `test_results/gtest/<name>.xml` in the tree. The command empties that folder before a run, and
+the budget reader gets it as `--cases` when the run left files there. Over such a build `--filter` is a GoogleTest
+filter: it reaches every shard as `GTEST_FILTER` and not as `ctest -R`, and a shard whose command line names its own
+`--gtest_filter` keeps that one, which GoogleTest ranks above the variable. A module whose CTest call neither names
+`gtest_filter` nor takes `**keywords` keeps the `-R` pattern, and the command warns.
+
+A failed CTest test is rerun once, alone, after the run and before the budget line; a pass on the rerun is reported
+flaky, and the exit code stays CTest's. A failed shard reruns only its failing cases, read from its XML, by
+`--gtest_filter` on its program, through the `run_program` the module hands the command, into `test_results/rerun`,
+which the reader gets as `--rerun`. Any other failed test, and a shard whose cases cannot be read or whose module has no
+`run_program`, reruns whole by `ctest -R` into a JUnit file of its own. The reader judges only the tests that were
+rerun, so an over-limit case that did not fail is not listed in a run that failed.
 
 The budget line comes from `test_budget.py`, in the testing folder of the shared tools below the module's root, and is printed only when
 the repository carries it. The JUnit file is `junit.xml` in the tree's `Testing` folder; a run that wrote none prints

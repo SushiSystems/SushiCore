@@ -58,8 +58,12 @@ class ModuleTests:
         build_tree: The built tree CTest runs over.
         run_ctest: Runs CTest over a tree with the module's environment. It takes the tree and the
             keywords ``label_regex``, ``exclude_label_regex``, ``filter``, ``repeat``, ``jobs``,
-            ``output_junit``, and returns CTest's exit code. A call that names ``shuffle_seed`` or takes ``**keywords`` also
+            ``output_junit``, and returns CTest's exit code. A call that names ``gtest_filter`` or takes ``**keywords`` also
+            receives the pattern of a filtered run over shards, as a GoogleTest filter for every shard. A call that names ``shuffle_seed`` or takes ``**keywords`` also
             receives it, an int; any other runs in the given order and the command says so.
+        run_program: Runs one of the module's programs, such as a test program, by the name its CTest
+            tests carry, with the module's runtime environment and the given arguments, and returns its
+            exit code. None when the module has none, which makes a failed shard rerun whole by CTest.
         run: Runs a command in a folder and returns its exit code; the budget reader goes through it.
         check_tree: Names a fault of the tree, such as a stale configuration, or returns None.
         panel: The help panel the command is listed under, or None for the default.
@@ -82,3 +86,4 @@ class ModuleTests:
     sanitized: Optional[SanitizedTests] = None
     cli_tests: Optional[Callable[[LabelSelection], int]] = None
     rebuilt: Optional[Callable[[Path], bool]] = None
+    run_program: Optional[Callable[[str, list[str]], int]] = None
