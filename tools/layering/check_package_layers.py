@@ -98,7 +98,7 @@ K_LAYERED = (
             "steps": 5, "outcome": 0, "module_manifest": 2, "machine_seams": 3, "module_provision": 5, "link_command": 6, "module_plan": 6,
             "doctor_command": 7, "setup_command": 8, "commands": 9, "sushi_sources": 1, "git_client": 4,
             "sushi_fetch": 5, "pin_chain": 2, "sushi_setup": 5, "module_checks": 5, "sushi_source_check": 5,
-            "links": 0, "user_environment": 0, "user_environment_memory": 0, "migrate": 2,
+            "links": 0, "user_environment": 0, "user_environment_memory": 0, "migrate": 4, "migration_error": 0, "migration_journal": 0, "migration_disk": 1, "migration_plan": 2, "migration_movers": 3,
             "sushi_packages": 2, "package_install": 1, "package_command": 7,
             "fragments_memory": 1, "pipeline_memory": 1, "sinks_memory": 0, "git_client_memory": 4, "gpu.backend_memory": 2, "gpu.adapter_builder_memory": 2,
             "gpu.toolkit_vendor_memory": 1, "gpu.cuda_selection_memory": 1, "gpu.cuda_vendor_memory": 2,

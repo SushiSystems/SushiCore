@@ -10,288 +10,35 @@ The old path becomes a directory link to the new root. The steps and their order
 
 from __future__ import annotations
 
-import json
 import os
-import shutil
-import stat
-import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol, final
+from typing import Callable
 
-from ..errors import SushiCoreError
-from .links import is_dir_link, link_target, make_dir_link, remove_dir_link
+from .links import is_dir_link, make_dir_link, remove_dir_link
 from .lock import ProvisionLock
-
-#: The journal of a migration that can still be rolled back, kept in the new root.
-JOURNAL = ".migrate-journal.jsonl"
-
-#: The name the journal takes once the migration is finalized.
-JOURNAL_DONE = ".migrate-journal.done.jsonl"
-
-#: Appended to the old root's name for the copy kept until ``finalize``.
-ASIDE_SUFFIX = ".pre-migrate"
-
-#: Appended to a component's name while its copy is not yet verified.
-PARTIAL_SUFFIX = ".partial"
-
-#: Free space a copy needs, as a multiple of the bytes it copies.
-SPACE_MARGIN = 1.1
+from .migration_disk import (
+    ASIDE_SUFFIX,
+    PARTIAL_SUFFIX,
+    absolute,
+    aside_path,
+    is_present,
+    partial_path,
+    remove_tree,
+)
+from .migration_error import MigrationError
+from .migration_journal import JOURNAL, JOURNAL_DONE, MigrationJournal
+from .migration_movers import MOVERS, RENAME, CopyMover
+from .migration_plan import SPACE_MARGIN, MigrationPlan, Move, PlanProbes, links_to, plan
 
 _LOCK_FILE = ".lock"
 
 Report = Callable[[str], None]
 
-
-class MigrationError(SushiCoreError):
-    """Reports a migration, rollback or finalize that cannot go on."""
-
-
-@dataclass(frozen=True, slots=True)
-class Move:
-    """Holds one top-level component of the old root and where it goes."""
-
-    name: str
-    source: Path
-    target: Path
-    files: int
-    bytes: int
-
-
-@dataclass(frozen=True, slots=True)
-class MigrationPlan:
-    """Holds what a migration will move and whether the target can take it."""
-
-    old_root: Path
-    new_root: Path
-    moves: tuple[Move, ...]
-    total_bytes: int
-    free_bytes: int
-    same_volume: bool
-
-    @property
-    def enough_space(self) -> bool:
-        """Report whether the target volume can take the tree; a rename needs no space."""
-        return self.same_volume or self.free_bytes >= self.total_bytes * SPACE_MARGIN
-
-    @property
-    def already_migrated(self) -> bool:
-        """Report whether the old root is already a link to the new root."""
-        return _links_to(self.old_root, self.new_root)
-
-
-@dataclass(frozen=True, slots=True)
-class PlanProbes:
-    """Holds the reads :func:`plan` makes of the disk, each replaceable by a test.
-
-    Every default looks its function up when called.
-
-    Attributes:
-        is_link: Reports whether a path is a directory link.
-        link_target: Gives the directory a link points to, or None for a path that is no link.
-        is_dir: Reports whether a path is a directory.
-        present: Reports whether a path exists, a link with a missing target included.
-        resolve: Gives a path with its links followed.
-        subfolders: Lists the folders directly below a path.
-        file_sizes: Gives the size of every file under a folder by relative path.
-        free_bytes: Gives the free space on the volume holding a path.
-        same_volume: Reports whether two roots are on one volume.
-        journal_exists: Reports whether a migration journal sits in a root.
-    """
-
-    is_link: Callable[[Path], bool] = lambda path: is_dir_link(path)
-    link_target: Callable[[Path], Path | None] = lambda path: link_target(path)
-    is_dir: Callable[[Path], bool] = lambda path: path.is_dir()
-    present: Callable[[Path], bool] = lambda path: _present(path)
-    resolve: Callable[[Path], Path] = lambda path: path.resolve()
-    subfolders: Callable[[Path], list[Path]] = lambda path: sorted(
-        p for p in path.iterdir() if p.is_dir())
-    file_sizes: Callable[[Path], dict[str, int]] = lambda path: _file_sizes(path)
-    free_bytes: Callable[[Path], int] = lambda path: shutil.disk_usage(
-        _existing_ancestor(path)).free
-    same_volume: Callable[[Path, Path], bool] = lambda old, new: _same_volume(old, new)
-    journal_exists: Callable[[Path], bool] = lambda root: MigrationJournal(root).exists()
-
-
-@final
-class MigrationJournal:
-    """Appends the steps of a migration to a file in the new root and reads them back."""
-
-    def __init__(self, new_root: Path) -> None:
-        """Bind the journal to the new root it lives in."""
-        self._path = new_root / JOURNAL
-
-    def exists(self) -> bool:
-        """Report whether any step was recorded and not yet closed or discarded."""
-        return self._path.is_file()
-
-    def append(self, step: str, **fields: object) -> None:
-        """Record *step* with its *fields* and flush the line to disk."""
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps({"step": step, **fields}, ensure_ascii=False)
-        with self._path.open("a", encoding="utf-8", newline="\n") as stream:
-            stream.write(line + "\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-
-    def entries(self) -> list[dict]:
-        """Return every recorded step, oldest first; a line cut short by a crash is left out."""
-        if not self._path.is_file():
-            return []
-        entries: list[dict] = []
-        for line in self._path.read_text(encoding="utf-8").splitlines():
-            try:
-                entry = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(entry, dict) and "step" in entry:
-                entries.append(entry)
-        return entries
-
-    def names(self, step: str) -> set[str]:
-        """Return the component names recorded under *step*."""
-        return {str(e.get("name")) for e in self.entries() if e["step"] == step}
-
-    def close(self) -> None:
-        """Rename the journal so that a rollback finds nothing to replay."""
-        os.replace(self._path, self._path.with_name(JOURNAL_DONE))
-
-    def discard(self) -> None:
-        """Delete the journal."""
-        self._path.unlink(missing_ok=True)
-
-
-class _Mover(Protocol):
-    """Takes one component to the new root and can take it back."""
-
-    step: str
-
-    def transfer(self, move: Move, journal: MigrationJournal) -> None:
-        """Put the component at its target and record ``step``."""
-
-    def undo(self, name: str, old_root: Path, new_root: Path) -> None:
-        """Leave the component named *name* at the old root only."""
-
-
-@final
-class _RenameMover:
-    """Moves a component with one rename, for two roots on the same volume."""
-
-    step = "moved"
-
-    def transfer(self, move: Move, journal: MigrationJournal) -> None:
-        """Rename the component into the new root and record ``moved``.
-
-        Raises:
-            MigrationError: The rename failed; a file in use is named as the cause.
-        """
-        try:
-            os.rename(move.source, move.target)
-        except PermissionError as error:
-            raise MigrationError(
-                f"{move.name}: a process still uses a file under {move.source.as_posix()}; "
-                f"close it and run the migration again ({error})") from error
-        except OSError as error:
-            raise MigrationError(f"{move.name}: could not be moved: {error}") from error
-        journal.append(self.step, name=move.name)
-
-    def undo(self, name: str, old_root: Path, new_root: Path) -> None:
-        """Rename the component back into the old root."""
-        moved = new_root / name
-        if not _present(moved):
-            return
-        try:
-            os.rename(moved, old_root / name)
-        except OSError as error:
-            raise MigrationError(f"{name}: could not be moved back: {error}") from error
-
-
-@final
-class _CopyMover:
-    """Copies a component, verifies the copy and renames it into place, across volumes.
-
-    Args:
-        verify: Reports whether a copy holds the same files as its source; the file-size
-            comparison when ``None``.
-    """
-
-    step = "copied"
-
-    def __init__(self, verify: Callable[[Path, Path], bool] | None = None) -> None:
-        """Store the verifier."""
-        self._verify = verify or (lambda source, copy: _verify_component(source, copy))
-
-    def transfer(self, move: Move, journal: MigrationJournal) -> None:
-        """Copy the component into the new root and record ``copied`` once it verifies.
-
-        Raises:
-            MigrationError: A file could not be read, or the copy differs from the source.
-        """
-        partial = _partial_path(move.target)
-        _remove_tree(partial)
-        journal.append("copy-start", name=move.name)
-        try:
-            _copy_component(move.source, partial)
-        except OSError as error:
-            _remove_tree(partial)
-            journal.append("copy-failed", name=move.name)
-            raise MigrationError(f"{move.name}: could not be copied: {error}") from error
-        if not self._verify(move.source, partial):
-            _remove_tree(partial)
-            journal.append("copy-failed", name=move.name)
-            raise MigrationError(
-                f"{move.name}: the copy differs from {move.source.as_posix()} "
-                "in file count or file size")
-        os.rename(partial, move.target)
-        journal.append(self.step, name=move.name)
-
-    def undo(self, name: str, old_root: Path, new_root: Path) -> None:
-        """Delete the copy, provided the original is still at the old root.
-
-        Raises:
-            MigrationError: The old root no longer holds the component.
-        """
-        copy = new_root / name
-        if not _present(copy):
-            return
-        if not _present(old_root / name):
-            raise MigrationError(
-                f"{name}: {copy.as_posix()} is the only copy left and was not deleted")
-        _remove_tree(copy)
-
-
-_RENAME: _Mover = _RenameMover()
-_COPY: _Mover = _CopyMover()
-
-#: The mover that undoes each journal step a mover records.
-_MOVERS: dict[str, _Mover] = {mover.step: mover for mover in (_RENAME, _COPY)}
-
-
-def plan(old_root: Path, new_root: Path, probes: PlanProbes | None = None) -> MigrationPlan:
-    """Return what moving *old_root* to *new_root* takes, without changing the disk.
-
-    Args:
-        probes: The disk reads to make; the real ones when ``None``.
-
-    Raises:
-        MigrationError: The old root is missing or links elsewhere, one root lies
-            inside the other, or the new root already holds a component's name.
-    """
-    probes = probes or PlanProbes()
-    old_root, new_root = _absolute(old_root), _absolute(new_root)
-    journal = MigrationJournal(new_root)
-    moves: tuple[Move, ...] = ()
-    if not _links_to(old_root, new_root, probes):
-        _check_roots(old_root, new_root, journal, probes)
-        moves = _moves(old_root, new_root, journal, probes)
-    return MigrationPlan(
-        old_root=old_root,
-        new_root=new_root,
-        moves=moves,
-        total_bytes=sum(move.bytes for move in moves),
-        free_bytes=probes.free_bytes(new_root),
-        same_volume=probes.same_volume(old_root, new_root),
-    )
+__all__ = [
+    "ASIDE_SUFFIX", "JOURNAL", "JOURNAL_DONE", "PARTIAL_SUFFIX", "SPACE_MARGIN", "MigrationError",
+    "MigrationJournal", "MigrationPlan", "Move", "PlanProbes", "Report", "finalize", "migrate",
+    "plan", "rollback",
+]
 
 
 def migrate(plan: MigrationPlan, report: Report,
@@ -321,7 +68,7 @@ def migrate(plan: MigrationPlan, report: Report,
     plan.new_root.mkdir(parents=True, exist_ok=True)
     with ProvisionLock(plan.new_root / _LOCK_FILE):
         journal = MigrationJournal(plan.new_root)
-        mover = _RENAME if plan.same_volume else _CopyMover(verify)
+        mover = RENAME if plan.same_volume else CopyMover(verify)
         done = journal.names(mover.step)
         for move in plan.moves:
             if move.name in done:
@@ -337,7 +84,7 @@ def rollback(old_root: Path, new_root: Path, report: Report) -> None:
     Raises:
         MigrationError: A step could not be undone; the journal is kept for another run.
     """
-    old_root, new_root = _absolute(old_root), _absolute(new_root)
+    old_root, new_root = absolute(old_root), absolute(new_root)
     journal = MigrationJournal(new_root)
     if not journal.exists():
         report("nothing to roll back")
@@ -356,17 +103,17 @@ def finalize(old_root: Path, new_root: Path, report: Report, drop_link: bool = F
         MigrationError: The old root does not link to the new root, or there is no
             copy left to delete and the link was not asked to go.
     """
-    old_root, new_root = _absolute(old_root), _absolute(new_root)
-    aside = _aside_path(old_root)
-    if not _links_to(old_root, new_root):
+    old_root, new_root = absolute(old_root), absolute(new_root)
+    aside = aside_path(old_root)
+    if not links_to(old_root, new_root):
         raise MigrationError(
             f"{old_root.as_posix()} is not a link to {new_root.as_posix()}; nothing was deleted")
-    if not _present(aside) and not drop_link:
+    if not is_present(aside) and not drop_link:
         raise MigrationError(f"{aside.as_posix()} does not exist; nothing was deleted")
     with ProvisionLock(new_root / _LOCK_FILE):
         journal = MigrationJournal(new_root)
-        if _present(aside):
-            _remove_tree(aside)
+        if is_present(aside):
+            remove_tree(aside)
             report(f"deleted {aside.as_posix()}")
         if journal.exists():
             journal.append("finalized")
@@ -375,42 +122,6 @@ def finalize(old_root: Path, new_root: Path, report: Report, drop_link: bool = F
             remove_dir_link(old_root)
             report(f"removed the link at {old_root.as_posix()}")
 
-
-def _check_roots(old_root: Path, new_root: Path, journal: MigrationJournal,
-                 probes: PlanProbes) -> None:
-    """Raise MigrationError unless *old_root* can be moved to *new_root*."""
-    if probes.is_link(old_root):
-        raise MigrationError(
-            f"{old_root.as_posix()} is a link to {probes.link_target(old_root)}, "
-            f"not to {new_root.as_posix()}")
-    resumable = probes.journal_exists(new_root) and probes.present(_aside_path(old_root))
-    if not probes.is_dir(old_root) and not resumable:
-        raise MigrationError(f"{old_root.as_posix()} is not a directory")
-    old, new = probes.resolve(old_root), probes.resolve(new_root)
-    if old == new or old in new.parents or new in old.parents:
-        raise MigrationError(
-            f"{new_root.as_posix()} and {old_root.as_posix()} lie inside one another")
-
-
-def _moves(old_root: Path, new_root: Path, journal: MigrationJournal,
-           probes: PlanProbes) -> tuple[Move, ...]:
-    """Return one move per top-level directory of *old_root* not yet transferred.
-
-    Raises:
-        MigrationError: The new root already holds an entry of the same name.
-    """
-    if not probes.is_dir(old_root):
-        return ()
-    done = set().union(*(journal.names(step) for step in _MOVERS))
-    moves: list[Move] = []
-    for source in (p for p in probes.subfolders(old_root) if p.name not in done):
-        target = new_root / source.name
-        if probes.present(target):
-            raise MigrationError(
-                f"{target.as_posix()} already exists; the migration would overwrite it")
-        sizes = probes.file_sizes(source)
-        moves.append(Move(source.name, source, target, len(sizes), sum(sizes.values())))
-    return tuple(moves)
 
 
 def _swap_and_link(
@@ -421,9 +132,9 @@ def _swap_and_link(
     Raises:
         MigrationError: The old root could not be renamed, or the link not made.
     """
-    aside = _aside_path(old_root)
-    if _present(old_root):
-        if _present(aside):
+    aside = aside_path(old_root)
+    if is_present(old_root):
+        if is_present(aside):
             raise MigrationError(
                 f"{aside.as_posix()} already exists; finalize or remove it first")
         try:
@@ -436,7 +147,7 @@ def _swap_and_link(
     try:
         make_dir_link(old_root, new_root)
     except OSError as error:
-        if _present(aside) and not _present(old_root):
+        if is_present(aside) and not is_present(old_root):
             os.rename(aside, old_root)
         raise MigrationError(f"{old_root.as_posix()} could not be linked: {error}") from error
     journal.append("linked")
@@ -446,126 +157,15 @@ def _swap_and_link(
 def _undo(entry: dict, old_root: Path, new_root: Path, report: Report) -> None:
     """Reverse one journal entry; a step already reversed, or not this module's, is skipped."""
     step, name = entry["step"], str(entry.get("name", ""))
-    aside = _aside_path(old_root)
+    aside = aside_path(old_root)
     if step == "linked" and is_dir_link(old_root):
         remove_dir_link(old_root)
         report(f"removed the link at {old_root.as_posix()}")
-    elif step == "aside" and _present(aside) and not _present(old_root):
+    elif step == "aside" and is_present(aside) and not is_present(old_root):
         os.rename(aside, old_root)
         report(f"restored {old_root.as_posix()}")
     elif step == "copy-start":
-        _remove_tree(_partial_path(new_root / name))
-    elif step in _MOVERS:
-        _MOVERS[step].undo(name, old_root, new_root)
+        remove_tree(partial_path(new_root / name))
+    elif step in MOVERS:
+        MOVERS[step].undo(name, old_root, new_root)
         report(f"restored {name}")
-
-
-def _copy_component(source: Path, target: Path) -> None:
-    """Copy the tree at *source* to *target*, recreating links instead of following them."""
-    if is_dir_link(source):
-        make_dir_link(target, link_target(source))
-        return
-    junctions: list[Path] = []
-
-    def skip_junctions(folder: str, names: list[str]) -> list[str]:
-        """Return the names copytree must leave out, which are the junctions."""
-        found = [n for n in names if _is_junction_only(Path(folder) / n)]
-        junctions.extend(Path(folder) / n for n in found)
-        return found
-
-    shutil.copytree(source, target, symlinks=True, ignore=skip_junctions)
-    for junction in junctions:
-        make_dir_link(target / junction.relative_to(source), link_target(junction))
-
-
-def _verify_component(source: Path, copy: Path) -> bool:
-    """Report whether *copy* holds the same files as *source*, each of the same size."""
-    return _file_sizes(source) == _file_sizes(copy)
-
-
-def _file_sizes(root: Path) -> dict[str, int]:
-    """Return the size of every file under *root* by relative path, a link counting as 0."""
-    if is_dir_link(root):
-        return {"": 0}
-    sizes: dict[str, int] = {}
-    prefix = len(str(root)) + 1
-    pending = [str(root)]
-    while pending:
-        with os.scandir(pending.pop()) as entries:
-            for entry in entries:
-                key = entry.path[prefix:].replace(os.sep, "/")
-                if entry.is_symlink():
-                    sizes[key] = 0
-                elif entry.is_dir(follow_symlinks=False):
-                    if is_dir_link(Path(entry.path)):
-                        sizes[key] = 0
-                    else:
-                        pending.append(entry.path)
-                else:
-                    sizes[key] = entry.stat(follow_symlinks=False).st_size
-    return sizes
-
-
-def _remove_tree(path: Path) -> None:
-    """Delete *path* whatever it is: a link alone, or a tree with its read-only files."""
-    if is_dir_link(path):
-        remove_dir_link(path)
-    elif path.is_dir():
-        if sys.version_info >= (3, 12):
-            shutil.rmtree(path, onexc=_clear_read_only)
-        else:
-            shutil.rmtree(path, onerror=_clear_read_only)
-    elif path.exists():
-        path.unlink()
-
-
-def _clear_read_only(function: Callable[[str], None], path: str, _error: object) -> None:
-    """Make *path* writable and repeat the removal that failed on it."""
-    os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
-    function(path)
-
-
-def _is_junction_only(path: Path) -> bool:
-    """Report whether *path* is a directory link that is not a symlink."""
-    return is_dir_link(path) and not path.is_symlink()
-
-
-def _links_to(link: Path, target: Path, probes: PlanProbes | None = None) -> bool:
-    """Report whether *link* is a directory link whose target is *target*."""
-    probes = probes or PlanProbes()
-    found = probes.link_target(link)
-    return found is not None and probes.resolve(found) == probes.resolve(target)
-
-
-def _present(path: Path) -> bool:
-    """Report whether *path* exists, a link with a missing target included."""
-    return path.exists() or is_dir_link(path)
-
-
-def _absolute(path: Path) -> Path:
-    """Return *path* as an absolute path without resolving a link."""
-    return Path(os.path.abspath(path))
-
-
-def _aside_path(old_root: Path) -> Path:
-    """Return where the old root is kept until ``finalize``."""
-    return old_root.with_name(old_root.name + ASIDE_SUFFIX)
-
-
-def _partial_path(target: Path) -> Path:
-    """Return where a component is copied before it is verified."""
-    return target.with_name(target.name + PARTIAL_SUFFIX)
-
-
-def _existing_ancestor(path: Path) -> Path:
-    """Return *path*, or the nearest directory above it that exists."""
-    current = _absolute(path)
-    while not current.exists() and current != current.parent:
-        current = current.parent
-    return current
-
-
-def _same_volume(old_root: Path, new_root: Path) -> bool:
-    """Report whether the two roots are on one volume, so a rename can move between them."""
-    old_device = os.stat(_existing_ancestor(old_root)).st_dev
-    return old_device == os.stat(_existing_ancestor(new_root)).st_dev

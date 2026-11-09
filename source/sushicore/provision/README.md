@@ -13,7 +13,12 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `registry.py` | Reads and writes `registry.toml`, the record of installed components and their consumers, and seeds it from a tree already on disk |
 | `lock.py` | The file lock around every operation that changes the root |
 | `links.py` | Makes, reads and removes a directory link: a junction on Windows, a symlink elsewhere |
-| `migrate.py` | Moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it |
+| `migrate.py` | `migrate`, `rollback` and `finalize`: moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it; re-exports the names below |
+| `migration_plan.py` | `plan` and the `Move`, `MigrationPlan` and `PlanProbes` it returns and reads through: what a migration moves, worked out without changing the disk |
+| `migration_movers.py` | `RenameMover` and `CopyMover`: take one component to the new root and back, by rename on one volume and by verified copy across volumes |
+| `migration_journal.py` | `MigrationJournal`: the steps a migration appends to the new root, read back by a resumed run and a rollback |
+| `migration_disk.py` | The path, size, copy and removal helpers a migration shares |
+| `migration_error.py` | `MigrationError` |
 | `user_environment.py` | Reads and writes the user's persistent environment variables: the registry on Windows, one block of `~/.profile` elsewhere |
 | `user_environment_memory.py` | `InMemoryEnvironmentKey`, a registry key that holds its values in a dict |
 | `fragments.py` | Merges dependency fragments from a caller-supplied source list |
