@@ -83,9 +83,15 @@ def _add_to_user_path_windows(directory: str, winreg: Any = None,
     return True
 
 
-def _put_on_user_path(directory: str) -> None:
-    """Add *directory* to the user's PATH and warn on the console when only this run has it."""
-    if not _add_to_user_path_windows(directory):
+def _put_on_user_path(directory: str,
+                      add_to_path: Callable[[str], bool] | None = None) -> None:
+    """Add *directory* to the user's PATH and warn on the console when only this run has it.
+
+    Args:
+        add_to_path: Writes the directory to the user's PATH and answers whether the registry
+            holds it; the Windows registry writer when ``None``.
+    """
+    if not (add_to_path or _add_to_user_path_windows)(directory):
         console.warn(
             f"{directory} is on PATH for this run only; add it to the user PATH by hand."
         )

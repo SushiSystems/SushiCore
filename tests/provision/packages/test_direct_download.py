@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""The direct-download installers only remove paths under the bound dependency root."""
+"""The direct installers replace their folder, ask for their asset and warn on a refused PATH."""
 
 from __future__ import annotations
 
@@ -22,68 +22,74 @@ def _write_zip(path: Path, member: str) -> None:
         zf.writestr(member, b"")
 
 
-def _recording_rmtree(target: Path, monkeypatch, removed: list[Path]) -> None:
-    """Wrap ``shutil.rmtree`` to record every call for *target* without swallowing it.
-
-    Only the *target* call is recorded: ``tempfile.TemporaryDirectory`` also calls
-    ``shutil.rmtree`` on its own staging directory through the same module, and that
-    call is unrelated to the safety question this test asks.
-    """
-    real_rmtree = dd.shutil.rmtree
-
-    def recording(path, *args, **kwargs):
-        """Check that recording."""
-        if Path(path) == target:
-            removed.append(Path(path))
-        return real_rmtree(path, *args, **kwargs)
-
-    monkeypatch.setattr(dd.shutil, "rmtree", recording)
+def _fetch_archive(member: str):
+    """Return a download transport that writes a one-member archive in place of a download."""
+    def fetch(_url: str, dest: Path) -> None:
+        """Write the archive the real transport would have fetched."""
+        _write_zip(dest, member)
+    return fetch
 
 
-@pytest.mark.medium
-def test_cmake_direct_install_only_removes_paths_under_the_bound_root(
-        tmp_path, monkeypatch, provision_home, recording_console):
-    """Check that cmake direct install only removes paths under the bound root."""
-    monkeypatch.setattr(dd, "_cmake_on_system", lambda: "")
-    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/c.zip")
-    monkeypatch.setattr(dd, "download",
-                         lambda url, dest: _write_zip(dest, "cmake-1.0/bin/cmake.exe"))
-    monkeypatch.setattr(dd, "_add_to_user_path_windows", lambda directory: True)
-
-    target = dd.tools_dir() / "cmake"
-    target.mkdir(parents=True)
-    (target / "stale.txt").write_text("stale")
-
-    removed: list[Path] = []
-    _recording_rmtree(target, monkeypatch, removed)
-
-    assert dd._install_cmake_direct() is True
-    assert removed == [target]
-    assert target.is_relative_to(tmp_path)
-    assert (dd.tools_dir() / "cmake" / "bin" / "cmake.exe").is_file()
+def _asked_for(asked: list[tuple[str, str]]):
+    """Return an asset resolver that records the repository and glob it is asked for."""
+    def resolve(repo: str, glob: str) -> str:
+        """Record the request and answer a fixed URL."""
+        asked.append((repo, glob))
+        return "https://example.invalid/a.zip"
+    return resolve
 
 
 @pytest.mark.medium
-def test_doxygen_direct_install_only_removes_paths_under_the_bound_root(
-        tmp_path, monkeypatch, provision_home, recording_console):
-    """Check that doxygen direct install only removes paths under the bound root."""
-    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/d.zip")
-    monkeypatch.setattr(dd, "download",
-                         lambda url, dest: _write_zip(dest, "doxygen-1.0/doxygen.exe"))
-    monkeypatch.setattr(dd, "_add_to_user_path_windows", lambda directory: True)
-
-    target = dd.tools_dir() / "doxygen"
+@pytest.mark.parametrize(("installer", "member", "folder", "exe"), [
+    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake", ("bin", "cmake.exe")),
+    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen", ("doxygen.exe",)),
+])
+def test_a_direct_install_replaces_the_previous_folder(
+        installer, member, folder, exe, provision_home, recording_console):
+    """Check that an install drops the stale files of the old folder and puts the program in."""
+    target = dd.tools_dir() / folder
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
+    options = {"cmake_on_system": lambda: ""} if folder == "cmake" else {}
 
-    removed: list[Path] = []
-    _recording_rmtree(target, monkeypatch, removed)
+    installed = getattr(dd, installer)(
+        resolve_asset=_asked_for([]), fetch=_fetch_archive(member), on_path=lambda _dir: None,
+        **options)
 
-    assert dd._install_doxygen_direct() is True
-    assert removed == [target]
-    assert target.is_relative_to(tmp_path)
-    assert (dd.tools_dir() / "doxygen" / "doxygen.exe").is_file()
+    assert installed is True
+    assert not (target / "stale.txt").exists()
+    assert target.joinpath(*exe).is_file()
 
+
+@pytest.mark.medium
+def test_ninja_direct_install_puts_ninja_in_the_tools_folder(provision_home, recording_console):
+    """Check that the ninja archive's executable lands in the tools folder."""
+    installed = dd._install_ninja_direct(
+        resolve_asset=_asked_for([]), fetch=_fetch_archive("ninja.exe"),
+        on_path=lambda _dir: None)
+    assert installed is True
+    assert (dd.tools_dir() / "ninja.exe").is_file()
+
+
+K_ASSETS = [
+    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "Kitware/CMake", "*windows-x86_64.zip"),
+    ("_install_ninja_direct", "ninja.exe", "ninja-build/ninja", "ninja-win.zip"),
+    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen/doxygen",
+     "doxygen-*.windows.x64.bin.zip"),
+]
+
+
+@pytest.mark.medium
+@pytest.mark.parametrize(("installer", "member", "repo", "glob"), K_ASSETS)
+def test_a_direct_install_asks_for_its_own_github_asset(
+        installer, member, repo, glob, provision_home, recording_console):
+    """Check that each installer asks the release resolver for its repository and asset glob."""
+    asked: list[tuple[str, str]] = []
+    options = {"cmake_on_system": lambda: ""} if installer == "_install_cmake_direct" else {}
+    getattr(dd, installer)(
+        resolve_asset=_asked_for(asked), fetch=_fetch_archive(member),
+        on_path=lambda _dir: None, **options)
+    assert asked == [(repo, glob)]
 
 
 def _winreg(open_key):
@@ -170,30 +176,26 @@ K_DIRECT_INSTALLS = [
 ]
 
 
-def _run_direct_install(monkeypatch, installer: str, member: str, path_written: bool) -> bool:
-    """Run *installer* against a one-member archive with the user PATH write stubbed."""
-    monkeypatch.setattr(dd, "_cmake_on_system", lambda: "")
-    monkeypatch.setattr(dd, "gh_latest_asset", lambda repo, glob: "https://example.invalid/a.zip")
-    monkeypatch.setattr(dd, "download", lambda url, dest: _write_zip(dest, member))
-    monkeypatch.setattr(dd, "_add_to_user_path_windows", lambda directory: path_written)
-    return getattr(dd, installer)()
+def _run_direct_install(installer: str, member: str, path_written: bool) -> bool:
+    """Run *installer* against a one-member archive; the user PATH write answers *path_written*."""
+    options = {"cmake_on_system": lambda: ""} if installer == "_install_cmake_direct" else {}
+    return getattr(dd, installer)(
+        resolve_asset=_asked_for([]), fetch=_fetch_archive(member),
+        on_path=lambda directory: dd._put_on_user_path(
+            directory, add_to_path=lambda _directory: path_written),
+        **options)
 
 
 @pytest.mark.medium
+@pytest.mark.parametrize("path_written", [False, True])
 @pytest.mark.parametrize(("installer", "member", "path_parts"), K_DIRECT_INSTALLS)
-def test_direct_install_warns_when_the_user_path_write_is_refused(
-        installer, member, path_parts, monkeypatch, provision_home, recording_console):
-    """Check that a refused user PATH write reaches the console and the install still succeeds."""
-    assert _run_direct_install(monkeypatch, installer, member, path_written=False) is True
-    warnings = [args[0] for name, args in recording_console.calls if name == "warn"]
-    assert len(warnings) == 1
-    assert str(dd.tools_dir().joinpath(*path_parts)) in warnings[0]
-
-
-@pytest.mark.medium
-@pytest.mark.parametrize(("installer", "member", "path_parts"), K_DIRECT_INSTALLS)
-def test_direct_install_stays_quiet_when_the_user_path_write_lands(
-        installer, member, path_parts, monkeypatch, provision_home, recording_console):
-    """Check that a stored user PATH value draws no warning."""
-    assert _run_direct_install(monkeypatch, installer, member, path_written=True) is True
-    assert [name for name, _args in recording_console.calls if name == "warn"] == []
+def test_direct_install_warns_only_when_the_user_path_write_is_refused(
+        installer, member, path_parts, path_written, provision_home, recording_console):
+    """Check that a refused user PATH write warns once, a stored one stays quiet, both install."""
+    assert _run_direct_install(installer, member, path_written) is True
+    warnings = recording_console.texts("warn")
+    if path_written:
+        assert warnings == []
+    else:
+        assert len(warnings) == 1
+        assert str(dd.tools_dir().joinpath(*path_parts)) in warnings[0]
