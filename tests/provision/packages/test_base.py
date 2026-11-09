@@ -26,24 +26,29 @@ def _raising(error: Exception):
     return read
 
 
-@pytest.mark.small
-def test_a_refused_registry_read_is_recorded_and_leaves_path_alone(caplog):
-    """Check that a registry the process may not read yields one warning and the old PATH."""
+def _refresh_failing_with(error: Exception, caplog) -> tuple[type | None, int, str]:
+    """Refresh with a registry that raises *error*; return what escaped, the warnings and the PATH."""
     environ = {"PATH": "C:/base"}
+    escaped = None
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        base.refresh_windows_path(_raising(PermissionError(5, "Access is denied")), environ)
-    warnings = [r.getMessage() for r in caplog.records
+        try:
+            base.refresh_windows_path(_raising(error), environ)
+        except Exception as raised:
+            escaped = type(raised)
+    warnings = [r for r in caplog.records
                 if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
-    assert len(warnings) == 1
-    assert "Access is denied" in warnings[0]
-    assert environ["PATH"] == "C:/base"
+    return escaped, len(warnings), environ["PATH"]
 
 
 @pytest.mark.small
-def test_a_defect_in_the_registry_read_is_not_swallowed():
-    """Check that an error the registry does not raise escapes the refresh."""
-    with pytest.raises(TypeError):
-        base.refresh_windows_path(_raising(TypeError("defect")), {"PATH": ""})
+@pytest.mark.parametrize(("error", "escaped", "warnings"), [
+    (PermissionError(5, "Access is denied"), None, 1),
+    (TypeError("defect"), TypeError, 0),
+])
+def test_only_a_refused_registry_read_is_recorded_and_a_defect_escapes(
+        error, escaped, warnings, caplog):
+    """Check that a refused registry read is one warning with the old PATH, and a defect escapes."""
+    assert _refresh_failing_with(error, caplog) == (escaped, warnings, "C:/base")
 
 
 @pytest.mark.small
