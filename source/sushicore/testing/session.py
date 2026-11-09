@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 import inspect
+import os
 import random
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from ..build_gate import free_memory_mb
 from ..files import DiskFiles, Files
 from .budget import print_budget, scope_of
+from .job_count import choose_jobs
 from .labels import LabelSelection, large_needs_a_filter
 from .module_tests import ModuleTests
 
@@ -37,7 +40,9 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               repeat: int = 0, jobs: Optional[int] = None, every_size: bool = False,
               sanitizer: Optional[str] = None, own_tests: bool = False,
               shuffle: bool = True, seed: Optional[int] = None,
-              files: Files | None = None, seed_source: Callable[[int, int], int] | None = None) -> int:
+              files: Files | None = None, seed_source: Callable[[int, int], int] | None = None,
+              cpu_count: Callable[[], int | None] = os.cpu_count,
+              free_memory: Callable[[], int] = free_memory_mb) -> int:
     """Run the tests *selection* names over the module's tree, then print the budget line.
 
     The budget line is a report: it never changes the exit code, which is CTest's.
@@ -47,7 +52,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         selection: The labels to run.
         name_filter: A CTest ``-R`` pattern over ``Suite.Case`` names.
         repeat: Reruns each test up to this many times, stopping at its first failure.
-        jobs: How many tests run at once.
+        jobs: How many tests run at once; one per core, lowered to fit the free memory, when None.
         every_size: Whether the run was asked for every size, which allows the ``large`` tests unfiltered.
         sanitizer: Builds the tree of this sanitizer first and tests it, instead of the plain tree.
         own_tests: Runs the module's own pytest suite for *selection* instead of CTest.
@@ -55,6 +60,8 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         seed: The shuffle seed, to repeat an order; a new random one when None.
         files: The file system the tree check, the JUnit file and the budget reader are looked for in; the disk when None.
         seed_source: Draws a seed between its two bounds when *seed* is None; ``random.randint`` when None.
+        cpu_count: Reports the cores of the machine; ``os.cpu_count`` by default.
+        free_memory: Reports the free physical memory in megabytes; the build gate's reader by default.
 
     Returns:
         CTest's exit code, or 2 when the request cannot be acted on.
@@ -79,6 +86,10 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     files.remove(junit)
     console.info("Labels: " + ", ".join(
         [size.value for size in selection.sizes] + (["quarantined"] if selection.quarantined else [])))
+    if jobs is None:
+        choice = choose_jobs(cpu_count(), free_memory())
+        console.info(choice.line())
+        jobs = choice.jobs
     shuffle_seed = (seed if seed is not None else (seed_source or random.randint)(K_SEED_MIN, K_SEED_MAX)) if shuffle else None
     if shuffle_seed is not None:
         console.info(f"Shuffle seed: {shuffle_seed} (repeat with --seed {shuffle_seed})")

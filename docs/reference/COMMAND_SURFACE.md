@@ -44,7 +44,7 @@ exit code is the installer's.
 
 | Command | Options | Does |
 | --- | --- | --- |
-| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j`, `--all`, `--shuffle/--no-shuffle`, `--seed N`, `--sanitize NAME`, `--cli` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, in a shuffled order whose seed it prints, then prints the budget line |
+| `test` | `--label` or `-l` (repeatable), `--filter` or `-f`, `--repeat` or `-r`, `--jobs` or `-j` (one per core, lowered to fit the free memory, when absent; the count is printed), `--all`, `--shuffle/--no-shuffle`, `--seed N`, `--sanitize NAME`, `--cli` | Runs the tests of the build tree, `small` and `medium` unless a label is named, with CTest writing a JUnit file, in a shuffled order whose seed it prints, then prints the budget line |
 
 `--label quarantined` alone runs the quarantined tests and no size. `--label large` without `--filter` exits
 `2` before anything runs; `--all` adds every size and lifts that rule. A tree that is absent, or that the
