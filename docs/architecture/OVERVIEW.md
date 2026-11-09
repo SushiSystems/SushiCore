@@ -55,6 +55,7 @@ files a CLI hands it.
 | `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |
 | `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
 | `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
+| `memory_reading` | The physical memory free now, and the share kept back from every user of it; read by `build_gate` and by the test job count |
 | `build_report` | What each kind of edge of one build cost in time and peak memory |
 | `build_trace` | What the clang time traces of a build say: the costliest headers and templates, and each unit's frontend and backend time |
 
@@ -129,7 +130,7 @@ when the setting is empty; a configured path that does not exist gives none.
 
 ### `build_gate`
 
-The gate runs on its own, with the standard library only: it starts once per edge, and importing
+The gate runs on its own, with the standard library only, and loads its sibling `memory_reading.py` by path: it starts once per edge, and importing
 the package would cost more than most host compiles. It admits an edge when the edge's measured
 peak, added to the peaks reserved by the edges already running, fits in the larger of the memory
 free when the build started and the memory free now, each less 1.5 GB. Edges are admitted in

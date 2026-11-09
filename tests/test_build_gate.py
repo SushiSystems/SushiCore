@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from sushicore import build_gate
+from sushicore import build_gate, memory_reading
 
 K_STATE = Path("tree") / "build_gate"
 
@@ -77,7 +77,7 @@ def _recorded_peaks() -> dict:
 @pytest.mark.small
 def test_an_edge_that_fits_is_admitted_and_reserved():
     ledger = _idle_ledger(10000)
-    assert ledger["budget"] == 10000 - build_gate.K_RESERVE_MB
+    assert ledger["budget"] == 10000 - memory_reading.K_RESERVE_MB
     assert build_gate.admit(ledger, 2, 3000, 10000, 1.0, is_alive=_all_alive)
     assert ledger["running"] == {"2": 3000}
 
@@ -117,7 +117,7 @@ def test_a_light_edge_is_refused_behind_a_heavy_head_that_waited_past_the_backfi
 def test_nothing_is_admitted_beside_running_work_when_free_memory_is_under_the_reserve():
     ledger = _idle_ledger(10000)
     build_gate.admit(ledger, 2, 500, 10000, 0.0, is_alive=_all_alive)
-    assert not build_gate.admit(ledger, 3, 500, build_gate.K_RESERVE_MB - 1, 0.0, is_alive=_all_alive)
+    assert not build_gate.admit(ledger, 3, 500, memory_reading.K_RESERVE_MB - 1, 0.0, is_alive=_all_alive)
 
 
 @pytest.mark.small

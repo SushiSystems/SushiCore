@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from ..build_gate import free_memory_mb
+from ..memory_reading import free_memory_mb
 from ..files import DiskFiles, Files
 from .budget import print_budget, scope_of
 from .job_count import choose_jobs

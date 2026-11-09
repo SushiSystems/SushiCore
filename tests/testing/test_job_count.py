@@ -6,7 +6,7 @@
 
 import pytest
 
-from sushicore.build_gate import K_RESERVE_MB
+from sushicore.memory_reading import K_RESERVE_MB
 from sushicore.testing.job_count import K_TEST_SHARE_MB, choose_jobs
 
 pytestmark = pytest.mark.small

@@ -12,6 +12,7 @@ docs/architecture/OVERVIEW.md, section `build_gate`.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -22,8 +23,23 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping
 
-#: Memory left to everything else on the machine, in megabytes.
-K_RESERVE_MB = 1536
+
+def _load_memory_reading():
+    """Returns the `memory_reading.py` that sits beside this file, loaded by its path.
+
+    The gate runs as `python -I`, which leaves its own folder off the import path, and importing the
+    package would cost more than most host compiles.
+    """
+    path = Path(__file__).resolve().with_name("memory_reading.py")
+    spec = importlib.util.spec_from_file_location("memory_reading", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_memory = _load_memory_reading()
+K_RESERVE_MB = _memory.K_RESERVE_MB
+free_memory_mb = _memory.free_memory_mb
 
 #: Peaks assumed for an edge of a kind no build has measured, in megabytes.
 K_DEFAULT_PEAK_MB = {"device_compile": 8400, "host_compile": 1000,
@@ -96,28 +112,6 @@ def _requested_units(state: Path) -> set[str]:
     except OSError:
         return set()
     return {line.strip() for line in lines if line.strip()}
-
-
-def free_memory_mb() -> int:
-    """Returns the physical memory free now, in megabytes."""
-    if sys.platform == "win32":
-        import ctypes
-
-        class MemoryStatus(ctypes.Structure):
-            _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong),
-                        ("total_phys", ctypes.c_ulonglong), ("avail_phys", ctypes.c_ulonglong),
-                        ("total_page", ctypes.c_ulonglong), ("avail_page", ctypes.c_ulonglong),
-                        ("total_virtual", ctypes.c_ulonglong), ("avail_virtual", ctypes.c_ulonglong),
-                        ("avail_extended", ctypes.c_ulonglong)]
-
-        status = MemoryStatus()
-        status.length = ctypes.sizeof(MemoryStatus)
-        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
-        return status.avail_phys >> 20
-    for line in Path("/proc/meminfo").read_text().splitlines():
-        if line.startswith("MemAvailable:"):
-            return int(line.split()[1]) >> 10
-    return 0
 
 
 def alive(pid: int) -> bool:

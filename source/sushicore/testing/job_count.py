@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..build_gate import K_RESERVE_MB
+from ..memory_reading import K_RESERVE_MB
 
 #: The memory one running test is counted to hold, in megabytes.
 K_TEST_SHARE_MB = 1024
