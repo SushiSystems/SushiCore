@@ -131,12 +131,13 @@ class MemoryCMakeDriver:
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
                   config: str | None = None, output_junit: Path | None = None,
-                  shuffle_seed: int | None = None) -> int:
+                  shuffle_seed: int | None = None, gtest_filter: str | None = None) -> int:
         """Records the test run and returns the scripted code."""
         return self._answer("ctest_run", build_dir=build_dir, env=env, label_regex=label_regex,
                             exclude_label_regex=exclude_label_regex, filter=filter,
                             repeat=repeat, jobs=jobs, config=config,
-                            output_junit=output_junit, shuffle_seed=shuffle_seed)
+                            output_junit=output_junit, shuffle_seed=shuffle_seed,
+                            gtest_filter=gtest_filter)
 
     def clean_tree(self, build_dir: Path) -> bool:
         """Drops the tree at *build_dir*, says so, and returns True."""

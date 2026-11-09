@@ -12,6 +12,7 @@ import pytest
 from sushicore.console_memory import RecordingConsole
 from sushicore.files_memory import MemoryFiles
 from sushicore.proc_memory import RecordingRunner
+from sushicore.memory_reading import K_RESERVE_MB
 from sushicore.profile import ModuleProfile
 from sushicore.testing.labels import TestLabel, select_labels
 from sushicore.testing.module_tests import ModuleTests, SanitizedTests
@@ -28,10 +29,16 @@ pytestmark = pytest.mark.small
 class _Module:
     """Builds a ModuleTests over an in-memory repository and records what it is asked to run."""
 
-    def __init__(self, ctest_code=0, writes_junit=True, reader_code=0, trees=(K_BUILD,)):
+    def __init__(self, ctest_code=0, writes_junit=True, reader_code=0, trees=(K_BUILD,), junit_text="<testsuite/>",
+                 extra_files=None, written_by_ctest=None):
         self.console = RecordingConsole()
         self.runner = RecordingRunner(self.console).script(exit_code=reader_code)
         self.files = MemoryFiles({tree / "CTestTestfile.cmake": "" for tree in trees})
+        self.files.files.update(extra_files or {})
+        self.junit_text = junit_text
+        self.written_by_ctest = written_by_ctest or {}
+        self.seen_in_results = []
+        self.programs = []
         self.ctest_calls = []
         self.ctest_trees = []
         self.ctest_code = ctest_code
@@ -57,9 +64,16 @@ class _Module:
     def _ctest(self, tree, **keywords):
         self.ctest_trees.append(tree)
         self.ctest_calls.append(keywords)
-        if self.writes_junit:
-            self.files.write_text(keywords["output_junit"], "<testsuite/>")
+        self.seen_in_results.append(self.files.children(K_BUILD / "test_results" / "gtest"))
+        if len(self.ctest_calls) == 1:
+            self.files.files.update(self.written_by_ctest)
+        if self.writes_junit and len(self.ctest_calls) == 1:
+            self.files.write_text(keywords["output_junit"], self.junit_text)
         return self.ctest_code
+
+    def program(self, name, arguments):
+        self.programs.append((name, arguments))
+        return 0
 
 
 def test_an_unfiltered_large_run_is_refused_before_anything_runs():
@@ -241,3 +255,101 @@ def test_a_ctest_call_without_the_shuffle_keyword_still_runs_and_the_run_says_so
     tests = replace(module.tests(), run_ctest=old_ctest)
     assert module.run(tests, select_labels(None), name_filter="Rect") == 0
     assert seen == ["Rect"] and len(module.console.texts("warn")) == 1
+
+
+K_GTEST_DIR = K_BUILD / "test_results" / "gtest"
+K_SHARD = "core.small_shard_0of1"
+K_SHARDED = {K_BUILD / "CTestTestfile.cmake": f'add_test([=[{K_SHARD}]=] "/repo/build/core")\n'}
+K_FAILED_SHARD_JUNIT = f'<testsuite><testcase name="{K_SHARD}" status="fail"><failure/></testcase></testsuite>'
+K_ONE_FAILING_CASE = (
+    '<testsuites><testsuite><testcase name="One" classname="Small_A"><failure/></testcase></testsuite></testsuites>')
+
+
+def test_a_run_clears_the_shard_results_of_the_run_before_it_and_gives_the_reader_the_folder_after():
+    stale = K_GTEST_DIR / "old.xml"
+    module = _Module(extra_files={stale: "<testsuites/>"})
+    module.carry_the_reader()
+    module.files.write_text(K_GTEST_DIR / "fresh.xml", "<testsuites/>")
+    module.run(module.tests(), select_labels(None))
+    assert module.seen_in_results == [[]]
+    assert "--cases" not in module.reader_argv()[0]
+
+
+def test_a_run_that_leaves_shard_results_gives_the_reader_their_folder():
+    module = _Module()
+    module.carry_the_reader()
+    original = module._ctest
+
+    def writing_ctest(tree, **keywords):
+        module.files.write_text(K_GTEST_DIR / "shard.xml", "<testsuites/>")
+        return original(tree, **keywords)
+
+    tests = replace(module.tests(), run_ctest=writing_ctest)
+    module.run(tests, select_labels(None))
+    argv = module.reader_argv()[0]
+    assert argv[argv.index("--cases") + 1] == str(K_GTEST_DIR)
+
+
+def test_a_failed_shard_is_rerun_by_filter_on_its_program_and_the_reader_gets_the_rerun_folder():
+    module = _Module(ctest_code=1, junit_text=K_FAILED_SHARD_JUNIT,
+                     extra_files=K_SHARDED,
+                     written_by_ctest={K_GTEST_DIR / f"{K_SHARD}.xml": K_ONE_FAILING_CASE})
+    module.carry_the_reader()
+    assert module.run(module.tests(run_program=module.program), select_labels(None)) == 1
+    assert module.programs[0][0] == "core" and module.programs[0][1][0] == "--gtest_filter=Small_A.One"
+    argv = module.reader_argv()[0]
+    assert argv[argv.index("--rerun") + 1] == str(K_BUILD / "test_results" / "rerun")
+
+
+def test_a_case_that_passes_alone_is_said_to_be_flaky_and_the_code_stays_ctests():
+    module = _Module(ctest_code=1, junit_text=K_FAILED_SHARD_JUNIT,
+                     extra_files=K_SHARDED,
+                     written_by_ctest={K_GTEST_DIR / f"{K_SHARD}.xml": K_ONE_FAILING_CASE})
+    assert module.run(module.tests(run_program=module.program), select_labels(None)) == 1
+    assert any("Flaky" in text and "Small_A.One" in text for text in module.console.texts("warn"))
+
+
+def test_a_failed_test_of_an_unsharded_build_is_rerun_by_its_ctest_name():
+    junit = '<testsuite><testcase name="Small_A.One" status="fail"><failure/></testcase></testsuite>'
+    module = _Module(ctest_code=1, junit_text=junit)
+    module.run(module.tests(run_program=module.program), select_labels(None))
+    assert module.programs == [] and module.ctest_calls[1]["filter"] == r"^(Small_A\.One)$"
+
+
+def test_a_passing_run_reruns_nothing():
+    module = _Module(junit_text=K_FAILED_SHARD_JUNIT, extra_files=K_SHARDED)
+    module.run(module.tests(run_program=module.program), select_labels(None))
+    assert len(module.ctest_calls) == 1 and module.programs == []
+
+
+def test_a_filter_over_a_sharded_build_reaches_every_shard_as_the_gtest_filter_and_not_as_a_name_pattern():
+    module = _Module(extra_files=K_SHARDED)
+    module.run(module.tests(), select_labels(None), name_filter="Small_A.*")
+    call = module.ctest_calls[0]
+    assert (call["gtest_filter"], call["filter"]) == ("Small_A.*", None)
+
+
+def test_a_filter_over_an_unsharded_build_stays_a_ctest_name_pattern():
+    module = _Module()
+    module.run(module.tests(), select_labels(None), name_filter="Rect")
+    call = module.ctest_calls[0]
+    assert (call["filter"], "gtest_filter" in call) == ("Rect", False)
+
+
+def test_a_sharded_build_whose_ctest_call_cannot_take_a_gtest_filter_keeps_the_name_pattern_and_says_so():
+    module = _Module(extra_files=K_SHARDED)
+    seen = []
+
+    def old_ctest(tree, label_regex, exclude_label_regex, filter, repeat, jobs, output_junit, shuffle_seed):
+        seen.append(filter)
+        return 0
+
+    module.run(replace(module.tests(), run_ctest=old_ctest), select_labels(None), name_filter="Rect")
+    assert seen == ["Rect"] and any("GoogleTest filter" in text for text in module.console.texts("warn"))
+
+
+def test_a_run_of_small_tests_alone_takes_every_core_where_medium_tests_would_not_fit():
+    module = _Module()
+    module.run(module.tests(), select_labels([TestLabel.SMALL]), free_memory=lambda: K_RESERVE_MB + 2 * 1024 + 10)
+    module.run(module.tests(), select_labels(None), free_memory=lambda: K_RESERVE_MB + 2 * 1024 + 10)
+    assert [call["jobs"] for call in module.ctest_calls] == [8, 2]

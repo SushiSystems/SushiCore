@@ -399,3 +399,11 @@ def test_ctest_run_leaves_the_environment_alone_without_a_shuffle_seed():
     driver, runner = _driver()
     driver.ctest_run(_cfg(), K_TREE, {"A": "1"})
     assert runner.commands[-1].env == {"A": "1"}
+
+
+@pytest.mark.small
+def test_ctest_run_hands_the_gtest_filter_to_the_tests_through_the_environment():
+    driver, runner = _driver()
+    driver.ctest_run(_cfg(), K_TREE, {"A": "1"}, gtest_filter="Small_A.*")
+    assert runner.commands[-1].env == {"A": "1", "GTEST_FILTER": "Small_A.*"}
+    assert "-R" not in runner.commands[-1].argv

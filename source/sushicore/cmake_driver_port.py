@@ -47,7 +47,7 @@ class CMakeDriverPort(Protocol):
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
                   config: str | None = None, output_junit: Path | None = None,
-                  shuffle_seed: int | None = None) -> int:
+                  shuffle_seed: int | None = None, gtest_filter: str | None = None) -> int:
         """Runs the tests of *build_dir* and returns ctest's exit code."""
 
     def clean_tree(self, build_dir: Path) -> bool:

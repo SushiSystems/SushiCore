@@ -16,9 +16,12 @@ from typing import Callable, Optional
 from ..memory_reading import free_memory_mb
 from ..files import DiskFiles, Files
 from .budget import print_budget, scope_of
-from .job_count import choose_jobs
+from .job_count import choose_jobs, share_of
 from .labels import LabelSelection, large_needs_a_filter
 from .module_tests import ModuleTests
+from .rerun import K_NOTHING_RERUN, FailedTestRerun, RerunOutcome
+from .result_files import ResultFileError, failed_tests
+from .shards import gtest_results_folder, registers_shards
 
 #: The exit code of a request the command could not act on, as for every shared command.
 K_EXIT_UNUSABLE = 2
@@ -50,9 +53,11 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     Args:
         module: What the module CLI hands the command.
         selection: The labels to run.
-        name_filter: A CTest ``-R`` pattern over ``Suite.Case`` names.
+        name_filter: A CTest ``-R`` pattern over ``Suite.Case`` names; over a build that registers its
+            cases in shards, a GoogleTest filter every shard receives as ``GTEST_FILTER``.
         repeat: Reruns each test up to this many times, stopping at its first failure.
-        jobs: How many tests run at once; one per core, lowered to fit the free memory, when None.
+        jobs: How many tests run at once; one per core, lowered to fit the free memory of the selected
+            sizes, when None.
         every_size: Whether the run was asked for every size, which allows the ``large`` tests unfiltered.
         sanitizer: Builds the tree of this sanitizer first and tests it, instead of the plain tree.
         own_tests: Runs the module's own pytest suite for *selection* instead of CTest.
@@ -62,6 +67,10 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         seed_source: Draws a seed between its two bounds when *seed* is None; ``random.randint`` when None.
         cpu_count: Reports the cores of the machine; ``os.cpu_count`` by default.
         free_memory: Reports the free physical memory in megabytes; the build gate's reader by default.
+
+    A failed test is rerun once, alone, before the budget line, and one that passes on the rerun is
+    reported flaky; the exit code stays CTest's. The per-case times of the shards, which a run over
+    sharded tests writes as GoogleTest XML, join the budget line.
 
     Returns:
         CTest's exit code, or 2 when the request cannot be acted on.
@@ -84,10 +93,13 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     junit = (tree / "Testing" / "junit.xml").resolve()
     files.write_text(junit, "")
     files.remove(junit)
+    results = gtest_results_folder(tree)
+    for stale in files.children(results):
+        files.remove(stale)
     console.info("Labels: " + ", ".join(
         [size.value for size in selection.sizes] + (["quarantined"] if selection.quarantined else [])))
     if jobs is None:
-        choice = choose_jobs(cpu_count(), free_memory())
+        choice = choose_jobs(cpu_count(), free_memory(), share_of(selection.sizes))
         console.info(choice.line())
         jobs = choice.jobs
     shuffle_seed = (seed if seed is not None else (seed_source or random.randint)(K_SEED_MIN, K_SEED_MAX)) if shuffle else None
@@ -95,8 +107,14 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         console.info(f"Shuffle seed: {shuffle_seed} (repeat with --seed {shuffle_seed})")
     keywords = dict(label_regex=selection.ctest_include(), exclude_label_regex=selection.ctest_exclude(),
                     filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit)
+    if name_filter and registers_shards(tree, files):
+        if _takes(module.run_ctest, "gtest_filter"):
+            keywords.update(filter=None, gtest_filter=name_filter)
+        else:
+            console.warn("This CLI's CTest call cannot take a GoogleTest filter, so --filter names CTest "
+                         "tests, and the tests are shards.")
     if shuffle_seed is not None:
-        if _takes_shuffle_seed(module.run_ctest):
+        if _takes(module.run_ctest, "shuffle_seed"):
             keywords["shuffle_seed"] = shuffle_seed
         else:
             console.warn("This CLI's CTest call cannot take a shuffle seed, so the tests run in their given order.")
@@ -104,20 +122,38 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     code = module.run_ctest(tree, **keywords)
     scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
     rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
-    print_budget(module, junit, scope, time.monotonic() - started, rebuilt, files=files)
+    outcome = _rerun_failures(module, tree, junit, files) if code != 0 else K_NOTHING_RERUN
+    print_budget(module, junit, scope, time.monotonic() - started, rebuilt, files=files,
+                 cases=results, rerun=outcome.results)
     if code != 0:
         console.error(f"Tests failed (exit {code}).")
     return code
 
 
-def _takes_shuffle_seed(run_ctest) -> bool:
-    """Returns whether the CTest call of a module accepts ``shuffle_seed``, by name or through ``**keywords``."""
+def _takes(run_ctest, keyword: str) -> bool:
+    """Returns whether the CTest call of a module accepts *keyword*, by name or through ``**keywords``."""
     try:
         parameters = inspect.signature(run_ctest).parameters.values()
     except (TypeError, ValueError):
         return False
-    return any(parameter.name == "shuffle_seed" or parameter.kind is inspect.Parameter.VAR_KEYWORD
+    return any(parameter.name == keyword or parameter.kind is inspect.Parameter.VAR_KEYWORD
                for parameter in parameters)
+
+
+def _rerun_failures(module: ModuleTests, tree: Path, junit: Path, files: Files) -> RerunOutcome:
+    """Rerun the tests that failed in the run whose JUnit file is *junit*, and say what came of it."""
+    console = module.console()
+    try:
+        failed = failed_tests(files.read_text(junit)) if files.is_file(junit) else ()
+    except ResultFileError as error:
+        console.warn(f"The failed tests are not rerun: {error}.")
+        return K_NOTHING_RERUN
+    outcome = FailedTestRerun(module, tree, files).rerun(failed)
+    if outcome.flaky:
+        console.warn("Flaky, failed in the run and passed alone: " + ", ".join(outcome.flaky))
+    if outcome.failing:
+        console.warn("Failed again alone: " + ", ".join(outcome.failing))
+    return outcome
 
 
 def _refuse(module: ModuleTests, message: str) -> _Stop:

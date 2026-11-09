@@ -165,7 +165,7 @@ class CMakeDriver:
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
                   config: str | None = None, output_junit: Path | None = None,
-                  shuffle_seed: int | None = None) -> int:
+                  shuffle_seed: int | None = None, gtest_filter: str | None = None) -> int:
         """Run ctest over *build_dir*, draining its output.
 
         @param exclude_label_regex A ctest -LE pattern; the tests whose labels match it are left
@@ -183,6 +183,10 @@ class CMakeDriver:
         @param shuffle_seed When set, the gtest programs run their tests in a random order with this
             seed: ctest hands its environment to each test, so GTEST_SHUFFLE and GTEST_RANDOM_SEED
             stand for --gtest_shuffle and --gtest_random_seed, which ctest cannot pass on.
+        @param gtest_filter When set, GTEST_FILTER stands for --gtest_filter in the environment of
+            every test, as ctest hands it on: a build that registers its cases in shards has no
+            ``Suite.Case`` CTest name for ``filter`` to match. A test whose command line names its
+            own ``--gtest_filter`` keeps that one, which gtest ranks above the variable.
         """
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
         if label_regex:
@@ -201,9 +205,13 @@ class CMakeDriver:
             cmd += ["-C", config]
         if output_junit:
             cmd += ["--output-junit", str(output_junit)]
+        handed_on: dict[str, str] = {}
         if shuffle_seed is not None:
-            env = {**(os.environ if env is None else env),
-                   "GTEST_SHUFFLE": "1", "GTEST_RANDOM_SEED": str(shuffle_seed)}
+            handed_on.update(GTEST_SHUFFLE="1", GTEST_RANDOM_SEED=str(shuffle_seed))
+        if gtest_filter:
+            handed_on["GTEST_FILTER"] = gtest_filter
+        if handed_on:
+            env = {**(os.environ if env is None else env), **handed_on}
         return self._runner.run_drained(cmd, build_dir, env)
 
     def clean_tree(self, build_dir: Path) -> bool:

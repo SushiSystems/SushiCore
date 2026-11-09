@@ -43,7 +43,8 @@ def scope_of(selection: LabelSelection, *, filtered: bool, every_size: bool, rep
 
 
 def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
-                   rebuilt: bool = True, *, files: Files | None = None) -> Optional[list[str]]:
+                   rebuilt: bool = True, *, files: Files | None = None,
+                   cases: Path | None = None, rerun: Path | None = None) -> Optional[list[str]]:
     """Returns the command that prints the budget line of a run, or None when the root carries no reader.
 
     Args:
@@ -53,6 +54,8 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
         wall_seconds: The wall time of the whole run.
         rebuilt: Whether the run rebuilt its tree first; a run that did not is marked "(not rebuilt)" and never gates.
         files: The file system the reader and the exemption file are looked for in; the disk when None.
+        cases: The folder of the GoogleTest XML files the shards wrote; the reader adds their per-case times.
+        rerun: The JUnit file, or the folder of GoogleTest XML files, the failed tests were rerun alone into.
     """
     files = files if files is not None else DiskFiles()
     reader = root / K_READER
@@ -62,22 +65,29 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
                "--wall", f"{wall_seconds:.1f}", "--root", str(root)]
     if not rebuilt:
         command.append("--not-rebuilt")
+    if cases is not None:
+        command += ["--cases", str(cases)]
+    if rerun is not None:
+        command += ["--rerun", str(rerun)]
     if files.is_file(root / K_EXEMPTIONS):
         command += ["--exemptions", str(root / K_EXEMPTIONS)]
     return command
 
 
 def print_budget(module: ModuleTests, junit: Path, scope: str, wall_seconds: float,
-                 rebuilt: bool = True, *, files: Files | None = None) -> None:
+                 rebuilt: bool = True, *, files: Files | None = None,
+                 cases: Path | None = None, rerun: Path | None = None) -> None:
     """Print the budget line of a run through the module's runner.
 
     Nothing is printed when the repository carries no reader. A run that wrote no JUnit file, and a reader
     that fails, are said in a warning and change nothing else. *files* is the file system the reader, the exemption
-    file and the JUnit file are looked for in; the disk when None.
+    file and the JUnit file are looked for in; the disk when None. *cases* is passed to the reader when
+    that folder exists, and *rerun* as given.
     """
     files = files if files is not None else DiskFiles()
     root = module.project_root()
-    command = reader_command(root, junit, scope, wall_seconds, rebuilt, files=files)
+    present = cases if cases is not None and files.is_dir(cases) else None
+    command = reader_command(root, junit, scope, wall_seconds, rebuilt, files=files, cases=present, rerun=rerun)
     if command is None:
         return
     console = module.console()
