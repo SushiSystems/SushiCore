@@ -29,6 +29,7 @@ def _probes(**overrides) -> PlanProbes:
         is_dir=lambda path: path == K_OLD,
         present=lambda path: False,
         resolve=lambda path: path,
+        absolute=lambda path: path,
         subfolders=lambda path: [K_OLD / name for name in K_COMPONENTS],
         file_sizes=lambda path: {"file": K_COMPONENTS[path.name]},
         free_bytes=lambda path: 1000,

@@ -391,7 +391,7 @@ def test_setup_fetches_a_pinned_module_and_reads_its_fragment(
         tmp_path, recording_console, provision_home):
     """Check that setup clones a pinned module with no sibling and reports it fetched."""
     _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
-    git = InMemoryGitClient(default_head=K_COMMIT, materialize=_declare_gtest)
+    git = InMemoryGitClient(commit=K_COMMIT, materialize=_declare_gtest)
     app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path),
                git=lambda: git, managers=lambda cfg: [InMemoryLinuxPackageManager()])
 
@@ -405,7 +405,7 @@ def test_setup_fetches_a_pinned_module_and_reads_its_fragment(
 def test_setup_reads_the_fragment_of_a_fetched_module(tmp_path, recording_console, provision_home):
     """Check that the components of a fetched module's fragment join the setup table."""
     _depending_fragment(tmp_path / "dsp", ["sushiruntime"])
-    git = InMemoryGitClient(default_head=K_COMMIT, materialize=_declare_gtest)
+    git = InMemoryGitClient(commit=K_COMMIT, materialize=_declare_gtest)
     app = _app(tmp_path, recording_console, locate=_sibling_locator(tmp_path), git=lambda: git,
                managers=lambda cfg: [InMemoryLinuxPackageManager()])
 

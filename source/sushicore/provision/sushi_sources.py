@@ -55,13 +55,13 @@ def resolve(root: Path, name: str, version: str = "", configured: str = "") -> R
         root: The checkout of the module that links *name*.
         name: The library's lower-case name, such as ``sushilog``.
         version: The pinned release tag; without one the fetched copy is not looked for.
-        configured: ``<NAME>_DIR`` from the config; the environment is read when it is empty.
+        configured: ``<NAME>_DIR`` from the config; it is tried before the environment variable.
     """
-    explicit = configured or os.environ.get(directory_variable(name), "")
     candidates: list[tuple[Path, SourceKind]] = []
-    if explicit:
-        expanded = os.path.expandvars(os.path.expanduser(explicit))
-        candidates.append((Path(expanded).resolve(), SourceKind.DIRECTORY))
+    for explicit in (configured, os.environ.get(directory_variable(name), "")):
+        if explicit:
+            expanded = os.path.expandvars(os.path.expanduser(explicit))
+            candidates.append((Path(expanded).resolve(), SourceKind.DIRECTORY))
     candidates.append((sibling_dir(root, name), SourceKind.SIBLING))
     if version:
         candidates.append((fetched_dir(name, version), SourceKind.FETCHED))

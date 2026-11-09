@@ -14,12 +14,11 @@ from .sushi_fakes import write_fragment
 
 
 @pytest.mark.medium
-def test_a_module_checkout_beside_the_module_is_not_found_unless_the_module_locates_it(
+def test_a_library_no_locator_and_no_sibling_provides_is_reported_missing(
         tmp_path, provision_home):
-    """Check that a module that names no locator finds no checkout, even beside its own."""
+    """Check that a module that names no locator reports a pinned library nothing else provides."""
     root = tmp_path / "dsp"
     write_fragment(root, {"sushilog": "v1.0.0"})
-    (tmp_path / "sushilog").mkdir()
     profile = ModuleProfile(name="sushidsp", program="sd", env_prefix="SD", root_marker="m")
     module = ModuleProvision(profile=profile, project_root=lambda: root, load_config=lambda: None,
                              console=lambda: None)

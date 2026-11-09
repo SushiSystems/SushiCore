@@ -66,6 +66,7 @@ class PlanProbes:
         is_dir: Reports whether a path is a directory.
         present: Reports whether a path exists, a link with a missing target included.
         resolve: Gives a path with its links followed.
+        absolute: Gives a path anchored to the working directory, links left alone.
         subfolders: Lists the folders directly below a path.
         file_sizes: Gives the size of every file under a folder by relative path.
         free_bytes: Gives the free space on the volume holding a path.
@@ -78,6 +79,7 @@ class PlanProbes:
     is_dir: Callable[[Path], bool] = lambda path: path.is_dir()
     present: Callable[[Path], bool] = lambda path: is_present(path)
     resolve: Callable[[Path], Path] = lambda path: path.resolve()
+    absolute: Callable[[Path], Path] = lambda path: absolute(path)
     subfolders: Callable[[Path], list[Path]] = lambda path: sorted(
         p for p in path.iterdir() if p.is_dir())
     file_sizes: Callable[[Path], dict[str, int]] = lambda path: file_sizes(path)
@@ -99,7 +101,7 @@ def plan(old_root: Path, new_root: Path, probes: PlanProbes | None = None) -> Mi
             inside the other, or the new root already holds a component's name.
     """
     probes = probes or PlanProbes()
-    old_root, new_root = absolute(old_root), absolute(new_root)
+    old_root, new_root = probes.absolute(old_root), probes.absolute(new_root)
     journal = MigrationJournal(new_root)
     moves: tuple[Move, ...] = ()
     if not links_to(old_root, new_root, probes):

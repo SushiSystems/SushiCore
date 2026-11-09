@@ -18,4 +18,3 @@
 
 | ID | Origin | Symptom | Workaround | Fix | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- |
-| KI-27 | own | 11 provision tests fail on Windows; 7 test_plan_* take in-memory roots as drive paths | none | none, found while splitting migrate; cause not yet traced for the other 4 | `tests/provision/test_migration_plan.py` | 2026-11-10 |
