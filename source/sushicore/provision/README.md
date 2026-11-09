@@ -45,6 +45,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sushi_setup.py` | The locate fallback, and the pin check, fetch and recheck `setup` runs before the closure |
 | `module_checks.py` | Assembles the rows `doctor` runs for a source checkout |
 | `commands.py` | `register_provision_commands`: declares the options of the four commands and ends each with one `result` event; re-exports `ModuleProvision` |
+| `machine_seams.py` | `MachineSeams`: the package manager, stock check and toolchain builders a module replaces, as one value |
 | `module_provision.py` | `ModuleProvision`: what one module CLI hands the shared commands, its config folder among it |
 | `module_manifest.py` | The dependency fragment a module declares in its manifest, with the default when it declares none |
 | `module_plan.py` | The package managers, the fragment closure and the dependency source of a module |
@@ -77,7 +78,7 @@ module = ModuleProvision(
 register_provision_commands(app, module)
 ```
 
-`ModuleProvision` takes seven optional fields beside the four above:
+`ModuleProvision` takes eight optional fields beside the four above:
 
 | Field | Meaning |
 | --- | --- |
@@ -88,6 +89,7 @@ register_provision_commands(app, module)
 | `uses_base` | Adds the shared base fragment (gtest, opencl, pkgconf) before the module's own. |
 | `panel` | The help panel the commands are listed under. |
 | `is_binary` | Reports a binary install, which gets `doctor` alone. |
+| `seams` | A `MachineSeams`: the `managers`, `base_checks` and `toolchains` builders that replace the real machine reads, passed once. |
 
 Each command binds the module's console through `bind_console` when it runs.
 

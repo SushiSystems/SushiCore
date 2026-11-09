@@ -20,6 +20,7 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.doctor import CheckResult, FunctionCheck, State
 from sushicore.provision.git_client_memory import InMemoryGitClient
 from sushicore.provision.lock import ProvisionLock
+from sushicore.provision.machine_seams import MachineSeams
 from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
 from sushicore.provision.steps import MachineActions
 from sushicore.workspace import read_link, registered_modules, write_module
@@ -96,9 +97,10 @@ def _app(tmp_path, console, *, name="sushidsp", **overrides):
         """Test app."""
 
     overrides.setdefault("git", _offline_git)
-    overrides.setdefault("managers", lambda cfg: [])
-    overrides.setdefault("base_checks", lambda cfg, fix: [])
-    overrides.setdefault("toolchains", _no_toolchains)
+    overrides["seams"] = MachineSeams(
+        managers=overrides.pop("managers", lambda cfg: []),
+        base_checks=overrides.pop("base_checks", lambda cfg, fix: []),
+        toolchains=overrides.pop("toolchains", _no_toolchains))
     overrides.setdefault("actions", _machine())
     register_provision_commands(app, ModuleProvision(
         profile=_profile(name), project_root=lambda: tmp_path / "dsp",

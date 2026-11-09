@@ -11,6 +11,7 @@ from sushicore.profile import ModuleProfile
 from sushicore.provision import setup_command
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.git_client_memory import InMemoryGitClient
+from sushicore.provision.machine_seams import MachineSeams
 from sushicore.provision.module_provision import ModuleProvision
 
 
@@ -31,7 +32,7 @@ def test_an_unknown_toolchain_stops_setup_with_the_usage_code(tmp_path, provisio
     module = ModuleProvision(profile=profile, project_root=lambda: tmp_path,
                              load_config=lambda: ProvisionSettings(platform="linux"),
                              console=lambda: console, git=_offline_git,
-                             toolchains=lambda cfg, gpu: [])
+                             seams=MachineSeams(toolchains=lambda cfg, gpu: []))
     outcome = setup_command.run_setup(module, dry_run=True, yes=False, toolchains=["nonesuch"], gpu=False)
     assert (outcome.ok, outcome.code) == (False, 2)
     assert [name for name, _ in console.calls if name == "error"]

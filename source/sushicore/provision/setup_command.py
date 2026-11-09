@@ -30,7 +30,7 @@ K_LOCK_TIMEOUT = 600.0
 
 def _detect_options(module: ModuleProvision) -> dict:
     """Return the keyword arguments of the detect step that *module* replaces."""
-    return {"toolchain_status": module.toolchains} if module.toolchains else {}
+    return {"toolchain_status": module.seams.toolchains} if module.seams.toolchains else {}
 
 
 def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,

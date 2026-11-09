@@ -40,12 +40,12 @@ def managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
 
 def managers_of(module: ModuleProvision, cfg: ProvisionConfig) -> list[IPackageManager]:
     """Returns the package managers of *module*: the ones it names, else the platform's."""
-    return (module.managers or managers_for)(cfg)
+    return (module.seams.managers or managers_for)(cfg)
 
 
 def presence_of(module: ModuleProvision, cfg: ProvisionConfig) -> dict[str, bool]:
     """Returns each SYCL toolchain mapped to whether *module*'s machine has it."""
-    read = module.toolchains or probe.toolchain_status
+    read = module.seams.toolchains or probe.toolchain_status
     return {name: present for name, present, _detail in read(cfg, False)}
 
 

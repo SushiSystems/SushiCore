@@ -49,6 +49,6 @@ def run_doctor(module: ModuleProvision, groups: Optional[set[str]],
     state = ModuleState(cfg=cfg, root=root, owner=module.profile.key,
                         program=module.profile.program, own=own,
                         source=module_plan.source_for(module, root, found), missing=found.missing)
-    checks = doctor_checks(state, managers, module.git(), module.base_checks,
+    checks = doctor_checks(state, managers, module.git(), module.seams.base_checks,
                            module_plan.presence_of(module, cfg)) + module.extra_checks()
     return _report(checks, groups, console)

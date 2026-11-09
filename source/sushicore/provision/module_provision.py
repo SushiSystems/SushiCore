@@ -15,9 +15,9 @@ from .closure import Locate
 from .config import ProvisionConfig
 from .doctor import Check
 from .git_client import GitClient, IGitClient
+from .machine_seams import MachineSeams
 
 if TYPE_CHECKING:
-    from .packages import IPackageManager
     from .steps import MachineActions
 
 
@@ -42,12 +42,8 @@ class ModuleProvision:
             workspace link.
         groups: Check groups beyond the stock ones that this module's extra checks belong to; they
             join the groups ``doctor --for`` accepts and lists.
-        managers: Builds the package managers a configuration provisions through; None builds the
-            platform's own.
-        base_checks: Builds the stock checks ``doctor`` opens with from a configuration and the
-            fix text; None uses the standard ones.
-        toolchains: Reads ``(name, present, detail)`` for each SYCL toolchain off the machine for a
-            configuration and the GPU flag; None probes the machine.
+        seams: The package managers, the stock checks and the toolchain read, passed once; the
+            real ones when left at the default.
         actions: The calls the setup steps make that reach the machine; None makes the real ones.
         register: Records the module in a workspace as ``(workspace, key, root)``; None writes the
             workspace's registry file.
@@ -68,9 +64,7 @@ class ModuleProvision:
     git: Callable[[], IGitClient] = GitClient
     config_dir: str = "cli"
     groups: tuple[str, ...] = ()
-    managers: Optional[Callable[[ProvisionConfig], "list[IPackageManager]"]] = None
-    base_checks: Optional[Callable[[ProvisionConfig, str], list[Check]]] = None
-    toolchains: Optional[Callable[[ProvisionConfig, bool], list[tuple[str, bool, str]]]] = None
+    seams: MachineSeams = MachineSeams()
     actions: Optional["MachineActions"] = None
     lock_timeout: Optional[float] = None
     register: Optional[Callable[[Path, str, Path], None]] = None
