@@ -199,14 +199,27 @@ def _typer_leaf():
     return build_model(grow, grow.make_context("grow", [], parent=ctx, resilient_parsing=True))
 
 
+def _typer_record_line(name: str) -> str:
+    """Return the page line for the parameter *name* of ``grow``, as the record Typer hands out."""
+    command, ctx = _typer_root()
+    grow = command.get_command(ctx, "grow")
+    leaf_ctx = grow.make_context("grow", [], parent=ctx, resilient_parsing=True)
+    param = next(p for p in grow.get_params(leaf_ctx) if p.name == name)
+    term, text = param.get_help_record(leaf_ctx)
+    # Older Typer escapes the brackets of its markers for Rich; the page shows them plain.
+    return f"{term}  {text}".lower().replace("\\[", "[")
+
+
 def test_a_typer_leaf_shows_the_argument_and_option_records_typer_hands_out():
     lines = [line.strip().lower() for line in capture(HelpPage(_typer_leaf()), width=100).splitlines()]
-    assert "module  the module.  [required]" in lines
-    assert "--kind text  kind [x].  [default: a]" in lines
+    assert _typer_record_line("module") in lines
+    assert _typer_record_line("kind") in lines
 
 
 def test_a_typer_leaf_usage_begins_with_the_command_path_and_names_the_argument():
-    assert _typer_leaf().usage.lower() == "tool grow [options] module"
+    """The usage line names the argument, however the Typer release wraps it in braces."""
+    usage = _typer_leaf().usage.lower().replace("{", "").replace("}", "")
+    assert usage == "tool grow [options] module"
 
 
 def test_a_plain_click_option_has_its_default_marker_escaped():

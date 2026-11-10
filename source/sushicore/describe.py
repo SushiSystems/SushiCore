@@ -14,6 +14,7 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Sequence
 
+from sushicore.param_type import choices, type_name
 from sushicore.plain_text import plain_text
 
 
@@ -24,8 +25,6 @@ if TYPE_CHECKING:
 K_CONTRACT_VERSION = "1"
 K_UNKNOWN_VERSION = "0"
 K_CLICK_PARAMETERS = frozenset({"help"})
-K_TYPE_NAMES = {"choice": "choice", "path": "path", "boolean": "boolean",
-                "integer": "integer", "float": "number"}
 
 
 def _first_paragraph(help_text: str | None) -> str:
@@ -36,17 +35,6 @@ def _first_paragraph(help_text: str | None) -> str:
             break
         lines.append(line.strip())
     return plain_text(" ".join(lines))
-
-
-def _type_name(param_type: "click.ParamType") -> str:
-    """Names a parameter type as one of the six names the contract allows, by its own name."""
-    return K_TYPE_NAMES.get(str(getattr(param_type, "name", "")).lower(), "string")
-
-
-def _choices(param_type: "click.ParamType") -> list[str] | None:
-    """Returns a choice type's values as strings, or None for every other type."""
-    choices = getattr(param_type, "choices", None)
-    return None if choices is None else [str(choice) for choice in choices]
 
 
 def _default(param: "click.Parameter"):
@@ -67,11 +55,11 @@ def _param(param: "click.Parameter") -> dict:
     return {
         "name": param.name,
         "kind": "argument" if argument else "option",
-        "type": _type_name(param.type),
+        "type": type_name(param),
         "multiple": bool(param.multiple or param.nargs == -1),
         "required": bool(param.required),
         "default": _default(param),
-        "choices": _choices(param.type),
+        "choices": choices(param),
         "flags": [] if argument else list(param.opts),
         "help": plain_text(getattr(param, "help", "") or ""),
     }
