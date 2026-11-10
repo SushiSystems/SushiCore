@@ -44,3 +44,11 @@ def test_a_multi_config_file_gives_each_indented_shard_once():
             + 'endif()\n')
     found = shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": text}))
     assert [shard.name for shard in found] == ["core.small_shard_1of2"]
+
+
+def test_a_shard_that_declares_resource_groups_needs_an_accelerator():
+    text = K_FILE.replace('TIMEOUT "1260"', 'TIMEOUT "1260" RESOURCE_GROUPS "gpus:1"')
+    found = shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": text}))
+    assert [shard.needs_accelerator for shard in found] == [True]
+    plain = shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": K_FILE}))
+    assert [shard.needs_accelerator for shard in plain] == [False]

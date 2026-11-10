@@ -407,3 +407,39 @@ def test_ctest_run_hands_the_gtest_filter_to_the_tests_through_the_environment()
     driver.ctest_run(_cfg(), K_TREE, {"A": "1"}, gtest_filter="Small_A.*")
     assert runner.commands[-1].env == {"A": "1", "GTEST_FILTER": "Small_A.*"}
     assert "-R" not in runner.commands[-1].argv
+
+
+@pytest.mark.small
+def test_ctest_run_hands_on_the_resource_file_when_asked():
+    driver, runner = _driver()
+    spec = K_TREE / "Testing" / "resources.json"
+    driver.ctest_run(_cfg(), K_TREE, None, resource_spec_file=spec)
+    assert _calls(runner)[0][1][-2:] == ["--resource-spec-file", str(spec)]
+
+
+def _ninja_tree(folder: Path, generator: str = "Ninja") -> Path:
+    (folder / "CMakeCache.txt").write_text(f"CMAKE_GENERATOR:INTERNAL={generator}\n", encoding="utf-8")
+    return folder
+
+
+@pytest.mark.medium
+def test_a_ninja_tree_with_no_work_left_is_current(tmp_path):
+    driver, runner = _driver()
+    runner.script(lines=("ninja: no work to do.",))
+    assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path)) is True
+    assert list(runner.commands[0].argv) == ["cmake", "--build", str(tmp_path), "--", "-n"]
+
+
+@pytest.mark.medium
+def test_a_ninja_tree_with_work_left_or_a_failed_dry_run_is_not_current(tmp_path):
+    driver, runner = _driver()
+    runner.script(lines=("[1/2] Building CXX object a.o",)).script(exit_code=1, lines=("ninja: no work to do.",))
+    tree = _ninja_tree(tmp_path)
+    assert (driver.tree_is_current(_cfg(), tree), driver.tree_is_current(_cfg(), tree)) == (False, False)
+
+
+@pytest.mark.medium
+def test_a_tree_of_another_generator_is_not_current_and_runs_nothing(tmp_path):
+    driver, runner = _driver()
+    assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path, "Unix Makefiles")) is False
+    assert runner.commands == []

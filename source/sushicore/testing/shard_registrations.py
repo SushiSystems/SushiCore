@@ -40,6 +40,8 @@ class ShardRegistration:
         environment: The shard variables, ``GTEST_TOTAL_SHARDS`` and ``GTEST_SHARD_INDEX``.
         labels: The CTest labels, the size and possibly ``quarantined``.
         timeout: The CTest timeout in seconds, or None when the shard has none.
+        needs_accelerator: Whether the shard declares ``RESOURCE_GROUPS``, which it does when it runs on a
+            real accelerator, so that no two such shards run at once on one.
     """
 
     name: str
@@ -49,6 +51,7 @@ class ShardRegistration:
     environment: dict[str, str]
     labels: tuple[str, ...]
     timeout: float | None
+    needs_accelerator: bool = False
 
 
 def shard_registrations(tree: Path, files: Files) -> list[ShardRegistration]:
@@ -86,4 +89,4 @@ def _shard(name: str, command: list[str], properties: dict[str, str]) -> ShardRe
         name=name, program=name.rpartition(".")[0], size_filter=filters[0],
         arguments=tuple(word for word in command[1:] if not word.startswith((_K_FILTER, _K_OUTPUT))),
         environment=environment, labels=tuple(label for label in properties.get("LABELS", "").split(";") if label),
-        timeout=float(timeout) if timeout else None)
+        timeout=float(timeout) if timeout else None, needs_accelerator=bool(properties.get("RESOURCE_GROUPS")))

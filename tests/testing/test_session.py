@@ -2,8 +2,9 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests running the tests of a tree and printing the budget line of the run."""
+"""Tests running the tests of a tree and judging the run by its time limits."""
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from sushicore.files_memory import MemoryFiles
 from sushicore.proc_memory import RecordingRunner
 from sushicore.memory_reading import K_RESERVE_MB
 from sushicore.profile import ModuleProfile
+from sushicore.testing.budget import K_UNUSABLE_TEXT
 from sushicore.testing.labels import TestLabel, select_labels
 from sushicore.testing.module_tests import ModuleTests, SanitizedTests
 from sushicore.testing.session import run_tests
@@ -143,11 +145,35 @@ def test_a_run_that_wrote_no_junit_file_skips_the_line_and_says_so():
     assert module.reader_argv() == [] and len(module.console.texts("warn")) == 1
 
 
-def test_a_failing_reader_is_said_in_a_warning_and_leaves_the_code():
-    module = _Module(reader_code=1)
+def test_a_reader_that_cannot_judge_a_passing_run_fails_it_and_says_so():
+    module = _Module(reader_code=2)
     module.carry_the_reader()
-    assert module.run(module.tests(), select_labels(None)) == 0
-    assert module.console.texts("warn") == ["The budget reader failed; the run's own result is unchanged."]
+    assert module.run(module.tests(), select_labels(None)) == 2
+    assert module.console.texts("error") == [K_UNUSABLE_TEXT]
+
+
+def test_a_passing_run_that_breaks_a_time_limit_fails_with_the_gate_code():
+    module = _Module()
+    module.runner.script(exit_code=1)
+    module.carry_the_reader()
+    assert module.run(module.tests(), select_labels(None)) == 1
+    assert "--gate" in module.reader_argv()[1]
+    assert module.console.texts("error") == ["The run broke a time limit."]
+
+
+def test_a_failing_run_keeps_its_ctest_code_whatever_the_gate_says():
+    module = _Module(ctest_code=8)
+    module.runner.script(exit_code=1)
+    module.carry_the_reader()
+    assert module.run(module.tests(), select_labels(None)) == 8
+
+
+def test_a_run_hands_ctest_a_resource_file_with_one_accelerator_slot():
+    module = _Module()
+    module.run(module.tests(), select_labels(None))
+    spec = module.ctest_calls[0]["resource_spec_file"]
+    assert spec == K_BUILD / "Testing" / "resources.json"
+    assert json.loads(module.files.read_text(spec))["local"] == [{"gpus": [{"id": "0", "slots": 1}]}]
 
 
 def test_a_sanitizer_is_built_and_its_tree_is_the_one_tested():
@@ -254,7 +280,11 @@ def test_a_ctest_call_without_the_shuffle_keyword_still_runs_and_the_run_says_so
 
     tests = replace(module.tests(), run_ctest=old_ctest)
     assert module.run(tests, select_labels(None), name_filter="Rect") == 0
-    assert seen == ["Rect"] and len(module.console.texts("warn")) == 1
+    assert seen == ["Rect"]
+    assert [text for text in module.console.texts("warn") if "shuffle" in text] == [
+        "This CLI's CTest call cannot take a shuffle seed, so the tests run in their given order."]
+    assert [text for text in module.console.texts("warn") if "resource" in text] == [
+        "This CLI's CTest call cannot take a resource file, so device shards may share a device."]
 
 
 K_GTEST_DIR = K_BUILD / "test_results" / "gtest"

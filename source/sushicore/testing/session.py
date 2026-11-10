@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Runs the tests of a module's build tree and prints the budget line of the run."""
+"""Runs the tests of a module's build tree and judges the run by its time limits."""
 
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ from typing import Callable, Optional
 
 from ..memory_reading import free_memory_mb
 from ..files import DiskFiles, Files
-from .budget import print_budget, scope_of
+from .accelerator_slots import write_resource_spec
+from .budget import judge_run, scope_of
 from .filtered_run import run_filtered_shards
 from .job_count import choose_jobs, share_of
 from .labels import LabelSelection, large_needs_a_filter
@@ -47,9 +48,12 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               files: Files | None = None, seed_source: Callable[[int, int], int] | None = None,
               cpu_count: Callable[[], int | None] = os.cpu_count,
               free_memory: Callable[[], int] = free_memory_mb) -> int:
-    """Run the tests *selection* names over the module's tree, then print the budget line.
+    """Run the tests *selection* names over the module's tree, then judge the run by its time limits.
 
-    The budget line is a report: it never changes the exit code, which is CTest's.
+    The exit code is CTest's when the tests failed. When they passed, a run of a current tree that
+    breaks a time limit fails with the budget reader's code; a tree that was not current is only reported.
+    CTest gets a resource file with one slot per accelerator, so the shards that declare
+    ``RESOURCE_GROUPS`` never share one.
 
     Args:
         module: What the module CLI hands the command.
@@ -76,7 +80,8 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     sharded tests writes as GoogleTest XML, join the budget line.
 
     Returns:
-        CTest's exit code, or 2 when the request cannot be acted on.
+        CTest's exit code when it is not 0, else the budget's: 1 for a broken time limit, 2 for a reader
+        that could not judge the run; 2 also when the request cannot be acted on.
     """
     files = files if files is not None else DiskFiles()
     console = module.console()
@@ -108,6 +113,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     shuffle_seed = (seed if seed is not None else (seed_source or random.randint)(K_SEED_MIN, K_SEED_MAX)) if shuffle else None
     if shuffle_seed is not None:
         console.info(f"Shuffle seed: {shuffle_seed} (repeat with --seed {shuffle_seed})")
+    rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
     started = time.monotonic()
     if name_filter and module.run_program is not None and registers_shards(tree, files):
         code = run_filtered_shards(module, tree, selection, name_filter, jobs=jobs, repeat=repeat,
@@ -115,13 +121,13 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     else:
         code = _run_ctest(module, tree, selection, name_filter, repeat, jobs, shuffle_seed, junit, files)
     scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
-    rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
     outcome = _rerun_failures(module, tree, junit, files) if code != 0 else K_NOTHING_RERUN
-    print_budget(module, junit, scope, time.monotonic() - started, rebuilt, files=files,
-                 cases=results, rerun=outcome.results)
+    budget = judge_run(module, tree, junit, scope, time.monotonic() - started, rebuilt, files=files,
+                       cases=results, rerun=outcome.results)
     if code != 0:
         console.error(f"Tests failed (exit {code}).")
-    return code
+        return code
+    return budget
 
 
 def _run_ctest(module: ModuleTests, tree: Path, selection: LabelSelection, name_filter: Optional[str],
@@ -136,6 +142,10 @@ def _run_ctest(module: ModuleTests, tree: Path, selection: LabelSelection, name_
         else:
             console.warn("This CLI's CTest call cannot take a GoogleTest filter, so --filter names CTest "
                          "tests, and the tests are shards.")
+    if _takes(module.run_ctest, "resource_spec_file"):
+        keywords["resource_spec_file"] = write_resource_spec(tree, files)
+    else:
+        console.warn("This CLI's CTest call cannot take a resource file, so device shards may share a device.")
     if shuffle_seed is not None:
         if _takes(module.run_ctest, "shuffle_seed"):
             keywords["shuffle_seed"] = shuffle_seed

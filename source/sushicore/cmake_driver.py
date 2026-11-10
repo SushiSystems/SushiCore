@@ -83,6 +83,18 @@ class CMakeDriver:
         """Whether a build tree is at *build_dir*."""
         return build_dir.is_dir()
 
+    def tree_is_current(self, cfg, build_dir: Path, env=None) -> bool:
+        """Whether the Ninja tree at *build_dir* has nothing left to build, by a dry run of its build.
+
+        A tree of another generator, or a dry run that fails, is not known to be current and reads as
+        not current, so the times of its tests are never taken for the code's.
+        """
+        if cached_value(build_dir, "CMAKE_GENERATOR") not in ("Ninja", "Ninja Multi-Config"):
+            return False
+        code, stdout, _ = self._runner.capture([self.cmake(cfg), "--build", str(build_dir), "--", "-n"],
+                                               build_dir, env)
+        return code == 0 and "no work to do" in stdout
+
     def cached_value(self, build_dir: Path, entry: str) -> str | None:
         """The value the tree's cache holds for *entry*; see :func:`sushicore.cmake_cache.cached_value`."""
         return cached_value(build_dir, entry)
@@ -165,7 +177,8 @@ class CMakeDriver:
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
                   config: str | None = None, output_junit: Path | None = None,
-                  shuffle_seed: int | None = None, gtest_filter: str | None = None) -> int:
+                  shuffle_seed: int | None = None, gtest_filter: str | None = None,
+                  resource_spec_file: Path | None = None) -> int:
         """Run ctest over *build_dir*, draining its output.
 
         @param exclude_label_regex A ctest -LE pattern; the tests whose labels match it are left
@@ -187,6 +200,8 @@ class CMakeDriver:
             every test, as ctest hands it on: a build that registers its cases in shards has no
             ``Suite.Case`` CTest name for ``filter`` to match. A test whose command line names its
             own ``--gtest_filter`` keeps that one, which gtest ranks above the variable.
+        @param resource_spec_file When set, passed as --resource-spec-file, so CTest hands each test
+            that declares RESOURCE_GROUPS a slot of the file's resources and never one slot to two tests.
         """
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
         if label_regex:
@@ -205,6 +220,8 @@ class CMakeDriver:
             cmd += ["-C", config]
         if output_junit:
             cmd += ["--output-junit", str(output_junit)]
+        if resource_spec_file:
+            cmd += ["--resource-spec-file", str(resource_spec_file)]
         handed_on: dict[str, str] = {}
         if shuffle_seed is not None:
             handed_on.update(GTEST_SHUFFLE="1", GTEST_RANDOM_SEED=str(shuffle_seed))

@@ -26,7 +26,9 @@ def run_filtered_shards(module: ModuleTests, tree: Path, selection: LabelSelecti
     shard's program is run here with the filter narrowed to the cases the shard's filter and
     *user_filter* both select. A shard that cannot hold such a case is not run. Each shard keeps its
     sharding variables and its timeout, writes its GoogleTest XML to the results folder, and its
-    exit code goes into the JUnit file *junit*.
+    exit code goes into the JUnit file *junit*. The shards that need an accelerator run one after
+    another in one worker, beside the others, so no two of them share it, as CTest's resource groups
+    would have it.
 
     Args:
         module: What the module CLI hands the command; its ``run_program`` must be set.
@@ -47,8 +49,18 @@ def run_filtered_shards(module: ModuleTests, tree: Path, selection: LabelSelecti
     console = module.console()
     if not runs:
         console.warn(f"No shard can hold a case that matches '{user_filter}'; nothing ran.")
+    accelerated = [run for run in runs if run[0].needs_accelerator]
+    alone = [run for run in runs if not run[0].needs_accelerator]
+
+    def run_in_turn(queue: list[tuple[ShardRegistration, str]]) -> list[int]:
+        return [_run_shard(module, tree, shard, narrowed, repeat, shuffle_seed) for shard, narrowed in queue]
+
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
-        codes = list(pool.map(lambda run: _run_shard(module, tree, run[0], run[1], repeat, shuffle_seed), runs))
+        in_turn = pool.submit(run_in_turn, accelerated)
+        alone_codes = list(pool.map(lambda run: _run_shard(module, tree, run[0], run[1], repeat, shuffle_seed), alone))
+        codes_of = dict(zip((id(run) for run in alone), alone_codes))
+        codes_of.update(zip((id(run) for run in accelerated), in_turn.result()))
+    codes = [codes_of[id(run)] for run in runs]
     files.write_text(junit, junit_text({shard.name: code for (shard, _), code in zip(runs, codes)}))
     return 0 if all(code == 0 for code in codes) else 1
 

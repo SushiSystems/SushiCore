@@ -79,14 +79,20 @@ A failed CTest test is rerun once, alone, after the run and before the budget li
 flaky, and the exit code stays CTest's. A failed shard reruns only its failing cases, read from its XML, by
 `--gtest_filter` on its program, through the `run_program` the module hands the command, into `test_results/rerun`,
 which the reader gets as `--rerun`. Any other failed test, and a shard whose cases cannot be read or whose module has no
-`run_program`, reruns whole by `ctest -R` into a JUnit file of its own. The reader judges only the tests that were
-rerun, so an over-limit case that did not fail is not listed in a run that failed.
+`run_program`, reruns whole by `ctest -R` into a JUnit file of its own.
 
 The budget line comes from `test_budget.py`, in the testing folder of the shared tools below the module's root, and is printed only when
 the repository carries it. The JUnit file is `junit.xml` in the tree's `Testing` folder; a run that wrote none prints
-a warning instead. The line is a report and never changes the exit code, which is CTest's. A run the module does
-not report as rebuilt (a sanitizer run always is) ends its line with "(not rebuilt)" and never gates; the repository's
-budget exemption file, `budget_exemptions.toml` in its tests folder when present, is handed to the reader.
+a warning instead. The reader first lists the tests over a limit, which run again alone, one at a time, into
+`test_results/slow`; it then judges each by its time alone. When CTest passed, a broken limit ends the run with exit
+code 1, and a reader that cannot judge the run, such as one older than the CLI, with 2; when CTest failed, the code
+stays CTest's. A run the module does not report as current (a sanitizer run always is) ends its line with
+"(not rebuilt)" and never gates; the repository's budget exemption file, `budget_exemptions.toml` in its tests folder
+when present, is handed to the reader.
+
+CTest gets `resources.json` in the tree's `Testing` folder as its resource file: one slot on each accelerator, so the
+shards that declare `RESOURCE_GROUPS gpus:1` run one at a time. A filtered run over shards runs those shards one after
+another for the same reason.
 
 ## Diagnostics
 

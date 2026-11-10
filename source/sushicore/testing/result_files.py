@@ -43,6 +43,15 @@ def failing_cases(gtest_text: str) -> tuple[str, ...]:
                  for case in _root(gtest_text).iter("testcase") if _failed(case))
 
 
+def case_names(gtest_text: str) -> tuple[str, ...]:
+    """Return the ``Suite.Case`` names of every case in a GoogleTest XML file, in file order.
+
+    Raises:
+        ResultFileError: When the text is not XML or declares a DOCTYPE or an ENTITY.
+    """
+    return tuple(f"{case.get('classname', '')}.{case.get('name', '')}" for case in _root(gtest_text).iter("testcase"))
+
+
 def _failed(case: ElementTree.Element) -> bool:
     """Return whether a test case carries a failure or an error."""
     return case.find("failure") is not None or case.find("error") is not None or case.get("status") == "fail"

@@ -12,7 +12,7 @@ from sushicore.console_memory import RecordingConsole
 from sushicore.files_memory import MemoryFiles
 from sushicore.profile import ModuleProfile
 from sushicore.testing.filtered_run import run_filtered_shards
-from sushicore.testing.labels import select_labels
+from sushicore.testing.labels import TestLabel, select_labels
 from sushicore.testing.module_tests import ModuleTests
 from sushicore.testing.result_files import failed_tests
 
@@ -85,3 +85,22 @@ def test_the_shuffle_seed_and_the_repeat_reach_the_program():
     programs = _Programs()
     _run(programs, "Small_*", jobs=1, repeat=3, seed=7)
     assert programs.calls[0][2]["GTEST_RANDOM_SEED"] == "7" and "--gtest_repeat=3" in programs.calls[0][1]
+
+
+def test_shards_that_need_an_accelerator_run_in_turn_in_their_registered_order():
+    text = "".join(_shard(f"large_shard_{index}of4", "large", index, 4, "large", 120) for index in range(4))
+    text = text.replace('TIMEOUT "120"', 'TIMEOUT "120" RESOURCE_GROUPS "gpus:1"')
+    files = MemoryFiles({K_TREE / "CTestTestfile.cmake": text})
+    order = []
+
+    def program(name, arguments, *, env=None, timeout=None):
+        order.append(env["GTEST_SHARD_INDEX"])
+        return 0
+
+    profile = ModuleProfile(name="core", program="co", env_prefix="CO", root_marker="m")
+    module = ModuleTests(profile=profile, project_root=lambda: Path("/repo"), console=RecordingConsole,
+                         build_tree=lambda: K_TREE, run_ctest=None, run=None, run_program=program)
+    code = run_filtered_shards(module, K_TREE, select_labels([TestLabel.LARGE]), "Large_*", jobs=4,
+                               repeat=0, shuffle_seed=None, junit=K_JUNIT, files=files)
+    assert (code, order) == (0, ["0", "1", "2", "3"])
+

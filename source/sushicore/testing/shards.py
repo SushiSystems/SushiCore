@@ -44,6 +44,11 @@ def rerun_results_folder(tree: Path) -> Path:
     return tree / "test_results" / "rerun"
 
 
+def slow_results_folder(tree: Path) -> Path:
+    """Return the folder the rerun of the shard cases over a time limit writes its GoogleTest XML into."""
+    return tree / "test_results" / "slow"
+
+
 def test_file_texts(tree: Path, files: Files) -> Iterator[str]:
     """Yield the text of each test file of the build tree, following the ``subdirs`` calls from its own.
 
