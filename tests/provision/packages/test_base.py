@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from sushicore.provision.packages import base
@@ -54,7 +52,6 @@ def test_only_a_refused_registry_read_is_recorded_and_a_defect_escapes(
 @pytest.mark.small
 def test_the_machine_and_user_paths_join_the_old_one_with_the_first_spelling_kept():
     """Check that machine, user and process paths merge in order and a repeat in other case is dropped."""
-    environ = {"PATH": os.pathsep.join(["C:/Tools", "C:/old"])}
+    environ = {"PATH": "C:/Tools;C:/old"}
     base.refresh_windows_path(_reading("C:/tools", "C:/user"), environ)
-    assert environ["PATH"] == os.pathsep.join(["C:/tools", "C:/user", "C:/Tools", "C:/old"][:2]
-                                              + ["C:/old"])
+    assert environ["PATH"] == "C:/tools;C:/user;C:/old"

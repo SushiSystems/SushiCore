@@ -19,6 +19,8 @@ from ..system import is_root
 
 _log = logging.getLogger(__name__)
 
+K_WINDOWS_PATH_SEPARATOR = ";"
+
 
 def run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
     """Run *cmd*, streaming its output through the console; return its exit code."""
@@ -108,12 +110,12 @@ def refresh_windows_path(read_paths: Callable[[], list[str]] | None = None,
         parts.append(env.get("PATH", ""))
         seen: set[str] = set()
         out: list[str] = []
-        for entry in os.pathsep.join(parts).split(os.pathsep):
+        for entry in K_WINDOWS_PATH_SEPARATOR.join(parts).split(K_WINDOWS_PATH_SEPARATOR):
             key_l = entry.lower()
             if entry and key_l not in seen:
                 seen.add(key_l)
                 out.append(entry)
-        env["PATH"] = os.pathsep.join(out)
+        env["PATH"] = K_WINDOWS_PATH_SEPARATOR.join(out)
     except OSError as error:
         _log.warning(
             "PATH was not reloaded from the registry (%s: %s); this process keeps its old PATH",
