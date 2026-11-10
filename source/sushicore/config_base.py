@@ -14,6 +14,8 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Iterable, Type, TypeVar
 
+from .environment import Environment
+from .files import Files
 from .toml_writer import write_toml_document
 from .workspace import load_layered, read_toml
 
@@ -69,7 +71,8 @@ C = TypeVar("C", bound=ToolConfig)
 
 def load_tool_config(cls: Type[C], sources: Iterable[Path], plat: str,
                      env_map: dict[str, str],
-                     bool_keys: Iterable[str] = ("use_vcpkg",)) -> C:
+                     bool_keys: Iterable[str] = ("use_vcpkg",), *,
+                     environment: Environment | None = None, files: Files | None = None) -> C:
     """Load *cls* from layered TOML sources, keeping only fields it declares.
 
     @param cls       The ``ToolConfig`` subclass to instantiate.
@@ -77,9 +80,12 @@ def load_tool_config(cls: Type[C], sources: Iterable[Path], plat: str,
     @param plat      Platform key selecting the ``[tool.<platform>]`` override.
     @param env_map   ``field -> ENV_VAR``; a set env var overrides that field.
     @param bool_keys Fields to coerce from string to bool.
+    @param environment The variables read for the overrides; the process environment when None.
+    @param files     The file system the sources are read through; the disk when None.
     @return          A populated instance with ``platform`` set.
     """
-    values = load_layered(sources, plat, env_map, bool_keys=bool_keys)
+    values = load_layered(sources, plat, env_map, bool_keys=bool_keys,
+                            environment=environment, files=files)
     known = {f.name for f in fields(cls)}
     cfg = cls(**{k: v for k, v in values.items() if k in known})
     cfg.platform = plat

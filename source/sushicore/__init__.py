@@ -9,13 +9,14 @@ What the package holds is in docs/architecture/OVERVIEW.md, section `The package
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import Sequence
 
 from .config import load_appearance
 from .console import Console
+from .environment import Environment, ProcessEnvironment
+from .files import Files
 from .icons import IconSet, get_icon_set, known_icon_sets, register_icon_set
 from .renderer import JsonRenderer, PlainRenderer, Renderer, RichRenderer
 from .terminal_background import is_dark_background
@@ -50,7 +51,8 @@ def _use_color(mode: str) -> bool:
     return sys.stdout.isatty()  # auto
 
 
-def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False) -> Console:
+def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False,
+                  environment: Environment | None = None, files: Files | None = None) -> Console:
     """Build a themed :class:`Console` from a repo's own config files.
 
     Args:
@@ -58,8 +60,12 @@ def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False) -
             low to high precedence; only the ``[cli]`` table is read.
         machine: When true, render through :class:`JsonRenderer` so stdout carries
             one JSON event per line. Theme and icons are still loaded.
+        environment: The variables the appearance and the background are read from; the process
+            environment when None.
+        files: The file system the config files are read through; the disk when None.
     """
-    spec = load_appearance(list(config_paths))
+    environment = ProcessEnvironment() if environment is None else environment
+    spec = load_appearance(list(config_paths), environment=environment, files=files)
     theme = get_theme(spec.theme).merged(spec.color_overrides)
     icons = get_icon_set(spec.icons).merged(spec.icon_overrides)
     apply_typer_theme(theme)
@@ -68,7 +74,7 @@ def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False) -
         renderer = JsonRenderer()
     else:
         renderer = RichRenderer(theme, no_color=not _use_color(spec.color))
-    console = Console(renderer, theme, icons, is_dark_background(spec.background, os.environ))
+    console = Console(renderer, theme, icons, is_dark_background(spec.background, environment))
     for warning in spec.warnings:
         console.warn(warning)
     return console

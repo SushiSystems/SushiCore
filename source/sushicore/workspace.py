@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 from typing import Callable, Iterable
 
+from .environment import Environment, ProcessEnvironment
 from .errors import ConfigError, SushiCoreError
 from .files import Files
 from .toml_writer import write_toml_document
@@ -67,32 +68,46 @@ def _parse_toml(path: Path, text: str) -> dict:
         raise ConfigError(f"{path}: {exc}") from exc
 
 
-def walk_up(start: Path, predicate: Callable[[Path], bool]) -> Path | None:
+def walk_up(start: Path, predicate: Callable[[Path], bool], *, resolve: bool = True) -> Path | None:
     """Return the nearest ancestor of *start* (inclusive) satisfying *predicate*.
 
     The CLIs are installed outside their checkout, so the invocation directory —
     not the package location — tells us where the project/workspace lives.
+
+    @param resolve Whether *start* is resolved on the disk first; False keeps the path as given,
+           for a path that names a place in memory.
     """
-    cur = start.resolve()
+    cur = start.resolve() if resolve else start
     for d in (cur, *cur.parents):
         if predicate(d):
             return d
     return None
 
 
-def has_marker(*names: str) -> Callable[[Path], bool]:
-    """Predicate: a directory contains any of the named marker files or dirs."""
+def has_marker(*names: str, files: Files | None = None) -> Callable[[Path], bool]:
+    """Predicate: a directory contains any of the named marker files or dirs.
+
+    @param files The file system the markers are looked up in; the disk when None.
+    """
     def _pred(d: Path) -> bool:
+        if files is not None:
+            return any(files.exists(d / name) for name in names)
         return any((d / name).exists() for name in names)
     return _pred
 
 
-def resolve_env_path(name: str) -> Path | None:
-    """Return an env var as an expanded, resolved path, or None when unset."""
-    val = os.environ.get(name)
+def resolve_env_path(name: str, *, environment: Environment | None = None,
+                     resolve: bool = True) -> Path | None:
+    """Return an env var as an expanded, resolved path, or None when unset.
+
+    @param environment The variables read; the process environment when None.
+    @param resolve     Whether the path is resolved on the disk; False keeps it as expanded.
+    """
+    val = (ProcessEnvironment() if environment is None else environment).get(name)
     if not val:
         return None
-    return Path(os.path.expandvars(os.path.expanduser(val))).resolve()
+    path = Path(os.path.expandvars(os.path.expanduser(val)))
+    return path.resolve() if resolve else path
 
 
 def merge_platform_table(doc: dict, plat: str, section: str = "tool") -> dict:
@@ -111,7 +126,8 @@ def merge_platform_table(doc: dict, plat: str, section: str = "tool") -> dict:
 
 
 def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
-                 section: str = "tool", bool_keys: Iterable[str] = ()) -> dict:
+                 section: str = "tool", bool_keys: Iterable[str] = (), *,
+                 environment: Environment | None = None, files: Files | None = None) -> dict:
     """Merge ``[section]`` from each path (low → high) then apply env overrides.
 
     @param paths     Config files in ascending precedence (later wins).
@@ -119,17 +135,20 @@ def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
     @param env_map   ``field -> ENV_VAR``; a set env var overrides that field.
     @param section   Top-level table name to read (default ``tool``).
     @param bool_keys Fields to coerce from string ("1"/"true"/…) to bool.
+    @param environment The variables read for the overrides; the process environment when None.
+    @param files     The file system the files are read through; the disk when None.
     @return          The merged ``field -> value`` mapping (unknown keys included;
                      the caller filters to its dataclass fields).
     """
+    env = ProcessEnvironment() if environment is None else environment
     values: dict = {}
     for path in paths:
-        doc = read_toml(path)
+        doc = read_toml(path, files=files)
         if doc:
             values.update(merge_platform_table(doc, plat, section))
     for field_name, env_var in env_map.items():
-        if env_var in os.environ:
-            values[field_name] = os.environ[env_var]
+        if env.has(env_var):
+            values[field_name] = env.get(env_var, "")
     for key in bool_keys:
         if isinstance(values.get(key), str):
             values[key] = values[key].strip().lower() in ("1", "true", "yes", "on")
@@ -276,14 +295,20 @@ def _read_local(path: Path) -> str:
     return path.read_bytes().decode("utf-8") if path.is_file() else ""
 
 
-def read_link(config_dir: Path) -> Path | None:
-    """Return the workspace this module is linked to, or None when unlinked or stale."""
-    table = read_toml(config_dir / _LOCAL_CONFIG).get(LINK_SECTION) or {}
+def read_link(config_dir: Path, *, files: Files | None = None) -> Path | None:
+    """Return the workspace this module is linked to, or None when unlinked or stale.
+
+    @param files The file system read through; the disk when None. A path in memory is joined, not
+           resolved.
+    """
+    table = read_toml(config_dir / _LOCAL_CONFIG, files=files).get(LINK_SECTION) or {}
     raw = table.get("workspace")
     if not raw:
         return None
-    target = (config_dir / raw).resolve()
-    return target if (target / WORKSPACE_MARKER).exists() else None
+    target = config_dir / raw
+    if files is None:
+        target = target.resolve()
+    return target if has_marker(WORKSPACE_MARKER, files=files)(target) else None
 
 
 def write_link(config_dir: Path, workspace: Path) -> Path:

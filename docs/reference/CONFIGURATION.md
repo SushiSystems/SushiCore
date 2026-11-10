@@ -25,6 +25,10 @@ warn = "!!"
 icons = "minimal"
 ```
 
+`build_console`, `load_appearance` and `ModuleConfig.load` read the process environment and the disk
+unless the caller passes `environment=` (an `Environment`) or `files=` (a `Files`); the in-memory
+adapters are `MemoryEnvironment` and `MemoryFiles`.
+
 The platform table is named after `platform.system()` in lower case: `windows`, `linux` or
 `darwin`.
 

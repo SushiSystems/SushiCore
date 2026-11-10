@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from .environment import Environment
+
 K_DARK = "dark"
 K_LIGHT = "light"
 K_AUTO = "auto"
@@ -17,7 +19,7 @@ K_VARIABLE = "COLORFGBG"
 K_DARK_INDICES = frozenset({0, 1, 2, 3, 4, 5, 6, 8})
 
 
-def is_dark_background(setting: str, environ: Mapping[str, str]) -> bool:
+def is_dark_background(setting: str, environ: Mapping[str, str] | Environment) -> bool:
     """Report whether the background is dark: the setting when it names one, COLORFGBG otherwise.
 
     Args:
@@ -28,7 +30,7 @@ def is_dark_background(setting: str, environ: Mapping[str, str]) -> bool:
         return True
     if setting == K_LIGHT:
         return False
-    return _names_a_dark_colour(environ.get(K_VARIABLE, ""))
+    return _names_a_dark_colour(environ.get(K_VARIABLE, "") or "")
 
 
 def _names_a_dark_colour(value: str) -> bool:

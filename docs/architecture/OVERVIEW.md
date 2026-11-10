@@ -12,8 +12,9 @@ and has no application of its own.
 | --- | --- |
 | `workspace` | The walk up to a marker file, the `[tool]` table merged with its platform override, the workspace's `[modules]` table and a module's `[link]` pointer |
 | `files`, `files_memory` | `Files`, the port the backlog and design stores read and write their text files through; `DiskFiles`, its default on the real file system; `MemoryFiles`, which holds each file by path |
+| `environment`, `environment_memory` | `Environment`, the port a config loader reads variables through; `ProcessEnvironment`, its default over `os.environ`; `MemoryEnvironment`, which holds each variable by name |
 | `config_base` | `ToolConfig`, the tool-path fields every CLI shares, and the layered load and `[tool]` write around them |
-| `module_config` | `ModuleConfig`: a module's project root and its layered config, the linked workspace's `[tool]` table included |
+| `module_config` | `ModuleConfig`: a module's project root and its layered config, the linked workspace's `[tool]` table included; `load` takes `root=`, `environment=` and `files=`, so a CLI test runs it with no disk and no process environment |
 | `stack_config` | `StackConfig`: the compiler and vcpkg of a module that consumes a dependency root, and `locate_sibling` |
 | `profile` | `ModuleProfile`: what one CLI says about itself, such as its name, command, environment prefix and root marker |
 | `deps_fragment` | The one reader of a `sushistack.deps.toml` fragment |
@@ -23,7 +24,7 @@ and has no application of its own.
 
 | Module | Owns |
 | --- | --- |
-| `config` | `load_appearance`: the `[cli]` table and the `SUSHI_CLI_*` variables resolved into one `AppearanceSpec` |
+| `config` | `load_appearance`: the `[cli]` table and the `SUSHI_CLI_*` variables resolved into one `AppearanceSpec`, read through the `environment=` and `files=` it is given |
 | `theme` | `Theme`, the style tokens, and the presets `default`, `mono` and `muted` |
 | `icons` | `IconSet`, the prefix printed before a line, and the presets `text`, `emoji`, `minimal` and `none` |
 | `renderer` | The `Renderer` protocol and its three backends: `RichRenderer`, `PlainRenderer`, `JsonRenderer`; `TerminalMemoryRenderer` is the in-memory terminal tests use |

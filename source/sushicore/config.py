@@ -10,20 +10,16 @@ The schema of the `[cli]` table is in docs/reference/CONFIGURATION.md.
 
 from __future__ import annotations
 
-import os
 import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .errors import ConfigError
+from .environment import Environment, ProcessEnvironment
+from .files import Files
 from .icons import known_icon_sets
 from .terminal_background import K_AUTO, K_VALUES
 from .theme import known_themes
-
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:  # Python 3.10 fallback
-    import tomli as tomllib
+from .workspace import read_toml
 
 _ENV_PREFIX = "SUSHI_CLI"
 
@@ -37,16 +33,6 @@ class AppearanceSpec:
     color_overrides: dict = field(default_factory=dict)
     icon_overrides: dict = field(default_factory=dict)
     warnings: list = field(default_factory=list)
-
-
-def _read_toml(path: Path) -> dict:
-    if not path.is_file():
-        return {}
-    try:
-        with path.open("rb") as fh:
-            return tomllib.load(fh)
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigError(f"{path}: {exc}") from exc
 
 
 _OVERRIDE_TABLES = ("colors", "icon_overrides")
@@ -65,13 +51,19 @@ def _merge_cli_table(doc: dict, plat: str) -> dict:
     return merged
 
 
-def load_appearance(config_paths: list[Path]) -> AppearanceSpec:
-    """Merge ``config_paths`` (low -> high precedence) and environment overrides."""
+def load_appearance(config_paths: list[Path], *, environment: Environment | None = None,
+                    files: Files | None = None) -> AppearanceSpec:
+    """Merge ``config_paths`` (low -> high precedence) and environment overrides.
+
+    @param environment The variables read for the overrides; the process environment when None.
+    @param files       The file system the config files are read through; the disk when None.
+    @throws ConfigError When a config file is not valid TOML.
+    """
     plat = platform.system().lower()  # 'windows' | 'linux' | 'darwin'
     spec = AppearanceSpec()
 
     for path in config_paths:
-        doc = _read_toml(path)
+        doc = read_toml(path, files=files)
         if not doc:
             continue
         table = _merge_cli_table(doc, plat)
@@ -90,16 +82,12 @@ def load_appearance(config_paths: list[Path]) -> AppearanceSpec:
         if isinstance(icon_overrides, dict):
             spec.icon_overrides.update(icon_overrides)
 
-    env = os.environ
-    if f"{_ENV_PREFIX}_THEME" in env:
-        spec.theme = env[f"{_ENV_PREFIX}_THEME"]
-    if f"{_ENV_PREFIX}_ICONS" in env:
-        spec.icons = env[f"{_ENV_PREFIX}_ICONS"]
-    if f"{_ENV_PREFIX}_COLOR" in env:
-        spec.color = env[f"{_ENV_PREFIX}_COLOR"]
-    if f"{_ENV_PREFIX}_BACKGROUND" in env:
-        spec.background = env[f"{_ENV_PREFIX}_BACKGROUND"]
-    if "NO_COLOR" in env:  # https://no-color.org — always wins when set
+    env = ProcessEnvironment() if environment is None else environment
+    for name in ("theme", "icons", "color", "background"):
+        variable = f"{_ENV_PREFIX}_{name.upper()}"
+        if env.has(variable):
+            setattr(spec, name, env.get(variable, ""))
+    if env.has("NO_COLOR"):  # https://no-color.org — always wins when set
         spec.color = "never"
 
     _settle(spec, "theme", known_themes(), "default")
