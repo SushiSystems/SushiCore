@@ -14,6 +14,3 @@
 | ID | Origin | Symptom | Workaround | Fix | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- |
 | KI-26 | dependency | A truecolour render after a 256-colour one in one process loses its truecolour codes | Render one colour system per process; tests/conftest.py clears Rich's caches per test | none, Rich caches the downgraded style |  | 2026-11-07 |
-| KI-28 | own | ignored_folders misses a POSIX symlink to a folder, so Checks fail on Linux | none | none, fixed with this entry | `tools/checking/ignored_paths.py` | 2026-11-10 |
-| KI-29 | own | refresh_windows_path splits the Windows PATH on os.pathsep, wrong on Linux | none | none, fixed with this entry | `source/sushicore/provision/packages/base.py` | 2026-11-10 |
-| KI-30 | own | Typer 0.27+ has no Click type objects, so describe and help tests fail | none | none, fixed with this entry | `source/sushicore/describe.py` | 2026-11-10 |
