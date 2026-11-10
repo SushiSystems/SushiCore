@@ -35,3 +35,11 @@ def test_a_program_the_tree_does_not_register_fails_without_running_anything():
     calls = []
     assert _runner(calls)("missing", []) == 1
     assert calls == []
+
+
+def test_a_run_given_variables_adds_them_to_the_environment_and_a_timeout_goes_through_the_timed_runner():
+    timed = []
+    runner = ProgramRunner(K_TREE, lambda *args: 9, {"A": "1"}, MemoryFiles(K_FILES),
+                           run_timed=lambda *args: timed.append(args) or 5)
+    assert runner("core", ["-x"], env={"B": "2"}, timeout=30.0) == 5
+    assert timed == [([str(Path("/repo/build/core")), "-x"], K_TREE, {"A": "1", "B": "2"}, 30.0)]

@@ -22,7 +22,7 @@ K_ROOT_FILE = 'subdirs("tests")\n'
 @pytest.mark.parametrize("name, program", [
     ("core_tests.small_shard_0of3", "core_tests"),
     ("a.b.medium_shard_12of40", "a.b"),
-    ("core_tests.small_quarantined", None),
+    ("core_tests.small_quarantined", "core_tests"),
     ("Small_A.Case", None),
 ])
 def test_program_of_names_the_program_of_a_shard_and_nothing_for_another_test(name, program):

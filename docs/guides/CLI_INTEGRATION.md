@@ -76,7 +76,8 @@ options are guaranteed identical across CLIs.
 A CLI whose repository registers its test cases in shards also gives `ModuleTests` a `run_program(program, arguments)`, which runs the
 named test program with the CLI's runtime environment, and a CTest call that takes `gtest_filter`; `CMakeDriver.ctest_run` does.
 The first is `sushicore.testing.program_runner.ProgramRunner(build_dir, tools.runner.run, env)`: it finds the program's executable in the tree's shard registrations.
-Without the first, a failed shard reruns whole.
+Without the first, a failed shard reruns whole, and `test -f` reaches the shards only as `GTEST_FILTER`, which a shard's own
+`--gtest_filter` overrides. With it, `test -f` runs the selected shards through `run_program`, which takes the keywords `env` and `timeout`; `ProgramRunner` does.
 
 `register_root_options` installs the application's callback, so the application must not have
 one of its own. A CLI that needs a root option of its own builds its callback from

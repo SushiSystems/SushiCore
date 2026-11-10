@@ -353,3 +353,18 @@ def test_a_run_of_small_tests_alone_takes_every_core_where_medium_tests_would_no
     module.run(module.tests(), select_labels([TestLabel.SMALL]), free_memory=lambda: K_RESERVE_MB + 2 * 1024 + 10)
     module.run(module.tests(), select_labels(None), free_memory=lambda: K_RESERVE_MB + 2 * 1024 + 10)
     assert [call["jobs"] for call in module.ctest_calls] == [8, 2]
+
+
+def test_a_filter_over_shards_of_a_module_with_run_program_runs_the_narrowed_shards_and_not_ctest():
+    sharded = ('add_test([=[core.small_shard_0of1]=] "/repo/build/core" "--gtest_filter=Small_*")\n'
+               'set_tests_properties([=[core.small_shard_0of1]=] PROPERTIES ENVIRONMENT '
+               '"GTEST_TOTAL_SHARDS=1;GTEST_SHARD_INDEX=0" LABELS "small" TIMEOUT "60")\n')
+    module = _Module(extra_files={K_BUILD / "CTestTestfile.cmake": sharded})
+    calls = []
+
+    def run_program(program, arguments, *, env=None, timeout=None):
+        calls.append((program, arguments[0], env["GTEST_SHARD_INDEX"], timeout))
+        return 0
+
+    assert module.run(module.tests(run_program=run_program), select_labels(None), name_filter="Small_A.*") == 0
+    assert calls == [("core", "--gtest_filter=Small_A.*", "0", 60.0)] and module.ctest_calls == []

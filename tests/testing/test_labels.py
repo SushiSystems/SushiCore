@@ -26,3 +26,15 @@ def test_a_quarantine_asked_with_a_size_keeps_the_size():
     selection = select_labels([TestLabel.SMALL, TestLabel.QUARANTINED])
     assert selection.pytest_expression() == "(small)"
     assert selection.quarantined
+
+
+@pytest.mark.parametrize("labels, chosen, selected", [
+    (["small"], None, True),
+    (["large"], None, False),
+    (["small", "quarantined"], None, False),
+    (["small", "quarantined"], [TestLabel.SMALL, TestLabel.QUARANTINED], True),
+    (["small"], [TestLabel.QUARANTINED], False),
+    (["medium", "quarantined"], [TestLabel.QUARANTINED], True),
+])
+def test_a_selection_says_whether_it_runs_a_test_by_its_labels(labels, chosen, selected):
+    assert select_labels(chosen).selects(labels) is selected

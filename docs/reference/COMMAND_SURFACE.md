@@ -64,9 +64,16 @@ given order, and the command warns.
 A build can register the cases of a program in shards, CTest tests named `<program>.<size>_shard_<i>of<N>` that each
 write GoogleTest XML to `test_results/gtest/<name>.xml` in the tree. The command empties that folder before a run, and
 the budget reader gets it as `--cases` when the run left files there. Over such a build `--filter` is a GoogleTest
-filter: it reaches every shard as `GTEST_FILTER` and not as `ctest -R`, and a shard whose command line names its own
-`--gtest_filter` keeps that one, which GoogleTest ranks above the variable. A module whose CTest call neither names
-`gtest_filter` nor takes `**keywords` keeps the `-R` pattern, and the command warns.
+filter, and CTest cannot narrow a shard that names its own `--gtest_filter`, which GoogleTest ranks above the
+variable. A module that hands the command a `run_program` has the command run the selected shards itself: it reads each
+shard's program, size filter, `GTEST_TOTAL_SHARDS` and `GTEST_SHARD_INDEX`, labels and timeout from the tree's
+`CTestTestfile.cmake` files and runs the program with `--gtest_filter` set to the cases the shard's filter and `--filter`
+both select (the shard's negative patterns and the filter's are kept; a shard that can hold no such case is not run),
+the shard's variables and timeout, `--jobs` shards at once, and `--gtest_output=xml:` into `test_results/gtest/<name>.xml`.
+The exit codes of the shards go into the JUnit file, so the rerun and the budget line work as for a CTest run. An
+unfiltered run stays on CTest. A module with no `run_program` gets the filter as `GTEST_FILTER`, which a shard that names
+its own filter overrides, and one whose CTest call neither names `gtest_filter` nor takes `**keywords` keeps the `-R`
+pattern, and the command warns.
 
 A failed CTest test is rerun once, alone, after the run and before the budget line; a pass on the rerun is reported
 flaky, and the exit code stays CTest's. A failed shard reruns only its failing cases, read from its XML, by

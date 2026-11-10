@@ -12,8 +12,8 @@ from pathlib import Path
 
 from ..files import Files
 
-#: A CTest test registered as a shard: ``<program>.<size>_shard_<index>of<count>``.
-K_SHARD_NAME = re.compile(r"^(?P<program>.+)\.[a-z]+_shard_\d+of\d+$")
+#: A CTest test registered as a shard, ``<program>.<size>_shard_<index>of<count>`` or ``<program>.<size>_quarantined``.
+K_SHARD_NAME = re.compile(r"^(?P<program>.+)\.[a-z]+_(?:shard_\d+of\d+|quarantined)$")
 
 #: The shard part of a name inside a CTest test file.
 _K_SHARD_REGISTRATION = re.compile(r"\.[a-z]+_shard_\d+of\d+")
@@ -44,7 +44,7 @@ def rerun_results_folder(tree: Path) -> Path:
     return tree / "test_results" / "rerun"
 
 
-def _test_file_texts(tree: Path, files: Files) -> Iterator[str]:
+def test_file_texts(tree: Path, files: Files) -> Iterator[str]:
     """Yield the text of each test file of the build tree, following the ``subdirs`` calls from its own.
 
     The walk reads only the folders CMake generated test files for.
@@ -64,12 +64,12 @@ def _test_file_texts(tree: Path, files: Files) -> Iterator[str]:
 
 def registers_shards(tree: Path, files: Files) -> bool:
     """Return whether any test file of the build tree registers a test as a shard."""
-    return any(_K_SHARD_REGISTRATION.search(text) for text in _test_file_texts(tree, files))
+    return any(_K_SHARD_REGISTRATION.search(text) for text in test_file_texts(tree, files))
 
 
 def program_executable(tree: Path, program: str, files: Files) -> Path | None:
     """Return the executable the shards of *program* run, or None when the tree registers none."""
-    for text in _test_file_texts(tree, files):
+    for text in test_file_texts(tree, files):
         for registration in _K_ADD_TEST.finditer(text):
             if program_of(registration.group("name")) == program:
                 return Path(registration.group("executable"))

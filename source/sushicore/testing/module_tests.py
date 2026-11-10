@@ -63,7 +63,9 @@ class ModuleTests:
             receives it, an int; any other runs in the given order and the command says so.
         run_program: Runs one of the module's programs, such as a test program, by the name its CTest
             tests carry, with the module's runtime environment and the given arguments, and returns its
-            exit code. None when the module has none, which makes a failed shard rerun whole by CTest.
+            exit code. It also takes the keywords ``env``, variables added to the environment, and ``timeout``,
+            in seconds, which a filtered run over shards passes; ``ProgramRunner`` does. None when the module
+            has none, which makes a failed shard rerun whole by CTest and a filter reach the shards as ``GTEST_FILTER``.
         run: Runs a command in a folder and returns its exit code; the budget reader goes through it.
         check_tree: Names a fault of the tree, such as a stale configuration, or returns None.
         panel: The help panel the command is listed under, or None for the default.
@@ -86,4 +88,4 @@ class ModuleTests:
     sanitized: Optional[SanitizedTests] = None
     cli_tests: Optional[Callable[[LabelSelection], int]] = None
     rebuilt: Optional[Callable[[Path], bool]] = None
-    run_program: Optional[Callable[[str, list[str]], int]] = None
+    run_program: Optional[Callable[..., int]] = None

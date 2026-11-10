@@ -51,6 +51,14 @@ class LabelSelection:
         """Returns the ``ctest -LE`` regex of this selection, or None when it excludes nothing."""
         return None if self.quarantined else f"^{TestLabel.QUARANTINED.value}$"
 
+    def selects(self, labels: Iterable[str]) -> bool:
+        """Returns whether a test carrying *labels* is one this selection runs, as ``ctest -L`` and ``-LE`` decide."""
+        names = set(labels)
+        wanted = {size.value for size in self.sizes} or {TestLabel.QUARANTINED.value}
+        if not self.quarantined and TestLabel.QUARANTINED.value in names:
+            return False
+        return bool(wanted & names)
+
     def pytest_expression(self) -> str:
         """Returns the ``pytest -m`` expression of this selection."""
         if not self.sizes:

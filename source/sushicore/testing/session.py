@@ -16,6 +16,7 @@ from typing import Callable, Optional
 from ..memory_reading import free_memory_mb
 from ..files import DiskFiles, Files
 from .budget import print_budget, scope_of
+from .filtered_run import run_filtered_shards
 from .job_count import choose_jobs, share_of
 from .labels import LabelSelection, large_needs_a_filter
 from .module_tests import ModuleTests
@@ -54,7 +55,9 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         module: What the module CLI hands the command.
         selection: The labels to run.
         name_filter: A CTest ``-R`` pattern over ``Suite.Case`` names; over a build that registers its
-            cases in shards, a GoogleTest filter every shard receives as ``GTEST_FILTER``.
+            cases in shards, a GoogleTest filter. A module with a ``run_program`` runs the selected shards
+            itself, each under its size filter narrowed by this one; any other module's shards receive it
+            as ``GTEST_FILTER``.
         repeat: Reruns each test up to this many times, stopping at its first failure.
         jobs: How many tests run at once; one per core, lowered to fit the free memory of the selected
             sizes, when None.
@@ -105,6 +108,26 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     shuffle_seed = (seed if seed is not None else (seed_source or random.randint)(K_SEED_MIN, K_SEED_MAX)) if shuffle else None
     if shuffle_seed is not None:
         console.info(f"Shuffle seed: {shuffle_seed} (repeat with --seed {shuffle_seed})")
+    started = time.monotonic()
+    if name_filter and module.run_program is not None and registers_shards(tree, files):
+        code = run_filtered_shards(module, tree, selection, name_filter, jobs=jobs, repeat=repeat,
+                                   shuffle_seed=shuffle_seed, junit=junit, files=files)
+    else:
+        code = _run_ctest(module, tree, selection, name_filter, repeat, jobs, shuffle_seed, junit, files)
+    scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
+    rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
+    outcome = _rerun_failures(module, tree, junit, files) if code != 0 else K_NOTHING_RERUN
+    print_budget(module, junit, scope, time.monotonic() - started, rebuilt, files=files,
+                 cases=results, rerun=outcome.results)
+    if code != 0:
+        console.error(f"Tests failed (exit {code}).")
+    return code
+
+
+def _run_ctest(module: ModuleTests, tree: Path, selection: LabelSelection, name_filter: Optional[str],
+               repeat: int, jobs: int, shuffle_seed: Optional[int], junit: Path, files: Files) -> int:
+    """Run the module's CTest call over *tree* and return its exit code."""
+    console = module.console()
     keywords = dict(label_regex=selection.ctest_include(), exclude_label_regex=selection.ctest_exclude(),
                     filter=name_filter, repeat=repeat, jobs=jobs, output_junit=junit)
     if name_filter and registers_shards(tree, files):
@@ -118,16 +141,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
             keywords["shuffle_seed"] = shuffle_seed
         else:
             console.warn("This CLI's CTest call cannot take a shuffle seed, so the tests run in their given order.")
-    started = time.monotonic()
-    code = module.run_ctest(tree, **keywords)
-    scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
-    rebuilt = sanitizer is not None or (module.rebuilt is not None and module.rebuilt(tree))
-    outcome = _rerun_failures(module, tree, junit, files) if code != 0 else K_NOTHING_RERUN
-    print_budget(module, junit, scope, time.monotonic() - started, rebuilt, files=files,
-                 cases=results, rerun=outcome.results)
-    if code != 0:
-        console.error(f"Tests failed (exit {code}).")
-    return code
+    return module.run_ctest(tree, **keywords)
 
 
 def _takes(run_ctest, keyword: str) -> bool:

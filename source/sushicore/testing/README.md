@@ -14,7 +14,11 @@ without a filter, and one budget line after every CTest run. Its options are in
 | `ModuleTests`, `SanitizedTests`, `TestConsole` | `module_tests.py` | What one module CLI hands the command: its tree, its CTest call, its checkout and its console, and the sanitizer builds and the pytest suite it may add |
 | `choose_jobs`, `JobChoice`, `share_of` | `job_count.py` | Pick the job count of a run given none: one per core, lowered so the jobs' memory shares fit the free memory, a `small` run at 256 MB per test and any other at 1024 MB, and the line that prints it |
 | `registers_shards`, `program_of`, `program_executable`, `gtest_results_folder`, `rerun_results_folder` | `shards.py` | Tell whether a build registers its cases as shards, name the program of a shard, find the executable its shards run and name the folders a run leaves their results in |
-| `ProgramRunner` | `program_runner.py` | Run a test program of a tree by the name its shards carry, under the module's environment; a CLI hands it to `ModuleTests` as `run_program` |
+| `ProgramRunner`, `run_with_timeout` | `program_runner.py` | Run a test program of a tree by the name its shards carry, under the module's environment, with variables and a timeout when given; a CLI hands it to `ModuleTests` as `run_program` |
+| `intersect_filters` | `gtest_filter.py` | Join a shard's GoogleTest filter and the caller's into the filter that selects the cases both select |
+| `ShardRegistration`, `shard_registrations` | `shard_registrations.py` | Read each shard's program, size filter, variables, labels and timeout from the tree's CTest test files |
+| `junit_text` | `junit_report.py` | Write the JUnit file of a run the command made itself |
+| `run_filtered_shards` | `filtered_run.py` | Run the selected shards under the caller's case filter through `run_program`, at most `--jobs` at once |
 | `failed_tests`, `failing_cases`, `ResultFileError` | `result_files.py` | Read the failed CTest tests from the JUnit file and the failing `Suite.Case` names from a shard's GoogleTest XML |
 | `FailedTestRerun`, `RerunOutcome` | `rerun.py` | Rerun the failed tests once, alone: a failed shard's failing cases by `--gtest_filter` on its program, any other test by `ctest -R`; tell flaky from failing |
 | `run_tests` | `session.py` | Refuse a run that cannot start, build a sanitizer tree when asked, empty the shard results, run CTest with a JUnit file, rerun what failed and print the budget line, or hand the labels to the CLI's own pytest suite |
