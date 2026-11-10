@@ -53,22 +53,11 @@ K_MODULE_WORKSPACE_READ = '\\bhub (?:install|add|link|doctor|status|pin)\\b|SUSH
 K_TRAILER_SINCE = "56ddb6fd3199ff0b7995d7a62127f89b5c84b55f"
 K_DOCS_FOLLOW_SINCE = "56ddb6fd3199ff0b7995d7a62127f89b5c84b55f"
 
-K_TEST_BUDGET: dict[str, int] = {
-    "small_test_s": 1,
-    "medium_test_s": 10,
-    "large_test_s": 120,
-    "small_program_s": 10,
-    "large_program_s": 600,
-    "default_run_s": 300,
-    "large_tier_s": 1800,
-    "cases_per_commit": 20,
-    "cases_per_fix": 5,
-    "second_program": 0,
-}
 
 # The time limits of the testing skill, read by tools/testing/test_budget.py.
 K_TEST_TIMES: dict[str, float] = {
     "small_test_s": 0.1,
     "medium_test_s": 5,
+    "large_test_s": 30,
     "pre_merge_s": 600,
 }
