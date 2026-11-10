@@ -5,7 +5,6 @@
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-59 | P3 | open | Show committed but unbuilt work as unverified when reading the backlog | backlog list and next mark such an entry unverified, a derived state that is never stored |  |  | 2026-10-30 |
-| RW-74 | P2 | open | Let the test filter narrow a sharded build whose shards pass their own --gtest_filter | <cli> test -f Suite.* over SushiAI's sharded build runs only that suite's cases and keeps each shard's size |  |  | 2026-11-10 |
 | RW-75 | P2 | open | Give each module CLI a run_program so a failed shard reruns only its failing cases | A failed SushiAI shard reruns by --gtest_filter through sa, not by ctest -R over the whole shard |  |  | 2026-11-10 |
 
 ## Known issues
