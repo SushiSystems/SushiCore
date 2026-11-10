@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
 from ..files import Files
@@ -16,6 +17,9 @@ K_SHARD_NAME = re.compile(r"^(?P<program>.+)\.[a-z]+_shard_\d+of\d+$")
 
 #: The shard part of a name inside a CTest test file.
 _K_SHARD_REGISTRATION = re.compile(r"\.[a-z]+_shard_\d+of\d+")
+
+#: An ``add_test`` call of a generated CTest test file: the test's name and the executable it runs.
+_K_ADD_TEST = re.compile(r'add_test\(\[=\[(?P<name>[^\]]+)\]=\]\s+"(?P<executable>[^"]+)"')
 
 #: A ``subdirs`` call of a generated CTest test file, its folder in quotes or bare.
 _K_SUBDIRS = re.compile(r'subdirs\(\s*"?([^"\s)]+)"?')
@@ -40,11 +44,10 @@ def rerun_results_folder(tree: Path) -> Path:
     return tree / "test_results" / "rerun"
 
 
-def registers_shards(tree: Path, files: Files) -> bool:
-    """Return whether any test file of the build tree registers a test as a shard.
+def _test_file_texts(tree: Path, files: Files) -> Iterator[str]:
+    """Yield the text of each test file of the build tree, following the ``subdirs`` calls from its own.
 
-    The walk follows the ``subdirs`` calls from the tree's own test file, so it reads only the
-    folders CMake generated test files for.
+    The walk reads only the folders CMake generated test files for.
     """
     pending = [tree]
     seen: set[Path] = set()
@@ -55,7 +58,19 @@ def registers_shards(tree: Path, files: Files) -> bool:
             continue
         seen.add(folder)
         text = files.read_text(test_file)
-        if _K_SHARD_REGISTRATION.search(text):
-            return True
+        yield text
         pending.extend(folder / child for child in _K_SUBDIRS.findall(text))
-    return False
+
+
+def registers_shards(tree: Path, files: Files) -> bool:
+    """Return whether any test file of the build tree registers a test as a shard."""
+    return any(_K_SHARD_REGISTRATION.search(text) for text in _test_file_texts(tree, files))
+
+
+def program_executable(tree: Path, program: str, files: Files) -> Path | None:
+    """Return the executable the shards of *program* run, or None when the tree registers none."""
+    for text in _test_file_texts(tree, files):
+        for registration in _K_ADD_TEST.finditer(text):
+            if program_of(registration.group("name")) == program:
+                return Path(registration.group("executable"))
+    return None

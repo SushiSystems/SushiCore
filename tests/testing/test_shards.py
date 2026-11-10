@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.files_memory import MemoryFiles
-from sushicore.testing.shards import program_of, registers_shards
+from sushicore.testing.shards import program_executable, program_of, registers_shards
 
 pytestmark = pytest.mark.small
 
@@ -48,3 +48,14 @@ def test_a_build_whose_subdirs_name_their_own_folder_ends_the_walk():
 
 def test_a_tree_with_no_test_file_registers_no_shards():
     assert registers_shards(K_TREE, MemoryFiles()) is False
+
+
+def test_the_executable_of_a_program_is_the_one_its_shards_run():
+    files = MemoryFiles({K_TREE / "CTestTestfile.cmake": K_ROOT_FILE,
+                         K_TREE / "tests" / "CTestTestfile.cmake": K_CASE_FILE + K_SHARD_FILE})
+    assert program_executable(K_TREE, "core", files) == Path("/repo/build/core")
+
+
+def test_a_program_no_shard_names_has_no_executable():
+    files = MemoryFiles({K_TREE / "CTestTestfile.cmake": K_SHARD_FILE})
+    assert program_executable(K_TREE, "other", files) is None

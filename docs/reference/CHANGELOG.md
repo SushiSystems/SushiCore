@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-10 — testing: Added `ProgramRunner`, which runs a test program by the name its shards carry, for a CLI to hand `ModuleTests` as `run_program` (`program_runner.py`, `shards.py`).
+
 ## v0.12.0 — 2026-11-10
 
 - 2026-11-10 — testing: Emptied `test_results/gtest` before a run and handed the folder to the budget reader as `--cases` (`session.py`, `budget.py`).
