@@ -35,3 +35,12 @@ def test_a_shard_registration_carries_its_filter_environment_labels_and_timeout(
 def test_a_test_with_no_shard_variables_is_no_shard():
     text = 'add_test([=[core.small]=] "/repo/build/core.exe" "--gtest_filter=Small_*")\n'
     assert shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": text})) == []
+
+
+def test_a_multi_config_file_gives_each_indented_shard_once():
+    indented = "".join("  " + line + "\n" for line in K_FILE.splitlines())
+    text = ('if(CTEST_CONFIGURATION_TYPE MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")\n' + indented
+            + 'elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Rr][Ee][Ll][Ee][Aa][Ss][Ee])$")\n' + indented
+            + 'endif()\n')
+    found = shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": text}))
+    assert [shard.name for shard in found] == ["core.small_shard_1of2"]

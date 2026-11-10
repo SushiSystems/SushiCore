@@ -14,10 +14,10 @@ from ..files import Files
 from .shards import test_file_texts
 
 #: An ``add_test`` call of a generated CTest test file: the test's name and its quoted command line.
-_K_ADD_TEST = re.compile(r'^add_test\(\[=\[(?P<name>[^\]]+)\]=\]\s+(?P<command>.*)\)\s*$', re.MULTILINE)
+_K_ADD_TEST = re.compile(r'^[ 	]*add_test\(\[=\[(?P<name>[^\]]+)\]=\]\s+(?P<command>.*)\)\s*$', re.MULTILINE)
 
 #: A ``set_tests_properties`` call of a generated CTest test file: the test's name and its properties.
-_K_PROPERTIES = re.compile(r'^set_tests_properties\(\[=\[(?P<name>[^\]]+)\]=\]\s+PROPERTIES\s+(?P<properties>.*)\)\s*$',
+_K_PROPERTIES = re.compile(r'^[ 	]*set_tests_properties\(\[=\[(?P<name>[^\]]+)\]=\]\s+PROPERTIES\s+(?P<properties>.*)\)\s*$',
                            re.MULTILINE)
 
 #: One quoted word of a command line or one ``KEY "value"`` property.
@@ -57,13 +57,15 @@ def shard_registrations(tree: Path, files: Files) -> list[ShardRegistration]:
     A shard is a registered test that carries a ``--gtest_filter`` and ``GTEST_TOTAL_SHARDS``.
     """
     registered: list[ShardRegistration] = []
+    seen: set[str] = set()
     for text in test_file_texts(tree, files):
         properties = {found.group("name"): _properties(found.group("properties"))
                       for found in _K_PROPERTIES.finditer(text)}
         for found in _K_ADD_TEST.finditer(text):
             shard = _shard(found.group("name"), _K_QUOTED.findall(found.group("command")),
                            properties.get(found.group("name"), {}))
-            if shard is not None:
+            if shard is not None and shard.name not in seen:
+                seen.add(shard.name)
                 registered.append(shard)
     return registered
 
