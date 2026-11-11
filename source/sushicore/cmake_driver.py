@@ -18,6 +18,10 @@ from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_
 from .proc import CommandRunner
 
 
+#: The endings of the steps a dry run lists for a tree with CONFIGURE_DEPENDS globs, built or not.
+_K_REGENERATION_STEPS = ("Re-checking globbed directories...", "Re-running CMake...")
+
+
 def option_value(args: Sequence[str], option: str) -> str | None:
     """Return the value of *option* in a cmake argv, given as two words or as one."""
     for index, word in enumerate(args):
@@ -89,15 +93,23 @@ class CMakeDriver:
         *targets* narrows the dry run to the targets a CLI builds; none asks of the whole tree.
 
         A tree of another generator, or a dry run that fails, is not known to be current and reads as
-        not current, so the times of its tests are never taken for the code's.
+        not current, so the times of its tests are never taken for the code's. The tree's own
+        regeneration runs first for real, since a dry run lists the check of the globs of
+        ``CONFIGURE_DEPENDS`` and the regeneration after it every time; once it has run, those two
+        steps are left out of the dry run.
         """
         if cached_value(build_dir, "CMAKE_GENERATOR") not in ("Ninja", "Ninja Multi-Config"):
             return False
         command = [self.cmake(cfg), "--build", str(build_dir)]
+        regenerated, _, _ = self._runner.capture([*command, "--target", "build.ninja"], build_dir, env)
+        if regenerated != 0:
+            return False
         for target in targets:
             command += ["--target", target]
         code, stdout, _ = self._runner.capture([*command, "--", "-n"], build_dir, env)
-        return code == 0 and "no work to do" in stdout
+        steps = [line for line in stdout.splitlines() if line.startswith("[")]
+        return code == 0 and ("no work to do" in stdout
+                              or bool(steps) and all(line.endswith(_K_REGENERATION_STEPS) for line in steps))
 
     def cached_value(self, build_dir: Path, entry: str) -> str | None:
         """The value the tree's cache holds for *entry*; see :func:`sushicore.cmake_cache.cached_value`."""

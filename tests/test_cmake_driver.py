@@ -423,19 +423,31 @@ def _ninja_tree(folder: Path, generator: str = "Ninja") -> Path:
 
 
 @pytest.mark.medium
-def test_a_ninja_tree_with_no_work_left_is_current(tmp_path):
+def test_a_ninja_tree_with_no_work_left_is_current_after_its_regeneration_ran(tmp_path):
     driver, runner = _driver()
-    runner.script(lines=("ninja: no work to do.",))
+    runner.script(lines=("ninja: no work to do.",)).script(lines=("ninja: no work to do.",))
     assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path)) is True
-    assert list(runner.commands[0].argv) == ["cmake", "--build", str(tmp_path), "--", "-n"]
+    assert [list(command.argv) for command in runner.commands] == [
+        ["cmake", "--build", str(tmp_path), "--target", "build.ninja"],
+        ["cmake", "--build", str(tmp_path), "--", "-n"]]
 
 
 @pytest.mark.medium
-def test_a_ninja_tree_with_work_left_or_a_failed_dry_run_is_not_current(tmp_path):
+def test_a_tree_whose_dry_run_lists_only_its_glob_check_and_regeneration_is_current(tmp_path):
     driver, runner = _driver()
-    runner.script(lines=("[1/2] Building CXX object a.o",)).script(exit_code=1, lines=("ninja: no work to do.",))
+    runner.script().script(lines=("[0/2] Re-checking globbed directories...", "[1/2] Re-running CMake..."))
+    assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path)) is True
+
+
+@pytest.mark.medium
+def test_a_ninja_tree_with_work_left_or_a_failed_step_is_not_current(tmp_path):
+    driver, runner = _driver()
+    runner.script().script(lines=("[0/2] Re-checking globbed directories...", "[1/2] Building CXX object a.o"))
+    runner.script().script(exit_code=1, lines=("ninja: no work to do.",))
+    runner.script(exit_code=1)
     tree = _ninja_tree(tmp_path)
-    assert (driver.tree_is_current(_cfg(), tree), driver.tree_is_current(_cfg(), tree)) == (False, False)
+    assert [driver.tree_is_current(_cfg(), tree) for _ in range(3)] == [False, False, False]
+    assert len(runner.commands) == 5
 
 
 @pytest.mark.medium
@@ -448,7 +460,7 @@ def test_a_tree_of_another_generator_is_not_current_and_runs_nothing(tmp_path):
 @pytest.mark.medium
 def test_a_dry_run_asks_only_of_the_targets_given(tmp_path):
     driver, runner = _driver()
-    runner.script(lines=("ninja: no work to do.",))
+    runner.script().script(lines=("ninja: no work to do.",))
     assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path), targets=("a", "b")) is True
-    assert list(runner.commands[0].argv) == ["cmake", "--build", str(tmp_path), "--target", "a", "--target", "b",
+    assert list(runner.commands[1].argv) == ["cmake", "--build", str(tmp_path), "--target", "a", "--target", "b",
                                              "--", "-n"]
