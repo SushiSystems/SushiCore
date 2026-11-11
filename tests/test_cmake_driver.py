@@ -443,3 +443,12 @@ def test_a_tree_of_another_generator_is_not_current_and_runs_nothing(tmp_path):
     driver, runner = _driver()
     assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path, "Unix Makefiles")) is False
     assert runner.commands == []
+
+
+@pytest.mark.medium
+def test_a_dry_run_asks_only_of_the_targets_given(tmp_path):
+    driver, runner = _driver()
+    runner.script(lines=("ninja: no work to do.",))
+    assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path), targets=("a", "b")) is True
+    assert list(runner.commands[0].argv) == ["cmake", "--build", str(tmp_path), "--target", "a", "--target", "b",
+                                             "--", "-n"]

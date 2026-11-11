@@ -83,16 +83,20 @@ class CMakeDriver:
         """Whether a build tree is at *build_dir*."""
         return build_dir.is_dir()
 
-    def tree_is_current(self, cfg, build_dir: Path, env=None) -> bool:
+    def tree_is_current(self, cfg, build_dir: Path, env=None, targets: Sequence[str] = ()) -> bool:
         """Whether the Ninja tree at *build_dir* has nothing left to build, by a dry run of its build.
+
+        *targets* narrows the dry run to the targets a CLI builds; none asks of the whole tree.
 
         A tree of another generator, or a dry run that fails, is not known to be current and reads as
         not current, so the times of its tests are never taken for the code's.
         """
         if cached_value(build_dir, "CMAKE_GENERATOR") not in ("Ninja", "Ninja Multi-Config"):
             return False
-        code, stdout, _ = self._runner.capture([self.cmake(cfg), "--build", str(build_dir), "--", "-n"],
-                                               build_dir, env)
+        command = [self.cmake(cfg), "--build", str(build_dir)]
+        for target in targets:
+            command += ["--target", target]
+        code, stdout, _ = self._runner.capture([*command, "--", "-n"], build_dir, env)
         return code == 0 and "no work to do" in stdout
 
     def cached_value(self, build_dir: Path, entry: str) -> str | None:

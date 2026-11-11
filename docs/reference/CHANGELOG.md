@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-11 — build: Let `CMakeDriver.tree_is_current` narrow its dry run to the targets a CLI builds, so a tree built by target reads as current (RW-78, `cmake_driver.py`).
+
 ## v0.13.0 — 2026-11-11
 
 - 2026-11-11 — testing: Failed a passing run of a current tree that breaks a time limit, judging each test over a limit by its time when run again alone (RW-78, `budget.py`).
