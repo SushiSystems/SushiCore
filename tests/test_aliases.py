@@ -133,3 +133,12 @@ def test_alias_table_lists_the_rows_past_their_date_as_expired():
     table = _table()
     assert [alias.old for alias in table.expired(date(2027, 3, 26))] == ["sx doxygen"]
     assert table.expired(K_REMOVED) == []
+
+
+@pytest.mark.small
+def test_a_table_built_with_a_stream_announces_there_through_deprecated():
+    stream = _Tty()
+    alias = Alias("sx doxygen", "sx docs", K_REMOVED)
+    table = AliasTable("sx", (alias,), stream=stream, environ={})
+    assert table.deprecated(lambda: 7, "sx doxygen")() == 7
+    assert stream.getvalue() == table.notice(alias) + "\n"

@@ -49,14 +49,20 @@ class AliasTable:
     @param program The command the user types, e.g. ``sr``; it prefixes the notice and
                    names the environment switch ``SR_NO_DEPRECATION_NOTICE``.
     @param aliases The rows of the table.
+    @param stream Where a notice goes when a call names none; the standard error stream when None.
+    @param environ The variables the switch is read from when a call names none; the process
+                   environment when None.
     """
 
-    __slots__ = ("_program", "_by_old", "_announced")
+    __slots__ = ("_program", "_by_old", "_announced", "_stream", "_environ")
 
-    def __init__(self, program: str, aliases: Iterable[Alias]) -> None:
+    def __init__(self, program: str, aliases: Iterable[Alias], *, stream: TextIO | None = None,
+                 environ: Mapping[str, str] | None = None) -> None:
         self._program = program
         self._by_old = {alias.old: alias for alias in aliases}
         self._announced = False
+        self._stream = stream
+        self._environ = environ
 
     @property
     def notice_switch(self) -> str:
@@ -89,11 +95,11 @@ class AliasTable:
 
         Args:
             alias: The row whose notice is printed.
-            stream: Where the notice goes; the standard error stream when None.
-            environ: The variables the switch is read from; the process environment when None.
+            stream: Where the notice goes; the table's stream when None.
+            environ: The variables the switch is read from; the table's when None.
         """
-        target = sys.stderr if stream is None else stream
-        variables = os.environ if environ is None else environ
+        target = stream or self._stream or sys.stderr
+        variables = environ if environ is not None else (self._environ if self._environ is not None else os.environ)
         if self._announced or alias.removed_after is None:
             return
         if variables.get(self.notice_switch) == "1" or not target.isatty():
