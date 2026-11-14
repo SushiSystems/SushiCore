@@ -14,7 +14,8 @@ from pathlib import Path
 from ..files import Files
 from .module_tests import ModuleTests
 from .result_files import ResultFileError, case_names
-from .shards import gtest_results_folder, program_of, slow_results_folder
+from .shards import (gtest_results_folder, program_executable, program_of, registration_report,
+                     slow_results_folder)
 
 
 class SlowTestRerun:
@@ -59,9 +60,13 @@ class SlowTestRerun:
                 code = self._module.run_program(program_of(shard), [f"--gtest_filter={':'.join(cases)}",
                                                                     f"--gtest_output=xml:{report}"])
                 if not self._files.is_file(report):
+                    program = program_of(shard)
+                    found = program_executable(self._tree, program, self._files)
                     self._module.console().warn(
-                        f"The rerun of {len(cases)} case(s) of {shard} through {program_of(shard)} exited {code} "
-                        f"and wrote no result file, so their time is judged in the run.")
+                        f"The rerun of {len(cases)} case(s) of {shard} through {program} exited {code} "
+                        f"and wrote no result file, so their time is judged in the run. "
+                        + (f"Executable: {found}." if found is not None
+                           else "No executable is registered: " + registration_report(self._tree, program, self._files)))
             if self._files.is_dir(folder):
                 written.append(folder)
         if whole:

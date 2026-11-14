@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.files_memory import MemoryFiles
-from sushicore.testing.shards import program_executable, program_of, registers_shards
+from sushicore.testing.shards import program_executable, program_of, registers_shards, registration_report
 
 pytestmark = pytest.mark.small
 
@@ -59,3 +59,14 @@ def test_the_executable_of_a_program_is_the_one_its_shards_run():
 def test_a_program_no_shard_names_has_no_executable():
     files = MemoryFiles({K_TREE / "CTestTestfile.cmake": K_SHARD_FILE})
     assert program_executable(K_TREE, "other", files) is None
+
+
+def test_the_registration_report_counts_the_files_the_lines_and_the_lines_naming_the_program():
+    files = MemoryFiles({K_TREE / "CTestTestfile.cmake": K_ROOT_FILE,
+                         K_TREE / "tests" / "CTestTestfile.cmake": K_CASE_FILE + K_SHARD_FILE})
+    assert registration_report(K_TREE, "core", files) == (
+        f"2 test file(s) under {K_TREE}, 2 add_test line(s), 1 naming core; first: " + K_SHARD_FILE.strip())
+
+
+def test_the_registration_report_of_an_empty_tree_says_there_is_no_line():
+    assert registration_report(K_TREE, "core", MemoryFiles()).endswith("first: no add_test line")

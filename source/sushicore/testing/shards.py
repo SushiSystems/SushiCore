@@ -72,6 +72,15 @@ def registers_shards(tree: Path, files: Files) -> bool:
     return any(_K_SHARD_REGISTRATION.search(text) for text in test_file_texts(tree, files))
 
 
+def registration_report(tree: Path, program: str, files: Files) -> str:
+    """Say what the test files of *tree* hold about *program*, for a message that explains a missing executable."""
+    texts = list(test_file_texts(tree, files))
+    calls = [line for text in texts for line in text.splitlines() if line.lstrip().startswith("add_test(")]
+    named = [line for line in calls if program in line]
+    sample = (named or calls or ["no add_test line"])[0].strip()
+    return f"{len(texts)} test file(s) under {tree}, {len(calls)} add_test line(s), {len(named)} naming {program}; first: {sample[:160]}"
+
+
 def program_executable(tree: Path, program: str, files: Files) -> Path | None:
     """Return the executable the shards of *program* run, or None when the tree registers none."""
     for text in test_file_texts(tree, files):
