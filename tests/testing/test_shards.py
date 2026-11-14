@@ -65,7 +65,7 @@ def test_the_registration_report_counts_the_files_the_lines_and_the_lines_naming
     files = MemoryFiles({K_TREE / "CTestTestfile.cmake": K_ROOT_FILE,
                          K_TREE / "tests" / "CTestTestfile.cmake": K_CASE_FILE + K_SHARD_FILE})
     assert registration_report(K_TREE, "core", files) == (
-        f"2 test file(s) under {K_TREE}, 2 add_test line(s), 1 naming core; first: " + K_SHARD_FILE.strip())
+        f"2 test file(s) under {K_TREE}, 2 add_test line(s), 2 naming core; first: " + K_CASE_FILE.strip())
 
 
 def test_the_registration_report_of_an_empty_tree_says_there_is_no_line():
