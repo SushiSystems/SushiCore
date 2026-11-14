@@ -113,6 +113,9 @@ class GpuBackendSpec:
             produces, without platform prefix or suffix. The adapter builder maps
             each name to its platform file name: ``<name>.dll`` on Windows,
             ``lib<name>.so*`` on Linux.
+        adapter_patches: File names, under the package's ``patches`` folder,
+            of the patches applied to the fetched sources before configuring.
+            Empty for a backend that builds from the pristine commit.
     """
 
     vendor: str
@@ -122,3 +125,4 @@ class GpuBackendSpec:
     adapter_definitions: typing.Callable[[ToolkitInstall], dict[str, str]]
     adapter_target: str
     adapter_binaries: tuple[str, ...]
+    adapter_patches: tuple[str, ...] = ()

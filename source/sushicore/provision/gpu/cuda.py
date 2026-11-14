@@ -41,6 +41,7 @@ def cuda_spec(vendor: ToolkitVendor | None = None, *,
         adapter_definitions=_adapter_definitions,
         adapter_target="ur_adapter_cuda",
         adapter_binaries=("ur_adapter_cuda", "umf"),
+        adapter_patches=("cuda-event-anchor.patch",),
     )
 
 

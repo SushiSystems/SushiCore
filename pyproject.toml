@@ -37,7 +37,7 @@ where = ["source"]
 include = ["sushicore*"]
 
 [tool.setuptools.package-data]
-sushicore = ["py.typed", "provision/manifests/*.deps.toml"]
+sushicore = ["py.typed", "provision/manifests/*.deps.toml", "provision/gpu/patches/*.patch"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

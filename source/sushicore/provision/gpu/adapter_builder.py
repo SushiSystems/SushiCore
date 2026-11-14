@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import logging
 import os
@@ -36,6 +37,9 @@ _RECOVERABLE_ERRORS = (OSError, ValueError, TypeError, UnicodeError, json.JSONDe
 
 _UR_REPO_URL = "https://github.com/intel/llvm.git"
 _UR_SPARSE_PATH = "/unified-runtime/"
+
+#: Hex characters of the patch digest kept in a toolchain stamp key.
+_PATCH_DIGEST_LENGTH = 12
 
 
 @typing.runtime_checkable
@@ -83,6 +87,11 @@ def _default_environment(cfg: "ProvisionConfig") -> dict[str, str]:
     return merge_env(os.environ, snapshot)
 
 
+def _default_patches_dir() -> Path:
+    """Return the folder that ships the adapter patches as package data."""
+    return Path(__file__).parent / "patches"
+
+
 def _binary_names(base_name: str, is_windows: bool) -> list[str]:
     """Return the platform file names *base_name* maps to."""
     if is_windows:
@@ -127,6 +136,7 @@ class AdapterBuilder:
     replace: typing.Callable[[Path, Path], None] = os.replace
     unlink: typing.Callable[[Path], None] = Path.unlink
     log: logging.Logger = _log
+    patches_dir: Path = dataclasses.field(default_factory=_default_patches_dir)
 
     _cached_environment: dict[str, str] | None = dataclasses.field(
         default=None, init=False, repr=False)
@@ -148,8 +158,10 @@ class AdapterBuilder:
     def _build(self, spec: "GpuBackendSpec", install: "ToolkitInstall",
               toolchain_root: Path, commit: str, dry_run: bool) -> bool:
         """Run the build steps proper, with recoverable errors left to the caller."""
+        patches = [self.patches_dir / name for name in spec.adapter_patches]
+        stamp_key = self._stamp_key(commit, patches)
         stamped = toolchain_adapter_commit(toolchain_root, spec.vendor)
-        if stamped == commit and _adapters_present(toolchain_root, spec, self.cfg.is_windows):
+        if stamped == stamp_key and _adapters_present(toolchain_root, spec, self.cfg.is_windows):
             console.info(f"{spec.vendor} adapter already built for {commit[:12]}.")
             return True
 
@@ -173,6 +185,8 @@ class AdapterBuilder:
 
         if not self._fetch_sources(src_dir, commit, env):
             return False
+        if not self._apply_patches(patches, src_dir, env):
+            return False
         if not self._configure(spec, install, src_dir, build_dir, commit, env):
             return False
         if not self._build_target(spec, build_dir, env):
@@ -189,7 +203,7 @@ class AdapterBuilder:
             shutil.rmtree(staging_dir, ignore_errors=True)
         if not installed:
             return False
-        record_toolchain_adapter(toolchain_root, spec.vendor, commit)
+        record_toolchain_adapter(toolchain_root, spec.vendor, stamp_key)
         console.success(f"{spec.vendor} adapter built for {commit[:12]}.")
         return True
 
@@ -216,6 +230,27 @@ class AdapterBuilder:
             if self._run(argv, src_dir, env) != 0:
                 console.warn(f"Fetching unified-runtime sources failed at: {argv}")
                 shutil.rmtree(src_dir, ignore_errors=True)
+                return False
+        return True
+
+    @staticmethod
+    def _stamp_key(commit: str, patches: list[Path]) -> str:
+        """Return *commit* alone, or *commit* with a short digest of the *patches* contents."""
+        if not patches:
+            return commit
+        digest = hashlib.sha256()
+        for patch in patches:
+            digest.update(patch.read_bytes())
+        return f"{commit}+p{digest.hexdigest()[:_PATCH_DIGEST_LENGTH]}"
+
+    def _apply_patches(self, patches: list[Path], src_dir: Path,
+                       env: dict[str, str]) -> bool:
+        """Apply each of *patches* to *src_dir*, skipping one a reused source already holds."""
+        for patch in patches:
+            if self._run(["git", "apply", "--reverse", "--check", str(patch)], src_dir, env) == 0:
+                continue
+            if self._run(["git", "apply", str(patch)], src_dir, env) != 0:
+                console.warn(f"Applying {patch.name} to the unified-runtime sources failed.")
                 return False
         return True
 

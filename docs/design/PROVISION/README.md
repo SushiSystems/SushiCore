@@ -60,7 +60,7 @@ Lower layers never import higher ones. Each file has one job.
 | `provision/packages/` | `IPackageManager` and one file per manager: apt, dnf, yum, pacman, zypper, winget, direct download, vcpkg. |
 | `provision/probe.py` | Finds tools on this machine: vcvars, oneAPI, cmake, ninja, doxygen, compilers. |
 | `provision/toolchains/` | `intel_llvm.py`, `adaptivecpp.py`, `oneapi.py`, and `stamp.py` for `.sushi_toolchain.json`. |
-| `provision/gpu/` | Backend spec and registry, CUDA, ROCm and Level Zero locators, CUDA and ROCm release selection, adapter builder, Windows elevated-installer helpers. |
+| `provision/gpu/` | Backend spec and registry, CUDA, ROCm and Level Zero locators, CUDA and ROCm release selection, adapter builder, Windows elevated-installer helpers. A spec's `adapter_patches` name files under `provision/gpu/patches/`; the builder applies them with `git apply` after the fetch and before the configure, skips one a reused source already holds, and stamps the adapter as `<commit>+p<sha256[:12]>` of the patch contents, so a toolchain stamped with the bare commit is rebuilt. |
 | `provision/pipeline.py` | `StepResult`, `Step`, `InstallContext`, `InstallPipeline`. |
 | `provision/steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`. |
 | `provision/sinks.py` | `ConfigSink` and its two implementations: workspace `[tool]` and a module's `cli/config.local.toml`. |

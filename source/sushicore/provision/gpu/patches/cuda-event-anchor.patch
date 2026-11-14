@@ -1,0 +1,74 @@
+diff --git a/unified-runtime/source/adapters/cuda/device.cpp b/unified-runtime/source/adapters/cuda/device.cpp
+index 03d9a13..b768c75 100644
+--- a/unified-runtime/source/adapters/cuda/device.cpp
++++ b/unified-runtime/source/adapters/cuda/device.cpp
+@@ -28,15 +28,35 @@ int getAttribute(ur_device_handle_t device, CUdevice_attribute attribute) {
+ }
+ 
+ uint64_t ur_device_handle_t_::getElapsedTime(CUevent ev) const {
+-  float Milliseconds = 0.0f;
+-
+-  // cuEventSynchronize waits till the event is ready for call to
+-  // cuEventElapsedTime.
+-  UR_CHECK_ERROR(cuEventSynchronize(EvBase));
++  // A float of milliseconds since EvBase loses microseconds within minutes of
++  // uptime, so ev is read against an anchor recorded near it instead.
++  constexpr float RebaseMilliseconds = 100.0f;
++  std::lock_guard<std::mutex> Lock(AnchorMutex);
+   UR_CHECK_ERROR(cuEventSynchronize(ev));
+-  UR_CHECK_ERROR(cuEventElapsedTime(&Milliseconds, EvBase, ev));
+-
+-  return static_cast<uint64_t>(Milliseconds * 1.0e6);
++  if (Anchor == nullptr) {
++    UR_CHECK_ERROR(cuEventSynchronize(EvBase));
++    Anchor = EvBase;
++  }
++  float Milliseconds = 0.0f;
++  UR_CHECK_ERROR(cuEventElapsedTime(&Milliseconds, Anchor, ev));
++  if (Milliseconds > RebaseMilliseconds) {
++    ScopedContext Active(CuContext);
++    if (AnchorStream == nullptr)
++      UR_CHECK_ERROR(cuStreamCreate(&AnchorStream, CU_STREAM_NON_BLOCKING));
++    CUevent Next{};
++    UR_CHECK_ERROR(cuEventCreate(&Next, CU_EVENT_DEFAULT));
++    UR_CHECK_ERROR(cuEventRecord(Next, AnchorStream));
++    UR_CHECK_ERROR(cuEventSynchronize(Next));
++    float Hop = 0.0f;
++    UR_CHECK_ERROR(cuEventElapsedTime(&Hop, Anchor, Next));
++    if (Anchor != EvBase)
++      UR_CHECK_ERROR(cuEventDestroy(Anchor));
++    Anchor = Next;
++    AnchorNs += static_cast<double>(Hop) * 1.0e6;
++    UR_CHECK_ERROR(cuEventElapsedTime(&Milliseconds, Anchor, ev));
++  }
++  const double Ns = AnchorNs + static_cast<double>(Milliseconds) * 1.0e6;
++  return Ns > 0.0 ? static_cast<uint64_t>(Ns) : 0;
+ }
+ 
+ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(ur_device_handle_t hDevice,
+diff --git a/unified-runtime/source/adapters/cuda/device.hpp b/unified-runtime/source/adapters/cuda/device.hpp
+index b97b5bb..2d9b065 100644
+--- a/unified-runtime/source/adapters/cuda/device.hpp
++++ b/unified-runtime/source/adapters/cuda/device.hpp
+@@ -17,6 +17,8 @@
+ #include "common.hpp"
+ #include "common/ur_ref_count.hpp"
+ 
++#include <mutex>
++
+ struct ur_device_handle_t_ : ur::cuda::handle_base {
+ private:
+   using native_type = CUdevice;
+@@ -24,6 +26,12 @@ private:
+   native_type CuDevice;
+   CUcontext CuContext;
+   CUevent EvBase; // CUDA event used as base counter
++  // An anchor near the events being read, so cuEventElapsedTime's float stays
++  // small; AnchorNs is its time since EvBase, chained hop by hop in double.
++  mutable std::mutex AnchorMutex;
++  mutable CUevent Anchor{};
++  mutable CUstream AnchorStream{};
++  mutable double AnchorNs{0.0};
+   ur_platform_handle_t Platform;
+   uint32_t DeviceIndex;
+ 

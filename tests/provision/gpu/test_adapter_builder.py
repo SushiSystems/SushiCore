@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import logging
 import os
@@ -43,6 +44,7 @@ class _GpuBackendSpec:
     adapter_definitions: typing.Callable[[_ToolkitInstall], dict[str, str]]
     adapter_target: str
     adapter_binaries: tuple[str, ...]
+    adapter_patches: tuple[str, ...] = ()
 
 
 class _CountedReplace:
@@ -96,7 +98,8 @@ class _Scene:
     install: _ToolkitInstall
 
 
-def _fake_spec(binary_bases: tuple[str, ...] = ("ur_adapter_fake",)) -> _GpuBackendSpec:
+def _fake_spec(binary_bases: tuple[str, ...] = ("ur_adapter_fake",),
+               patches: tuple[str, ...] = ()) -> _GpuBackendSpec:
     """Return one backend spec whose fields exercise the adapter builder's plumbing."""
     return _GpuBackendSpec(
         vendor="fake",
@@ -104,6 +107,7 @@ def _fake_spec(binary_bases: tuple[str, ...] = ("ur_adapter_fake",)) -> _GpuBack
         adapter_definitions=lambda install: {"FAKE_ROOT": str(install.root)},
         adapter_target="ur_adapter_fake",
         adapter_binaries=binary_bases,
+        adapter_patches=patches,
     )
 
 
@@ -455,3 +459,122 @@ def test_a_previous_binary_that_cannot_be_removed_is_recorded(
     assert (bin_dir / "ur_adapter_fake.dll").read_bytes() == b"fake"
     assert len(handler.messages) == 1
     assert "ur_adapter_fake.dll.previous" in handler.messages[0]
+
+
+def _patched_scene(tmp_path: Path, work_root: Path, runner: InMemoryCommandRunner,
+                   body: bytes = b"patch body one") -> _Scene:
+    """Return a scene whose patches folder holds ``fix.patch`` with *body*."""
+    patches = tmp_path / "patches"
+    patches.mkdir(exist_ok=True)
+    (patches / "fix.patch").write_bytes(body)
+    return _builder(tmp_path, work_root, runner=runner, patches_dir=patches)
+
+
+def _patched_spec() -> _GpuBackendSpec:
+    """Return a backend spec that names ``fix.patch``."""
+    return _fake_spec(patches=("fix.patch",))
+
+
+@pytest.mark.medium
+def test_a_named_patch_is_applied_after_the_fetch_and_before_the_configure(
+        tmp_path, short_work_root, recording_console):
+    """Check that git apply runs once, between the checkout and the configure."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    runner = InMemoryCommandRunner(fail_on="--reverse")
+
+    scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
+
+    calls = scene.runner.calls
+    applied = [i for i, c in enumerate(calls) if c[:2] == ["git", "apply"] and "--reverse" not in c]
+    assert scene.result is True
+    assert len(applied) == 1
+    assert calls[applied[0]][-1] == str(tmp_path / "patches" / "fix.patch")
+    assert calls.index(["git", "checkout", "FETCH_HEAD"]) < applied[0] < calls.index(
+        _configure_call(scene))
+
+
+@pytest.mark.medium
+def test_a_reused_source_that_holds_the_patch_is_not_patched_again(
+        tmp_path, short_work_root, recording_console):
+    """Check that a passing reverse check skips the apply on a reused source directory."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    (short_work_root / f"s-{_COMMIT[:8]}" / "unified-runtime").mkdir(parents=True)
+
+    scene = _run(_patched_scene(tmp_path, short_work_root, InMemoryCommandRunner()),
+                 _patched_spec())
+
+    applies = [c for c in scene.runner.calls if c[:2] == ["git", "apply"]]
+    assert scene.result is True
+    assert [c[2] for c in applies] == ["--reverse"]
+
+
+@pytest.mark.medium
+def test_a_failing_patch_returns_false_before_the_configure(
+        tmp_path, short_work_root, recording_console):
+    """Check that a patch that does not apply stops the build with a warning."""
+    runner = InMemoryCommandRunner(fail_on=str(tmp_path / "patches" / "fix.patch"))
+
+    scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
+
+    assert scene.result is False
+    assert not any("-S" in c for c in scene.runner.calls)
+    assert not (scene.toolchain_root / TOOLCHAIN_STAMP).exists()
+
+
+@pytest.mark.medium
+def test_the_stamp_key_carries_a_digest_of_the_patch_contents(
+        tmp_path, short_work_root, recording_console):
+    """Check that the stamp holds the commit plus a 12 character digest of the patch."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    runner = InMemoryCommandRunner(fail_on="--reverse")
+
+    scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
+
+    stamp = json.loads((scene.toolchain_root / TOOLCHAIN_STAMP).read_text())
+    digest = hashlib.sha256(b"patch body one").hexdigest()[:12]
+    assert stamp["adapters"]["fake"] == f"{_COMMIT}+p{digest}"
+
+
+@pytest.mark.medium
+def test_a_bare_commit_stamp_is_rebuilt_once_the_spec_names_a_patch(
+        tmp_path, short_work_root, recording_console):
+    """Check that a toolchain stamped with the bare commit is not skipped for a patched spec."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    first = _run(_builder(tmp_path, short_work_root))
+    runner = InMemoryCommandRunner(fail_on="--reverse")
+    patched = _patched_scene(tmp_path, short_work_root, runner)
+    patched.toolchain_root = first.toolchain_root
+    patched.builder.cfg = first.builder.cfg
+
+    again = _run(patched, _patched_spec())
+
+    assert again.result is True
+    assert any(c[:2] == ["cmake", "--build"] for c in again.runner.calls)
+
+
+@pytest.mark.medium
+def test_a_stamp_with_the_patch_digest_skips_the_rebuild(
+        tmp_path, short_work_root, recording_console):
+    """Check that a second call with an unchanged patch runs no command."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    scene = _run(_patched_scene(tmp_path, short_work_root,
+                                InMemoryCommandRunner(fail_on="--reverse")), _patched_spec())
+    scene.runner.calls.clear()
+
+    again = _run(scene, _patched_spec())
+
+    assert again.result is True
+    assert again.runner.calls == []
+
+
+@pytest.mark.medium
+def test_every_patch_the_cuda_spec_names_ships_with_the_package():
+    """Check that the CUDA spec names the event-anchor patch and the package holds the file."""
+    from sushicore.provision.gpu.adapter_builder import _default_patches_dir
+    from sushicore.provision.gpu.cuda import cuda_spec
+
+    names = cuda_spec().adapter_patches
+
+    assert names == ("cuda-event-anchor.patch",)
+    assert all((_default_patches_dir() / name).is_file() for name in names)
+
