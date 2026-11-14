@@ -199,16 +199,19 @@ def test_a_build_configures_the_adapter_option_and_the_toolkit_definitions(
 
 
 @pytest.mark.medium
-def test_a_windows_configure_forces_the_msvc_compiler(
+def test_a_windows_configure_compiles_with_the_toolchains_clang_cl_and_lld_link(
         tmp_path, short_work_root, recording_console):
-    """Check that a Windows configure names cl as the C and C++ compiler."""
+    """Check that a Windows configure names the toolchain's clang-cl and lld-link, not cl."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
     scene = _run(_builder(tmp_path, short_work_root))
 
+    bin_dir = scene.toolchain_root / "bin"
     configure_call = _configure_call(scene)
-    assert "-DCMAKE_C_COMPILER=cl" in configure_call
-    assert "-DCMAKE_CXX_COMPILER=cl" in configure_call
+    assert f"-DCMAKE_C_COMPILER={bin_dir / 'clang-cl.exe'}" in configure_call
+    assert f"-DCMAKE_CXX_COMPILER={bin_dir / 'clang-cl.exe'}" in configure_call
+    assert f"-DCMAKE_LINKER={bin_dir / 'lld-link.exe'}" in configure_call
+    assert "-DCMAKE_C_COMPILER=cl" not in configure_call
 
 
 @pytest.mark.medium

@@ -187,7 +187,8 @@ class AdapterBuilder:
             return False
         if not self._apply_patches(patches, src_dir, env):
             return False
-        if not self._configure(spec, install, src_dir, build_dir, commit, env):
+        if not self._configure(spec, install, src_dir, build_dir, commit, env,
+                               toolchain_root):
             return False
         if not self._build_target(spec, build_dir, env):
             return False
@@ -256,8 +257,12 @@ class AdapterBuilder:
 
     def _configure(self, spec: "GpuBackendSpec", install: "ToolkitInstall",
                    src_dir: Path, build_dir: Path, commit: str,
-                   env: dict[str, str]) -> bool:
-        """Configure the unified-runtime CMake build for *spec*'s adapter."""
+                   env: dict[str, str], toolchain_root: Path) -> bool:
+        """Configure the unified-runtime CMake build for *spec*'s adapter.
+
+        On Windows the build compiles with the toolchain's own ``clang-cl`` and
+        links with its ``lld-link``, under the vcvars environment for the headers.
+        """
         cmake = self.cfg.expand(self.cfg.cmake_exe) or "cmake"
         argv = [
             cmake,
@@ -267,7 +272,13 @@ class AdapterBuilder:
             "-DCMAKE_BUILD_TYPE=Release",
         ]
         if self.cfg.is_windows:
-            argv += ["-DCMAKE_C_COMPILER=cl", "-DCMAKE_CXX_COMPILER=cl"]
+            bin_dir = toolchain_root / "bin"
+            clang_cl = bin_dir / "clang-cl.exe"
+            argv += [
+                f"-DCMAKE_C_COMPILER={clang_cl}",
+                f"-DCMAKE_CXX_COMPILER={clang_cl}",
+                f"-DCMAKE_LINKER={bin_dir / 'lld-link.exe'}",
+            ]
         ninja = self.cfg.expand(self.cfg.ninja_exe)
         if ninja:
             argv.append(f"-DCMAKE_MAKE_PROGRAM={ninja}")
