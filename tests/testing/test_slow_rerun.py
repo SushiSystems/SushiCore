@@ -27,17 +27,21 @@ def _gtest(*names):
 
 
 class _Module:
-    def __init__(self, files, with_program=True):
+    def __init__(self, files, with_program=True, writes_result=True):
         self.programs = []
+        self.writes_result = writes_result
+        self.console = RecordingConsole()
         self.ctest = []
         self.files = files
         profile = ModuleProfile(name="core", program="co", env_prefix="CO", root_marker="m")
-        self.tests = ModuleTests(profile=profile, project_root=lambda: Path("/repo"), console=RecordingConsole,
+        self.tests = ModuleTests(profile=profile, project_root=lambda: Path("/repo"), console=lambda: self.console,
                                  build_tree=lambda: K_TREE, run_ctest=self._ctest, run=None,
                                  run_program=self._program if with_program else None)
 
     def _program(self, name, arguments, **options):
         self.programs.append((name, arguments))
+        if self.writes_result:
+            self.files.write_text(Path(arguments[1].split("xml:", 1)[1]), "<testsuites/>")
         return 0
 
     def _ctest(self, tree, **keywords):
@@ -61,7 +65,7 @@ def test_a_test_of_no_shard_reruns_through_ctest_with_one_job():
     module = _Module(files)
     written = SlowTestRerun(module.tests, K_TREE, files).rerun(["test_parse.small"])
     assert written == (K_TREE / "Testing" / "slow_junit.xml",)
-    assert (module.ctest[0]["filter"], module.ctest[0]["jobs"]) == ("^(test_parse\.small)$", 1)
+    assert (module.ctest[0]["filter"], module.ctest[0]["jobs"]) == (r"^(test_parse\.small)$", 1)
 
 
 def test_a_shard_case_of_a_module_that_cannot_run_its_program_is_not_rerun():
@@ -75,3 +79,12 @@ def test_nothing_to_rerun_runs_nothing():
     files = MemoryFiles()
     module = _Module(files)
     assert SlowTestRerun(module.tests, K_TREE, files).rerun([]) == ()
+
+
+def test_a_rerun_that_wrote_no_result_is_said_and_names_no_folder():
+    files = MemoryFiles({K_CASES / "core.small_shard_1of1.xml": _gtest("Small_A.One")})
+    module = _Module(files, writes_result=False)
+    written = SlowTestRerun(module.tests, K_TREE, files).rerun(["Small_A.One"])
+    assert written == ()
+    warnings = [call.text for call in module.console.calls if call.kind == "warn"]
+    assert len(warnings) == 1 and "core.small_shard_1of1" in warnings[0] and "exited 0" in warnings[0]
