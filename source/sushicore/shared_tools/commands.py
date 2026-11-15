@@ -55,10 +55,10 @@ def register_shared_tools_commands(
         complain(f"{program}: {error}")
         return typer.Exit(K_EXIT_USAGE if isinstance(error, K_USAGE_ERRORS) else K_EXIT_FINDINGS)
 
-    @app.command("sync", epilog=f"{program} sync . --tag v0.13.2\n{program} sync . --tag v0.13.2 --dry-run")
+    @app.command("sync", epilog=f"{program} sync . --tag v0.14.0\n{program} sync . --tag v0.14.0 --dry-run")
     def sync(
         root: Path = typer.Argument(..., help="The repository to bring up to the tag."),
-        tag: str = typer.Option(..., "--tag", help="The SushiCore release tag to read, such as v0.13.2."),
+        tag: str = typer.Option(..., "--tag", help="The SushiCore release tag to read, such as v0.14.0."),
         source: Optional[Path] = typer.Option(None, "--from", help="A SushiCore checkout; else the sibling or the fetched copy."),
         force: bool = typer.Option(False, "--force", help="Overwrite a shared file that holds a local edit."),
         keep: list[str] = typer.Option([], "--keep", metavar="PATH", help="Leave this shared file as the repository holds it; repeatable."),
