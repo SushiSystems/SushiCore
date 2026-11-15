@@ -13,3 +13,4 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | KI-7 | own | A command run outside a checkout prints plain text and no console line | run the command inside a checkout | RW-26 |  | 2026-10-19 |
 | KI-32 | own | design show crashes with UnicodeEncodeError on a cp1252 console on an arrow | set PYTHONIOENCODING=utf-8 | none, not yet scheduled |  | 2026-11-16 |
+| KI-33 | own | shared_tools sync calls an old SushiSkills copy a local edit | check the file against SushiSkills history, then pass --force | none, the SushiSkills history ends with this move |  | 2026-11-16 |

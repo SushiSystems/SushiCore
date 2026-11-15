@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-16 — shared_tools: Left `check_package_layers.py` and `check_config_reads.py`, which read SushiCore's own packages, out of the shared set (RW-82, `sync_service.py`).
+
 ## v0.14.0 — 2026-11-16
 
 - 2026-11-16 — checking: Added `check_shared_tools.py`, which fails `check_all` when a shared tool differs from `tools/shared_tools.lock` or the lock is missing (RW-81, `check_shared_tools.py`).

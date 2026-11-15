@@ -20,7 +20,17 @@ from .lock_file import SharedToolsLock, digest
 K_TOOLS = "tools"
 K_COMMUNITY = (".github/CODE_OF_CONDUCT.md", ".github/SECURITY.md")
 #: The files of SushiCore's `tools/` that belong to SushiCore alone and are never copied.
-K_EXCLUDED = frozenset({"tools/known_findings.toml", "tools/settings.py", "tools/README.md"})
+K_EXCLUDED = frozenset(
+    {
+        "tools/known_findings.toml",
+        "tools/settings.py",
+        "tools/README.md",
+        "tools/layering/check_package_layers.py",
+        "tools/provision/check_config_reads.py",
+        "tools/tests/test_check_package_layers.py",
+        "tools/tests/test_check_config_reads.py",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)

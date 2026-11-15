@@ -25,7 +25,9 @@ The files are read with `git show <tag>:<path>`, never from a working tree and n
 The checkout is `--from PATH`, else the sibling `../sushicore` of `ROOT`, else the copy that `setup`
 keeps under `sources/sushicore/<version>/`. The shared set is every file under `tools/` and the
 community files `.github/CODE_OF_CONDUCT.md` and `.github/SECURITY.md`, except `tools/settings.py`,
-`tools/README.md` and `tools/known_findings.toml`, which belong to each repository.
+`tools/README.md` and `tools/known_findings.toml`, which belong to each repository, and
+`layering/check_package_layers.py` and `provision/check_config_reads.py` with their tests,
+which read SushiCore's own packages.
 
 ## What a sync does
 

@@ -75,3 +75,9 @@ def test_dry_run_writes_nothing(upstream, target):
     assert K_SHARED in result.written
     assert not (target / K_SHARED).exists()
     assert not (target / K_LOCK_PATH).exists()
+
+
+def test_the_checkers_of_sushicore_alone_are_left_out_of_the_shared_set() -> None:
+    """The checkers that read SushiCore's own packages are not shared."""
+    assert "tools/layering/check_package_layers.py" in K_EXCLUDED
+    assert "tools/provision/check_config_reads.py" in K_EXCLUDED
