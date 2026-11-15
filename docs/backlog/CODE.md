@@ -18,6 +18,7 @@
 | RW-34 | P2 | open | Type the untyped seams on the build side | the build-side seams the audit named carry types (Code C16) |  |  | 2026-10-19 |
 | RW-35 | P2 | open | Stop tests reaching into private names | no test imports or calls a name with a leading underscore (Code C19) |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Remove hidden module state and apply the class-shape rules | no module keeps state outside an object, and classes outside `ui` and `help` follow the class-shape rules (Code C20, Code C22) |  |  | 2026-10-19 |
+| RW-85 | P2 | open | Walk with walk_files in every shared checker that walks the tree | no shared checker calls rglob on the root; check_all in SushiStack finishes under 60 s |  |  | 2026-11-16 |
 
 ## Known issues
 
