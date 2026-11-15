@@ -1,5 +1,5 @@
 # test_check_backlog_trailer.py
-# SushiSkills - https://github.com/SushiSystems/SushiSkills
+# SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
 """Tests the commit trailer checker.
@@ -62,6 +62,12 @@ class TrailerProblemsTest(unittest.TestCase):
 
     def test_text_that_is_no_id_is_refused(self) -> None:
         self.assertIn("not a backlog ID", trailer_problems("x\n\nBacklog: later\n", K_KNOWN, K_PATTERN)[0])
+
+    def test_a_line_that_names_nothing_is_refused(self) -> None:
+        self.assertIn("not a backlog ID", trailer_problems("x\n\nBacklog: \n", K_KNOWN, K_PATTERN)[0])
+
+    def test_the_repository_names_the_commit_its_rule_starts_after(self) -> None:
+        self.assertRegex(check_backlog_trailer.K_SINCE, r"^[0-9a-f]{40}$")
 
     def test_none_needs_a_reason(self) -> None:
         self.assertEqual(trailer_problems("x\n\nBacklog: none (typo in a comment)\n", K_KNOWN, K_PATTERN), [])

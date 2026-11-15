@@ -1,5 +1,5 @@
 # design_status.py
-# SushiSkills - https://github.com/SushiSystems/SushiSkills
+# SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
 """Parses the status, sections and table rows of design documents and lists them from values; reads the tree once."""

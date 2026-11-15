@@ -1,5 +1,5 @@
 # test_check_design_format.py
-# SushiSkills - https://github.com/SushiSystems/SushiSkills
+# SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
 """Tests the rules of the design format checker."""

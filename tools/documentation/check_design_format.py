@@ -1,5 +1,5 @@
 # check_design_format.py
-# SushiSkills - https://github.com/SushiSystems/SushiSkills
+# SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
 """Checks the design documents of a repository against the design format of the documentation skill, through the tooling package.

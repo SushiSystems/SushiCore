@@ -1,5 +1,5 @@
 # mutate_diff.py
-# SushiSkills - https://github.com/SushiSystems/SushiSkills
+# SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
 """Mutates each changed line of a Python diff once and reports which mutants the tests kill.
