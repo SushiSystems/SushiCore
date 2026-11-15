@@ -6,6 +6,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-59 | P3 | open | Show committed but unbuilt work as unverified when reading the backlog | backlog list and next mark such an entry unverified, a derived state that is never stored |  |  | 2026-10-30 |
 | RW-76 | P3 | open | Skip a program whose cases the filter cannot reach in a filtered shard run | sp test -f Small_Json* launches only programs that hold a matching case |  |  | 2026-11-10 |
+| RW-83 | P1 | open | Write the target's licence header on a shared Python file the target did not hold | a sync into a closed-licence repository writes no file whose header fails check_source_comments |  |  | 2026-11-16 |
 
 ## Known issues
 
