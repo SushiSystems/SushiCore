@@ -18,8 +18,9 @@ K_SHARD_NAME = re.compile(r"^(?P<program>.+)\.[a-z]+_(?:shard_\d+of\d+|quarantin
 #: The shard part of a name inside a CTest test file.
 _K_SHARD_REGISTRATION = re.compile(r"\.[a-z]+_shard_\d+of\d+")
 
-#: An ``add_test`` call of a generated CTest test file: the test's name and the executable it runs.
-_K_ADD_TEST = re.compile(r'add_test\(\[=\[(?P<name>[^\]]+)\]=\]\s+"(?P<executable>[^"]+)"')
+#: An ``add_test`` call of a CTest file: the name, bracketed (Windows) or quoted (Linux), and the executable.
+_K_ADD_TEST = re.compile(
+    r'add_test\(\s*(?:\[=\[(?P<name>[^\]]+)\]=\]|"(?P<quoted>[^"]+)")\s+"(?P<executable>[^"]+)"')
 
 #: A ``subdirs`` call of a generated CTest test file, its folder in quotes or bare.
 _K_SUBDIRS = re.compile(r'subdirs\(\s*"?([^"\s)]+)"?')
@@ -85,6 +86,6 @@ def program_executable(tree: Path, program: str, files: Files) -> Path | None:
     """Return the executable the shards of *program* run, or None when the tree registers none."""
     for text in test_file_texts(tree, files):
         for registration in _K_ADD_TEST.finditer(text):
-            if program_of(registration.group("name")) == program:
+            if program_of(registration.group("name") or registration.group("quoted")) == program:
                 return Path(registration.group("executable"))
     return None

@@ -70,3 +70,9 @@ def test_the_registration_report_counts_the_files_the_lines_and_the_lines_naming
 
 def test_the_registration_report_of_an_empty_tree_says_there_is_no_line():
     assert registration_report(K_TREE, "core", MemoryFiles()).endswith("first: no add_test line")
+
+
+def test_the_executable_is_found_in_the_quoted_form_cmake_writes_on_linux():
+    quoted = 'add_test("core.small_shard_0of3" "/repo/build/core" "--gtest_filter=Small_*")\n'
+    files = MemoryFiles({K_TREE / "CTestTestfile.cmake": quoted})
+    assert program_executable(K_TREE, "core", files) == Path("/repo/build/core")
