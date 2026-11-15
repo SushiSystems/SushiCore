@@ -18,7 +18,6 @@
 | RW-34 | P2 | open | Type the untyped seams on the build side | the build-side seams the audit named carry types (Code C16) |  |  | 2026-10-19 |
 | RW-35 | P2 | open | Stop tests reaching into private names | no test imports or calls a name with a leading underscore (Code C19) |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Remove hidden module state and apply the class-shape rules | no module keeps state outside an object, and classes outside `ui` and `help` follow the class-shape rules (Code C20, Code C22) |  |  | 2026-10-19 |
-| RW-79 | P1 | open | Hold every shared checker in SushiCore tools, merged with the SushiSkills copy | diff of both tools trees lists only settings.py, README.md, known_findings.toml and tools/skills |  |  | 2026-11-16 |
 | RW-81 | P1 | open | Fail check_all when a shared tool differs from its lock | a repository with an edited shared file fails python tools/check_all.py . |  |  | 2026-11-16 |
 
 ## Known issues

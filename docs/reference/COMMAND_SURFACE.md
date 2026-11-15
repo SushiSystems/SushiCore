@@ -110,4 +110,5 @@ another for the same reason.
 | --- | --- | --- |
 | `backlog` | Reads and changes the backlog; `check` exits `1` on a finding | [Backlog](BACKLOG.md) |
 | `design` | Reads and changes the design topics; `check` exits `1` on a finding | [Design topics](DESIGN.md) |
+| `shared_tools` | Copies the shared tools from a SushiCore tag and checks them against the lock; `python -m sushicore.shared_tools` only | [Shared tools](SHARED_TOOLS.md) |
 | `docs bundle` | Bundles the published documentation for a release | [Documentation bundle](DOCS_BUNDLE.md) |

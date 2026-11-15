@@ -1,10 +1,10 @@
 # settings.py
-# SushiSkills - https://github.com/SushiSystems/SushiSkills
+# SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
 """Holds the settings of one repository that the shared checkers read.
 
-copy_shared_tools.py writes this file only when a repository has none, and never overwrites it.
+`python -m sushicore.shared_tools sync` never copies or overwrites this file.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ K_CONSOLE_PATHS: tuple[str, ...] = (
     "source/sushicore/build_gate.py",
     "source/sushicore/design/__main__.py",
     "source/sushicore/docs_bundle/__main__.py",
+    "source/sushicore/shared_tools/__main__.py",
     "source/sushicore/entry.py",
     "source/sushicore/renderer.py",
 )

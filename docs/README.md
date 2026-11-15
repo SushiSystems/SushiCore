@@ -31,6 +31,7 @@ from this page. The front door is [`README.md`](../README.md).
 | [Dependency fragment](reference/DEPENDENCY_FRAGMENT.md) | The keys of a `sushistack.deps.toml` entry, the pinned SHA-256 among them, and the `[sushi.<name>]` pins of the Sushi libraries a module links |
 | [JSON events](reference/JSON_EVENTS.md) | The event stream a console writes in machine mode |
 | [Backlog](reference/BACKLOG.md) | The store of remaining work and known issues in `docs/backlog/`, the order of `next` and the `backlog` commands |
+| [Shared tools](reference/SHARED_TOOLS.md) | `python -m sushicore.shared_tools`: copy the shared `tools/` from a SushiCore tag, the lock file and the check |
 | [Design topics](reference/DESIGN.md) | One topic per subject and one owner per module, and the `design` commands |
 | [Documentation bundle](reference/DOCS_BUNDLE.md) | The archive a repository publishes to the documentation site, its `bundle.json` and `docs/publish.toml` |
 | [Changelog](reference/CHANGELOG.md) | What changed, by release |

@@ -1,14 +1,13 @@
 # tools
 
 Reference implementations of the eight checkers every Sushi Systems repository carries. A rule is
-fixed here first and copied out with `checking/copy_shared_tools.py`; which files that copies and
-which it keeps is in the `project-tools` skill.
+fixed here first and copied out from a release tag with `python -m sushicore.shared_tools sync`; the
+command is in [Shared tools](../docs/reference/SHARED_TOOLS.md).
 
 | Path | Checks | Takes |
 | --- | --- | --- |
 | `check_all.py` | Nothing itself; runs the eleven checkers, then the repository's own `<area>/check_<what>.py` files and the tests, and prints only what failed | Repository root |
 | `checking/checker.py` | Nothing itself; runs a checker's rule table and prints findings | |
-| `checking/copy_shared_tools.py` | Nothing; copies these files, `.github/CODE_OF_CONDUCT.md` and `.github/SECURITY.md` into a repository, keeping its license blocks, `settings.py`, this README and its own tools, or lists the files that differ with `--report` | Repository root, `--from` |
 | `settings.py` | Nothing; holds the settings that differ between repositories | |
 | `checking/ignored_paths.py` | Nothing itself; names the files and folders git ignores, which no checker reads | |
 | `documentation/check_source_comments.py` | C++, GLSL, TypeScript and Python: license block, file header, block ceiling, `//` and `#` runs, separators, history words, `@date` | Files or folders |

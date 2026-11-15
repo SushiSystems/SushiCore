@@ -6,9 +6,11 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-59 | P3 | open | Show committed but unbuilt work as unverified when reading the backlog | backlog list and next mark such an entry unverified, a derived state that is never stored |  |  | 2026-10-30 |
 | RW-76 | P3 | open | Skip a program whose cases the filter cannot reach in a filtered shard run | sp test -f Small_Json* launches only programs that hold a matching case |  |  | 2026-11-10 |
+| RW-80 | P1 | open | Sync the shared tools from a SushiCore tag and record them in a lock file | a one-byte edit to a synced file makes 'python -m sushicore.shared_tools sync ROOT --check' exit 1 |  |  | 2026-11-16 |
 
 ## Known issues
 
 | ID | Origin | Symptom | Workaround | Fix | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- |
 | KI-7 | own | A command run outside a checkout prints plain text and no console line | run the command inside a checkout | RW-26 |  | 2026-10-19 |
+| KI-32 | own | design show crashes with UnicodeEncodeError on a cp1252 console on an arrow | set PYTHONIOENCODING=utf-8 | none, not yet scheduled |  | 2026-11-16 |
