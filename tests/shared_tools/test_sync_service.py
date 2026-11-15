@@ -81,3 +81,45 @@ def test_the_checkers_of_sushicore_alone_are_left_out_of_the_shared_set() -> Non
     """The checkers that read SushiCore's own packages are not shared."""
     assert "tools/layering/check_package_layers.py" in K_EXCLUDED
     assert "tools/provision/check_config_reads.py" in K_EXCLUDED
+
+
+K_NEW = "tools/documentation/check_changelog.py"
+K_HELD = "tools/documentation/check_docs_layout.py"
+K_CLOSED_SETTINGS = (
+    "K_CLOSED = True\n"
+    "K_LICENSE_HOLDER = 'Holder Ltd'\n"
+    "K_LICENSE_COMPANY = 'Holder'\n"
+    "K_LICENSE_OPEN_LINES = ('Licensed under the Open Licence.',)\n"
+    "K_LICENSE_CLOSED_LINES = ('All rights reserved. No licence is granted.',)\n"
+)
+K_TEMPLATE_HEADER = "# check_all.py\n# Closed - https://example.com/closed\n# Copyright (c) 2021-present Holder Ltd\n# Licensed under the Open Licence.\n"
+K_NEW_HEADER = (
+    "# check_changelog.py\n# Closed - https://example.com/closed\n"
+    "# Copyright (c) 2026-present Holder Ltd\n# All rights reserved. No licence is granted.\n"
+)
+K_HELD_HEADER = "# check_docs_layout.py\n# Closed - https://example.com/closed\n# Copyright (c) 2021-present Holder Ltd\n# Kept row.\n"
+
+
+def _closed_target(target):
+    """Makes the target a closed-licence repository holding one shared Python file and a template."""
+    (target / "tools" / "settings.py").write_text(K_CLOSED_SETTINGS, encoding="utf-8")
+    (target / "tools" / "check_all.py").write_text(K_TEMPLATE_HEADER + '"""Runs."""\n', encoding="utf-8")
+    held = target / K_HELD
+    held.parent.mkdir(parents=True)
+    held.write_text(K_HELD_HEADER + '"""Old."""\n', encoding="utf-8")
+
+
+def test_a_new_python_file_takes_the_header_the_targets_settings_build(upstream, target):
+    """A closed-licence repository gets its own closed rows on a shared file it did not hold."""
+    _closed_target(target)
+    _sync(upstream, target, force=True)
+    header = (target / K_NEW).read_text(encoding="utf-8").split('"""')[0]
+    assert header == K_NEW_HEADER
+    assert "Apache" not in header
+
+
+def test_a_python_file_the_target_holds_keeps_its_header(upstream, target):
+    """The header of a file the repository already holds is not rebuilt."""
+    _closed_target(target)
+    _sync(upstream, target, force=True)
+    assert (target / K_HELD).read_text(encoding="utf-8").startswith(K_HELD_HEADER)

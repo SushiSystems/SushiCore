@@ -31,9 +31,10 @@ which read SushiCore's own packages.
 
 ## What a sync does
 
-- A Python file keeps the license header the repository holds, or takes the header of its
-  `tools/check_all.py` for a new file. Any other source file gets a block built from the
-  repository's `tools/settings.py`. The block rules are those of the tag.
+- A Python file the repository holds keeps its license header. A new Python file and any other
+  source file get a block built from the repository's `tools/settings.py`, with the project line of its
+  `tools/check_all.py`; without settings a new Python file takes the header of that template. The block
+  rules are those of the tag.
 - A file whose text no release of the tools ever held is a local edit. `sync` names it and writes
   nothing unless `--force` is given.
 - `--keep PATH` leaves that file as the repository holds it, and the lock omits it.

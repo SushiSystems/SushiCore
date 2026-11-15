@@ -50,21 +50,24 @@ class HeaderMerger:
     def merged(self, relative: str, upstream: str, current: str | None, year: int) -> str:
         """Returns a shared file as the repository should hold it: upstream's body under its own header.
 
-        A Python file the repository does not hold yet takes the header of its template, one of its own
-        shared files, with the first line naming the new file. Any other source file takes the block the
-        repository's settings build, dated *year*.
+        A Python file the repository already holds keeps its header. Any other source file, and a Python
+        file the repository does not hold yet, takes the block the repository's settings build, dated
+        *year*. Without settings a new Python file takes the header of the repository's template, one of
+        its own shared files, with the first line naming the new file.
         """
-        if self._toolkit.is_source(relative) and not relative.endswith(K_HEADER_SUFFIX):
-            if self._header is None:
-                return upstream
+        if not self._toolkit.is_source(relative):
+            return upstream
+        if relative.endswith(K_HEADER_SUFFIX) and current is not None:
+            return split_header(current)[0] + split_header(upstream)[1]
+        if self._header is not None:
             return self._toolkit.rewrite(relative, upstream, self._header, year)
         if not relative.endswith(K_HEADER_SUFFIX):
             return upstream
-        if current is not None:
-            return split_header(current)[0] + split_header(upstream)[1]
-        if self._template is None:
-            return upstream
-        rows = split_header(self._template)[0].splitlines(keepends=True)
+        return self._from_template(relative, upstream)
+
+    def _from_template(self, relative: str, upstream: str) -> str:
+        """Returns a new Python file under the template's header, or upstream's text without one."""
+        rows = split_header(self._template or "")[0].splitlines(keepends=True)
         if not rows:
             return upstream
         rows[0] = f"# {Path(relative).name}\n"
