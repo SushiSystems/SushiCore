@@ -47,7 +47,7 @@ The lock is TOML: the `tag`, the `commit` it names, and a `[files]` table from
 each path to the SHA-256 of the bytes the repository holds after the sync.
 
 ```toml
-tag = "v0.14.0"
+tag = "v0.14.1"
 commit = "0123456789abcdef0123456789abcdef01234567"
 
 [files]
