@@ -19,6 +19,16 @@
 | RW-35 | P2 | open | Stop tests reaching into private names | no test imports or calls a name with a leading underscore (Code C19) |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Remove hidden module state and apply the class-shape rules | no module keeps state outside an object, and classes outside `ui` and `help` follow the class-shape rules (Code C20, Code C22) |  |  | 2026-10-19 |
 | RW-85 | P2 | open | Walk with walk_files in every shared checker that walks the tree | no shared checker calls rglob on the root; check_all in SushiStack finishes under 60 s |  |  | 2026-11-16 |
+| RW-89 | P3 | open | Decide whether the Files port reads a modification time for filtered_run | Files carries modified_time on disk and in memory and run_filtered_shards takes no ModifiedTime, or the owner rules the two ports stay |  | `source/sushicore/testing/program_cases.py` | 2026-11-17 |
+| RW-91 | P3 | open | Split register_backlog_commands into one function per command | commands.py registers each backlog command through its own function and no function there exceeds 60 lines |  | `source/sushicore/backlog/commands.py` | 2026-11-17 |
+| RW-94 | P2 | open | Shape the provision contracts as one kind, Protocol or ABC | IDependencySource, IPackageManager, Step, Check, ConfigSink, ProvisionConfig and ToolkitLocator are all Protocols or all ABCs |  | `source/sushicore/provision/pipeline.py` | 2026-11-17 |
+| RW-95 | P3 | open | Merge the write sequence that write_module and remove_module repeat | workspace.py writes a module file through one function both call |  | `source/sushicore/workspace.py` | 2026-11-17 |
+| RW-96 | P3 | open | Delete prime_sudo, which nothing calls | packages/base.py and packages/__init__.py hold no prime_sudo |  | `source/sushicore/provision/packages/base.py` | 2026-11-17 |
+| RW-97 | P3 | open | Bring the four :param: modules and five absolute imports to the package style | no module under provision uses :param: or imports sushicore.provision absolutely |  | `source/sushicore/provision/gpu/adapter_builder.py` | 2026-11-17 |
+| RW-99 | P3 | open | Give pre_move_digest_writer a __main__ of its own and log in the library part | the writer's library function logs, and only a __main__ entry module writes to stdout or stderr |  | `source/sushicore/shared_tools/pre_move_digest_writer.py` | 2026-11-17 |
+| RW-100 | P3 | open | Move the clock contracts into one shared test module | test_system_*_clock.py import their contract from a contract module, not from a sibling test file |  | `tests/provision/sushi_packages/test_wall_clock.py` | 2026-11-17 |
+| RW-102 | P2 | open | Replace the module globals of download_verifier and home with injected seams | download_verifier.py and home.py hold no global statement |  | `source/sushicore/provision/home.py` | 2026-11-17 |
+| RW-103 | P3 | open | Give IPackageManager a licence method so install_deps_step needs no isinstance check | install_deps_step.py holds no isinstance check against IWingetLicences |  | `source/sushicore/provision/install_deps_step.py` | 2026-11-17 |
 
 ## Known issues
 
