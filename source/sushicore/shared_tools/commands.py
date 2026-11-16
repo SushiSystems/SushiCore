@@ -79,6 +79,9 @@ def register_shared_tools_commands(
             raise fail(error) from error
         for path in result.dropped:
             report(f"{path}: dropped upstream; remove it")
+        for name, value in result.missing_settings.items():
+            known = f"{name} = {value}" if value is not None else f"{name}, which SushiCore does not define"
+            report(f"tools/settings.py: lacks {known}")
         verb = "would write" if dry_run else "written"
         for path in result.written:
             report(f"{path}: {verb}")

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 
 import pytest
@@ -58,13 +59,13 @@ def test_force_overwrites_a_local_edit(upstream, target):
 
 
 def test_kept_files_stay_as_the_repository_holds_them(upstream, target):
-    """The settings and README of the repository and a kept file are untouched, and a kept file is not locked."""
+    """The settings and a kept file are untouched, the README keeps its text, and a kept file is not locked."""
     kept = "tools/ci/" + next((upstream / "tools" / "ci").iterdir()).name
     (target / kept).parent.mkdir(parents=True)
     (target / kept).write_text("my own\n", encoding="utf-8")
     _sync(upstream, target, keep=[kept])
     assert (target / "tools" / "settings.py").read_text(encoding="utf-8") == "K_OWN = 1\n"
-    assert (target / "tools" / "README.md").read_text(encoding="utf-8") == "own readme\n"
+    assert (target / "tools" / "README.md").read_text(encoding="utf-8").startswith("own readme\n")
     assert (target / kept).read_text(encoding="utf-8") == "my own\n"
     assert kept not in read_lock(target).files
 
@@ -123,3 +124,79 @@ def test_a_python_file_the_target_holds_keeps_its_header(upstream, target):
     _closed_target(target)
     _sync(upstream, target, force=True)
     assert (target / K_HELD).read_text(encoding="utf-8").startswith(K_HELD_HEADER)
+
+
+def test_sync_writes_the_shared_rows_into_the_readme_and_keeps_the_own_rows(upstream, target):
+    """The README gains a row for a shared tool and keeps the row of a tool the repository owns."""
+    own = "| `mine/check_mine.py` | Its own rule | Repository root |"
+    head = "# tools\n\n| Path | Checks | Takes |\n| --- | --- | --- |\n"
+    (target / "tools" / "README.md").write_text(head + own + "\n", encoding="utf-8")
+    result = _sync(upstream, target)
+    lines = (target / "tools" / "README.md").read_text(encoding="utf-8").split("\n")
+    assert own in lines
+    assert any(line.startswith("| `check_all.py` |") for line in lines)
+    assert not any(line.startswith("| `settings.py` |") for line in lines)
+    assert "tools/README.md" in result.written
+
+
+def test_a_dry_run_leaves_the_readme_as_it_is(upstream, target):
+    """A dry run names the README as a file it would write and writes none of it."""
+    result = _sync(upstream, target, dry_run=True)
+    assert "tools/README.md" in result.written
+    assert (target / "tools" / "README.md").read_text(encoding="utf-8") == "own readme\n"
+
+
+def test_sync_names_the_settings_the_tools_read_and_the_target_lacks(upstream, target):
+    """K_OWN is all the target defines, so a setting a shared checker reads is named with SushiCore's value."""
+    result = _sync(upstream, target)
+    assert "K_FOLDER_CEILING" in result.missing_settings
+    assert result.missing_settings["K_FOLDER_CEILING"] is not None
+    assert "K_OWN" not in result.missing_settings
+
+
+def test_a_setting_the_target_defines_is_not_named(upstream, target):
+    """A setting the target's settings file holds is left out of the missing ones."""
+    (target / "tools" / "settings.py").write_text("K_FOLDER_CEILING = 3\n", encoding="utf-8")
+    assert "K_FOLDER_CEILING" not in _sync(upstream, target).missing_settings
+
+
+def test_the_service_hands_what_it_read_to_the_collaborators_it_is_given(upstream, target):
+    """A readme merger and a settings reporter passed in decide the README text and the report."""
+    calls = []
+
+    def merge(current, source, shared):
+        calls.append((current, K_SHARED in shared))
+        return "merged\n"
+
+    result = _sync(upstream, target, merge_readme=merge, missing_settings=lambda tools, own, core: {"K_X": "1"})
+    assert calls == [("own readme\n", True)]
+    assert (target / "tools" / "README.md").read_text(encoding="utf-8") == "merged\n"
+    assert result.missing_settings == {"K_X": "1"}
+
+
+K_OLD_BODY = '"""A body only SushiSkills held."""\n'
+K_OLD_FILE = "# check_all.py\n# Old - https://example.com/old\n# Copyright (c) 2021-present Old\n# Old licence.\n" + K_OLD_BODY
+
+
+def _old_copy(target) -> None:
+    """Writes a file the tag never held over the shared file of the target."""
+    path = target / K_SHARED
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(K_OLD_FILE, encoding="utf-8")
+
+
+def test_a_file_equal_to_a_pre_move_digest_is_stale_not_a_local_edit(upstream, target):
+    """A body SushiSkills held before the move is replaced, whatever licence header it sits under."""
+    _old_copy(target)
+    known = {K_SHARED: frozenset({hashlib.sha256(K_OLD_BODY.encode("utf-8")).hexdigest()})}
+    result = _sync(upstream, target, pre_move=lambda: known)
+    assert K_SHARED in result.written
+    assert K_OLD_BODY not in (target / K_SHARED).read_text(encoding="utf-8")
+
+
+def test_a_file_matching_no_digest_and_no_release_is_still_a_local_edit(upstream, target):
+    """The same file with no matching digest stops the sync."""
+    _old_copy(target)
+    with pytest.raises(LocalEditsError) as refused:
+        _sync(upstream, target, pre_move=dict)
+    assert refused.value.files == [K_SHARED]

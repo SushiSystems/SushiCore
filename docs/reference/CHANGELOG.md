@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+2026-11-17 — shared_tools: Made sync write the shared README rows, name each missing setting with its value, and know the pre-move copies by digest (RW-86, RW-87, KI-33).
 2026-11-17 — checking: Tested every ceiling at its edge and the conditions a mutation sample left alive in six checkers (SushiSkills RW-61, RW-62).
 2026-11-17 — checking: Walked every checker's tree through walk_files and derived folders through one folders_of (RW-85, `ignored_paths.py`).
 - 2026-11-17 — testing: Warned when a slow rerun writes no result file and stopped handing the gate a folder that holds none (RW-63, `slow_rerun.py`).

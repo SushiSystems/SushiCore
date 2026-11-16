@@ -44,6 +44,10 @@ class GitReader:
         texts = (self.show(revision, path) for revision in revisions)
         return [text for text in texts if text is not None]
 
+    def revisions(self, path: str) -> list[str]:
+        """Returns every commit of any branch or tag that changed the path, newest first."""
+        return (self._run("log", "--all", "--format=%H", "--", path) or "").split()
+
     def ever_files(self, tag: str, *paths: str) -> list[str]:
         """Returns every path any commit reachable from the tag held under the given paths."""
         logged = self._run("log", "--format=", "--name-only", tag, "--", *paths)

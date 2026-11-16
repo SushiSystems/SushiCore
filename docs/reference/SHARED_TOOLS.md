@@ -1,6 +1,6 @@
 # Shared tools
 
-**Describes:** `source/sushicore/shared_tools/commands.py`, `source/sushicore/shared_tools/sync_service.py`, `source/sushicore/shared_tools/lock_file.py`
+**Describes:** `source/sushicore/shared_tools/commands.py`, `source/sushicore/shared_tools/sync_service.py`, `source/sushicore/shared_tools/lock_file.py`, `source/sushicore/shared_tools/readme_rows.py`, `source/sushicore/shared_tools/settings_reads.py`
 
 SushiCore owns the shared checkers under its `tools/`. A repository takes them from a release tag
 with `sync`, and `shared_tools.lock` in its `tools/` folder records what it took. A repository without a CLI of its
@@ -25,7 +25,8 @@ The files are read with `git show <tag>:<path>`, never from a working tree and n
 The checkout is `--from PATH`, else the sibling `../sushicore` of `ROOT`, else the copy that `setup`
 keeps under `sources/sushicore/<version>/`. The shared set is every file under `tools/` and the
 community files `.github/CODE_OF_CONDUCT.md` and `.github/SECURITY.md`, except `tools/settings.py`,
-`tools/README.md` and `tools/known_findings.toml`, which belong to each repository, and
+`tools/README.md` and `tools/known_findings.toml`, which belong to each repository (the README
+takes the shared rows, below), and
 `layering/check_package_layers.py` and `provision/check_config_reads.py` with their tests,
 which read SushiCore's own packages.
 
@@ -39,7 +40,12 @@ which read SushiCore's own packages.
   nothing unless `--force` is given.
 - `--keep PATH` leaves that file as the repository holds it, and the lock omits it.
 - A file the tag does not share but an earlier release did is named as dropped, never removed.
-- `--dry-run` lists what would be written and writes neither the files nor the lock.
+- `tools/README.md` gets the tag's table row of each shared tool: a row the repository holds for
+  that path is replaced in place, a missing one goes after the last row, and the rows of its own
+  tools stay. The README is not locked.
+- Each `K_` setting a copied tool reads that the repository's `tools/settings.py` lacks is named
+  as `tools/settings.py: lacks K_X = <value>`, with the value SushiCore's settings hold at the tag.
+- `--dry-run` lists what would be written and writes neither the files, the README nor the lock.
 
 ## The lock
 

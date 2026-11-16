@@ -14,6 +14,8 @@ a lock file under `tools/`. The commands, the exit codes and the lock are in
 | `LicenceToolkit`, `load_toolkit` | `licence_toolkit.py` | Load the tag's own license block writer |
 | `HeaderMerger` | `header_merger.py` | Put a shared file under the repository's license header |
 | `SharedToolsLock`, `read_lock` | `lock_file.py` | Write, read and compare the lock |
+| `read_pre_move_digests`, `is_pre_move_copy` | `pre_move_digests.py`, `pre_move_digests.toml` | The frozen digests of the files SushiSkills held before the move; such a file is stale, not a local edit |
+| `write_digests` | `pre_move_digest_writer.py` | Wrote the frozen digest file once; not run again |
 | `SharedToolsSync`, `K_EXCLUDED` | `sync_service.py` | The sync itself |
 | `register_shared_tools_commands`, `main` | `commands.py`, `__main__.py` | The `sync` and `check` commands |
 
