@@ -54,10 +54,19 @@ class SlowTestRerun:
         self._module.console().info(f"Rerunning {len(names)} test(s) over a time limit alone, one at a time.")
         written: list[Path] = []
         if by_shard and self._module.run_program is not None:
+            wrote_any = False
             for shard, cases in by_shard.items():
-                self._module.run_program(program_of(shard), [f"--gtest_filter={':'.join(cases)}",
-                                                             f"--gtest_output=xml:{folder / (shard + '.xml')}"])
-            written.append(folder)
+                report = folder / (shard + ".xml")
+                code = self._module.run_program(program_of(shard), [f"--gtest_filter={':'.join(cases)}",
+                                                                    f"--gtest_output=xml:{report}"])
+                if self._files.is_file(report):
+                    wrote_any = True
+                else:
+                    self._module.console().warn(
+                        f"The rerun of {len(cases)} case(s) of {shard} through {program_of(shard)} exited {code} "
+                        f"and wrote no result file, so their time is judged in the run.")
+            if wrote_any:
+                written.append(folder)
         if whole:
             junit = self._tree / "Testing" / "slow_junit.xml"
             self._files.remove(junit)

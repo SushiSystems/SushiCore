@@ -125,8 +125,13 @@ def test_a_shard_case_over_its_limit_reruns_alone_and_the_gate_judges_that_time(
                          K_CASES / "core_tests.small_shard_1of1.xml": _gtest("Small_A", "Slow")})
     reader = _Reader(files, over=("Small_A.Slow",), codes=(0, 1))
     calls = []
-    code = _judge(files, reader, console, run_program=lambda program, arguments, **options: calls.append(
-        (program, arguments)) or 0, cases=K_CASES)
+
+    def program(name, arguments, **options):
+        calls.append((name, arguments))
+        files.write_text(Path(arguments[1].split("xml:", 1)[1]), "<testsuites/>")
+        return 0
+
+    code = _judge(files, reader, console, run_program=program, cases=K_CASES)
     assert code == 1
     assert calls == [("core_tests", ["--gtest_filter=Small_A.Slow",
                                      f"--gtest_output=xml:{K_TREE / 'test_results' / 'slow' / 'core_tests.small_shard_1of1.xml'}"])]
