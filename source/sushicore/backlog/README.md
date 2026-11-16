@@ -13,6 +13,8 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 | `BacklogStore`, `BacklogConfig`, `IdLedger`, `Fault` | `store.py` | Read and write the area files, `ids.toml`, `backlog.toml`, the details and the index |
 | `next_work`, `decisions`, `is_late` | `order.py` | The age limits and the order of `next` |
 | `check_backlog`, `late_entries` | `check.py` | Every rule of `backlog check` |
+| `unverified_ids` | `unverified.py` | Judge which IDs the commits after the stamp leave unverified |
+| `GitVerification` | `verification.py` | Read the stamp in the git directory and the commits after it |
 | `BacklogEditor`, `Closed` | `editor.py` | Add, promote, set, move, close, pin, and the areas |
 | `BacklogImporter`, `BacklogRenumberer` | `importer.py` | `import` from the retired files and `renumber` after a merge |
 | `register_backlog_commands` | `commands.py` | Add the `backlog` group to a Typer application |

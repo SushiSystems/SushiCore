@@ -93,6 +93,13 @@ regenerates `README.md`. `close` refuses an ID another open entry cites in `Bloc
 `Origin`; its changelog line is for the caller to write into `CHANGELOG.md`. A refusal is a
 `BacklogError`, which a CLI prints as one line.
 
+`list` and `next` mark an open work entry `unverified` when a commit after the last green
+`tools/check_all.py` run names it in its `Backlog:` line; their JSON carries it as
+`"Unverified"`. That run writes the commit it checked to `.git/sushicore/verified`, a stamp that is
+never committed. Without a stamp nothing is marked and the text output ends with one line saying
+so. The state is derived on each read and never stored; `docs/design/BACKLOG/README.md` holds the
+ruling.
+
 ## Two branches, one ID
 
 Two branches that each add an entry take the same number, and the merge conflicts in `ids.toml`

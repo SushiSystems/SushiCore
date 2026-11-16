@@ -21,12 +21,15 @@ from .importer import BacklogImporter, BacklogRenumberer
 from .model import K_PRIORITIES, IssueEntry, WorkEntry
 from .order import age, decisions, is_late, next_work
 from .store import AnyEntry, BacklogStore, Located
+from .verification import GitVerification
 
 if TYPE_CHECKING:
     import typer
 
 K_HELP = "Read and change the backlog: remaining work and known issues, in docs/backlog/."
 K_EXIT_FINDINGS = 1
+K_NO_STAMP = "no verification stamp exists; run tools/check_all.py to write one"
+K_UNVERIFIED = " unverified"
 
 
 def register_backlog_commands(
@@ -37,6 +40,7 @@ def register_backlog_commands(
     project_root: Callable[[], Path],
     report: Callable[[str], None] = print,
     group_cls: type | None = None,
+    unverified: Callable[[Path], frozenset[str] | None] = GitVerification().unverified,
 ) -> None:
     """Adds the `backlog` group to *app*.
 
@@ -47,6 +51,7 @@ def register_backlog_commands(
         project_root: Returns the repository root; called when a command runs.
         report: Prints one line of the result the way the CLI prints.
         group_cls: The Click group class the CLI draws its help with.
+        unverified: Returns the IDs named after the verification stamp, or None without a stamp.
     """
     import typer
 
@@ -72,6 +77,22 @@ def register_backlog_commands(
         else:
             for line in lines:
                 report(line)
+
+    def emit_entries(chosen: list[Located], empty: str, as_json: bool) -> None:
+        """Prints entries with the unverified mark, and the no-stamp line when there is no stamp."""
+        today = current_day()
+        marked = unverified(project_root())
+        ids = marked or frozenset()
+        payload = [{**_payload(item, today), "Unverified": _is_unverified(item.entry, ids)} for item in chosen]
+        lines = [_line(item.entry, today) + (K_UNVERIFIED if _is_unverified(item.entry, ids) else "")
+                 for item in chosen] or ([empty] if empty else [])
+        if marked is None:
+            lines.append(K_NO_STAMP)
+        emit(payload, lines, as_json)
+
+    def current_day() -> datetime.date:
+        """Returns today's date from the store."""
+        return store().today()
 
     json_option = typer.Option(False, "--json", help="Print JSON, for an agent.")
 
@@ -105,7 +126,7 @@ def register_backlog_commands(
             elif state or allowed or late:
                 continue
             found.append(item)
-        emit([_payload(item, today) for item in found], [_line(item.entry, today) for item in found], as_json)
+        emit_entries(found, "", as_json)
 
     @backlog_app.command("show", epilog=f"{program} backlog show RW-12")
     def show(ident: str = typer.Argument(..., help="The ID."), as_json: bool = json_option) -> None:
@@ -132,11 +153,7 @@ def register_backlog_commands(
         today = current.today()
         chosen = next_work(current.entries(), current.config().pins, today, count)
         located = {item.entry.ident: item for item in current.located()}
-        emit(
-            [_payload(located[entry.ident], today) for entry in chosen],
-            [_line(entry, today) for entry in chosen] or ["no work is ready"],
-            as_json,
-        )
+        emit_entries([located[entry.ident] for entry in chosen], "no work is ready", as_json)
 
     @backlog_app.command("decisions", epilog=f"{program} backlog decisions")
     def decisions_command(as_json: bool = json_option) -> None:
@@ -337,6 +354,11 @@ def _line(entry: AnyEntry, today: datetime.date) -> str:
         return f"{entry.ident} {entry.origin}: {entry.symptom}"
     late = " late" if is_late(entry, today) else ""
     return f"{entry.ident} {entry.priority} {entry.state}{late} {age(entry, today)}d: {entry.title}"
+
+
+def _is_unverified(entry: AnyEntry, ids: frozenset[str]) -> bool:
+    """Returns whether an open work entry is named after the verification stamp."""
+    return isinstance(entry, WorkEntry) and entry.state == "open" and entry.ident in ids
 
 
 def _shown(path: Path, root: Path) -> str:

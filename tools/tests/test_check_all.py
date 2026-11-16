@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import check_all  # noqa: E402
 from checking.known_findings import parse_entries  # noqa: E402
+from repo_builder import Repo  # noqa: E402
 from check_all import (  # noqa: E402
     K_CHECKERS,
     Check,
@@ -31,6 +32,7 @@ from check_all import (  # noqa: E402
     own_checker_names,
     plan_checks,
     report,
+    write_verified_stamp,
 )
 
 K_BASELINE_TEXT = (
@@ -245,6 +247,38 @@ class ShellTest(unittest.TestCase):
         script = "print('Open — phase 1'); raise SystemExit(1)"
         code, output = _run_check([sys.executable, "-c", script])
         self.assertEqual((code, output.strip()), (1, "Open — phase 1"))
+
+
+class VerifiedStampTest(unittest.TestCase):
+    """Tests the stamp a clean run leaves in the git directory of a temporary repository."""
+
+    K_TEST_SIZE = "medium"
+
+    def setUp(self) -> None:
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        self.repo.write("a.txt", "a")
+        self.commit = self.repo.commit("first").sha
+        self.stamp = self.repo.root / ".git" / "sushicore" / "verified"
+
+    def test_writes_the_head_commit_to_the_stamp_file(self) -> None:
+        self.assertEqual(write_verified_stamp(self.repo.root), self.stamp)
+        self.assertEqual(self.stamp.read_text(encoding="utf-8").strip(), self.commit)
+
+    def test_a_clean_run_writes_the_stamp(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            check_all.main([str(self.repo.root)], every_check_passes)
+        self.assertTrue(self.stamp.is_file())
+
+    def test_a_failed_run_writes_nothing(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            check_all.main([str(self.repo.root)], first_check_fails("bad"))
+        self.assertFalse(self.stamp.exists())
+
+    def test_a_folder_outside_a_git_checkout_writes_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertIsNone(write_verified_stamp(Path(folder)))
+            self.assertEqual(list(Path(folder).iterdir()), [])
 
 
 if __name__ == "__main__":

@@ -40,6 +40,8 @@
 A topic is a module or a subject that spans modules, and it has one design document.
 The list is generated in `docs/design/README.md`.
 
+**BACKLOG**: The backlog marks work a commit named after the last green `check_all` run as unverified, derived on each read from a stamp that is never committed. See [the design](../design/BACKLOG/README.md).
+
 **GPU_TOOLKIT_SELECTION**: The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas... See [the design](../design/GPU_TOOLKIT_SELECTION/README.md).
 
 **STANDALONE_PROVISIONING**: A person who clones one open-source Sushi module must be able to build it after one command, without installing hub. See [the design](../design/STANDALONE_PROVISIONING/README.md).

@@ -19,8 +19,13 @@ from sushicore.console_memory import RecordingConsole
 pytestmark = pytest.mark.medium
 
 
-def _invoke(root: Path, *arguments: str) -> tuple[int, list[str]]:
-    """Runs one command of an application named `sx` and returns its code and its lines."""
+def _invoke(
+    root: Path, *arguments: str, unverified=lambda _root: frozenset(),
+) -> tuple[int, list[str]]:
+    """Runs one command of an application named `sx` and returns its code and its lines.
+
+    *unverified* stands for the stamp; by default a stamp exists and names nothing.
+    """
     console = RecordingConsole()
     app = typer.Typer(name="sx", no_args_is_help=True, add_completion=False)
 
@@ -30,6 +35,7 @@ def _invoke(root: Path, *arguments: str) -> tuple[int, list[str]]:
 
     register_backlog_commands(
         app, program="sx", panel="Project", project_root=lambda: root, report=console.info,
+        unverified=unverified,
     )
     result = CliRunner().invoke(app, ["backlog", *arguments])
     if result.exception and not isinstance(result.exception, SystemExit):
@@ -95,3 +101,26 @@ def test_a_refused_change_reaches_the_caller_as_the_backlog_error(store):
     with pytest.raises(BacklogError):
         _invoke(store.root, "add", "work", "--area", "AUDIO", "--priority", "P1",
                 "--title", "Fix it", "--done-when", "it passes")
+
+
+def test_list_marks_an_open_entry_named_after_the_stamp(editor, store):
+    """An open entry that a commit after the stamp names is printed as unverified."""
+    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
+    editor.add_work(area="BUILD", priority="P2", title="Fix the link", done_when="it passes")
+    _, lines = _invoke(store.root, "list", unverified=lambda _root: frozenset({"RW-2"}))
+    assert [line.endswith(" unverified") for line in lines] == [False, True]
+
+
+def test_list_marks_nothing_and_says_so_without_a_stamp(editor, store):
+    """Without a stamp no entry is marked and one line says no stamp exists."""
+    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
+    _, lines = _invoke(store.root, "list", unverified=lambda _root: None)
+    assert [line.endswith(" unverified") for line in lines] == [False, False]
+    assert lines[-1].startswith("no verification stamp exists")
+
+
+def test_next_marks_an_open_entry_named_after_the_stamp(editor, store):
+    """`next` prints the same mark."""
+    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
+    _, lines = _invoke(store.root, "next", unverified=lambda _root: frozenset({"RW-1"}))
+    assert lines[0].endswith(" unverified")

@@ -35,6 +35,7 @@ from checking.known_findings import (  # noqa: E402
 )
 from commits.check_backlog_trailer import open_ids  # noqa: E402
 
+K_STAMP_PATH = ("sushicore", "verified")
 K_TOOLS = Path(__file__).resolve().parent
 #: How many checks run at once.
 K_WORKERS = min(8, os.cpu_count() or 1)
@@ -148,7 +149,35 @@ def main(argv: list[str] | None = None,
                          orphan_lines(entries, names))
     for line in lines:
         print(line)
+    if code == 0:
+        write_verified_stamp(root)
     return code
+
+
+def write_verified_stamp(root: Path) -> Path | None:
+    """Writes the hash of HEAD to `<git dir>/sushicore/verified` and returns the file.
+
+    Returns None and writes nothing when *root* is not inside a git checkout or has no commit.
+    """
+    git_dir = _git_output(root, "rev-parse", "--git-dir")
+    head = _git_output(root, "rev-parse", "HEAD")
+    if git_dir is None or head is None:
+        return None
+    stamp = (root / git_dir).joinpath(*K_STAMP_PATH)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(head + "\n", encoding="utf-8")
+    return stamp
+
+
+def _git_output(root: Path, *arguments: str) -> str | None:
+    """Returns the stripped output of a git command run in *root*, or None when it fails."""
+    try:
+        completed = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True,
+                                   text=True, encoding="utf-8", check=False,
+                                   env=suite_environment(os.environ))
+    except OSError:
+        return None
+    return completed.stdout.strip() if completed.returncode == 0 else None
 
 
 def run_plan(root: Path,
