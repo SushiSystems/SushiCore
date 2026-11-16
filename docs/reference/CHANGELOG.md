@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+2026-11-17 — design: Printed design and backlog output through force_utf8, so a cp1252 console no longer fails on an arrow (KI-32).
 2026-11-17 — testing: Launched only the shard programs a filter can reach, keeping any program newer than its listing, and gave Files a modification time (RW-76, RW-89).
 2026-11-17 — shared_tools: Made sync write the shared README rows, name each missing setting with its value, and know the pre-move copies by digest (RW-86, RW-87, KI-33).
 2026-11-17 — checking: Tested every ceiling at its edge and the conditions a mutation sample left alive in six checkers (SushiSkills RW-61, RW-62).

@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import io
+import sys
+
 import pytest
 
 from sushicore.design.__main__ import main
@@ -30,3 +33,11 @@ def test_main_prints_a_design_error_as_one_line(store, capsys):
     """An unknown topic exits 1 with one line on standard error."""
     assert main(["--root", str(store.root), "show", "RAIN"]) == 1
     assert capsys.readouterr().err.strip() == "python -m sushicore.design: 'RAIN' is not a design topic"
+
+
+def test_main_shows_an_arrow_on_a_cp1252_console_without_raising(store, monkeypatch):
+    """A console that cannot hold an arrow gets the glyph written, not a UnicodeEncodeError."""
+    store.create("ATMOSPHERE", modules=["modules/atmosphere"], about="Air \u2192 rain.")
+    console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", console)
+    assert main(["--root", str(store.root), "show", "ATMOSPHERE"]) == 0

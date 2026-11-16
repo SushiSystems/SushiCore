@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from ..errors import SushiCoreError
+from ..renderer import force_utf8
 from .commands import register_backlog_commands
 
 K_PROGRAM = "python -m sushicore.backlog"
@@ -23,6 +24,8 @@ K_EXIT_FAILURE = 1
 def main(argv: Sequence[str] | None = None) -> int:
     """Runs one command of the group on the repository at --root, or the current folder."""
     import typer
+
+    force_utf8((sys.stdout, sys.stderr))
 
     arguments = list(sys.argv[1:] if argv is None else argv)
     root = Path.cwd()
