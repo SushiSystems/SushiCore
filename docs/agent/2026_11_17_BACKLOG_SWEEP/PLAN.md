@@ -1,6 +1,6 @@
 # Backlog sweep: plan
 
-**Status:** Open — wave A runs from 2026-11-17; waves B and C start when A is done
+**Status:** Open — waves A and D are committed on 2026-11-17; waves B and C wait for the next session
 
 Closes the open work entries the owner handed over on 2026-11-17, in hierarchy order. Wave A holds
 the jobs whose file sets do not meet. Wave B reshapes `provision` and the console, one seam at a

@@ -11,5 +11,4 @@
 
 | ID | Origin | Symptom | Workaround | Fix | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- |
-| KI-16 | own | Setup accepts third-party licences on the user's behalf | read the vendors' licences before running setup | RW-46 |  | 2026-10-19 |
 | KI-17 | dependency | ROCm SDK tarballs are used unverified | none |  | `source/sushicore/provision/gpu/rocm_toolkit_installer.py` | 2026-10-19 |

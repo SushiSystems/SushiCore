@@ -1,6 +1,6 @@
 # Backlog
 
-**Status:** Open — no phase planned yet
+**Status:** Shipped — 2026-11-17
 **About:** The backlog commands read the entries and mark an open entry unverified when a commit after the last green check_all run names it.
 **Modules:** `source/sushicore/backlog`
 
@@ -35,8 +35,8 @@ The mark never changes an entry's state in the files.
 
 | Id | Phase | State |
 | --- | --- | --- |
-| B1 | The stamp: check_all writes the verified commit to .git/sushicore/verified after a clean run | planned |
-| B2 | The mark: backlog list and next print an open entry unverified when a commit after the stamp names it | planned |
+| B1 | The stamp: check_all writes the verified commit to .git/sushicore/verified after a clean run | built |
+| B2 | The mark: backlog list and next print an open entry unverified when a commit after the stamp names it | built |
 
 ## Open questions
 
