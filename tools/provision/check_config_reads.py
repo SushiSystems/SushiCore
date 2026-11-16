@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from checking.checker import Checker, Issue, run  # noqa: E402
+from checking.ignored_paths import walk_files  # noqa: E402
 
 K_PROVISION = Path("source/sushicore/provision")
 K_CONFIG_FILE = K_PROVISION / "config.py"
@@ -55,7 +56,7 @@ def _collect(paths: list[Path]) -> Iterator[Scope]:
         if not config.is_file():
             continue
         files = tuple((path, path.read_text(encoding="utf-8"))
-                      for path in sorted((folder / K_PROVISION).rglob("*.py")))
+                      for path in walk_files(folder / K_PROVISION) if path.suffix == ".py")
         yield Scope(declared_names(config.read_text(encoding="utf-8")), files)
 
 

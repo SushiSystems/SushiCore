@@ -62,15 +62,13 @@ K_UNITY = (
 )
 
 
-def entries_of(files: Iterable[str], texts: Mapping[str, str] | None = None,
-               ignored: Iterable[str] = ()) -> Entries:
+def entries_of(files: Iterable[str], texts: Mapping[str, str] | None = None) -> Entries:
     """Returns the entries of a repository whose files are the given paths below its root."""
     names = tuple(files)
     folders = {K_ROOT.joinpath(*parent.parts) for name in names
                for parent in PurePosixPath(name).parents if parent.parts}
     sources = tuple(SourceFile(K_ROOT / name, text) for name, text in (texts or {}).items())
-    return Entries(K_ROOT, frozenset(K_ROOT / name for name in names), frozenset(folders),
-                   frozenset(K_ROOT / name for name in ignored), sources)
+    return Entries(K_ROOT, frozenset(K_ROOT / name for name in names), frozenset(folders), sources)
 
 
 def mirror_of(files: Iterable[str], texts: Mapping[str, str] | None = None) -> Mirror:
