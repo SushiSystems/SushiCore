@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-17 — cmake_driver: Gave the driver port and the in-memory driver the `resource_spec_file` argument the disk driver takes (RW-63, `cmake_driver_port.py`).
+
 ## v0.14.1 — 2026-11-16
 
 - 2026-11-16 — checking: Pruned git-ignored folders before walking them in the comment and probe checkers, so a large ignored tree costs no time (RW-84, `ignored_paths.py`).
