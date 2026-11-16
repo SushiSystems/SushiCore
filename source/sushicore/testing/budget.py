@@ -15,6 +15,7 @@ from typing import Optional
 from ..files import DiskFiles, Files
 from .labels import K_DEFAULT_LABELS, LabelSelection
 from .module_tests import ModuleTests
+from .program_cases import programs_file
 from .result_files import ResultFileError, case_names
 from .shards import program_of
 from .slow_rerun import SlowTestRerun
@@ -97,8 +98,8 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
 def program_map(cases: Path, files: Files) -> dict[str, str]:
     """Return the test program of each suite whose cases the shards of a run wrote into *cases*.
 
-    Each ``/`` part of a case's suite is a key, so a parametrised ``Prefix/Suite`` names its program by
-    ``Suite`` too, the part the reader looks up.
+    The whole suite and each ``/`` part of it are keys, so a parametrised ``Prefix/Suite`` names its
+    program by ``Prefix/Suite`` and by ``Suite``, the part the reader looks up.
     """
     programs: dict[str, str] = {}
     for path in files.children(cases):
@@ -110,7 +111,8 @@ def program_map(cases: Path, files: Files) -> dict[str, str]:
         except ResultFileError:
             continue
         for name in names:
-            for part in name.split(".")[0].split("/"):
+            suite = name.split(".")[0]
+            for part in (suite, *suite.split("/")):
                 programs[part] = program
     return programs
 
@@ -149,7 +151,7 @@ def judge_run(module: ModuleTests, tree: Path, junit: Path, scope: str, wall_sec
     present = cases if cases is not None and files.is_dir(cases) else None
     programs = None
     if present is not None:
-        programs = tree / "Testing" / "programs.json"
+        programs = programs_file(tree)
         files.write_text(programs, json.dumps(program_map(present, files), indent=2, sort_keys=True) + "\n")
     over_file = tree / "Testing" / "over_limit.txt"
     files.remove(over_file)

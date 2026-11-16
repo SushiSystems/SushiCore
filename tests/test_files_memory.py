@@ -48,3 +48,11 @@ def test_a_removed_file_is_gone_and_removing_an_absent_one_is_no_fault():
     files.remove(K_ROOT / "a.md")
     files.remove(K_ROOT / "a.md")
     assert files.children(K_ROOT) == [K_ROOT / "b.md"]
+
+
+def test_a_modification_time_is_reported_once_set_and_is_none_before():
+    files = MemoryFiles({K_ROOT / "a.md": ""}, {K_ROOT / "b.md": 7.0})
+    files.set_modified_time(K_ROOT / "a.md", 3.5)
+    assert files.modified_time(K_ROOT / "a.md") == 3.5
+    assert files.modified_time(K_ROOT / "b.md") == 7.0
+    assert files.modified_time(K_ROOT / "c.md") is None

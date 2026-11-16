@@ -14,6 +14,7 @@ from .gtest_filter import intersect_filters
 from .junit_report import junit_text
 from .labels import LabelSelection
 from .module_tests import ModuleTests
+from .program_cases import may_hold_a_case, suites_by_program
 from .shard_registrations import ShardRegistration, shard_registrations
 from .shards import gtest_results_folder
 
@@ -24,7 +25,9 @@ def run_filtered_shards(module: ModuleTests, tree: Path, selection: LabelSelecti
 
     A shard registers its own ``--gtest_filter``, which GoogleTest ranks above any variable, so the
     shard's program is run here with the filter narrowed to the cases the shard's filter and
-    *user_filter* both select. A shard that cannot hold such a case is not run. Each shard keeps its
+    *user_filter* both select. A shard that cannot hold such a case is not run, nor is one of a program
+    whose suites, as the last run listed them in ``programs.json``, the filter cannot reach; a program
+    that listing does not name, or one built after the listing was written, still runs. Each shard keeps its
     sharding variables and its timeout, writes its GoogleTest XML to the results folder, and its
     exit code goes into the JUnit file *junit*. The shards that need an accelerator run one after
     another in one worker, beside the others, so no two of them share it, as CTest's resource groups
@@ -39,12 +42,15 @@ def run_filtered_shards(module: ModuleTests, tree: Path, selection: LabelSelecti
         repeat: Runs the cases of each shard this many times; once when 0.
         shuffle_seed: The shuffle seed handed to each shard, or None for no shuffle.
         junit: The JUnit file to write.
-        files: The file system the registrations are read from and the JUnit file is written to.
+        files: The file system the registrations are read from, whose modification times date the listing
+            and the executables, and the JUnit file is written to.
 
     Returns:
         0 when every shard that ran passed, otherwise 1.
     """
+    suites = suites_by_program(tree, files)
     runs = [(shard, narrowed) for shard in shard_registrations(tree, files) if selection.selects(shard.labels)
+            if may_hold_a_case(suites.get(shard.program), user_filter)
             for narrowed in [intersect_filters(shard.size_filter, user_filter)] if narrowed is not None]
     console = module.console()
     if not runs:

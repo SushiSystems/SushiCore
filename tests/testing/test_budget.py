@@ -79,11 +79,12 @@ def test_the_reader_command_hands_on_every_rerun_the_programs_the_gate_and_the_l
                            "--programs", str(K_ROOT / "p.json"), "--gate", "--list-over", str(K_ROOT / "over.txt")]
 
 
-def test_the_program_map_names_the_program_of_each_suite_part_from_the_shard_files():
+def test_the_program_map_names_the_program_of_each_whole_suite_and_suite_part_from_the_shard_files():
     files = MemoryFiles({K_CASES / "core_tests.small_shard_1of2.xml": _gtest("Small_A", "One"),
                          K_CASES / "io_tests.medium_shard_1of1.xml": _gtest("Inst/Medium_B", "Two/0"),
                          K_CASES / "notes.txt": "x"})
-    assert program_map(K_CASES, files) == {"Small_A": "core_tests", "Inst": "io_tests", "Medium_B": "io_tests"}
+    assert program_map(K_CASES, files) == {"Small_A": "core_tests", "Inst/Medium_B": "io_tests",
+                                              "Inst": "io_tests", "Medium_B": "io_tests"}
 
 
 class _Reader:

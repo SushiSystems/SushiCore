@@ -104,3 +104,74 @@ def test_shards_that_need_an_accelerator_run_in_turn_in_their_registered_order()
                                repeat=0, shuffle_seed=None, junit=K_JUNIT, files=files)
     assert (code, order) == (0, ["0", "1", "2", "3"])
 
+
+def _times(listing, **programs):
+    """Return the times by path: the listing at *listing*, and each executable ``/repo/build/<name>`` at its time."""
+    return {K_TREE / "Testing" / "programs.json": listing,
+            **{K_TREE / name: built for name, built in programs.items()}}
+
+
+def _run_with_listing(programs, user_filter, listing, times=None, small_filter="Small_*"):
+    """Run two programs, ``core`` and ``json``, with *listing* as the ``programs.json`` of the last run.
+
+    The small shards register *small_filter*, which a real build writes as ``Small_*:*/Small_*``.
+    """
+    registered = K_FILE.replace('--gtest_filter=Small_*"', f'--gtest_filter={small_filter}"')
+    text = registered + registered.replace("core.", "json.").replace("/repo/build/core", "/repo/build/json")
+    contents = {K_TREE / "CTestTestfile.cmake": text}
+    if listing is not None:
+        contents[K_TREE / "Testing" / "programs.json"] = listing
+    files = MemoryFiles(contents, times or _times(10, core=5, json=5))
+    profile = ModuleProfile(name="core", program="co", env_prefix="CO", root_marker="m")
+    module = ModuleTests(profile=profile, project_root=lambda: Path("/repo"), console=RecordingConsole,
+                         build_tree=lambda: K_TREE, run_ctest=None, run=None, run_program=programs)
+    return run_filtered_shards(module, K_TREE, select_labels(None), user_filter, jobs=2, repeat=0,
+                               shuffle_seed=None, junit=K_JUNIT, files=files)
+
+
+def test_a_filter_that_matches_the_cases_of_one_program_launches_only_that_program():
+    programs = _Programs()
+    listing = '{"Small_Json": "json", "Small_Rect": "core"}'
+    assert _run_with_listing(programs, "Small_Json*", listing) == 0
+    assert {call[0] for call in programs.calls} == {"json"} and len(programs.calls) == 2
+
+
+def test_a_program_the_listing_does_not_name_still_runs():
+    programs = _Programs()
+    assert _run_with_listing(programs, "Small_Json*", '{"Small_Rect": "core"}') == 0
+    assert {call[0] for call in programs.calls} == {"json"}
+
+
+def test_without_a_listing_or_with_an_unreadable_one_every_program_runs():
+    for listing in (None, "not json", "[1, 2]"):
+        programs = _Programs()
+        _run_with_listing(programs, "Small_Json*", listing)
+        assert {call[0] for call in programs.calls} == {"core", "json"}
+
+
+@pytest.mark.parametrize("user_filter, launched", [
+    ("Grid/Small_Json.*", {"json"}),
+    ("Small_Json.*", {"json"}),
+    ("*/Small_Json.*", {"core", "json"}),
+])
+def test_a_parametrised_suite_is_reached_by_its_instantiation_prefix_and_by_its_suite_name(user_filter, launched):
+    programs = _Programs()
+    listing = '{"Grid/Small_Json": "json", "Grid": "json", "Small_Json": "json", "Small_Rect": "core"}'
+    _run_with_listing(programs, user_filter, listing, small_filter="Small_*:*/Small_*")
+    assert {call[0] for call in programs.calls} == launched
+
+
+def test_a_program_built_after_its_listing_was_written_is_kept_whatever_the_filter():
+    programs = _Programs()
+    listing = '{"Small_Json": "json", "Small_Rect": "core"}'
+    assert _run_with_listing(programs, "Small_Json*", listing, _times(10, core=5, json=20)) == 0
+    assert {call[0] for call in programs.calls} == {"json"}
+    programs = _Programs()
+    _run_with_listing(programs, "Small_Json*", listing, _times(10, core=20, json=5))
+    assert {call[0] for call in programs.calls} == {"core", "json"}
+
+
+def test_a_program_whose_executable_time_is_unknown_is_kept():
+    programs = _Programs()
+    _run_with_listing(programs, "Small_Json*", '{"Small_Json": "json", "Small_Rect": "core"}', _times(10, json=5))
+    assert {call[0] for call in programs.calls} == {"core", "json"}

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+2026-11-17 — testing: Launched only the shard programs a filter can reach, keeping any program newer than its listing, and gave Files a modification time (RW-76, RW-89).
 2026-11-17 — shared_tools: Made sync write the shared README rows, name each missing setting with its value, and know the pre-move copies by digest (RW-86, RW-87, KI-33).
 2026-11-17 — checking: Tested every ceiling at its edge and the conditions a mutation sample left alive in six checkers (SushiSkills RW-61, RW-62).
 2026-11-17 — checking: Walked every checker's tree through walk_files and derived folders through one folders_of (RW-85, `ignored_paths.py`).

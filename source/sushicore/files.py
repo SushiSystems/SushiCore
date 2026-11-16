@@ -37,6 +37,9 @@ class Files(Protocol):
     def remove(self, path: Path) -> None:
         """Removes the file at the path; an absent file is left as it is."""
 
+    def modified_time(self, path: Path) -> float | None:
+        """Returns the modification time of the file at the path in seconds, or None when it is not known."""
+
 
 class DiskFiles:
     """The files of the real file system."""
@@ -69,3 +72,10 @@ class DiskFiles:
     def remove(self, path: Path) -> None:
         """Removes the file at the path; an absent file is left as it is."""
         path.unlink(missing_ok=True)
+
+    def modified_time(self, path: Path) -> float | None:
+        """Returns the modification time of the file at the path in seconds, or None when it cannot be read."""
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return None

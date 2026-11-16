@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from sushicore.files import DiskFiles
@@ -43,3 +45,12 @@ def test_a_removed_file_is_gone_and_removing_an_absent_one_is_no_fault(tmp_path)
     files.remove(path)
     files.remove(path)
     assert not path.exists()
+
+
+def test_a_file_reports_its_modification_time_and_a_missing_one_reports_none(tmp_path):
+    path = tmp_path / "a.md"
+    path.write_text("")
+    os.utime(path, (1_000_000, 1_000_000))
+    files = DiskFiles()
+    assert files.modified_time(path) == 1_000_000
+    assert files.modified_time(tmp_path / "none") is None

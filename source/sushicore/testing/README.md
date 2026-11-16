@@ -21,7 +21,8 @@ that breaks a time limit. Its options are in
 | `intersect_filters` | `gtest_filter.py` | Join a shard's GoogleTest filter and the caller's into the filter that selects the cases both select |
 | `ShardRegistration`, `shard_registrations` | `shard_registrations.py` | Read each shard's program, size filter, variables, labels, timeout and whether it declares `RESOURCE_GROUPS` from the tree's CTest test files |
 | `junit_text` | `junit_report.py` | Write the JUnit file of a run the command made itself |
-| `run_filtered_shards` | `filtered_run.py` | Run the selected shards under the caller's case filter through `run_program`, at most `--jobs` at once, the shards that need an accelerator one after another |
+| `programs_file`, `suites_by_program`, `may_hold_a_case` | `program_cases.py` | Read the suites each program held in the last run from `programs.json`, and say whether a filter can reach one; a program the listing does not name is never skipped |
+| `run_filtered_shards` | `filtered_run.py` | Run the selected shards under the caller's case filter through `run_program`, skipping a program whose listed suites the filter cannot reach, at most `--jobs` at once, the shards that need an accelerator one after another |
 | `failed_tests`, `failing_cases`, `case_names`, `ResultFileError` | `result_files.py` | Read the failed CTest tests from the JUnit file, and the failing and all `Suite.Case` names from a shard's GoogleTest XML |
 | `FailedTestRerun`, `RerunOutcome` | `rerun.py` | Rerun the failed tests once, alone: a failed shard's failing cases by `--gtest_filter` on its program, any other test by `ctest -R`; tell flaky from failing |
 | `run_tests` | `session.py` | Refuse a run that cannot start, build a sanitizer tree when asked, empty the shard results, run CTest with a JUnit file and the resource file, rerun what failed and judge the run by its time limits, or hand the labels to the CLI's own pytest suite |

@@ -13,9 +13,11 @@ from typing import Mapping
 class MemoryFiles:
     """Files held by path; a folder exists while a file sits under it."""
 
-    def __init__(self, files: Mapping[Path, str] | None = None) -> None:
-        """Keeps the files given, by path."""
+    def __init__(self, files: Mapping[Path, str] | None = None,
+                 modified_times: Mapping[Path, float] | None = None) -> None:
+        """Keeps the files given, by path, and the modification times given, by path."""
         self.files: dict[Path, str] = dict(files or {})
+        self.modified_times: dict[Path, float] = dict(modified_times or {})
 
     def is_file(self, path: Path) -> bool:
         """Returns whether a file is at the path."""
@@ -53,3 +55,11 @@ class MemoryFiles:
     def remove(self, path: Path) -> None:
         """Drops the file at the path; an absent file is left as it is."""
         self.files.pop(path, None)
+
+    def modified_time(self, path: Path) -> float | None:
+        """Returns the time set for the path, or None when none was set."""
+        return self.modified_times.get(path)
+
+    def set_modified_time(self, path: Path, seconds: float) -> None:
+        """Sets the modification time the path reports."""
+        self.modified_times[path] = seconds
