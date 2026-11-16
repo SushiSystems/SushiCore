@@ -2,7 +2,10 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""A machine environment held in a dictionary, in place of the registry."""
+"""A machine environment held in a dictionary, in place of the registry.
+
+Deprecated since 0.15.0 and removed in 0.16.0, with ``windows_installer``.
+"""
 
 from __future__ import annotations
 

@@ -32,7 +32,7 @@ exit code is the installer's.
 
 | Command | Options | Does |
 | --- | --- | --- |
-| `setup` | `--dry-run`, `--yes` or `-y`, `--toolchain` (repeatable), `--no-gpu` | Provisions what the module needs to build, then runs `doctor` |
+| `setup` | `--dry-run`, `--yes` or `-y`, `--toolchain` (repeatable), `--no-gpu`, `--accept-licences` | Provisions what the module needs to build, then runs `doctor` |
 | `doctor` | `--for GROUP` | Reports the checks of the module; `GROUP` is `build`, `test`, `infer`, `eval` or a group the module adds. Exits `1` when a required check fails |
 | `link` | `--workspace PATH` | Records the module in a workspace, which must carry its marker, as one operation |
 | `unlink` | `--workspace PATH` | Removes the module's entry and its link |

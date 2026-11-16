@@ -13,6 +13,7 @@ import pytest
 
 from sushicore.provision import packages
 from sushicore.provision.packages import base, linux
+from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
 
 
 class _Process:
@@ -114,3 +115,52 @@ def test_apt_install_of_nothing_runs_nothing(monkeypatch, recording_console):
     commands = _started(monkeypatch)
     assert linux.AptManager().install([], dry_run=False)
     assert commands == []
+
+
+_MANAGERS = [
+    pytest.param(linux.AptManager, id="apt"),
+    pytest.param(linux.DnfManager, id="dnf"),
+    pytest.param(linux.YumManager, id="yum"),
+    pytest.param(linux.PacmanManager, id="pacman"),
+    pytest.param(linux.ZypperManager, id="zypper"),
+    pytest.param(InMemoryLinuxPackageManager, id="in-memory"),
+]
+
+
+@pytest.fixture(params=_MANAGERS)
+def manager(request) -> linux.LinuxPackageManager:
+    """Give each Linux manager the contract is held against, one at a time."""
+    return request.param()
+
+
+@pytest.mark.small
+def test_a_manager_is_named(manager):
+    """Check that every manager carries a non-empty name."""
+    assert isinstance(manager.name, str) and manager.name
+
+
+@pytest.mark.small
+def test_translating_nothing_gives_nothing(manager):
+    """Check that translating no names gives no names."""
+    assert list(manager.translate_apt([])) == []
+
+
+@pytest.mark.small
+def test_a_name_no_table_knows_passes_through_unchanged(manager):
+    """Check that a name outside every table comes back as it went in."""
+    assert list(manager.translate_apt(["a-package-no-table-lists"])) == ["a-package-no-table-lists"]
+
+
+@pytest.mark.small
+def test_translation_keeps_the_order_of_the_names_it_keeps(manager):
+    """Check that names no table lists keep the order they were given in."""
+    names = ["zz-unlisted", "aa-unlisted"]
+    assert list(manager.translate_apt(names)) == names
+
+
+@pytest.mark.small
+def test_translation_leaves_the_names_it_was_given_untouched(manager):
+    """Check that translating does not change the list it was handed."""
+    names = ["build-essential", "pkg-config"]
+    manager.translate_apt(names)
+    assert names == ["build-essential", "pkg-config"]

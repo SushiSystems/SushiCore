@@ -1,8 +1,8 @@
-# test_steps.py
+# test_gpu_stage.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for the seams the shared steps gained."""
+"""The GPU stage and the adapter build the install steps share."""
 
 from __future__ import annotations
 
@@ -11,241 +11,210 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.errors import DigestMismatchError
-from sushicore.provision import download_verifier, steps
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.fragments import Dependency
-from sushicore.provision.fragments_memory import InMemoryDependencySource
-from sushicore.provision.packages import IPackageManager
-from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
-from sushicore.provision.sinks_memory import InMemoryConfigSink
+from sushicore.provision.gpu.adapter_builder_memory import InMemoryAdapterBuilder
+from sushicore.provision.gpu.cuda_toolkit_installer import K_CUDA_LICENCE
+from sushicore.provision.licence_consent_memory import granted_consent
+from sushicore.provision.pipeline import InstallContext, ToolchainSelection
+from sushicore.provision.gpu_stage import provision_adapters_for_run
+from sushicore.provision.machine_actions import MachineActions
+
+from .recorded_gpu_stage import RecordedGpuStage
 
 
-def _actions(*, paths=None, **overrides) -> steps.MachineActions:
-    """Build machine calls that touch nothing and probe *paths*, with *overrides* applied."""
-    return steps.MachineActions(**{
-        "refresh_path": lambda: None,
-        "resolve_config": lambda cfg, gpu=False: dict(paths or {}),
-        **overrides})
+def _actions(**overrides) -> MachineActions:
+    """Build machine calls that touch nothing, with *overrides* applied."""
+    return MachineActions(**{"refresh_path": lambda: None, **overrides})
 
 
-def _context(**overrides) -> InstallContext:
+def _linux_context(**overrides) -> InstallContext:
     """Build an install context for a Linux run with *overrides* applied."""
-    return InstallContext(cfg=ProvisionSettings(platform="linux"), **overrides)
+    return InstallContext(cfg=ProvisionSettings(platform="linux"),
+                          **{"consent": granted_consent(K_CUDA_LICENCE), **overrides})
+
+
+def _windows_context(*, gpu: bool, vendor: str) -> InstallContext:
+    """Build an install context for a Windows run that selects the GPU or not."""
+    return InstallContext(cfg=ProvisionSettings(platform="windows"),
+                          selection=ToolchainSelection(gpu=gpu), gpu_vendor=vendor,
+                          consent=granted_consent(K_CUDA_LICENCE))
 
 
 @pytest.mark.small
-def test_configure_writes_through_the_sink():
-    """Check that ConfigureStep hands the probed paths and the active toolchain to its sink."""
-    sink = InMemoryConfigSink()
-    step = steps.ConfigureStep(sink, console=RecordingConsole(),
-                               actions=_actions(paths={"ninja_exe": "n"}))
-
-    result = step.run(_context(active_toolchain="intel-llvm"))
-
-    assert (result, sink.paths, sink.tool) == (
-        StepResult.OK, [("linux", {"ninja_exe": "n"})], [{"toolchain": "intel-llvm"}])
-
-
-@pytest.mark.small
-def test_configure_backs_up_before_writing():
-    """Check that the sink is asked for a backup before it is asked to write."""
-    sink = InMemoryConfigSink(backup_path=Path("stub.toml.bak"))
+def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root():
+    """Check that no adapter is built, and the skip is said, when no llvm root is known."""
+    built = []
     out = RecordingConsole()
 
-    steps.ConfigureStep(sink, console=out, actions=_actions(paths={"ninja_exe": "n"})).run(_context())
+    provision_adapters_for_run(
+        _linux_context(), console=out, actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        build_adapters=lambda *args: built.append(args))
 
-    assert sink.calls == ["backup", "write_paths"]
-    assert "Backed up existing config to stub.toml.bak" in out.texts("info")
-
-
-@pytest.mark.small
-def test_configure_skips_the_backup_line_when_there_is_nothing_to_back_up():
-    """Check that no backup line is printed when the sink had no file to back up."""
-    sink = InMemoryConfigSink(backup_path=None)
-    out = RecordingConsole()
-
-    steps.ConfigureStep(sink, console=out, actions=_actions(paths={"ninja_exe": "n"})).run(_context())
-
-    assert not any(text.startswith("Backed up") for text in out.texts("info"))
+    assert built == []
+    assert any("GPU adapter build skipped" in text for text in out.texts("info"))
 
 
 @pytest.mark.small
-def test_configure_dry_run_prints_the_rendered_config():
-    """Check that a dry run prints the config it would write and touches the sink not at all."""
-    sink = InMemoryConfigSink()
-    out = RecordingConsole()
-    step = steps.ConfigureStep(sink, console=out, actions=_actions(paths={"ninja_exe": "n"}))
+def test_provision_adapters_for_run_uses_the_resolved_llvm_root():
+    """Check that the adapters are built against the llvm root the install resolved."""
+    built = []
+    ctx = _linux_context()
+    ctx.resolved_paths["llvm_root"] = "/opt/llvm"
 
-    result = step.run(_context(dry_run=True))
+    provision_adapters_for_run(
+        ctx, console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(root))
 
-    assert result is StepResult.OK
-    assert any('ninja_exe = "n"' in text for text in out.texts("console.print"))
-    assert sink.calls == []
-
-
-@pytest.mark.medium
-def test_uninstall_leaves_a_refused_root_intact(tmp_path, monkeypatch):
-    """Check that a root which is the working directory is refused and left untouched."""
-    monkeypatch.chdir(tmp_path)
-    sentinel = tmp_path / "marker.txt"
-    sentinel.write_text("keep me", encoding="utf-8")
-    out = RecordingConsole()
-    step = steps.UninstallStep(InMemoryDependencySource([]), managers=[],
-                               sink=InMemoryConfigSink(), console=out, root=lambda: tmp_path)
-
-    result = step.run(_context(everything=True))
-
-    assert result is StepResult.FAILED
-    assert sentinel.is_file()
-    assert any(str(tmp_path) in text for text in out.texts("error"))
-
-
-@pytest.mark.medium
-def test_windows_uninstall_refuses_before_touching_tools(tmp_path):
-    """Check that a refused root stops the Windows uninstall before any tool or config is removed."""
-    root = tmp_path / "checkout"
-    (root / ".git").mkdir(parents=True)
-    cmake = root / "tools" / "cmake"
-    doxygen = root / "tools" / "doxygen"
-    cmake.mkdir(parents=True)
-    doxygen.mkdir(parents=True)
-    (root / "tools" / "ninja.exe").write_text("", encoding="utf-8")
-    sink = InMemoryConfigSink()
-    step = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink,
-                               console=RecordingConsole(), root=lambda: root)
-
-    result = step.run(InstallContext(cfg=ProvisionSettings(platform="windows")))
-
-    assert result is StepResult.FAILED
-    assert cmake.is_dir() and doxygen.is_dir() and (root / "tools" / "ninja.exe").is_file()
-    assert sink.calls == []
-
-
-@pytest.mark.medium
-def test_linux_uninstall_refuses_before_removing_anything(tmp_path):
-    """Check that a refused root stops the Linux uninstall before the config is cleared."""
-    root = tmp_path / "checkout"
-    (root / ".git").mkdir(parents=True)
-    sink = InMemoryConfigSink()
-    step = steps.UninstallStep(InMemoryDependencySource([]), managers=[], sink=sink,
-                               console=RecordingConsole(), root=lambda: root)
-
-    result = step.run(_context())
-
-    assert result is StepResult.FAILED
-    assert sink.calls == []
-
-
-def _rerun_hint(ctx: InstallContext) -> str:
-    """Report an inventory with one missing component through *ctx*; return everything printed."""
-    out = RecordingConsole()
-    rows = [("ninja", "MISSING", "shared", "not found")]
-    steps.DetectStep(InMemoryDependencySource([]), console=out).report_inventory(ctx, rows)
-    return "\n".join(out.texts("info"))
+    assert built == [Path("/opt/llvm")]
 
 
 @pytest.mark.small
-def test_missing_dependency_hint_names_the_calling_program():
-    """Assert the re-run hint names the program in the context, not hub."""
-    hint = _rerun_hint(_context(program="st"))
-    assert "`st setup`" in hint
-    assert "hub install" not in hint
+def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine():
+    """Check that a run which installed no toolchain builds against the probed llvm root."""
+    built = []
+
+    provision_adapters_for_run(
+        _linux_context(), console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: {"llvm_root": "/usr/lib/llvm"}),
+        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(root))
+
+    assert built == [Path("/usr/lib/llvm")]
 
 
 @pytest.mark.small
-def test_missing_dependency_hint_uses_the_rerun_command_the_consumer_names():
-    """Assert a consumer that names its own re-run command is quoted, whatever its program is called."""
-    assert "`hub install`" in _rerun_hint(_context(program="hub", rerun_command="hub install"))
+def test_provision_adapters_for_run_drops_probed_keys_the_settings_do_not_hold():
+    """Check that a probed key with no field on the settings does not stop the adapter build."""
+    built = []
+    probed = {"llvm_root": "/opt/llvm", "cxx": "clang++", "not_a_setting": "x"}
+
+    provision_adapters_for_run(
+        _linux_context(), console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: probed),
+        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(cfg.cxx))
+
+    assert built == ["clang++"]
 
 
 @pytest.mark.small
-def test_a_context_names_no_consumer_until_it_is_given_one():
-    """Assert the shared code carries no default consumer: with no program the hint is the bare setup."""
-    hint = _rerun_hint(_context())
-    assert "hub" not in hint
-    assert "`setup`" in hint
+def test_provision_adapters_for_run_hands_the_builder_it_made_to_the_build():
+    """Check that the build receives the builder made from the probed configuration."""
+    builder = InMemoryAdapterBuilder()
+    received = []
+    ctx = _linux_context()
+    ctx.resolved_paths["llvm_root"] = "/opt/llvm"
 
+    provision_adapters_for_run(
+        ctx, console=RecordingConsole(),
+        actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        make_builder=lambda cfg: builder,
+        build_adapters=lambda cfg, registry, root, made, dry_run: received.append(made))
 
-class _DownloadingManager(IPackageManager):
-    """A direct-download manager whose install verifies one downloaded archive."""
-
-    name = "direct-download"
-
-    def __init__(self, archive: Path, on_mismatch) -> None:
-        """Verify *archive* on install, passing a mismatch to *on_mismatch*."""
-        self._archive = archive
-        self._on_mismatch = on_mismatch
-
-    def available(self) -> bool:
-        """Report present."""
-        return True
-
-    def is_installed(self, pkg: str) -> bool:
-        """Report every package as missing."""
-        return False
-
-    def install(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Verify the archive as a download site does, and report success."""
-        self._archive.write_bytes(b"not the pinned archive")
-        try:
-            download_verifier.verify_download("cmake", self._archive)
-        except DigestMismatchError as error:
-            self._on_mismatch(error)
-        return True
-
-
-def _install_step(manager: IPackageManager) -> steps.InstallDepsStep:
-    """Build a Windows install step that pins cmake's digest and installs through *manager*."""
-    source = InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})])
-    actions = _actions(which=lambda name: "/bin/git" if name == "git" else None,
-                       find_vcvars=lambda: Path("vcvars64.bat"),
-                       install_oneapi=lambda run: True)
-    return steps.InstallDepsStep(source, managers=[manager], console=RecordingConsole(),
-                                 actions=actions)
-
-
-@pytest.mark.medium
-def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(tmp_path):
-    """Check that the downloads of a run are verified against its fragments and no later."""
-    archive = tmp_path / "cmake.zip"
-    mismatches = []
-    step = _install_step(_DownloadingManager(archive, mismatches.append))
-
-    result = step.run(InstallContext(cfg=ProvisionSettings(platform="windows")))
-
-    assert result is StepResult.OK
-    assert len(mismatches) == 1
-    download_verifier.verify_download("cmake", archive)
-
-
-@pytest.mark.medium
-def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(tmp_path, recording_console):
-    """Check that a mismatch leaves the pipeline as the error and later steps do not run."""
-    archive = tmp_path / "cmake.zip"
-
-    def raise_it(error):
-        """Let the mismatch leave the install."""
-        raise error
-
-    later_sink = InMemoryConfigSink()
-    later = steps.ConfigureStep(later_sink, console=RecordingConsole(),
-                                actions=_actions(paths={"ninja_exe": "n"}))
-    pipeline = InstallPipeline([_install_step(_DownloadingManager(archive, raise_it)), later])
-
-    with pytest.raises(DigestMismatchError):
-        pipeline.run(InstallContext(cfg=ProvisionSettings(platform="windows")), show_progress=False)
-
-    assert later_sink.calls == []
-    download_verifier.verify_download("cmake", archive)
+    assert received == [builder]
 
 
 @pytest.mark.small
-@pytest.mark.parametrize(("hint", "expected"), [
-    ("(`hub remove --all` does it for you).",
-     "Remove the whole install by deleting that folder. (`hub remove --all` does it for you)."),
-    ("", "Remove the whole install by deleting that folder."),
-])
-def test_the_removal_note_ends_with_the_hint_the_consumer_supplies_or_stands_alone(hint, expected):
-    """Check that removal_note appends the consumer's hint, and leaves the plain note without one."""
-    assert steps.removal_note(_context(program="hub", removal_hint=hint)) == expected
+def test_the_windows_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_is_selected():
+    """Check that a selected GPU gets its SDK and then its adapters on Windows."""
+    recorded = RecordedGpuStage()
+    ctx = _windows_context(gpu=True, vendor="nvidia")
+
+    recorded.stage().provision_windows(ctx)
+
+    assert (recorded.stacks, recorded.adapters) == (["nvidia"], [ctx])
+
+
+@pytest.mark.small
+def test_the_windows_gpu_stage_does_nothing_without_gpu():
+    """Check that a run which did not select the GPU installs and builds nothing on Windows."""
+    recorded = RecordedGpuStage()
+
+    recorded.stage().provision_windows(_windows_context(gpu=False, vendor="nvidia"))
+
+    assert (recorded.stacks, recorded.adapters) == ([], [])
+
+
+@pytest.mark.small
+def test_the_windows_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
+    """Check that vendor none reaches the SDK install, which settles on the CPU path, and no build."""
+    recorded = RecordedGpuStage()
+
+    recorded.stage().provision_windows(_windows_context(gpu=True, vendor="none"))
+
+    assert (recorded.stacks, recorded.adapters) == (["none"], [])
+
+
+@pytest.mark.small
+def test_the_linux_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_is_selected():
+    """Check that a selected GPU gets its SDK and then its adapters through apt."""
+    recorded = RecordedGpuStage()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia")
+
+    recorded.stage().provision_linux(ctx, "apt")
+
+    assert (recorded.stacks, recorded.adapters) == (["nvidia"], [ctx])
+
+
+@pytest.mark.small
+def test_the_linux_gpu_stage_does_nothing_without_gpu():
+    """Check that a run which did not select the GPU installs and builds nothing on Linux."""
+    recorded = RecordedGpuStage()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=False), gpu_vendor="nvidia")
+
+    recorded.stage().provision_linux(ctx, "apt")
+
+    assert (recorded.stacks, recorded.adapters) == ([], [])
+
+
+@pytest.mark.small
+def test_the_linux_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
+    """Check that vendor none reaches the SDK install, which settles on the CPU path, and no build."""
+    recorded = RecordedGpuStage()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="none")
+
+    recorded.stage().provision_linux(ctx, "apt")
+
+    assert (recorded.stacks, recorded.adapters) == (["none"], [])
+
+
+@pytest.mark.small
+def test_the_gpu_stage_declares_the_cuda_licence_for_an_nvidia_run_without_a_toolkit():
+    """Check that a selected NVIDIA GPU with no toolkit on the machine needs the CUDA licence."""
+    ctx = _windows_context(gpu=True, vendor="nvidia")
+
+    assert RecordedGpuStage().stage().toolkit_licences(ctx) == [K_CUDA_LICENCE]
+
+
+@pytest.mark.small
+@pytest.mark.parametrize(("gpu", "vendor", "present"), [
+    (False, "nvidia", False), (True, "amd", False), (True, "none", False), (True, "nvidia", True),
+], ids=["gpu not selected", "another vendor", "no gpu", "toolkit already installed"])
+def test_the_gpu_stage_declares_no_licence_when_it_installs_no_toolkit(gpu, vendor, present):
+    """Check that a run the stage installs no CUDA toolkit for declares no licence."""
+    ctx = _windows_context(gpu=gpu, vendor=vendor)
+
+    assert RecordedGpuStage(toolkit_present=present).stage().toolkit_licences(ctx) == []
+
+
+@pytest.mark.small
+def test_the_windows_gpu_stage_installs_no_cuda_toolkit_without_consent():
+    """Check that an NVIDIA run whose user did not accept the CUDA licence installs no SDK."""
+    recorded = RecordedGpuStage()
+    ctx = _windows_context(gpu=True, vendor="nvidia")
+    ctx.consent = None
+
+    recorded.stage().provision_windows(ctx)
+
+    assert recorded.stacks == []
+
+
+@pytest.mark.small
+def test_the_linux_gpu_stage_installs_no_cuda_toolkit_without_consent():
+    """Check that an NVIDIA run on apt whose user did not accept the CUDA licence installs no SDK."""
+    recorded = RecordedGpuStage()
+    ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia",
+                         consent=None)
+
+    recorded.stage().provision_linux(ctx, "apt")
+
+    assert recorded.stacks == []

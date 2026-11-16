@@ -13,11 +13,24 @@ from typing import Callable
 
 from .._output import console
 from ..download_verifier import verify_download
+from ..licence_consent import Licence, LicenceConsent, is_accepted
 
 if typing.TYPE_CHECKING:
     from ..pipeline import InstallContext
 
-__all__ = ["download_oneapi_installer", "install_oneapi", "run_oneapi_installer"]
+__all__ = [
+    "K_ONEAPI_LICENCE",
+    "download_oneapi_installer",
+    "install_oneapi",
+    "oneapi_licences",
+    "run_oneapi_installer",
+]
+
+#: The licence the oneAPI installer asks to accept.
+K_ONEAPI_LICENCE = Licence(
+    "Intel End User License Agreement for Developer Tools",
+    "https://www.intel.com/content/www/us/en/developer/articles/license/end-user-license-agreement.html",
+)
 
 #: Intel's offline Windows installer for the oneAPI base toolkit.
 _ONEAPI_URL = (
@@ -43,12 +56,12 @@ def install_oneapi(ctx: "InstallContext", *,
         download_installer: Fetches the offline installer and returns its path, or None on
             failure; :func:`download_oneapi_installer` when omitted.
         run_installer: Runs the installer at a path and reports success;
-            :func:`run_oneapi_installer` when omitted.
+            :func:`run_oneapi_installer` with the run's consent when omitted.
 
     Returns:
         True on success or when nothing needed doing; False on failure.
     """
-    if not (ctx.selection.oneapi and not ctx.detected.get("sycl_compiler", False)):
+    if not oneapi_licences(ctx):
         return True
     if ctx.dry_run:
         console.info("(dry-run) skipping Intel oneAPI install.")
@@ -57,7 +70,14 @@ def install_oneapi(ctx: "InstallContext", *,
     installer = (download_installer or download_oneapi_installer)()
     if installer is None:
         return False
-    return (run_installer or run_oneapi_installer)(installer)
+    run = run_installer or (lambda path: run_oneapi_installer(path, consent=ctx.consent))
+    return run(installer)
+
+
+def oneapi_licences(ctx: "InstallContext") -> list[Licence]:
+    """Returns the licences :func:`install_oneapi` needs for *ctx*; empty when it installs nothing."""
+    needed = ctx.selection.oneapi and not ctx.detected.get("sycl_compiler", False)
+    return [K_ONEAPI_LICENCE] if needed else []
 
 
 def download_oneapi_installer(*, directory: Path | None = None,
@@ -88,19 +108,26 @@ def download_oneapi_installer(*, directory: Path | None = None,
     return installer
 
 
-def run_oneapi_installer(installer: Path, *,
+def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
                          launch: Callable[..., subprocess.CompletedProcess] | None = None,
                          ) -> bool:
     """Run the Intel oneAPI installer silently, elevating on demand.
 
     Args:
         installer: Path of the downloaded offline installer executable.
+        consent: The run's licence consent; the installer launches only when it covers
+            :data:`K_ONEAPI_LICENCE`.
         launch: Runs a command and returns its completed process; takes the command and,
             for the elevated launch, a ``timeout`` keyword. ``subprocess.run`` when omitted.
 
     Returns:
-        True when the installer reports success.
+        True when the installer reports success; False without consent to
+        :data:`K_ONEAPI_LICENCE`, and nothing runs then.
     """
+    if not is_accepted(consent, K_ONEAPI_LICENCE):
+        console.error(f"Intel oneAPI needs consent to {K_ONEAPI_LICENCE.name}: "
+                      f"{K_ONEAPI_LICENCE.link}")
+        return False
     oneapi_cmd = [
         str(installer), "-s", "-a", "--silent", "--eula", "accept",
         "-p=NEED_VS2022_INTEGRATION=1",

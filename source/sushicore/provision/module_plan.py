@@ -15,6 +15,7 @@ from . import manifests, probe, sushi_setup
 from .closure import Closure
 from .config import ProvisionConfig
 from .fragments import TomlDependencySource
+from .licence_consent import LicenceConsent
 from .module_manifest import fragment_path
 from .module_provision import ModuleProvision
 from .packages import (
@@ -30,17 +31,29 @@ from .packages import (
 )
 
 
-def managers_for(cfg: ProvisionConfig) -> list[IPackageManager]:
-    """Returns the package managers this platform provisions dependencies through."""
+def managers_for(cfg: ProvisionConfig,
+                 consent: LicenceConsent | None = None) -> list[IPackageManager]:
+    """Returns the package managers this platform provisions dependencies through.
+
+    Args:
+        consent: The run's licence consent; winget installs only what it covers.
+    """
     if cfg.is_windows:
-        return [WingetManager(), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
+        return [WingetManager(consent), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
     return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
             VcpkgManager(cfg)]
 
 
-def managers_of(module: ModuleProvision, cfg: ProvisionConfig) -> list[IPackageManager]:
-    """Returns the package managers of *module*: the ones it names, else the platform's."""
-    return (module.seams.managers or managers_for)(cfg)
+def managers_of(module: ModuleProvision, cfg: ProvisionConfig,
+                consent: LicenceConsent | None = None) -> list[IPackageManager]:
+    """Returns the package managers of *module*: the ones it names, else the platform's.
+
+    Args:
+        consent: The run's licence consent, handed to the platform's managers.
+    """
+    if module.seams.managers:
+        return module.seams.managers(cfg)
+    return managers_for(cfg, consent)
 
 
 def presence_of(module: ModuleProvision, cfg: ProvisionConfig) -> dict[str, bool]:

@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""A command runner for the adapter builder that records each command and starts no process."""
+"""A build step executor for the adapter builder that records each command and starts no process."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-class InMemoryCommandRunner:
+class InMemoryBuildStepExecutor:
     """Records every command and answers 0, except for the one it is told to fail.
 
     Args:

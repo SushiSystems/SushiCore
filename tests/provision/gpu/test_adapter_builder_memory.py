@@ -13,7 +13,7 @@ import pytest
 
 from sushicore.provision.gpu.adapter_builder_memory import (
     InMemoryAdapterBuilder,
-    InMemoryCommandRunner,
+    InMemoryBuildStepExecutor,
 )
 
 pytestmark = pytest.mark.small
@@ -21,7 +21,7 @@ pytestmark = pytest.mark.small
 
 def test_a_runner_records_each_command_in_order_and_succeeds():
     """Check that every command is recorded in order and exits 0."""
-    runner = InMemoryCommandRunner()
+    runner = InMemoryBuildStepExecutor()
 
     codes = [runner.run(["git", "init"], None, None), runner.run(["cmake", "--build"], None, None)]
 
@@ -31,7 +31,7 @@ def test_a_runner_records_each_command_in_order_and_succeeds():
 
 def test_a_runner_fails_only_the_command_holding_the_word_it_was_told():
     """Check that only a command whose argv holds the word exits 1."""
-    runner = InMemoryCommandRunner(fail_on="-S")
+    runner = InMemoryBuildStepExecutor(fail_on="-S")
 
     assert runner.run(["git", "init"], None, None) == 0
     assert runner.run(["cmake", "-S", "src"], None, None) == 1
@@ -39,7 +39,7 @@ def test_a_runner_fails_only_the_command_holding_the_word_it_was_told():
 
 def test_a_runner_told_the_executable_is_missing_raises_after_recording():
     """Check that a missing executable raises FileNotFoundError and the call is still recorded."""
-    runner = InMemoryCommandRunner(missing=True)
+    runner = InMemoryBuildStepExecutor(missing=True)
 
     with pytest.raises(FileNotFoundError):
         runner.run(["git", "init"], None, None)

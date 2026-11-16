@@ -13,10 +13,11 @@ import time
 from pathlib import Path
 from typing import Callable, Collection
 
-from .clock import Clock
 from .package import K_PREFIX, Package
 from .package_error import PackageError
 from .package_key import PackageKey
+from .system_wall_clock import SystemWallClock
+from .wall_clock import IWallClock
 
 #: The file that marks an install as complete and records the key's parts.
 K_STAMP = "package.stamp.json"
@@ -44,7 +45,7 @@ class PackageStore:
     """Packages under ``<root>/<name>/<digest>/``, each complete only once its stamp exists."""
 
     def __init__(self, root: Path, keep: int = K_DEFAULT_KEEP,
-                 clock: Clock = time.time,
+                 clock: IWallClock = SystemWallClock(),
                  sleep: Callable[[float], None] = time.sleep,
                  warn: Callable[[str], None] = lambda _text: None,
                  replace: Callable[[Path, Path], None] | None = None) -> None:
@@ -53,7 +54,7 @@ class PackageStore:
         Args:
             root: The ``<home>/packages`` folder.
             keep: How many packages of one library :meth:`prune` keeps.
-            clock: Returns the time in seconds; replaced in tests.
+            clock: Reads the calendar time in seconds; replaced in tests.
             sleep: Waits between two rename tries; replaced in tests.
             warn: Receives the warning for a folder that could not be removed.
             replace: Renames a folder over a path; :func:`os.replace` when None. It is looked

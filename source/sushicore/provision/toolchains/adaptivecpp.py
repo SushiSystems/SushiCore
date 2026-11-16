@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import glob as _glob
-import logging
 import os
 import shutil
 import subprocess
@@ -25,8 +24,6 @@ from ..packages import download, gh_tagged_asset, run
 from ._process import _run_quiet
 from .stamp import toolchains_dir
 
-_log = logging.getLogger(__name__)
-
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
     from ..packages import IPackageManager
@@ -39,56 +36,6 @@ ACPP_VERSION = "v24.10.0"
 ACPP_LLVM = "17"
 #: Full LLVM release vendored on Windows when no LLVM dev install exists.
 LLVM_WINDOWS_VERSION = "17.0.6"
-#: Seconds to wait for consent before downloading the heavy LLVM (default: no).
-_LLVM_CONSENT_TIMEOUT = 30
-#: The answers that mean yes, in English and Turkish.
-_YES = ("y", "yes", "e", "evet")
-
-
-def _confirm_timeout(message: str, timeout: int = _LLVM_CONSENT_TIMEOUT,
-                     default: bool = False, *,
-                     reader: Callable[[], str] | None = None) -> bool:
-    """Ask a yes/no question, returning *default* if unanswered within *timeout*.
-
-    Args:
-        message: The question to print, as Rich markup.
-        timeout: Seconds to wait for an answer before falling back to *default*.
-        default: The answer used when the wait times out.
-        reader: Returns one line of the answer; ``input`` when omitted.
-
-    Returns:
-        True when the answer means yes.
-    """
-    import threading
-
-    from rich.text import Text
-
-    if console.is_machine():
-        answer = console.prompt(Text.from_markup(message).plain,
-                                "y" if default else "n")
-        return answer.strip().lower() in _YES
-
-    console.console.print(message)
-    hint = r"\[y/n]" if default is False else r"\[Y/n]"
-    console.console.print(
-        f"[bold]Your choice {hint}[/bold] (auto-"
-        f"{'yes' if default else 'no'} in {timeout}s): ", end="")
-    result = [default]
-
-    def _read() -> None:
-        try:
-            result[0] = (reader or input)().strip().lower() in _YES
-        except (EOFError, OSError):
-            _log.debug("no answer on stdin; keeping the default %s", default)
-
-    thread = threading.Thread(target=_read, daemon=True)
-    thread.start()
-    thread.join(timeout)
-    if thread.is_alive():
-        console.console.print()  # finish the prompt line
-        console.info(f"No answer in {timeout}s — defaulting to "
-                     f"{'yes' if default else 'no'}.")
-    return result[0]
 
 
 def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> str:
@@ -105,6 +52,11 @@ def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> 
         if hits:
             return str(Path(hits[-1]).parent)
     return ""
+
+
+def llvm_missing(bases: Sequence[Path] | None = None) -> bool:
+    """Report whether no Windows LLVM is found in *bases*; see :func:`_find_windows_llvm`."""
+    return _find_windows_llvm(bases) is None
 
 
 def _find_windows_llvm(bases: Sequence[Path] | None = None) -> tuple[str, str] | None:
@@ -182,6 +134,7 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None
 def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
                         vcpkg: "IPackageManager | None", dry_run: bool,
                         assume_yes: bool = False, *,
+                        winget: "IPackageManager | None" = None,
                         which: Callable[[str], str | None] | None = None,
                         glob: Callable[[str], list[str]] | None = None,
                         llvm_bases: Sequence[Path] | None = None,
@@ -197,6 +150,8 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
         vcpkg: The vcpkg manager, or None when unavailable.
         dry_run: Report the action without touching the filesystem.
         assume_yes: Skip the Windows LLVM consent prompt.
+        winget: The winget manager, or None when unavailable; it installs LLVM only when it holds
+            the user's consent to winget's agreements.
         which: Finds an executable on the search path; ``shutil.which`` when omitted.
         glob: Expands a glob pattern when the Windows SDK is looked up; ``glob.glob`` when omitted.
         llvm_bases: The Windows LLVM install roots to look in; see :func:`_find_windows_llvm`.
@@ -232,7 +187,8 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
         return str(acpp_exe)
 
     llvm_dir, clang_prefix = (
-        _acpp_deps_windows(vcpkg, assume_yes=assume_yes, llvm_bases=llvm_bases)
+        _acpp_deps_windows(vcpkg, assume_yes=assume_yes, winget=winget,
+                           llvm_bases=llvm_bases)
         if cfg.is_windows else _acpp_deps_linux(mgr)
     )
     if llvm_dir is None:
@@ -341,6 +297,7 @@ def _acpp_deps_linux(mgr: "IPackageManager | None") -> tuple[str | None, str | N
 
 
 def _acpp_deps_windows(vcpkg: "IPackageManager | None", assume_yes: bool = False, *,
+                       winget: "IPackageManager | None" = None,
                        llvm_bases: Sequence[Path] | None = None,
                        ) -> tuple[str | None, str | None]:
     """Install acpp build deps on Windows; return ``(LLVM_DIR, clang_prefix)``.
@@ -348,6 +305,7 @@ def _acpp_deps_windows(vcpkg: "IPackageManager | None", assume_yes: bool = False
     Args:
         vcpkg: The vcpkg manager, or None when unavailable.
         assume_yes: Skip the consent prompt for the heavy LLVM download.
+        winget: The winget manager, or None when unavailable.
         llvm_bases: The LLVM install roots to look in; see :func:`_find_windows_llvm`.
     """
     if vcpkg is not None:
@@ -362,14 +320,9 @@ def _acpp_deps_windows(vcpkg: "IPackageManager | None", assume_yes: bool = False
         return (None, None)
 
     # Prefer winget when available; otherwise vendor the official tarball.
-    if shutil.which("winget"):
+    if winget is not None and winget.available():
         console.info("Installing LLVM via winget ...")
-        subprocess.run(
-            ["winget", "install", "--id", "LLVM.LLVM", "-e",
-             "--accept-package-agreements", "--accept-source-agreements",
-             "--silent"],
-            check=False,
-        )
+        winget.install(["LLVM.LLVM"], dry_run=False)
         existing = _find_windows_llvm(llvm_bases)
         if existing:
             return existing

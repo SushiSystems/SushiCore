@@ -14,7 +14,7 @@ from sushicore.provision.sushi_packages.lines_memory import RecordedLines
 from sushicore.provision.sushi_packages.package_error import PackageError
 from sushicore.provision.sushi_packages.package_store import PackageStore
 
-from sushicore.provision.sushi_packages.clock_memory import ManualClock
+from sushicore.provision.sushi_packages.wall_clock_memory import ManualWallClock
 
 from .package_fakes import install, make_key
 
@@ -39,7 +39,7 @@ class _Rename:
 @pytest.fixture
 def clock():
     """Return a clock that tests move by hand."""
-    return ManualClock()
+    return ManualWallClock()
 
 
 @pytest.fixture

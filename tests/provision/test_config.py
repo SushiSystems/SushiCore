@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.sushi_packages.clock_memory import ManualClock
+from sushicore.provision.sushi_packages.wall_clock_memory import ManualWallClock
 from sushicore.provision.sushi_packages.package_store import PackageStore
 
 from .sushi_packages.package_fakes import install, make_key
@@ -18,7 +18,7 @@ from .sushi_packages.package_fakes import install, make_key
 @pytest.mark.medium
 def test_a_store_configured_from_the_settings_prunes_all_but_three_packages(tmp_path):
     """Check that a store keeping the default package_keep prunes the oldest of four packages."""
-    clock = ManualClock()
+    clock = ManualWallClock()
     store = PackageStore(tmp_path / "packages", keep=ProvisionSettings().package_keep,
                          clock=clock, sleep=lambda _s: None)
     keys = []

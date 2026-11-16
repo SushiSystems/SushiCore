@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
+from sushicore.provision.gpu import windows_installer
 from sushicore.provision.gpu.windows_installer import (
     ELEVATION_DECLINED,
     LAUNCH_FAILED,
@@ -220,3 +222,10 @@ class TestRegistryMachineEnvironmentKeepsTheMachineEnvironmentContract(
     @pytest.fixture
     def world(self):
         return EnvironmentWorld(RegistryMachineEnvironment(), "OS", "Windows_NT")
+
+
+@pytest.mark.small
+def test_importing_the_module_warns_with_deprecation_naming_the_removal_release():
+    with pytest.warns(DeprecationWarning, match=r"removed in 0\.16\.0") as recorded:
+        importlib.reload(windows_installer)
+    assert "0.15.0" in str(recorded[0].message)

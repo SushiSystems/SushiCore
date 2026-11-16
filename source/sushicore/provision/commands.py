@@ -51,11 +51,15 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
                      + " | ".join(selection.toolchain_keys()) + ". Repeatable."),
             no_gpu: bool = typer.Option(
                 False, "--no-gpu", help="Skip the toolkit for this machine's GPU."),
+            accept_licences: bool = typer.Option(
+                False, "--accept-licences",
+                help="Accept the third-party licences setup names, for unattended runs."),
         ) -> None:
             """Provision what this module needs to build, then report readiness."""
             bind_console(module.console)
             raise typer.Exit(finish(module.console(), run_setup(
-                module, dry_run=dry_run, yes=yes, toolchains=toolchain or (), gpu=not no_gpu)))
+                module, dry_run=dry_run, yes=yes, toolchains=toolchain or (), gpu=not no_gpu,
+                accept_licences=accept_licences)))
 
     known_groups = (*GROUPS, *(name for name in module.groups if name not in GROUPS))
 

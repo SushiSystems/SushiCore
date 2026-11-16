@@ -156,13 +156,14 @@ so a CLI test imports it instead of writing a stand-in:
 | `provision.git_client.IGitClient` | `provision.git_client_memory.InMemoryGitClient` |
 | `provision.fragments.IDependencySource` | `provision.fragments_memory.InMemoryDependencySource` |
 | `provision.gpu.backend.ToolkitLocator` | `provision.gpu.backend_memory.InMemoryToolkitLocator` |
-| `provision.gpu.adapter_builder`'s command runner and builder | `provision.gpu.adapter_builder_memory.InMemoryCommandRunner` and `InMemoryAdapterBuilder` |
+| `provision.gpu.adapter_builder`'s build step executor and builder | `provision.gpu.adapter_builder_memory.InMemoryBuildStepExecutor` and `InMemoryAdapterBuilder` |
 | `provision.gpu.toolkit_vendor.ToolkitVendor` and the GPU hardware probe | `provision.gpu.toolkit_vendor_memory.InMemoryToolkitVendor` and `FixedHardware` |
 | The CUDA architecture probe of `provision.gpu.cuda_selection` | `provision.gpu.cuda_selection_memory.TableArchitectureProbe` |
 | The CUDA redist index and installer | `provision.gpu.cuda_vendor_memory.InMemoryRedistIndex` and `InMemoryRedistInstaller` |
 | The ROCm tarball index and installer | `provision.gpu.rocm_vendor_memory.InMemoryTarballIndex` and `InMemoryTarballInstaller` |
-| `provision.gpu.windows_installer.MachineEnvironment` | `provision.gpu.windows_installer_memory.InMemoryMachineEnvironment` |
-| `provision.sushi_packages.clock.Clock` | `provision.sushi_packages.clock_memory.ManualClock` |
+| `provision.gpu.windows_installer.MachineEnvironment` (deprecated, removed in 0.16.0) | `provision.gpu.windows_installer_memory.InMemoryMachineEnvironment` (goes with it) |
+| `provision.sushi_packages.wall_clock.IWallClock` | `provision.sushi_packages.wall_clock_memory.ManualWallClock` |
+| `provision.sushi_packages.monotonic_clock.IMonotonicClock` | `provision.sushi_packages.monotonic_clock_memory.ManualMonotonicClock` |
 | `cmake_driver_port.CMakeDriverPort`, which `cmake_driver.CMakeDriver` keeps | `cmake_driver_memory.MemoryCMakeDriver` holds build trees by path, seeded with `add_tree` or left by a `configure` argv's `-B`, `-G` and `-D` values; it records each command as a `CMakeCall` and answers the exit codes queued with `script`, else 0 |
 | `renderer.Renderer` on a terminal | `renderer.TerminalMemoryRenderer` writes to memory as a terminal of a given colour system, width and no-colour flag would; `written()` returns the text |
 | `files.Files`, which `backlog.BacklogStore` and `design.DesignStore` take as `files=` | `files_memory.MemoryFiles` holds each file's text by path; a folder exists while a file sits under it |

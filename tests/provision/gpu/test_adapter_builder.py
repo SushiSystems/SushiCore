@@ -21,7 +21,7 @@ import pytest
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.gpu.adapter_builder import AdapterBuilder
-from sushicore.provision.gpu.adapter_builder_memory import InMemoryCommandRunner
+from sushicore.provision.gpu.adapter_builder_memory import InMemoryBuildStepExecutor
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
@@ -91,7 +91,7 @@ class _Scene:
     """What one build holds: the runner, the builder, the places it touches and its result."""
 
     result: bool
-    runner: InMemoryCommandRunner
+    runner: InMemoryBuildStepExecutor
     builder: AdapterBuilder
     toolchain_root: Path
     work_root: Path
@@ -141,11 +141,11 @@ def _produce(work_root: Path, names: list[str]) -> None:
 
 
 def _builder(tmp_path: Path, work_root: Path, *, cfg: ProvisionSettings | None = None,
-             runner: InMemoryCommandRunner | None = None, **seams) -> _Scene:
+             runner: InMemoryBuildStepExecutor | None = None, **seams) -> _Scene:
     """Return a scene that holds a builder over *runner* and a fresh toolchain folder, not yet run."""
     toolchain_root = tmp_path / "llvm-sycl"
     toolchain_root.mkdir(exist_ok=True)
-    chosen = runner or InMemoryCommandRunner()
+    chosen = runner or InMemoryBuildStepExecutor()
     builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=chosen, work_root=work_root,
                              environment=lambda cfg: {}, **seams)
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
@@ -305,7 +305,7 @@ def test_a_failing_configure_returns_false_and_leaves_bin_untouched(
         tmp_path, short_work_root, recording_console):
     """Check that a failing configure returns False, installs nothing and writes no stamp."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    runner = InMemoryCommandRunner(fail_on="-S")
+    runner = InMemoryBuildStepExecutor(fail_on="-S")
 
     scene = _run(_builder(tmp_path, short_work_root, runner=runner))
 
@@ -318,7 +318,7 @@ def test_a_failing_configure_returns_false_and_leaves_bin_untouched(
 def test_a_missing_git_or_cmake_returns_false_without_raising(
         tmp_path, short_work_root, recording_console):
     """Check that an executable that is on no PATH fails the build instead of raising."""
-    runner = InMemoryCommandRunner(missing=True)
+    runner = InMemoryBuildStepExecutor(missing=True)
 
     scene = _run(_builder(tmp_path, short_work_root, runner=runner))
 
@@ -436,7 +436,7 @@ def test_the_default_work_root_is_ur_under_the_dependency_root():
     root = Path("dependency-root")
     home.bind_root(lambda: root)
     try:
-        builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryCommandRunner())
+        builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryBuildStepExecutor())
     finally:
         home.bind_root(None)
 
@@ -464,7 +464,7 @@ def test_a_previous_binary_that_cannot_be_removed_is_recorded(
     assert "ur_adapter_fake.dll.previous" in handler.messages[0]
 
 
-def _patched_scene(tmp_path: Path, work_root: Path, runner: InMemoryCommandRunner,
+def _patched_scene(tmp_path: Path, work_root: Path, runner: InMemoryBuildStepExecutor,
                    body: bytes = b"patch body one") -> _Scene:
     """Return a scene whose patches folder holds ``fix.patch`` with *body*."""
     patches = tmp_path / "patches"
@@ -483,7 +483,7 @@ def test_a_named_patch_is_applied_after_the_fetch_and_before_the_configure(
         tmp_path, short_work_root, recording_console):
     """Check that git apply runs once, between the checkout and the configure."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    runner = InMemoryCommandRunner(fail_on="--reverse")
+    runner = InMemoryBuildStepExecutor(fail_on="--reverse")
 
     scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
 
@@ -503,7 +503,7 @@ def test_a_reused_source_that_holds_the_patch_is_not_patched_again(
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     (short_work_root / f"s-{_COMMIT[:8]}" / "unified-runtime").mkdir(parents=True)
 
-    scene = _run(_patched_scene(tmp_path, short_work_root, InMemoryCommandRunner()),
+    scene = _run(_patched_scene(tmp_path, short_work_root, InMemoryBuildStepExecutor()),
                  _patched_spec())
 
     applies = [c for c in scene.runner.calls if c[:2] == ["git", "apply"]]
@@ -515,7 +515,7 @@ def test_a_reused_source_that_holds_the_patch_is_not_patched_again(
 def test_a_failing_patch_returns_false_before_the_configure(
         tmp_path, short_work_root, recording_console):
     """Check that a patch that does not apply stops the build with a warning."""
-    runner = InMemoryCommandRunner(fail_on=str(tmp_path / "patches" / "fix.patch"))
+    runner = InMemoryBuildStepExecutor(fail_on=str(tmp_path / "patches" / "fix.patch"))
 
     scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
 
@@ -529,7 +529,7 @@ def test_the_stamp_key_carries_a_digest_of_the_patch_contents(
         tmp_path, short_work_root, recording_console):
     """Check that the stamp holds the commit plus a 12 character digest of the patch."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    runner = InMemoryCommandRunner(fail_on="--reverse")
+    runner = InMemoryBuildStepExecutor(fail_on="--reverse")
 
     scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
 
@@ -544,7 +544,7 @@ def test_a_bare_commit_stamp_is_rebuilt_once_the_spec_names_a_patch(
     """Check that a toolchain stamped with the bare commit is not skipped for a patched spec."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     first = _run(_builder(tmp_path, short_work_root))
-    runner = InMemoryCommandRunner(fail_on="--reverse")
+    runner = InMemoryBuildStepExecutor(fail_on="--reverse")
     patched = _patched_scene(tmp_path, short_work_root, runner)
     patched.toolchain_root = first.toolchain_root
     patched.builder.cfg = first.builder.cfg
@@ -561,7 +561,7 @@ def test_a_stamp_with_the_patch_digest_skips_the_rebuild(
     """Check that a second call with an unchanged patch runs no command."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     scene = _run(_patched_scene(tmp_path, short_work_root,
-                                InMemoryCommandRunner(fail_on="--reverse")), _patched_spec())
+                                InMemoryBuildStepExecutor(fail_on="--reverse")), _patched_spec())
     scene.runner.calls.clear()
 
     again = _run(scene, _patched_spec())

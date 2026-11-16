@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, fields
 from sushicore.provision._output import console
 
 from .config import ProvisionConfig
+from .licence_consent import LicenceConsent
 
 
 class StepResult(enum.Enum):
@@ -62,6 +63,8 @@ class InstallContext:
     #: The command that replaces a stale intel/llvm bundle; empty names the refresh option only.
     refresh_command: str = ""
     dry_run: bool = False
+    #: The run's licence consent; installers that accept a licence read it, None means none given.
+    consent: LicenceConsent | None = None
     everything: bool = False
     #: The toolchain ConfigureStep pins as the default, or None to leave it.
     active_toolchain: str | None = None

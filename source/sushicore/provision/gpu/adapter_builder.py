@@ -43,7 +43,7 @@ _PATCH_DIGEST_LENGTH = 12
 
 
 @typing.runtime_checkable
-class CommandRunner(typing.Protocol):
+class BuildStepExecutor(typing.Protocol):
     """Runs one command and reports its exit code."""
 
     def run(self, argv: list[str], cwd: Path | None,
@@ -52,7 +52,7 @@ class CommandRunner(typing.Protocol):
         ...
 
 
-class SubprocessCommandRunner:
+class SubprocessBuildStepExecutor:
     """Runs a command with :mod:`subprocess`, streaming its output to the console."""
 
     def run(self, argv: list[str], cwd: Path | None,
@@ -130,7 +130,7 @@ class AdapterBuilder:
     """
 
     cfg: "ProvisionConfig"
-    runner: CommandRunner
+    runner: BuildStepExecutor
     work_root: Path = dataclasses.field(default_factory=_default_work_root)
     environment: typing.Callable[["ProvisionConfig"], dict[str, str]] = _default_environment
     replace: typing.Callable[[Path, Path], None] = os.replace

@@ -25,6 +25,7 @@ from sushicore.errors import DigestMismatchError
 from .. import home
 from .._output import console
 from ..integrity import verify_sha256
+from ..licence_consent import Licence
 from ..system import USER_AGENT
 from .cuda_release import RedistArchive, RedistRelease
 from .toolkit_vendor import ToolkitSourceError
@@ -36,6 +37,12 @@ K_REQUIRED_COMPONENTS = ("cuda_nvcc", "cuda_cudart", "cuda_nvml_dev")
 K_COMPANION_COMPONENTS = ("cuda_crt", "libnvvm", "cuda_cccl")
 
 K_NVCC = "nvcc.exe" if os.name == "nt" else "nvcc"
+
+#: The licence NVIDIA ships the CUDA redistributable archives under.
+K_CUDA_LICENCE = Licence(
+    "NVIDIA CUDA Toolkit End User License Agreement",
+    "https://docs.nvidia.com/cuda/eula/index.html",
+)
 
 #: The prefix that puts a Windows path in its extended-length form.
 K_EXTENDED_PREFIX = "\\\\?\\"
@@ -126,6 +133,8 @@ class RedistToolkitInstaller:
 
     def install(self, release: RedistRelease) -> Path:
         """Install *release* and return its root; an installed release is returned as is.
+
+        The caller holds the user's consent to :data:`K_CUDA_LICENCE`.
 
         Raises:
             ToolkitInstallError: A component is missing, mismatching or does not unpack.

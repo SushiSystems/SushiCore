@@ -22,11 +22,11 @@ from .checks import (
     standard_checks,
 )
 from .config import ProvisionConfig
+from .dependency_presence import held_by_managers
 from .doctor import Check
 from .fragments import IDependencySource
 from .git_client import IGitClient
 from .packages import IPackageManager
-from .steps import held_by_managers
 from .sushi_source_check import pin_conflict_check, sushi_source_check, unpinned_check
 
 

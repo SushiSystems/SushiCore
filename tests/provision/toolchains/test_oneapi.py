@@ -11,9 +11,17 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.provision.toolchains.oneapi import K_ONEAPI_LICENCE
+from sushicore.provision.licence_consent_memory import granted_consent
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import InstallContext, ToolchainSelection
 from sushicore.provision.toolchains import oneapi
+
+@pytest.fixture
+def consented():
+    """Returns the consent of a run whose user accepted K_ONEAPI_LICENCE."""
+    return granted_consent(K_ONEAPI_LICENCE)
+
 
 #: ``ERROR_ELEVATION_REQUIRED``, the WinError a launch raises when the program needs elevation.
 K_ELEVATION_REQUIRED = 740
@@ -147,36 +155,36 @@ def test_download_oneapi_installer_returns_none_on_curl_failure(tmp_path, record
 
 
 @pytest.mark.small
-def test_run_oneapi_installer_reports_success(recording_console):
+def test_run_oneapi_installer_reports_success(recording_console, consented):
     """Check that a zero exit code reports success."""
-    assert oneapi.run_oneapi_installer(Path("installer.exe"), launch=_Launcher(0)) is True
+    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=_Launcher(0)) is True
     assert recording_console.texts("success") == ["Intel oneAPI Toolkit installed."]
 
 
 @pytest.mark.small
-def test_run_oneapi_installer_reports_failure(recording_console):
+def test_run_oneapi_installer_reports_failure(recording_console, consented):
     """Check that a non-zero exit code reports failure."""
-    assert oneapi.run_oneapi_installer(Path("installer.exe"), launch=_Launcher(1)) is False
+    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=_Launcher(1)) is False
     assert recording_console.texts("warn") == ["Intel oneAPI Toolkit installation failed."]
 
 
 @pytest.mark.small
-def test_run_oneapi_installer_elevates_on_uac_required(recording_console):
+def test_run_oneapi_installer_elevates_on_uac_required(recording_console, consented):
     """Check that a launch that needs elevation is retried through PowerShell."""
     launcher = _Launcher(_needs_elevation(), 0)
 
-    result = oneapi.run_oneapi_installer(Path("installer.exe"), launch=launcher)
+    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
 
     assert result is True
     assert [cmd[0] for cmd in launcher.commands] == ["installer.exe", "powershell"]
 
 
 @pytest.mark.small
-def test_run_oneapi_installer_reports_a_non_elevation_launch_failure(recording_console):
+def test_run_oneapi_installer_reports_a_non_elevation_launch_failure(recording_console, consented):
     """Check that a launch error other than elevation fails with a warning and no retry."""
     launcher = _Launcher(OSError("no such file"))
 
-    result = oneapi.run_oneapi_installer(Path("installer.exe"), launch=launcher)
+    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
 
     assert result is False
     assert len(launcher.commands) == 1
@@ -185,12 +193,47 @@ def test_run_oneapi_installer_reports_a_non_elevation_launch_failure(recording_c
 
 
 @pytest.mark.small
-def test_run_oneapi_installer_reports_an_elevated_launch_exception(recording_console):
+def test_run_oneapi_installer_reports_an_elevated_launch_exception(recording_console, consented):
     """Check that a failure of the elevated launch fails with an error."""
     launcher = _Launcher(_needs_elevation(), RuntimeError("powershell missing"))
 
-    result = oneapi.run_oneapi_installer(Path("installer.exe"), launch=launcher)
+    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
 
     assert result is False
     assert recording_console.texts("error") == [
         "Elevated oneAPI launch failed: powershell missing"]
+
+
+@pytest.mark.small
+def test_run_oneapi_installer_accepts_the_eula_after_consent(recording_console, consented):
+    """Check that a consented run hands the installer its EULA acceptance."""
+    launcher = _Launcher(0)
+    oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
+    command = launcher.commands[0]
+    assert command[command.index("--eula") + 1] == "accept"
+
+
+@pytest.mark.small
+def test_run_oneapi_installer_without_consent_launches_nothing(recording_console):
+    """Check that a run no consent covers starts no installer and fails."""
+    launcher = _Launcher(0)
+    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=None, launch=launcher) is False
+    assert launcher.commands == []
+
+
+@pytest.mark.small
+def test_install_oneapi_without_consent_in_the_context_runs_no_installer(recording_console):
+    """Check that a run whose context holds no consent downloads, then installs nothing."""
+    ctx = _ctx(oneapi_selected=True)
+
+    result = oneapi.install_oneapi(ctx, download_installer=lambda: Path("fake.exe"))
+
+    assert result is False
+    assert recording_console.has_call("error")
+
+
+@pytest.mark.small
+def test_oneapi_licences_name_the_eula_only_when_oneapi_will_install():
+    """Check that the EULA is declared for a selected, missing oneAPI and not otherwise."""
+    assert oneapi.oneapi_licences(_ctx(oneapi_selected=True)) == [K_ONEAPI_LICENCE]
+    assert oneapi.oneapi_licences(_ctx(oneapi_selected=False)) == []

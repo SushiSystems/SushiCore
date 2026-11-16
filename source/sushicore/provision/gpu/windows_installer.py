@@ -2,7 +2,10 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Download, elevated launch and machine-environment helpers for vendor Windows installers."""
+"""Download, elevated launch and machine-environment helpers for vendor Windows installers.
+
+Deprecated since 0.15.0 and removed in 0.16.0; no SushiCore backend calls it.
+"""
 
 from __future__ import annotations
 
@@ -13,11 +16,19 @@ import os
 import subprocess
 import typing
 import urllib.request
+import warnings
 from pathlib import Path
 
 from .. import home
 from .._output import console
 from ..system import USER_AGENT
+
+warnings.warn(
+    "sushicore.provision.gpu.windows_installer is deprecated since 0.15.0 and is removed in "
+    "0.16.0; no replacement exists because no backend uses it",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 #: Exit code reported when the user declines the UAC prompt (Win32 ERROR_CANCELLED).
 ELEVATION_DECLINED = 1223

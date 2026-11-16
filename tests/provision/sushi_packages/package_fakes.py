@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sushicore.provision.sushi_packages.clock_memory import ManualClock
+from sushicore.provision.sushi_packages.monotonic_clock_memory import ManualMonotonicClock
+from sushicore.provision.sushi_packages.wall_clock_memory import ManualWallClock
 from sushicore.provision.sushi_packages.closure_walk import ClosureWalk
 from sushicore.provision.sushi_packages.configure_inputs import (
     ConfigureInputs,
@@ -90,12 +91,18 @@ class Rig:
         self.consumer = make_library(self.workspace, "sushiai", ("sushiblas", "sushiruntime"),
                                      cli="")
         self.root = tmp_path / "packages"
-        self.clock = ManualClock()
-        self.builder = RecordingBuilder(K_SPELLING, fail, self.clock.advance, K_BUILD_SECONDS)
+        self.wall_clock = ManualWallClock()
+        self.monotonic_clock = ManualMonotonicClock()
+        self.builder = RecordingBuilder(K_SPELLING, fail, self._pass_time, K_BUILD_SECONDS)
         self.lines = RecordedLines()
         self.warnings = RecordedLines()
-        self.store = PackageStore(self.root, keep=3, clock=self.clock, sleep=lambda _s: None)
+        self.store = PackageStore(self.root, keep=3, clock=self.wall_clock, sleep=lambda _s: None)
         self.resolver = self._resolver(env or {})
+
+    def _pass_time(self, seconds: float) -> None:
+        """Let *seconds* pass on both clocks of the rig."""
+        self.wall_clock.advance(seconds)
+        self.monotonic_clock.advance(seconds)
 
     def _library(self, name: str, depends_on=()) -> None:
         """Create the checkout of *name* and list the files git would list in it."""
@@ -111,7 +118,8 @@ class Rig:
         return PackageResolver(
             ClosureWalk(SushiSourceLocator()), keys, self.store, self.builder,
             ForcedPackages(env, self.store, self.warnings), locks,
-            LinkPublisher(locks, StableLink(self.root)), self.lines, self.clock)
+            LinkPublisher(locks, StableLink(self.root)), self.lines,
+            self.monotonic_clock)
 
     def nested(self, env) -> None:
         """Replace the resolver with one that sees *env* as its environment."""

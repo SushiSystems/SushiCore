@@ -9,14 +9,18 @@ from __future__ import annotations
 from typing import Sequence
 
 from ..deps_fragment import pins_at
-from . import home, module_plan, probe, selection, sushi_setup
+from . import home, module_plan, selection, sushi_setup
+from .configure_step import ConfigureStep
+from .detect_step import DetectStep
 from .doctor_command import run_doctor
+from .install_deps_step import InstallDepsStep
+from .licence_consent import LicenceConsent
+from .licence_consent_step import LicenceConsentStep
 from .lock import LockTimeout, ProvisionLock
 from .module_provision import ModuleProvision
 from .outcome import K_EXIT_USAGE, Outcome, failed
 from .pipeline import InstallContext, InstallPipeline
 from .sinks import ModuleSink
-from .steps import ConfigureStep, DetectStep, InstallDepsStep
 
 #: Header written atop a module's ``config.local.toml``.
 K_SINK_HEADER = [
@@ -30,12 +34,20 @@ K_LOCK_TIMEOUT = 600.0
 
 def _detect_options(module: ModuleProvision) -> dict:
     """Return the keyword arguments of the detect step that *module* replaces."""
-    return {"toolchain_status": module.seams.toolchains} if module.seams.toolchains else {}
+    options: dict = {"toolchain_status": module.seams.toolchains} if module.seams.toolchains else {}
+    if module.actions is not None:
+        options["gpu_vendor"] = module.actions.detect_vendor
+    return options
 
 
 def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
-              toolchains: Sequence[str], gpu: bool) -> Outcome:
-    """Provisions *module*'s closure, then reports readiness, and returns how the run ended."""
+              toolchains: Sequence[str], gpu: bool, accept_licences: bool = False) -> Outcome:
+    """Provisions *module*'s closure, then reports readiness, and returns how the run ended.
+
+    Args:
+        accept_licences: Whether the user accepted the run's third-party licences on the
+            command line; a machine run without it installs none of them.
+    """
     console = module.console()
     root = module.project_root()
     cfg = module.load_config()
@@ -65,10 +77,13 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
     except ValueError as exc:
         console.error(str(exc))
         return failed(K_EXIT_USAGE)
-    managers = module_plan.managers_of(module, cfg)
+    consent = LicenceConsent(console, accept_flag=accept_licences)
+    managers = module_plan.managers_of(module, cfg, consent)
+    install = InstallDepsStep(source, managers, actions=module.actions)
     pipeline = InstallPipeline([
         DetectStep(source, managers, **_detect_options(module)),
-        InstallDepsStep(source, managers, actions=module.actions),
+        LicenceConsentStep(consent, [install.licences]),
+        install,
         ConfigureStep(ModuleSink(root / module.config_dir, K_SINK_HEADER),
                       actions=module.actions),
     ])
@@ -78,6 +93,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         consumer=module.profile.key,
         program=module.profile.program,
         dry_run=dry_run,
+        consent=consent,
         assume_acpp_llvm=yes,
     )
     try:
@@ -86,6 +102,10 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
     except LockTimeout as exc:
         console.error(str(exc))
         return failed()
+    refusal = consent.decision
+    if refusal is not None and not refusal.granted:
+        listed = [{"name": held.name, "link": held.link} for held in refusal.licences]
+        return failed(refusal.code, {"licences": listed})
     if not ok:
         return failed()
     return run_doctor(module, None, managers)

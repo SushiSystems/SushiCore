@@ -115,7 +115,9 @@ dependency fragment, `cli/sushistack.deps.toml` unless `[module] fragment` in `s
 the fragment of every module it builds on. It clones a Sushi library that a `[sushisystems.<name>]`
 pin names when no `<NAME>_DIR` or sibling provides it, and never fetches an unpinned module. `--dry-run` shows the run and
 changes nothing, `--toolchain NAME` also installs that toolchain, and `--no-gpu` skips the GPU
-toolkit.
+toolkit. Setup names each third-party licence a run needs, with its link, and installs nothing
+until you say yes; a machine-mode run needs `--accept-licences` instead and stops with exit code 2
+without it.
 
 `doctor` is a read-only report. It checks the build tools, the checkouts of the modules this
 one builds on, the toolchain capabilities, the fragments, the toolchain stamps and the download

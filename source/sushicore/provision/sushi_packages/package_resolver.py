@@ -6,18 +6,17 @@
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
 from typing import Callable
 
 from ..closure import DEFAULT_FRAGMENT
 from .build_tree import BuildTree
-from .clock import Clock
 from .closure_walk import ClosureWalk
 from .forced_packages import ForcedPackages
 from .key_factory import KeyFactory
 from .library_node import LibraryNode
 from .link_publisher import LinkPublisher
+from .monotonic_clock import IMonotonicClock
 from .package import Package
 from .package_builder import BuildRequest, IPackageBuilder
 from .package_choices import PackageChoices
@@ -28,6 +27,7 @@ from .package_locks import PackageLocks
 from .package_request import PackageRequest
 from .package_set import PackageSet, ResolvedPackage
 from .package_store import PackageStore
+from .system_monotonic_clock import SystemMonotonicClock
 
 #: The owner recorded for a package chosen from the source tree.
 K_SOURCE_OWNER = "the source tree"
@@ -52,7 +52,7 @@ class PackageResolver:
     def __init__(self, walk: ClosureWalk, keys: KeyFactory, store: PackageStore,
                  builder: IPackageBuilder, forced: ForcedPackages, locks: PackageLocks,
                  publisher: LinkPublisher, report: Callable[[str], None],
-                 clock: Clock = time.monotonic) -> None:
+                 clock: IMonotonicClock = SystemMonotonicClock()) -> None:
         """Bind the resolver to its collaborators.
 
         Args:
@@ -64,7 +64,7 @@ class PackageResolver:
             locks: Hands out the checkout and key locks.
             publisher: Points the consumer's link at the chosen package.
             report: Receives one line per library.
-            clock: Seconds, monotonic; replaced in tests.
+            clock: Reads the monotonic time in seconds; replaced in tests.
         """
         self._walk = walk
         self._keys = keys

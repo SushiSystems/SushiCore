@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 
 from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
+from sushicore.provision import gpu_stage
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.doctor import CheckResult, FunctionCheck, State
@@ -22,7 +23,7 @@ from sushicore.provision.git_client_memory import InMemoryGitClient
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.machine_seams import MachineSeams
 from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
-from sushicore.provision.steps import MachineActions
+from sushicore.provision.machine_actions import MachineActions
 from sushicore.workspace import read_link, registered_modules, write_module
 
 
@@ -714,3 +715,31 @@ def test_a_group_nobody_contributes_is_refused(tmp_path, recording_console, prov
 def test_setup_accepts_the_short_form_of_yes(tmp_path):
     """Check that setup accepts -y for --yes."""
     assert "-y" in _option(_app(tmp_path, RecordingConsole()), "setup", "yes").opts
+
+
+def _nvidia_app(tmp_path, console, manager):
+    """Return an app whose machine has an NVIDIA GPU and installs through *manager*."""
+    fragment = _write_fragment(tmp_path / "dsp")
+    fragment.write_text(fragment.read_text(encoding="utf-8")
+                        + '[cuda_kernels]\ndescription = "gpu part"\ngpu_only = true\n',
+                        encoding="utf-8")
+    actions = MachineActions(refresh_path=lambda: None,
+                             resolve_config=lambda cfg, gpu=False: {"cmake_exe": "/x/cmake"},
+                             detect_vendor=lambda: "nvidia")
+    return _app(tmp_path, console, managers=lambda cfg: [manager], actions=actions)
+
+
+@pytest.mark.medium
+def test_setup_in_machine_mode_without_accept_licences_exits_2_and_lists_them(
+        tmp_path, provision_home, monkeypatch):
+    """Check that a machine run needing the CUDA licence stops with code 2 before installing."""
+    monkeypatch.setattr(gpu_stage, "_nvidia_toolkit_present", lambda ctx: False)
+    console = RecordingConsole(machine=True)
+    manager = InMemoryLinuxPackageManager()
+
+    result = CliRunner().invoke(_nvidia_app(tmp_path, console, manager), ["setup"])
+
+    assert (result.exit_code, manager.installs) == (2, [])
+    assert any("docs.nvidia.com/cuda/eula" in text for text in _errors(console))
+    assert console.calls[-1].args[1]["licences"][0]["link"] == (
+        "https://docs.nvidia.com/cuda/eula/index.html")

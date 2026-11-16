@@ -29,13 +29,20 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |
 | `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
-| `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryLinuxPackageManager`, which holds its packages in memory and runs no command |
+| `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
-| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers; `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
+| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.16.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
 | `pipeline_memory.py` | `ScriptedStep`, a `Step` that answers a scripted result and logs that it ran |
-| `steps.py` | The shared steps: `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep`; `GpuStage` and `MachineActions` are the seams a test replaces |
+| `machine_actions.py` | `MachineActions`: the calls the install steps make that reach the machine, each replaceable by a test |
+| `gpu_stage.py` | `GpuStage` and `provision_adapters_for_run`: the compute SDK install, then the adapter builds |
+| `detect_step.py` | `DetectStep`: inventories the tools and dependencies of the machine and prints the table |
+| `install_deps_step.py` | `InstallDepsStep`: installs the missing manifest dependencies, the toolchains and the GPU stage |
+| `configure_step.py` | `ConfigureStep`: writes the probed tool paths and the active toolchain to a `ConfigSink` |
+| `uninstall_step.py` | `UninstallStep`: removes the packages, tools and config an install run placed |
+| `dependency_presence.py` | Tells whether a manifest dependency is installed, by its check command or its package manager |
+| `package_lists.py` | `dedup`: a list of package names without repeats, in first-seen order |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |
 | `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |
 | `doctor.py`, `checks.py` | The doctor framework and the stock checks |
@@ -158,7 +165,7 @@ its `lines()`, `definitions()` and `run_dirs(platform)`. The design and its deci
 | `source_state.py`, `configure_inputs.py`, `toolchain_identity.py`, `key_factory.py`, `package_key.py` | The key: source content, configure inputs, compiler identity, build type, options, recipe and the packages below |
 | `build_tree.py`, `compiler_check.py`, `package_environment.py`, `package_builder.py` | The build in `build/pkg-<id>` through `<cli> build` and `<cli> package`, its environment and its compiler check |
 | `package.py`, `package_store.py`, `package_locks.py`, `stable_link.py`, `link_publisher.py` | The store under `<home>/packages`, its three locks and the consumer's link |
-| `clock.py`, `clock_memory.py` | The `Clock` the store and the resolver read, and `ManualClock`, which moves only when told to |
+| `wall_clock.py`, `monotonic_clock.py` and their `system_` and `_memory` adapters | `IWallClock`, which the store reads, and `IMonotonicClock`, which the resolver reads; `ManualWallClock` and `ManualMonotonicClock` move only when told to |
 | `consumer_build.py` | What a consumer CLI takes from a `PackageSet`: `configure_arguments`, and `RunDirs`, which keeps the run-time folders in the build tree for the commands that run it |
 | `forced_packages.py`, `package_choices.py`, `package_resolver.py`, `package_set.py`, `default_resolver.py` | Packages handed to a nested build, the one-key-per-library check, the resolver, its result and its assembly |
 
@@ -271,7 +278,8 @@ fetches whatever the fragments say, and `K_DECLARED_DOWNLOADS` those fetched onl
 fragment declares them.
 
 `gpu/windows_installer.py` compares an installer with the MD5 its publisher lists. No
-backend calls it since CUDA moved to the redistributable archives.
+backend calls it since CUDA moved to the redistributable archives. It is deprecated:
+it warns with `DeprecationWarning` on import and is removed in 0.16.0.
 
 ## The commands
 
@@ -289,18 +297,24 @@ When something on the machine already provides `sycl-toolchain`, nothing downloa
 the first toolchain the fragment declares for it installs. The GPU toolkit installs when a
 declared dependency is `gpu_only` and a card is detected.
 
+Setup never accepts a third-party licence for the user. Before anything installs, it names each
+licence the run needs (winget's agreements, the Visual Studio Build Tools, Intel oneAPI, NVIDIA
+CUDA) with its link and waits for a yes. A machine-mode run is never asked: without
+`--accept-licences` it stops with exit code 2 and lists the licences.
+
 | Option | Effect |
 | --- | --- |
 | `--dry-run` | Shows the run and changes nothing |
 | `--yes` | Answers the LLVM download prompt |
 | `--toolchain NAME` | Also installs that toolchain; may be repeated |
 | `--no-gpu` | Skips the GPU toolkit |
+| `--accept-licences` | Accepts the third-party licences setup names; a machine-mode run needs it |
 
 | Exit code | When |
 | --- | --- |
 | 0 | Everything installed and no required check failed |
-| 1 | A fragment is malformed, `depends_on` forms a cycle, two pins of one library differ, a clone failed, a clone is off its pinned commit, the lock timed out, a step failed, a download did not match its pinned SHA-256, or a required check failed |
-| 2 | A module named in `depends_on` has no checkout, or `--toolchain` names an unknown toolchain |
+| 1 | The user answered no to the third-party licences, a fragment is malformed, `depends_on` forms a cycle, two pins of one library differ, a clone failed, a clone is off its pinned commit, the lock timed out, a step failed, a download did not match its pinned SHA-256, or a required check failed |
+| 2 | A module named in `depends_on` has no checkout, `--toolchain` names an unknown toolchain, or a machine-mode run needs a third-party licence and `--accept-licences` was not given |
 
 ### `doctor`
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+2026-11-17 — provision: Asked before accepting any third-party licence, split the steps into one file each, and split the clock into wall and monotonic ports (RW-46, RW-20, RW-66).
+2026-11-17 — provision: Deprecated gpu/windows_installer.py, which nothing here calls; it has no replacement and is removed in 0.16.0 (RW-7).
 2026-11-17 — backlog: Marked open work a commit named after the last green check_all as unverified, from a stamp check_all writes (RW-59, `verification.py`).
 2026-11-17 — design: Printed design and backlog output through force_utf8, so a cp1252 console no longer fails on an arrow (KI-32).
 2026-11-17 — testing: Launched only the shard programs a filter can reach, keeping any program newer than its listing, and gave Files a modification time (RW-76, RW-89).

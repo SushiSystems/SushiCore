@@ -12,7 +12,7 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import SHARED_OWNER, Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.pipeline import InstallContext
-from sushicore.provision.steps import DetectStep
+from sushicore.provision.detect_step import DetectStep
 
 
 pytestmark = pytest.mark.small

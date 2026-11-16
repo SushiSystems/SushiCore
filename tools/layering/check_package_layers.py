@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from checking.checker import Checker, Issue, run  # noqa: E402
+from checking.ignored_paths import walk_files  # noqa: E402
 
 K_SOURCE = Path("source")
 
@@ -43,7 +44,7 @@ K_LAYERED = (
         name="sushicore.backlog",
         layers={
             "errors": 0, "model": 1, "store": 2, "order": 2,
-            "check": 3, "importer": 3, "editor": 3, "commands": 4, "__main__": 5,
+            "check": 3, "importer": 3, "editor": 3, "unverified": 0, "verification": 1, "commands": 4, "__main__": 5,
         },
         strict=True,
         nested=False,
@@ -73,7 +74,7 @@ K_LAYERED = (
     ),
     LayeredPackage(
         name="sushicore.testing",
-        layers={"labels": 0, "options": 0, "result_files": 0, "shards": 0, "gtest_filter": 0, "junit_report": 0, "accelerator_slots": 0, "module_tests": 1, "job_count": 1, "shard_registrations": 1, "slow_rerun": 2, "rerun": 2, "program_runner": 2, "filtered_run": 2, "budget": 3, "session": 4, "commands": 5},
+        layers={"labels": 0, "options": 0, "result_files": 0, "shards": 0, "gtest_filter": 0, "junit_report": 0, "accelerator_slots": 0, "module_tests": 1, "program_cases": 1, "job_count": 1, "shard_registrations": 1, "slow_rerun": 2, "rerun": 2, "program_runner": 2, "filtered_run": 2, "budget": 3, "session": 4, "commands": 5},
         strict=True,
         nested=False,
         forbidden=frozenset({"typer", "click"}),
@@ -95,7 +96,7 @@ K_LAYERED = (
             "gpu.level_zero": 2, "gpu.registry": 2, "gpu.provisioning": 2, "gpu.adapter_builder": 2,
             "gpu": 2, "checks": 2, "packages": 3, "toolchains": 4, "toolchains.intel_llvm": 4,
             "toolchains.adaptivecpp": 4, "toolchains.oneapi": 4, "toolchains._process": 1,
-            "steps": 5, "outcome": 0, "module_manifest": 2, "machine_seams": 3, "module_provision": 5, "link_command": 6, "module_plan": 6,
+            "machine_actions": 5, "gpu_stage": 5, "package_lists": 0, "dependency_presence": 4, "detect_step": 5, "uninstall_step": 5, "configure_step": 6, "install_deps_step": 6, "licence_consent": 1, "licence_consent_memory": 2, "licence_consent_step": 2, "outcome": 0, "module_manifest": 2, "machine_seams": 3, "module_provision": 5, "link_command": 6, "module_plan": 6,
             "doctor_command": 7, "setup_command": 8, "commands": 9, "sushi_sources": 1, "git_client": 4,
             "sushi_fetch": 5, "pin_chain": 2, "sushi_setup": 5, "module_checks": 5, "sushi_source_check": 5,
             "links": 0, "user_environment": 0, "user_environment_memory": 0, "migrate": 4, "migration_error": 0, "migration_journal": 0, "migration_disk": 1, "migration_plan": 2, "migration_movers": 3,
@@ -183,7 +184,7 @@ def _modules(repository: Repository, package: LayeredPackage) -> Iterator[tuple[
     """Yields the folder of a layered package and each Python file in it."""
     folder = repository.folder(package.name)
     if folder.is_dir():
-        yield from ((folder, path) for path in sorted(folder.rglob("*.py")))
+        yield from ((folder, path) for path in walk_files(folder) if path.suffix == ".py")
 
 
 def _unlayered_keys(package: LayeredPackage, keys: Iterable[str]) -> Iterator[str]:

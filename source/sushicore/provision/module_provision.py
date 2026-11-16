@@ -18,7 +18,7 @@ from .git_client import GitClient, IGitClient
 from .machine_seams import MachineSeams
 
 if TYPE_CHECKING:
-    from .steps import MachineActions
+    from .machine_actions import MachineActions
 
 
 def _locate_nothing(name: str) -> Optional[Path]:

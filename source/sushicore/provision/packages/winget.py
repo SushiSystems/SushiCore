@@ -8,14 +8,42 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from collections.abc import Callable
 
+from .._output import console
+from ..licence_consent import Licence, LicenceConsent, is_accepted
 from .base import IPackageManager, run
+from .winget_licence import read_licence
+
+
+def _show_output(command: list[str]) -> str:
+    """Runs *command* and returns what it printed; an empty text when it cannot start."""
+    try:
+        return subprocess.run(command, capture_output=True, text=True).stdout
+    except OSError:
+        return ""
 
 
 class WingetManager(IPackageManager):
     """Installs Windows system toolchain packages through winget."""
 
     name = "winget"
+
+    def __init__(self, consent: LicenceConsent | None = None, *,
+                 show: Callable[[list[str]], str] = _show_output) -> None:
+        """Store the run's consent and the command runner the licence links are read through.
+
+        Without consent no install runs.
+        """
+        self._consent = consent
+        self._show = show
+        self._licences: dict[str, Licence] = {}
+
+    def licence_of(self, pkg: str) -> Licence:
+        """Returns the licence of *pkg*, named by its id and linked to its own licence page."""
+        if pkg not in self._licences:
+            self._licences[pkg] = read_licence(pkg, self._show)
+        return self._licences[pkg]
 
     def available(self) -> bool:
         """Report whether ``winget`` is on PATH."""
@@ -34,7 +62,18 @@ class WingetManager(IPackageManager):
         return result.returncode == 0 and pkg.lower() in listed
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
-        """Install each of *pkgs* through ``winget install``."""
+        """Install each of *pkgs* through ``winget install`` once the user accepted its agreements.
+
+        Returns:
+            False unless the consent covers the licence of every package; nothing is installed
+            then. A dry run installs nothing and asks no consent.
+        """
+        refused = [] if dry_run else [
+            held for held in map(self.licence_of, pkgs) if not is_accepted(self._consent, held)]
+        if refused:
+            console.error("winget installs nothing without consent to: "
+                          + ", ".join(f"{held.name} ({held.link})" for held in refused))
+            return False
         ok = True
         for pkg in pkgs:
             rc = run(

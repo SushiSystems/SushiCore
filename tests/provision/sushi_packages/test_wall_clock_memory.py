@@ -1,0 +1,24 @@
+# test_wall_clock_memory.py
+# SushiCore - https://github.com/SushiSystems/SushiCore
+# Copyright (c) 2026-present Mustafa Garip & Sushi Systems
+# Licensed under the Apache License 2.0. See LICENSE.
+"""What the manual wall clock promises beyond the clock contract in test_wall_clock.py."""
+
+from __future__ import annotations
+
+import pytest
+
+from sushicore.provision.sushi_packages.wall_clock_memory import ManualWallClock
+
+pytestmark = pytest.mark.small
+
+
+def test_a_manual_clock_reads_the_same_time_until_it_is_advanced():
+    clock = ManualWallClock(5.0)
+    assert (clock(), clock()) == (5.0, 5.0)
+
+
+def test_advancing_a_manual_clock_moves_it_by_the_seconds_given():
+    clock = ManualWallClock(5.0)
+    clock.advance(2.5)
+    assert clock() == 7.5
