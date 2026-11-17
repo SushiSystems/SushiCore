@@ -584,11 +584,11 @@ def test_a_stamp_with_the_patch_digest_skips_the_rebuild(
 @pytest.mark.medium
 def test_every_patch_the_cuda_spec_names_ships_with_the_package():
     """Check that the CUDA spec names the event-anchor patch and the package holds the file."""
-    from sushicore.provision.gpu.adapter_builder import _default_patches_dir
+    from sushicore.provision.gpu.adapter_builder import default_patches_dir
     from sushicore.provision.gpu.cuda import cuda_spec
 
     names = cuda_spec().adapter_patches
 
     assert names == ("cuda-event-anchor.patch",)
-    assert all((_default_patches_dir() / name).is_file() for name in names)
+    assert all((default_patches_dir() / name).is_file() for name in names)
 

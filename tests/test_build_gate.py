@@ -186,7 +186,7 @@ def test_a_peak_keeps_the_largest_for_its_unit_and_its_kind():
 def test_a_gated_command_returns_its_code_and_leaves_the_ledger_empty(tmp_path):
     state = tmp_path / "gate"
     code = build_gate.main(["gate", str(state), "--", sys.executable, "-c", "raise SystemExit(3)"])
-    ledger = build_gate._read(state / build_gate.K_LEDGER, {})
+    ledger = build_gate.read_state(state / build_gate.K_LEDGER, {})
     assert (code, ledger["running"], ledger["queue"]) == (3, {}, [])
 
 
@@ -195,7 +195,7 @@ def test_a_gated_command_returns_its_code_and_leaves_the_ledger_empty(tmp_path):
 def test_a_gated_command_records_a_peak(tmp_path):
     state = tmp_path / "gate"
     build_gate.main(["gate", str(state), "--", sys.executable, "-c", "raise SystemExit(0)"])
-    assert build_gate._read(state / build_gate.K_PEAKS, {})["@host_compile"] > 0
+    assert build_gate.read_state(state / build_gate.K_PEAKS, {})["@host_compile"] > 0
 
 
 @pytest.mark.small

@@ -109,10 +109,10 @@ def _ignore_path(directory: str) -> None:
 
 
 K_ZIP_INSTALLS = [
-    (dd._install_cmake_direct, "cmake", _zip_bytes("cmake-1.0/bin/cmake.exe"),
+    (dd.install_cmake_direct, "cmake", _zip_bytes("cmake-1.0/bin/cmake.exe"),
      ("cmake", "bin", "cmake.exe"), {"cmake_on_system": _no_cmake_on_system, "pin": _pin}),
-    (dd._install_ninja_direct, "ninja", _zip_bytes("ninja.exe"), ("ninja.exe",), {"pin": _pin}),
-    (dd._install_doxygen_direct, "doxygen", _zip_bytes("doxygen-1.0/doxygen.exe"),
+    (dd.install_ninja_direct, "ninja", _zip_bytes("ninja.exe"), ("ninja.exe",), {"pin": _pin}),
+    (dd.install_doxygen_direct, "doxygen", _zip_bytes("doxygen-1.0/doxygen.exe"),
      ("doxygen", "doxygen.exe"), {"pin": _pin}),
 ]
 
@@ -173,7 +173,7 @@ def test_a_git_installer_with_the_wrong_digest_is_not_run(recording_console, pin
     pins.digests["git"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        dd._install_git_direct(pin=_pin,
+        dd.install_git_direct(pin=_pin,
                                fetch=_Fetch(K_INSTALLER_BYTES), runner=runner,
                                console=recording_console)
 
@@ -185,7 +185,7 @@ def test_a_git_installer_with_the_pinned_digest_is_run(recording_console, pins):
     runner = RecordingRunner(recording_console)
     pins.digests["git"] = _digest(K_INSTALLER_BYTES)
 
-    installed = dd._install_git_direct(pin=_pin,
+    installed = dd.install_git_direct(pin=_pin,
                                        fetch=_Fetch(K_INSTALLER_BYTES), runner=runner,
                                        console=recording_console)
 

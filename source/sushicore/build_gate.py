@@ -168,7 +168,7 @@ class Locked:
         self._file.close()
 
 
-def _read(path: Path, empty: dict) -> dict:
+def read_state(path: Path, empty: dict) -> dict:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -427,17 +427,17 @@ def run(
     kind, key = edge_of(command)
     me = os.getpid()
     with Locked(state):
-        expected = expected_peak(_read(state / K_PEAKS, {}), kind, key)
+        expected = expected_peak(read_state(state / K_PEAKS, {}), kind, key)
     while True:
         if (state / K_STOP).exists():
             print(f"build_gate: {state / K_STOP} exists; not starting {key}", file=sys.stderr)
             with Locked(state):
-                ledger = _read(state / K_LEDGER, {})
+                ledger = read_state(state / K_LEDGER, {})
                 ledger.setdefault("queue", [])[:] = [e for e in ledger.get("queue", []) if e[0] != me]
                 _write(state / K_LEDGER, ledger)
             return 1
         with Locked(state):
-            ledger = _read(state / K_LEDGER, {})
+            ledger = read_state(state / K_LEDGER, {})
             admitted = admit(ledger, me, expected, free_memory_mb(), time.time())
             _write(state / K_LEDGER, ledger)
         if admitted:
@@ -462,11 +462,11 @@ def run(
     finally:
         peak = meter.peak_mb()
         with Locked(state):
-            ledger = _read(state / K_LEDGER, {})
+            ledger = read_state(state / K_LEDGER, {})
             ledger.get("running", {}).pop(str(me), None)
             _write(state / K_LEDGER, ledger)
             if peak:
-                peaks = _read(state / K_PEAKS, {})
+                peaks = read_state(state / K_PEAKS, {})
                 record_peak(peaks, kind, key, peak)
                 _write(state / K_PEAKS, peaks)
     return code

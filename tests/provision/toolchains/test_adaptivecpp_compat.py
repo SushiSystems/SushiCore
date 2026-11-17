@@ -11,7 +11,7 @@ import pytest
 from sushicore.console_memory import RecordingConsole
 from sushicore.provision.default_console import DEFAULT_CONSOLE
 from sushicore.provision.llvm_plans.windows import find_windows_llvm
-from sushicore.provision.toolchains import adaptivecpp
+from sushicore.provision.toolchains import adaptivecpp_compat
 
 pytestmark = pytest.mark.small
 
@@ -30,20 +30,20 @@ def test_the_old_lookup_answers_what_the_current_one_does_and_warns(tmp_path):
     present = tmp_path / "lib" / "cmake" / "llvm"
     present.mkdir(parents=True)
     with pytest.warns(DeprecationWarning, match="find_windows_llvm"):
-        found = adaptivecpp._find_windows_llvm([tmp_path])
+        found = adaptivecpp_compat.find_windows_llvm([tmp_path])
     assert found == find_windows_llvm([tmp_path]) == (str(present), str(tmp_path))
 
 
 def test_the_old_lookup_finds_nothing_in_an_empty_root(tmp_path):
     """Check that no LLVM under the given roots answers None."""
     with pytest.warns(DeprecationWarning):
-        assert adaptivecpp._find_windows_llvm([tmp_path]) is None
+        assert adaptivecpp_compat.find_windows_llvm([tmp_path]) is None
 
 
 def test_the_old_lookup_warns_at_its_caller(tmp_path):
     """Check that the warning points at this file."""
     with pytest.warns(DeprecationWarning) as caught:
-        adaptivecpp._find_windows_llvm([tmp_path])
+        adaptivecpp_compat.find_windows_llvm([tmp_path])
     assert caught[0].filename == __file__
 
 
@@ -51,7 +51,7 @@ def test_the_old_lookup_warns_at_its_caller(tmp_path):
 def test_the_old_question_returns_whether_the_answer_means_yes(console, answer, expected):
     """Check that the yes words, in both languages, are the only yes."""
     with pytest.warns(DeprecationWarning, match="licence consent"):
-        assert adaptivecpp._confirm_timeout("Install?", 5, reader=lambda: answer) is expected
+        assert adaptivecpp_compat.confirm_timeout("Install?", 5, reader=lambda: answer) is expected
 
 
 def test_the_old_question_returns_its_default_when_nothing_answers(console):
@@ -59,7 +59,7 @@ def test_the_old_question_returns_its_default_when_nothing_answers(console):
     def closed() -> str:
         raise EOFError
     with pytest.warns(DeprecationWarning):
-        assert adaptivecpp._confirm_timeout("Install?", 5, True, reader=closed) is True
+        assert adaptivecpp_compat.confirm_timeout("Install?", 5, True, reader=closed) is True
 
 
 def test_the_old_question_in_machine_mode_asks_the_console_for_the_answer():
@@ -68,7 +68,7 @@ def test_the_old_question_in_machine_mode_asks_the_console_for_the_answer():
     DEFAULT_CONSOLE.bind(lambda: machine)
     try:
         with pytest.warns(DeprecationWarning):
-            assert adaptivecpp._confirm_timeout("[warn]Install?[/warn]", 5) is True
+            assert adaptivecpp_compat.confirm_timeout("[warn]Install?[/warn]", 5) is True
     finally:
         DEFAULT_CONSOLE.bind(None)
     assert machine.texts("prompt") == ["Install?"]

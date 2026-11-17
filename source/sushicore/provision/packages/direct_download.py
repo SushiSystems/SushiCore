@@ -53,7 +53,7 @@ def downloader(console: Any = None) -> Callable[[str, Path], None]:
     return lambda url, dest: download(url, dest, console)
 
 
-def _add_to_user_path_windows(directory: str, winreg: Any = None,
+def add_to_user_path_windows(directory: str, winreg: Any = None,
                               environ: MutableMapping[str, str] | None = None) -> bool:
     """Append *directory* to this process's PATH and the user's PATH registry key.
 
@@ -93,7 +93,7 @@ def _add_to_user_path_windows(directory: str, winreg: Any = None,
     return True
 
 
-def _put_on_user_path(directory: str, console: Any,
+def put_on_user_path(directory: str, console: Any,
                       add_to_path: Callable[[str], bool] | None = None) -> None:
     """Add *directory* to the user's PATH and warn on *console* when only this run has it.
 
@@ -102,7 +102,7 @@ def _put_on_user_path(directory: str, console: Any,
         add_to_path: Writes the directory to the user's PATH and answers whether the registry
             holds it; the Windows registry writer when ``None``.
     """
-    if not (add_to_path or _add_to_user_path_windows)(directory):
+    if not (add_to_path or add_to_user_path_windows)(directory):
         console.warn(
             f"{directory} is on PATH for this run only; add it to the user PATH by hand."
         )
@@ -154,7 +154,7 @@ def _replace_folder_with_archive(archive: Path, target: Path, console: Any) -> b
     return True
 
 
-def _install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
+def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           cmake_on_system: Callable[[], str] | None = None,
                           on_path: Callable[[str], None] | None = None) -> bool:
@@ -181,7 +181,7 @@ def _install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None
         if not _replace_folder_with_archive(zip_dest, target, console):
             return False
         zip_dest.unlink(missing_ok=True)
-        (on_path or (lambda directory: _put_on_user_path(directory, console)))(
+        (on_path or (lambda directory: put_on_user_path(directory, console)))(
             str(_cmake_portable_bin()))
         if (_cmake_portable_bin() / "cmake.exe").is_file():
             return True
@@ -194,7 +194,7 @@ def _install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None
         return False
 
 
-def _install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
+def install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the ninja.exe archive into the tools dir and add it to PATH.
@@ -216,7 +216,7 @@ def _install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None
         with zipfile.ZipFile(dest) as zf:
             zf.extract("ninja.exe", tools)
         dest.unlink(missing_ok=True)
-        (on_path or (lambda directory: _put_on_user_path(directory, console)))(str(tools))
+        (on_path or (lambda directory: put_on_user_path(directory, console)))(str(tools))
         return (tools / "ninja.exe").is_file()
     except (DigestMismatchError, ConfigError):
         raise
@@ -225,7 +225,7 @@ def _install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None
         return False
 
 
-def _install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
+def install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                             fetch: Callable[[str, Path], None] | None = None,
                             on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the portable Doxygen zip into the tools dir and add it to PATH.
@@ -251,7 +251,7 @@ def _install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | No
         if not _replace_folder_with_archive(zip_dest, target, console):
             return False
         zip_dest.unlink(missing_ok=True)
-        (on_path or (lambda directory: _put_on_user_path(directory, console)))(str(target))
+        (on_path or (lambda directory: put_on_user_path(directory, console)))(str(target))
         if exe.is_file():
             return True
         console.error("doxygen.exe not found after extracting the portable archive.")
@@ -263,7 +263,7 @@ def _install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | No
         return False
 
 
-def _install_git_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
+def install_git_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
                         runner: CommandRunner | None = None) -> bool:
     """Download and silently run the Git for Windows installer.
@@ -307,10 +307,10 @@ WINGET_ID_TO_CMD: dict[str, str] = {
 
 #: Maps winget IDs to direct-download installer functions.
 _DIRECT_RECIPES: dict[str, Callable[..., bool]] = {
-    "Kitware.CMake":             _install_cmake_direct,
-    "Ninja-build.Ninja":         _install_ninja_direct,
-    "Git.Git":                   _install_git_direct,
-    "DimitriVanHeesch.Doxygen":  _install_doxygen_direct,
+    "Kitware.CMake":             install_cmake_direct,
+    "Ninja-build.Ninja":         install_ninja_direct,
+    "Git.Git":                   install_git_direct,
+    "DimitriVanHeesch.Doxygen":  install_doxygen_direct,
 }
 
 

@@ -79,7 +79,7 @@ def _default_work_root() -> Path:
     return home.root() / "ur"
 
 
-def _default_patches_dir() -> Path:
+def default_patches_dir() -> Path:
     """Return the folder that ships the adapter patches as package data."""
     return Path(__file__).parent / "patches"
 
@@ -129,7 +129,7 @@ class AdapterBuilder:
         self.replace = replace
         self.unlink = unlink
         self.log = log
-        self.patches_dir = _default_patches_dir() if patches_dir is None else patches_dir
+        self.patches_dir = default_patches_dir() if patches_dir is None else patches_dir
         self._cached_environment: dict[str, str] | None = None
 
     def build(self, spec: "GpuBackendSpec", install: "ToolkitInstall",

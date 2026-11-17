@@ -45,15 +45,15 @@ def _sources(installer: str, asked: list | None = None) -> dict:
     """Return the keywords that hand *installer* its pin, and a missing cmake for cmake's."""
     log = asked if asked is not None else []
     options: dict = {"pin": _pinned(log)}
-    if installer == "_install_cmake_direct":
+    if installer == "install_cmake_direct":
         options["cmake_on_system"] = lambda: ""
     return options
 
 
 @pytest.mark.medium
 @pytest.mark.parametrize(("installer", "member", "folder", "exe"), [
-    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake", ("bin", "cmake.exe")),
-    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen", ("doxygen.exe",)),
+    ("install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake", ("bin", "cmake.exe")),
+    ("install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen", ("doxygen.exe",)),
 ])
 def test_a_direct_install_replaces_the_previous_folder(
         installer, member, folder, exe, provision_home, recording_console):
@@ -73,7 +73,7 @@ def test_a_direct_install_replaces_the_previous_folder(
 @pytest.mark.medium
 def test_ninja_direct_install_puts_ninja_in_the_tools_folder(provision_home, recording_console):
     """Check that the ninja archive's executable lands in the tools folder."""
-    installed = dd._install_ninja_direct(
+    installed = dd.install_ninja_direct(
         pin=_pinned([]), fetch=_fetch_archive("ninja.exe"), on_path=lambda _dir: None,
         console=recording_console)
     assert installed is True
@@ -81,9 +81,9 @@ def test_ninja_direct_install_puts_ninja_in_the_tools_folder(provision_home, rec
 
 
 K_ENTRIES = [
-    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake"),
-    ("_install_ninja_direct", "ninja.exe", "ninja"),
-    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen"),
+    ("install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake"),
+    ("install_ninja_direct", "ninja.exe", "ninja"),
+    ("install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen"),
 ]
 
 
@@ -101,7 +101,7 @@ def test_a_direct_install_reads_the_entry_of_its_own_tool(
 
 @pytest.mark.medium
 @pytest.mark.parametrize("installer", [name for name, _member, _entry in K_ENTRIES]
-                         + ["_install_git_direct"])
+                         + ["install_git_direct"])
 def test_a_direct_install_lets_a_missing_pin_through(
         installer, provision_home, recording_console):
     """Check that an entry no fragment pins stops the run as ConfigError, not as a False."""
@@ -111,7 +111,7 @@ def test_a_direct_install_lets_a_missing_pin_through(
 
     with pytest.raises(ConfigError):
         getattr(dd, installer)(pin=no_pin, **({"cmake_on_system": lambda: ""}
-                                              if installer == "_install_cmake_direct" else {}),
+                                              if installer == "install_cmake_direct" else {}),
                                               console=recording_console)
 
 
@@ -127,7 +127,7 @@ def test_the_cmake_install_downloads_the_address_its_entry_pins(
         fetched.append(url)
         _write_zip(dest, "cmake-1.0/bin/cmake.exe")
 
-    dd._install_cmake_direct(
+    dd.install_cmake_direct(
         pin=_pinned(asked), fetch=fetch, cmake_on_system=lambda: "", on_path=lambda _dir: None,
         console=recording_console)
 
@@ -169,7 +169,7 @@ def _refused_write(caplog):
     module, _stored = _winreg(_raising(PermissionError(5, "Access is denied")))
     environ = {"PATH": "C:/base"}
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        result = dd._add_to_user_path_windows("C:/tools", module, environ)
+        result = dd.add_to_user_path_windows("C:/tools", module, environ)
     warnings = [r.getMessage() for r in caplog.records
                 if r.name.startswith("sushicore.provision") and r.levelname == "WARNING"]
     return result, warnings, environ
@@ -199,7 +199,7 @@ def test_a_user_path_write_that_lands_reports_success():
     """Check that a stored PATH value returns True and reaches this process."""
     module, stored = _winreg(lambda *_args: object())
     environ = {"PATH": "C:/base"}
-    assert dd._add_to_user_path_windows("C:/tools", module, environ) is True
+    assert dd.add_to_user_path_windows("C:/tools", module, environ) is True
     assert stored == {"Path": "C:/tools"}
     assert environ["PATH"] == os.pathsep.join(["C:/base", "C:/tools"])
 
@@ -209,13 +209,13 @@ def test_a_defect_in_the_user_path_write_is_not_swallowed():
     """Check that an error the registry does not raise escapes the PATH write."""
     module, _stored = _winreg(_raising(TypeError("defect")))
     with pytest.raises(TypeError):
-        dd._add_to_user_path_windows("C:/tools", module, {"PATH": ""})
+        dd.add_to_user_path_windows("C:/tools", module, {"PATH": ""})
 
 
 K_DIRECT_INSTALLS = [
-    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", ("cmake", "bin")),
-    ("_install_ninja_direct", "ninja.exe", ()),
-    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", ("doxygen",)),
+    ("install_cmake_direct", "cmake-1.0/bin/cmake.exe", ("cmake", "bin")),
+    ("install_ninja_direct", "ninja.exe", ()),
+    ("install_doxygen_direct", "doxygen-1.0/doxygen.exe", ("doxygen",)),
 ]
 
 
@@ -223,7 +223,7 @@ def _run_direct_install(installer: str, member: str, path_written: bool, console
     """Run *installer* against a one-member archive; the user PATH write answers *path_written*."""
     return getattr(dd, installer)(
         fetch=_fetch_archive(member),
-        on_path=lambda directory: dd._put_on_user_path(
+        on_path=lambda directory: dd.put_on_user_path(
             directory, console, add_to_path=lambda _directory: path_written),
         **_sources(installer), console=console)
 
@@ -245,8 +245,8 @@ def test_direct_install_warns_only_when_the_user_path_write_is_refused(
 
 @pytest.mark.medium
 @pytest.mark.parametrize(("installer", "member", "folder"), [
-    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake"),
-    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen"),
+    ("install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake"),
+    ("install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen"),
 ])
 @pytest.mark.parametrize("safe", [False, True])
 def test_a_direct_install_removes_its_folder_only_when_the_root_is_safe(
