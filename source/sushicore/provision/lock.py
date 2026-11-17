@@ -7,49 +7,19 @@
 from __future__ import annotations
 
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Callable
 
 from ..errors import SushiCoreError
-
-if sys.platform == "win32":
-    import msvcrt
-else:
-    import fcntl
+from .host import current_host
 
 _POLL_INTERVAL = 0.1
 _UNKNOWN_HOLDER = "unknown"
 
-#: Byte offset `msvcrt.locking` locks, separate from the PID text at offset 0.
-_LOCK_BYTE = 1 << 20
-
 
 class LockTimeout(SushiCoreError):
     """Raised when a lock is not acquired before its timeout elapses."""
-
-
-def _try_lock(fd: int) -> bool:
-    """Attempt a non-blocking exclusive OS lock on *fd*; return whether it succeeded."""
-    try:
-        if sys.platform == "win32":
-            os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
-            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-        else:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        return False
-    return True
-
-
-def _unlock(fd: int) -> None:
-    """Release the OS lock previously acquired on *fd* with :func:`_try_lock`."""
-    if sys.platform == "win32":
-        os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-    else:
-        fcntl.flock(fd, fcntl.LOCK_UN)
 
 
 class ProvisionLock:
@@ -74,7 +44,8 @@ class ProvisionLock:
         self._timeout = timeout
         self._clock = clock or time.monotonic
         self._sleep = sleep or time.sleep
-        self._unlock = unlock or _unlock
+        self._host = current_host()
+        self._unlock = unlock or self._host.unlock
         self._write = write or os.write
         self._fd: int | None = None
 
@@ -111,7 +82,7 @@ class ProvisionLock:
         Raises:
             LockTimeout: The lock is still held by another process at *deadline*.
         """
-        while not _try_lock(fd):
+        while not self._host.try_lock(fd):
             if self._clock() >= deadline:
                 holder = self._read_holder(fd)
                 raise LockTimeout(f"{self._path}: still held by process {holder}")

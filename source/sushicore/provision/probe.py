@@ -10,13 +10,13 @@ import glob
 import logging
 import os
 import shutil
-import sys
 from pathlib import Path
 from typing import Callable, Sequence
 
 from sushicore.proc import CommandRunner, did_not_run
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
+from sushicore.provision.host import IHost, current_host
 from sushicore.provision.process_run import provision_runner
 
 _log = logging.getLogger(__name__)
@@ -121,17 +121,17 @@ def _vcvars_from_disk_scan(program_files: Sequence[Path] | None = None) -> Path 
     return None
 
 
-def find_vcvars(platform: str | None = None,
+def find_vcvars(host: IHost | None = None,
                 vswhere: Callable[[], Path | None] | None = None,
                 program_files: Sequence[Path] | None = None) -> Path | None:
     """Return the vcvars64.bat of an installed Visual Studio, or None off Windows.
 
     Args:
-        platform: The ``sys.platform`` value to judge; the running one's when ``None``.
+        host: The host to judge; the running one when ``None``.
         vswhere: Gives the install vswhere reports; asks vswhere when ``None``.
         program_files: The folders the disk scan reads; the environment's when ``None``.
     """
-    if (platform or sys.platform) != "win32":
+    if not (host or current_host()).hosts_visual_studio:
         return None
     return (vswhere or _vcvars_from_vswhere)() or _vcvars_from_disk_scan(program_files)
 
@@ -243,8 +243,7 @@ def detect_gpu_vendor() -> str:
         return "nvidia"
     if shutil.which("rocminfo") or shutil.which("rocm-smi"):
         return "amd"
-    reader = _windows_display_adapters if sys.platform == "win32" else _linux_display_adapters
-    return classify_display_adapters(reader())
+    return classify_display_adapters(current_host().display_adapters(provision_runner()))
 
 
 #: Name fragments, without spaces or hyphens, that mark an AMD or Intel adapter as integrated.
@@ -303,40 +302,6 @@ def classify_display_adapters(adapters: str) -> str:
               for rank, (vendor, _markers) in enumerate(_VENDOR_MARKERS)
               if _adapter_vendor(line) == vendor]
     return min(ranked)[2] if ranked else "none"
-
-
-def _linux_display_adapters(runner: CommandRunner | None = None) -> str:
-    """Return the lower-case display-controller lines ``lspci`` reports, or ''.
-
-    Args:
-        runner: Runs ``lspci``; the provision runner when ``None``.
-    """
-    code, out, err = (runner or provision_runner()).capture(["lspci"], timeout=10)
-    if did_not_run("lspci", code, err):
-        _log.warning("lspci did not run (%s); no display adapter is reported", err)
-        return ""
-    return "\n".join(
-        ln for ln in out.lower().splitlines()
-        if "vga compatible controller" in ln or "3d controller" in ln
-        or "display controller" in ln
-    )
-
-
-def _windows_display_adapters(runner: CommandRunner | None = None) -> str:
-    """Return the lower-case names of the video controllers Windows reports, or ''.
-
-    Args:
-        runner: Runs PowerShell; the provision runner when ``None``.
-    """
-    cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-           "Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name }"]
-    code, out, err = (runner or provision_runner()).capture(cmd, timeout=30)
-    if did_not_run(cmd[0], code, err):
-        _log.warning(
-            "the Win32_VideoController query did not run (%s); no display adapter is reported",
-            err)
-        return ""
-    return out.lower()
 
 
 def binary_works(cmd: str, runner: CommandRunner | None = None) -> bool:

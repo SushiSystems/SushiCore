@@ -7,11 +7,11 @@ every AMD card, from AMD's tarball listing."""
 
 from __future__ import annotations
 
-import os
 import shutil
 import typing
 from pathlib import Path
 
+from ..host import current_host
 from .amd_hardware import AmdHardware, query_hardware
 from .rocm_package import RocmPackage
 from .rocm_selection import select_package
@@ -116,7 +116,7 @@ class RocmVendor:
 
     def find_system_toolkit(self) -> Path | None:
         """Return ``/opt/rocm`` when AMD's packages installed ROCm there."""
-        if (shutil.which("hipcc") or shutil.which("rocminfo")) and os.name != "nt":
+        if (shutil.which("hipcc") or shutil.which("rocminfo")) and current_host().searches_system_prefixes:
             return K_SYSTEM_ROOT if is_rocm_root(K_SYSTEM_ROOT) else None
         return None
 

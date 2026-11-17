@@ -10,13 +10,12 @@ Windows keeps them in the registry under ``HKEY_CURRENT_USER\\Environment``. Els
 
 from __future__ import annotations
 
-import os
 import re
 from contextlib import closing
 from pathlib import Path
 from typing import Callable, Protocol, final
 
-_IS_WINDOWS = os.name == "nt"
+from .host import current_host
 
 #: The registry key under ``HKEY_CURRENT_USER`` that holds the user's variables.
 _REGISTRY_KEY = "Environment"
@@ -160,7 +159,7 @@ def default_environment(windows: bool | None = None) -> UserEnvironment:
     Args:
         windows: Whether to answer for Windows; the running platform when None.
     """
-    return RegistryEnvironment() if (_IS_WINDOWS if windows is None else windows) \
+    return RegistryEnvironment() if (current_host().keeps_environment_in_registry if windows is None else windows) \
         else ProfileEnvironment()
 
 

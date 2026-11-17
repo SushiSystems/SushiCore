@@ -146,3 +146,20 @@ def test_translation_leaves_the_names_it_was_given_untouched(manager):
     names = ["build-essential", "pkg-config"]
     manager.translate_apt(names)
     assert names == ["build-essential", "pkg-config"]
+
+
+@pytest.mark.small
+@pytest.mark.parametrize(("manager", "gpu", "oneapi"), [
+    (linux.AptManager, True, True), (linux.DnfManager, False, False),
+    (linux.YumManager, False, False), (linux.PacmanManager, False, False),
+    (linux.ZypperManager, False, False),
+])
+def test_only_apt_automates_the_gpu_sdk_and_oneapi(manager, gpu, oneapi):
+    """Check that the manager says whether it installs the GPU SDK and oneAPI."""
+    assert (manager().automates_gpu_sdk, manager().automates_oneapi) == (gpu, oneapi)
+
+
+@pytest.mark.small
+def test_a_manager_without_oneapi_automation_installs_nothing_for_it():
+    """Check that install_oneapi of a manager that does not automate it reports failure."""
+    assert linux.DnfManager().install_oneapi(True) is False

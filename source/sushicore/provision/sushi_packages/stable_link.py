@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Protocol
 
 from .. import links
+from ..host import IHost, current_host
 
 #: What the link name starts with, so a package digest folder is never taken for a link.
 K_MARK = "@"
@@ -58,15 +58,15 @@ class MemoryLinks:
 class StableLink:
     """Reads and moves the per-consumer links under ``<packages>/<name>/``."""
 
-    def __init__(self, root: Path, windows: bool = os.name == "nt") -> None:
+    def __init__(self, root: Path, host: IHost | None = None) -> None:
         """Bind the links to the packages folder.
 
         Args:
             root: The ``<home>/packages`` folder.
-            windows: Whether a link is a directory junction; a symlink otherwise.
+            host: The host whose links are made; the running one's when ``None``.
         """
         self._root = root
-        self._windows = windows
+        self._host = host or current_host()
 
     def path(self, name: str, config: str, consumer: str) -> Path:
         """Return ``<root>/<name>/@<config>-<consumer>``."""
@@ -84,16 +84,7 @@ class StableLink:
         """
         link = self.path(name, config, consumer)
         link.parent.mkdir(parents=True, exist_ok=True)
-        if self._windows:
-            if links.is_dir_link(link):
-                links.remove_dir_link(link)
-            links.make_dir_link(link, target)
-            return link
-        beside = link.with_name(link.name + ".new")
-        if beside.is_symlink():
-            beside.unlink()
-        os.symlink(target.resolve(), beside, target_is_directory=True)
-        os.replace(beside, link)
+        self._host.replace_dir_link(link, target)
         return link
 
     def targets(self, name: str) -> set[str]:

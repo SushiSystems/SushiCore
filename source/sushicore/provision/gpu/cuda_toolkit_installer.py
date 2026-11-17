@@ -24,6 +24,7 @@ from sushicore.proc import CommandRunner
 
 from .. import home
 from .._output import console
+from ..host import current_host
 from ..integrity import verify_sha256
 from ..licence_consent import Licence
 from ..process_run import provision_runner
@@ -37,17 +38,11 @@ K_REQUIRED_COMPONENTS = ("cuda_nvcc", "cuda_cudart", "cuda_nvml_dev")
 #: Parts of the compiler that some releases publish on their own; installed when published.
 K_COMPANION_COMPONENTS = ("cuda_crt", "libnvvm", "cuda_cccl")
 
-K_NVCC = "nvcc.exe" if os.name == "nt" else "nvcc"
-
 #: The licence NVIDIA ships the CUDA redistributable archives under.
 K_CUDA_LICENCE = Licence(
     "NVIDIA CUDA Toolkit End User License Agreement",
     "https://docs.nvidia.com/cuda/eula/index.html",
 )
-
-#: The prefix that puts a Windows path in its extended-length form.
-K_EXTENDED_PREFIX = "\\\\?\\"
-
 
 class ToolkitInstallError(ToolkitSourceError):
     """A release could not be downloaded, verified or unpacked."""
@@ -60,7 +55,7 @@ def toolkits_dir() -> Path:
 
 def nvcc_in(root: Path) -> Path:
     """Return the nvcc binary of the toolkit rooted at *root*."""
-    return root / "bin" / K_NVCC
+    return root / "bin" / current_host().nvcc_name
 
 
 def list_gpu_architectures(nvcc: Path, *, runner: CommandRunner | None = None) -> frozenset[str]:
@@ -244,12 +239,9 @@ def _remove_tree(path: Path) -> None:
 
 
 def _long_path(path: Path) -> Path:
-    """Return *path* in the Windows extended-length form, which lifts the 260-character limit
-    that the deepest headers of a release cross under a long home folder; unchanged elsewhere."""
-    if os.name != "nt":
-        return path
-    text = str(path.resolve())
-    return Path(text if text.startswith(K_EXTENDED_PREFIX) else K_EXTENDED_PREFIX + text)
+    """Return *path* in the host's long-path form, which lifts the 260-character limit
+    that the deepest headers of a release cross under a long home folder on Windows."""
+    return current_host().long_path(path)
 
 
 def _download(url: str, dest: Path) -> None:

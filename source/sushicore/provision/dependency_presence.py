@@ -10,7 +10,7 @@ from typing import Callable
 
 from ..proc import CommandRunner
 from .fragments import Dependency
-from .packages import IPackageManager
+from .packages import IPackageManager, LinuxPackageManager
 from .process_run import provision_runner
 
 
@@ -54,10 +54,11 @@ def named_manager(managers: list[IPackageManager], name: str) -> IPackageManager
     return next((m for m in managers if m.name == name), None)
 
 
-def available_linux_manager(managers: list[IPackageManager]) -> IPackageManager | None:
+def available_linux_manager(managers: list[IPackageManager]) -> LinuxPackageManager | None:
     """Return the first available manager of ``K_LINUX_MANAGERS``, taken in that order, or None."""
     found = (named_manager(managers, name) for name in K_LINUX_MANAGERS)
-    return next((m for m in found if m is not None and m.available()), None)
+    return next((m for m in found
+                 if isinstance(m, LinuxPackageManager) and m.available()), None)
 
 
 def dep_manager(managers: list[IPackageManager], platform: str) -> IPackageManager | None:

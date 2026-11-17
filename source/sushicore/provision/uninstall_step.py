@@ -15,7 +15,7 @@ from ._output import console
 from .dependency_presence import available_linux_manager, named_manager
 from .fragments import IDependencySource
 from .package_lists import dedup
-from .packages import IPackageManager, LinuxPackageManager, tools_dir
+from .packages import IPackageManager, tools_dir
 from .pipeline import InstallContext, Step, StepResult
 from .sinks import ConfigSink
 
@@ -52,7 +52,6 @@ class UninstallStep(Step):
         if not _root_is_safe(self._console, self._root):
             return StepResult.FAILED
         mgr = available_linux_manager(self._managers)
-        assert mgr is None or isinstance(mgr, LinuxPackageManager)  # K_LINUX_MANAGERS only holds these
         vcpkg = named_manager(self._managers, "vcpkg")
         pkgs: list[str] = []
         vcpkg_ports: list[str] = []

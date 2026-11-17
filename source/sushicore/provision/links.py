@@ -7,10 +7,9 @@
 from __future__ import annotations
 
 import os
-import stat
 from pathlib import Path
 
-_IS_WINDOWS = os.name == "nt"
+from .host import current_host
 
 #: The prefix Windows puts before the target a junction stores.
 _EXTENDED_PREFIX = "\\\\?\\"
@@ -24,11 +23,7 @@ def make_dir_link(link: Path, target: Path) -> None:
     """
     if link.exists() or is_dir_link(link):
         raise FileExistsError(str(link))
-    if _IS_WINDOWS:
-        import _winapi
-        _winapi.CreateJunction(str(target.resolve()), str(link))
-    else:
-        os.symlink(target.resolve(), link, target_is_directory=True)
+    current_host().make_dir_link(link, target)
 
 
 def is_dir_link(path: Path) -> bool:
@@ -54,18 +49,9 @@ def remove_dir_link(path: Path) -> None:
     """
     if not is_dir_link(path):
         raise ValueError(f"{path} is not a directory link")
-    if _IS_WINDOWS:
-        os.rmdir(path)
-    else:
-        path.unlink()
+    current_host().remove_dir_link(path)
 
 
 def _is_junction(path: Path) -> bool:
     """Report whether *path* is a Windows junction, read from its reparse tag."""
-    if not _IS_WINDOWS:
-        return False
-    try:
-        tag = os.lstat(path).st_reparse_tag
-    except OSError:
-        return False
-    return tag == stat.IO_REPARSE_TAG_MOUNT_POINT
+    return current_host().is_junction(path)

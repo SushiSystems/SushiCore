@@ -15,6 +15,7 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.gpu.adapter_builder_memory import InMemoryAdapterBuilder
 from sushicore.provision.gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from sushicore.provision.licence_consent_memory import granted_consent
+from sushicore.provision.packages import AptManager
 from sushicore.provision.pipeline import InstallContext, ToolchainSelection
 from sushicore.provision.gpu_stage import provision_adapters_for_run
 from sushicore.provision.machine_actions import MachineActions
@@ -150,7 +151,7 @@ def test_the_linux_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_i
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia")
 
-    recorded.stage().provision_linux(ctx, "apt")
+    recorded.stage().provision_linux(ctx, AptManager())
 
     assert (recorded.stacks, recorded.adapters) == (["nvidia"], [ctx])
 
@@ -161,7 +162,7 @@ def test_the_linux_gpu_stage_does_nothing_without_gpu():
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=False), gpu_vendor="nvidia")
 
-    recorded.stage().provision_linux(ctx, "apt")
+    recorded.stage().provision_linux(ctx, AptManager())
 
     assert (recorded.stacks, recorded.adapters) == ([], [])
 
@@ -172,7 +173,7 @@ def test_the_linux_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="none")
 
-    recorded.stage().provision_linux(ctx, "apt")
+    recorded.stage().provision_linux(ctx, AptManager())
 
     assert (recorded.stacks, recorded.adapters) == (["none"], [])
 
@@ -215,6 +216,6 @@ def test_the_linux_gpu_stage_installs_no_cuda_toolkit_without_consent():
     ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia",
                          consent=None)
 
-    recorded.stage().provision_linux(ctx, "apt")
+    recorded.stage().provision_linux(ctx, AptManager())
 
     assert recorded.stacks == []

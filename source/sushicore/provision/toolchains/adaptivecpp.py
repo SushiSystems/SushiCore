@@ -28,7 +28,7 @@ from .stamp import toolchains_dir
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
-    from ..packages import IPackageManager
+    from ..packages import IPackageManager, LinuxPackageManager
 
 __all__ = ["install_adaptivecpp"]
 
@@ -136,7 +136,7 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None
     return found
 
 
-def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
+def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None",
                         vcpkg: "IPackageManager | None", dry_run: bool,
                         assume_yes: bool = False, *,
                         winget: "IPackageManager | None" = None,
@@ -276,7 +276,7 @@ def _explain_acpp_skip(cfg: "ProvisionConfig") -> None:
                  "can build and run now. acpp is the secondary toolchain.")
 
 
-def _acpp_deps_linux(mgr: "IPackageManager | None") -> tuple[str | None, str | None]:
+def _acpp_deps_linux(mgr: "LinuxPackageManager | None") -> tuple[str | None, str | None]:
     """Install acpp build deps via the distro manager; return ``(LLVM_DIR, clang_prefix)``.
 
     Args:
@@ -284,21 +284,7 @@ def _acpp_deps_linux(mgr: "IPackageManager | None") -> tuple[str | None, str | N
     """
     if mgr is None:
         return (None, None)
-    if mgr.name == "apt":
-        pkgs = [
-            f"clang-{ACPP_LLVM}", f"llvm-{ACPP_LLVM}-dev",
-            f"libclang-{ACPP_LLVM}-dev", f"lld-{ACPP_LLVM}",
-            "libboost-context-dev", "libboost-fiber-dev",
-        ]
-        mgr.install(pkgs, dry_run=False)
-        llvm_dir = f"/usr/lib/llvm-{ACPP_LLVM}/lib/cmake/llvm"
-        clang_prefix = f"/usr/lib/llvm-{ACPP_LLVM}"
-        return (llvm_dir if Path(llvm_dir).is_dir() else None, clang_prefix)
-    # Non-apt: install generic clang/llvm-dev/boost and let find_package resolve.
-    mgr.install(mgr.translate_apt(
-        ["clang", "llvm", "libboost-context-dev", "libboost-fiber-dev"]),
-        dry_run=False)
-    return ("", None)  # empty LLVM_DIR => cmake searches default locations
+    return mgr.install_acpp_build_deps(ACPP_LLVM)
 
 
 def _acpp_deps_windows(vcpkg: "IPackageManager | None", assume_yes: bool = False, *,

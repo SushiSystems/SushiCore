@@ -17,7 +17,7 @@ from .gpu.provisioning import provision_gpu_adapters
 from .gpu.registry import DEFAULT_REGISTRY
 from .licence_consent import Licence, is_accepted
 from .machine_actions import MachineActions
-from .packages import install_gpu_stack
+from .packages import LinuxPackageManager, install_gpu_stack
 from .pipeline import InstallContext
 
 
@@ -97,14 +97,14 @@ class GpuStage:
         """Returns the licences the toolkit this stage installs for *ctx* needs; empty when none."""
         return [K_CUDA_LICENCE] if self._installs_toolkit(ctx) else []
 
-    def provision_linux(self, ctx: InstallContext, manager_name: str) -> None:
-        """Install the GPU SDK through the manager named *manager_name*, then build the adapters.
+    def provision_linux(self, ctx: InstallContext, manager: LinuxPackageManager) -> None:
+        """Install the GPU SDK through *manager*, then build the adapters.
 
         Nothing is installed when the run did not select the GPU; the SDK is automated
-        on ``apt`` only.
+        for the managers that say so.
         """
         vendor = _resolve_gpu_vendor(ctx, self._actions.detect_vendor) if ctx.gpu else "none"
-        if ctx.gpu and manager_name == "apt":
+        if ctx.gpu and manager.automates_gpu_sdk:
             if not self._install(ctx, vendor) and vendor != "none":
                 message = (f"GPU compute SDK for '{vendor}' was not installed — "
                            f"the build will fall back to the CPU (SPIR/OpenCL) path. "
@@ -115,7 +115,7 @@ class GpuStage:
             self._install(ctx, vendor)
         elif ctx.gpu:
             self._console.warn(f"GPU SDK auto-install for '{vendor}' is only "
-                               f"automated on apt; install it manually on {manager_name}.")
+                               f"automated on apt; install it manually on {manager.name}.")
         if vendor != "none":
             self._provision_adapters(ctx)
 

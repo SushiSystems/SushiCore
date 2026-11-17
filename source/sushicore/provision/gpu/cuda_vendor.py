@@ -7,13 +7,12 @@ whose nvcc builds for every card, from NVIDIA's redistributable archives."""
 
 from __future__ import annotations
 
-import os
-import platform as host_platform
 import shutil
 import typing
 from pathlib import Path
 
 from .._output import console
+from ..host import current_host
 from ..probe import K_NVCC_GLOBS_LINUX, first_glob_match
 from .cuda_hardware import NvidiaHardware, query_hardware
 from .cuda_redist import RedistError, RedistIndex
@@ -62,10 +61,7 @@ class CudaVendor:
     @property
     def platform_key(self) -> str:
         """Return this machine's key in NVIDIA's index, such as ``windows-x86_64``."""
-        if os.name == "nt":
-            return "windows-x86_64"
-        machine = host_platform.machine().lower()
-        return "linux-sbsa" if machine in ("aarch64", "arm64") else "linux-x86_64"
+        return current_host().cuda_platform_key
 
     @property
     def toolkits_dir(self) -> Path:
@@ -115,7 +111,8 @@ class CudaVendor:
 
     def find_system_toolkit(self) -> Path | None:
         """Return the root of an nvcc on PATH, or under a well-known Linux prefix."""
-        nvcc = shutil.which("nvcc") or ("" if os.name == "nt" else first_glob_match(K_NVCC_GLOBS_LINUX))
+        nvcc = shutil.which("nvcc") or (
+            first_glob_match(K_NVCC_GLOBS_LINUX) if current_host().searches_system_prefixes else "")
         return Path(nvcc).resolve().parent.parent if nvcc else None
 
     def _architectures(self, version: Version) -> frozenset[str]:

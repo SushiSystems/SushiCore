@@ -14,6 +14,7 @@ from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.packages import winget as winget_module
+from sushicore.provision.packages.linux import AptManager
 from sushicore.provision.packages.winget import WingetManager
 from sushicore.provision.packages.base_memory import (
     InMemoryLinuxPackageManager,
@@ -260,14 +261,16 @@ def test_install_adaptivecpp_on_linux_names_the_dev_packages_when_it_skips(
 def test_install_adaptivecpp_on_apt_installs_the_pinned_llvm_packages(
         provision_home, recording_console):
     """Check that an apt host is asked for the pinned LLVM, clang, lld and boost packages."""
-    manager = InMemoryPackageManager("apt")
+    runner = RecordingRunner(recording_console)
+    manager = AptManager(runner)
     llvm = adaptivecpp.ACPP_LLVM
 
     adaptivecpp.install_adaptivecpp(
         _linux_cfg(), manager, None, dry_run=False, which=_on_path,
         run_command=_Commands(1), configure=_Configure())
 
-    assert manager.installs == [[
+    installs = [list(c.argv) for c in runner.commands if "install" in c.argv]
+    assert [argv[-6:] for argv in installs] == [[
         f"clang-{llvm}", f"llvm-{llvm}-dev", f"libclang-{llvm}-dev", f"lld-{llvm}",
         "libboost-context-dev", "libboost-fiber-dev",
     ]]

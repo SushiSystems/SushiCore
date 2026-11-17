@@ -14,9 +14,7 @@ from .download_verifier import DownloadVerifier, bind_verifier
 from .fragments import IDependencySource
 from .packages import (
     IPackageManager,
-    LinuxPackageManager,
     WINGET_ID_TO_CMD,
-    ensure_intel_oneapi_repo,
 )
 from .package_lists import dedup
 from .packages.winget_licence import IWingetLicences
@@ -132,7 +130,6 @@ class InstallDepsStep(Step):
                 return StepResult.SKIPPED
             self._console.error(msg)
             return StepResult.FAILED
-        assert isinstance(mgr, LinuxPackageManager)  # K_LINUX_MANAGERS only holds these
 
         self._console.info(f"Using package manager: {mgr.name}")
         vcpkg = named_manager(self._managers, "vcpkg")
@@ -176,18 +173,17 @@ class InstallDepsStep(Step):
 
         self._install_toolchains(ctx, mgr=mgr, vcpkg=None)
 
-        if ctx.selection.oneapi and mgr.name == "apt":
+        if ctx.selection.oneapi and mgr.automates_oneapi:
             self._console.info("oneAPI: configuring the Intel apt repository and installing "
                          "intel-oneapi-compiler-dpcpp-cpp.")
-            if ensure_intel_oneapi_repo(ctx.dry_run):
-                if not mgr.install(["intel-oneapi-compiler-dpcpp-cpp"], ctx.dry_run):
-                    self._console.warn("oneAPI compiler install failed; continuing "
-                                 "(intel-llvm/AdaptiveCpp remain available).")
+            if not mgr.install_oneapi(ctx.dry_run):
+                self._console.warn("oneAPI compiler install failed; continuing "
+                             "(intel-llvm/AdaptiveCpp remain available).")
         elif ctx.selection.oneapi:
             self._console.warn(f"oneAPI on {mgr.name} is not automated; install the "
                          "Intel oneAPI DPC++ compiler manually.")
 
-        self._gpu.provision_linux(ctx, mgr.name)
+        self._gpu.provision_linux(ctx, mgr)
         return StepResult.OK if ok else StepResult.FAILED
 
     def _run_windows(self, ctx: InstallContext) -> StepResult:

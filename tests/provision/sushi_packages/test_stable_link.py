@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.provision import links
+from sushicore.provision.host import PosixHost, WindowsHost
 from sushicore.provision.sushi_packages.stable_link import StableLink
 
 
@@ -45,7 +46,7 @@ def folders(tmp_path):
 def test_the_windows_link_follows_the_newest_package(folders):
     """Check that two junction updates leave the link on the second package."""
     root, first, second = folders
-    link = StableLink(root, windows=True)
+    link = StableLink(root, host=WindowsHost())
     link.point("sushiruntime", "c1", "sushiai", first)
     path = link.point("sushiruntime", "c1", "sushiai", second)
     assert path.resolve() == second.resolve()
@@ -55,7 +56,7 @@ def test_the_windows_link_follows_the_newest_package(folders):
 def test_the_windows_link_update_keeps_every_package_folder(folders):
     """Check that moving the junction deletes no package folder."""
     root, first, second = folders
-    link = StableLink(root, windows=True)
+    link = StableLink(root, host=WindowsHost())
     link.point("sushiruntime", "c1", "sushiai", first)
     link.point("sushiruntime", "c1", "sushiai", second)
     assert (first.is_dir(), second.is_dir()) == (True, True)
@@ -66,7 +67,7 @@ def test_the_windows_link_update_keeps_every_package_folder(folders):
 def test_the_posix_link_is_replaced_beside_the_old_one(folders):
     """Check that the symlink swapped by rename names the second package."""
     root, first, second = folders
-    link = StableLink(root, windows=False)
+    link = StableLink(root, host=PosixHost())
     link.point("sushiruntime", "c1", "sushiai", first)
     path = link.point("sushiruntime", "c1", "sushiai", second)
     assert path.resolve() == second.resolve()
@@ -77,7 +78,7 @@ def test_the_posix_link_is_replaced_beside_the_old_one(folders):
 def test_the_posix_link_update_leaves_no_new_file(folders):
     """Check that the swap leaves no .new file beside the link."""
     root, first, second = folders
-    link = StableLink(root, windows=False)
+    link = StableLink(root, host=PosixHost())
     link.point("sushiruntime", "c1", "sushiai", first)
     path = link.point("sushiruntime", "c1", "sushiai", second)
     assert not (path.parent / (path.name + ".new")).exists()
@@ -94,7 +95,7 @@ def test_the_name_has_config_and_consumer():
 def test_targets_lists_every_digest_a_link_names(folders):
     """Check that the links of two consumers give two digests."""
     root, first, second = folders
-    link = StableLink(root, windows=True)
+    link = StableLink(root, host=WindowsHost())
     link.point("sushiruntime", "c1", "sushiai", first)
     link.point("sushiruntime", "c1", "sushiengine", second)
     assert link.targets("sushiruntime") == {"d1", "d2"}
@@ -104,7 +105,7 @@ def test_targets_lists_every_digest_a_link_names(folders):
 def test_targets_counts_only_entries_that_carry_the_link_mark(folders):
     """Check that a link without the mark beside the library's links is not a target."""
     root, first, second = folders
-    link = StableLink(root, windows=True)
+    link = StableLink(root, host=WindowsHost())
     link.point("sushiruntime", "c1", "sushiai", first)
     links.make_dir_link(root / "sushiruntime" / "plain", second)
     assert link.targets("sushiruntime") == {"d1"}

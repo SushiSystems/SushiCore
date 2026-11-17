@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
 from sushicore.proc import CommandRunner
 
 from .._output import console
 from ..process_run import provision_runner
-from ..system import is_root
+from ..system import ensure_intel_oneapi_repo, is_root
 from .base import IPackageManager
 
 _APT_TO_DNF: dict[str, list[str]] = {
@@ -69,6 +70,30 @@ class LinuxPackageManager(IPackageManager):
         """Run *command*, streaming its output through the console; return its exit code."""
         return self._runner.run_drained(command, None, dry_run=dry_run, check=check)
 
+    @property
+    def automates_gpu_sdk(self) -> bool:
+        """Whether the GPU compute SDK is installed through this manager; False by default."""
+        return False
+
+    @property
+    def automates_oneapi(self) -> bool:
+        """Whether :meth:`install_oneapi` installs the oneAPI compiler; False by default."""
+        return False
+
+    def install_oneapi(self, dry_run: bool) -> bool:
+        """Install the Intel oneAPI DPC++ compiler; False when this manager does not automate it."""
+        return False
+
+    def install_acpp_build_deps(self, llvm_version: str) -> tuple[str | None, str | None]:
+        """Install the AdaptiveCpp build dependencies for LLVM *llvm_version*.
+
+        Returns:
+            ``(LLVM_DIR, clang_prefix)``; an empty ``LLVM_DIR`` makes cmake search its defaults.
+        """
+        self.install(self.translate_apt(
+            ["clang", "llvm", "libboost-context-dev", "libboost-fiber-dev"]), dry_run=False)
+        return ("", None)
+
     def translate_apt(self, apt_pkgs: list[str]) -> list[str]:
         """Convert apt-format package names to this manager's native names."""
         return apt_pkgs
@@ -78,6 +103,31 @@ class AptManager(LinuxPackageManager):
     """Installs Debian/Ubuntu packages through apt-get."""
 
     name = "apt"
+
+    @property
+    def automates_gpu_sdk(self) -> bool:
+        """True; the GPU SDK installs through apt."""
+        return True
+
+    @property
+    def automates_oneapi(self) -> bool:
+        """True; the Intel apt repository is configured by :meth:`install_oneapi`."""
+        return True
+
+    def install_oneapi(self, dry_run: bool) -> bool:
+        """Configure the Intel apt repository, then install ``intel-oneapi-compiler-dpcpp-cpp``."""
+        return (ensure_intel_oneapi_repo(dry_run)
+                and self.install(["intel-oneapi-compiler-dpcpp-cpp"], dry_run))
+
+    def install_acpp_build_deps(self, llvm_version: str) -> tuple[str | None, str | None]:
+        """Install the versioned LLVM packages; return their cmake folder when it exists."""
+        self.install([
+            f"clang-{llvm_version}", f"llvm-{llvm_version}-dev",
+            f"libclang-{llvm_version}-dev", f"lld-{llvm_version}",
+            "libboost-context-dev", "libboost-fiber-dev",
+        ], dry_run=False)
+        llvm_dir = f"/usr/lib/llvm-{llvm_version}/lib/cmake/llvm"
+        return (llvm_dir if Path(llvm_dir).is_dir() else None, f"/usr/lib/llvm-{llvm_version}")
 
     def available(self) -> bool:
         """Report whether ``apt-get`` is on PATH."""
