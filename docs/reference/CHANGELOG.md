@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 2026-11-17 — provision: Replaced the target-keyed tables of install, uninstall, probe, managers and the AdaptiveCpp LLVM with per-target plan files a registry finds (RW-24, `target_plans.py`).
+- 2026-11-17 — provision: Replaced the target-keyed tables of install, uninstall, probe, managers and the AdaptiveCpp LLVM with per-target plan files a registry finds (RW-24, `600bb48`).
 - 2026-11-17 — provision: Moved the branches on the run's target platform behind ITarget, picked once by target_of (RW-24, `provision/target/`).
 - 2026-11-17 — provision: Moved what differs by operating system behind IHost and the apt-only steps behind LinuxPackageManager methods, chosen once each (RW-24, `provision/host/`).
 - 2026-11-17 — console: Took the line level from the call, and made config, env and the executable picker emit table and prompt events (RW-29, RW-30, `renderer.py`).
