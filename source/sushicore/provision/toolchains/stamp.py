@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Callable
 
 from .. import home
 
@@ -35,7 +36,7 @@ def read_toolchain_stamp(root: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _rewrite_stamp(root: Path, mutate) -> None:
+def _rewrite_stamp(root: Path, mutate: Callable[[dict], None]) -> None:
     """Apply *mutate* to the stamp's current fields and write it back atomically.
 
     :param mutate: Called with the stamp dict; changes it in place.

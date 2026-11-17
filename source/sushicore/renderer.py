@@ -9,13 +9,17 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `renderer`.
 
 from __future__ import annotations
 
+import io
 import logging
 import sys
-from typing import Protocol
+from typing import TYPE_CHECKING, Callable, Iterable, Literal, Protocol, TextIO
 
 from .events import event_line
 from .plain_text import plain_text
 from .theme import Theme
+
+if TYPE_CHECKING:
+    from rich.console import Console as RichConsole
 
 _log = logging.getLogger(__name__)
 
@@ -63,12 +67,12 @@ class Renderer(Protocol):
         ...
 
     @property
-    def raw(self):
+    def raw(self) -> RichConsole:
         """Return the underlying Rich ``Console`` for callers that render Rich objects directly."""
         ...
 
 
-def force_utf8(streams, log: logging.Logger | None = None) -> None:
+def force_utf8(streams: Iterable[object], log: logging.Logger | None = None) -> None:
     """Reconfigure each stream to UTF-8 so Rich glyphs never raise on a legacy console.
 
     Args:
@@ -115,8 +119,8 @@ class RichRenderer:
         self,
         theme: Theme,
         no_color: bool = False,
-        stream=None,
-        enable_virtual_terminal=None,
+        stream: TextIO | None = None,
+        enable_virtual_terminal: Callable[[], bool] | None = None,
     ) -> None:
         """Build the Rich console with the theme's styles registered.
 
@@ -142,7 +146,7 @@ class RichRenderer:
         )
 
     @property
-    def raw(self):
+    def raw(self) -> RichConsole:
         """Return the Rich console this renderer prints through."""
         return self._console
 
@@ -203,13 +207,13 @@ class RichRenderer:
 class PlainRenderer:
     """Render as plain text with no markup interpretation."""
 
-    def __init__(self, stream=None, input_stream=None) -> None:
+    def __init__(self, stream: TextIO | None = None, input_stream: TextIO | None = None) -> None:
         """Write to ``stream``, or to stdout; read answers from ``input_stream``, or through ``input()``."""
         self._stream = stream or sys.stdout
         self._input_stream = input_stream
 
     @property
-    def raw(self):
+    def raw(self) -> RichConsole:
         """Return a colourless Rich console bound to this renderer's stream."""
         from rich.console import Console as _RichConsole
 
@@ -285,8 +289,9 @@ class TerminalMemoryRenderer(PlainRenderer):
     """
 
     def __init__(
-        self, color_system: str, width: int = 80, no_color: bool = False, stream=None,
-        input_stream=None,
+        self, color_system: Literal["standard", "256", "truecolor", "windows"], width: int = 80,
+        no_color: bool = False, stream: io.StringIO | None = None,
+        input_stream: TextIO | None = None,
     ) -> None:
         """Write to ``stream``, or to a new in-memory text stream.
 
@@ -298,31 +303,30 @@ class TerminalMemoryRenderer(PlainRenderer):
             stream: Where the terminal writes; a new ``io.StringIO`` when None.
             input_stream: Where answers are read from, as for :class:`PlainRenderer`.
         """
-        import io
-
         from rich.console import Console as _RichConsole
 
-        super().__init__(stream=stream if stream is not None else io.StringIO(),
-                         input_stream=input_stream)
+        self._memory = stream if stream is not None else io.StringIO()
+        super().__init__(stream=self._memory, input_stream=input_stream)
         self._terminal = _RichConsole(
             file=self._stream, force_terminal=True, color_system=color_system,
             no_color=no_color, width=width,
         )
 
     @property
-    def raw(self):
+    def raw(self) -> RichConsole:
         """Return the in-memory terminal, the same Rich console on every call."""
         return self._terminal
 
     def written(self) -> str:
         """Return everything written to the stream so far."""
-        return self._stream.getvalue()
+        return self._memory.getvalue()
 
 
 class JsonRenderer:
     """Write one JSON event per line to stdout and route every stray Rich print to stderr."""
 
-    def __init__(self, stream=None, error_stream=None, input_stream=None) -> None:
+    def __init__(self, stream: TextIO | None = None, error_stream: TextIO | None = None,
+                 input_stream: TextIO | None = None) -> None:
         """Bind the event stream, the error stream and the stream prompts read from."""
         if stream is None:
             _force_utf8_streams()
@@ -331,13 +335,13 @@ class JsonRenderer:
         self._input_stream = input_stream or sys.stdin
 
     @property
-    def raw(self):
+    def raw(self) -> RichConsole:
         """Return a colourless Rich console bound to the error stream."""
         from rich.console import Console as _RichConsole
 
         return _RichConsole(no_color=True, file=self._error_stream)
 
-    def _emit(self, kind: str, **fields) -> None:
+    def _emit(self, kind: str, **fields: object) -> None:
         """Write one event line and flush."""
         self._stream.write(event_line(kind, **fields) + "\n")
         self._stream.flush()

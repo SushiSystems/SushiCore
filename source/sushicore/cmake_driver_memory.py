@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Mapping, Sequence
 
 from .cmake_cache import same_path
 from .cmake_driver import CMakeDriver, option_value
+from .cmake_tool_config import CMakeToolConfig
+from .message_console import MessageConsole
 
 
 @dataclass(slots=True)
@@ -37,7 +39,7 @@ class CMakeCall:
     """
 
     method: str
-    arguments: Mapping[str, Any]
+    arguments: Mapping[str, object]
 
 
 class MemoryCMakeDriver:
@@ -51,7 +53,7 @@ class MemoryCMakeDriver:
         doxyfiles: The Doxyfiles that exist.
     """
 
-    def __init__(self, console, *, doxyfiles: Sequence[Path] = ()) -> None:
+    def __init__(self, console: MessageConsole, *, doxyfiles: Sequence[Path] = ()) -> None:
         """Start with no trees, no recorded calls and no scripted exit codes."""
         self._console = console
         self._doxyfiles = set(doxyfiles)
@@ -75,11 +77,11 @@ class MemoryCMakeDriver:
         self._codes.append(exit_code)
         return self
 
-    def cmake(self, cfg) -> str:
+    def cmake(self, cfg: CMakeToolConfig) -> str:
         """Returns the cmake executable: the configured path if set, else 'cmake'."""
         return CMakeDriver.cmake(self, cfg)
 
-    def ctest(self, cfg) -> str:
+    def ctest(self, cfg: CMakeToolConfig) -> str:
         """Returns the ctest executable: the configured path if set, else 'ctest'."""
         return CMakeDriver.ctest(self, cfg)
 
@@ -107,7 +109,8 @@ class MemoryCMakeDriver:
             return True
         return any(tree.cache.get(entry) != wanted for entry, wanted in (expect or {}).items())
 
-    def configure(self, args: Sequence[str], cwd: Path, env=None) -> int:
+    def configure(self, args: Sequence[str], cwd: Path,
+                  env: Mapping[str, str] | None = None) -> int:
         """Records the configure, configures the tree its argv names and returns the scripted code."""
         argv = list(args)
         build_dir = option_value(argv, "-B")
@@ -117,7 +120,8 @@ class MemoryCMakeDriver:
             tree.cache.update(_definitions(argv))
         return self._answer("configure", args=tuple(argv), cwd=cwd, env=env)
 
-    def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
+    def compile(self, cfg: CMakeToolConfig, build_dir: Path, cwd: Path,
+                env: Mapping[str, str] | None, *,
                 config: str | None = None, targets: Sequence[str] = (),
                 jobs: int | None = None) -> int:
         """Records the build, its configuration read from the tree when None, and returns the code."""
@@ -126,7 +130,7 @@ class MemoryCMakeDriver:
         return self._answer("compile", build_dir=build_dir, cwd=cwd, env=env, config=config,
                             targets=tuple(targets), jobs=jobs)
 
-    def ctest_run(self, cfg, build_dir: Path, env, *,
+    def ctest_run(self, cfg: CMakeToolConfig, build_dir: Path, env: Mapping[str, str] | None, *,
                   label_regex: str | None = None, exclude_label_regex: str | None = None,
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
@@ -149,14 +153,15 @@ class MemoryCMakeDriver:
         self._console.info(f"Removing {build_dir}...")
         self._console.success(f"{build_dir} removed.")
 
-    def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *, install_hint: str = "") -> int:
+    def doxygen(self, cfg: CMakeToolConfig, doxyfile: Path, cwd: Path,
+                env: Mapping[str, str] | None, *, install_hint: str = "") -> int:
         """Records the Doxygen run and returns the scripted code, or 1 when *doxyfile* is absent."""
         if Path(doxyfile) not in self._doxyfiles:
             self._console.error(f"Doxyfile not found at {doxyfile}.")
             return 1
         return self._answer("doxygen", doxyfile=doxyfile, cwd=cwd, env=env)
 
-    def _answer(self, method: str, **arguments: Any) -> int:
+    def _answer(self, method: str, **arguments: object) -> int:
         """Record one call and return the next scripted exit code, or 0."""
         self._calls.append(CMakeCall(method, arguments))
         return self._codes.pop(0) if self._codes else 0

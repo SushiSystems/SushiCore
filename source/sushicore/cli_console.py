@@ -13,6 +13,7 @@ import warnings
 from pathlib import Path
 from typing import Callable, Sequence
 
+from .console import Console
 from .errors import ProjectRootNotFoundError
 
 _ATTRS = frozenset({
@@ -70,7 +71,7 @@ class LazyConsole:
             return extra
         return [*extra, cfg_dir / "config.toml", cfg_dir / "config.local.toml"]
 
-    def get(self):
+    def get(self) -> Console:
         """Return the console, building it once on first call."""
         if self._console is None:
             from .console_builder import build_console
@@ -78,7 +79,7 @@ class LazyConsole:
             self._console = build_console(self.sources(), machine=self.machine)
         return self._console
 
-    def attribute(self, name: str):
+    def attribute(self, name: str) -> object:
         """Resolve *name* against the console. Wire as a module ``__getattr__``."""
         if name in _ATTRS:
             console = self.get()

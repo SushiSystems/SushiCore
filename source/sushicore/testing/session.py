@@ -154,7 +154,7 @@ def _run_ctest(module: ModuleTests, tree: Path, selection: LabelSelection, name_
     return module.run_ctest(tree, **keywords)
 
 
-def _takes(run_ctest, keyword: str) -> bool:
+def _takes(run_ctest: Callable[..., int], keyword: str) -> bool:
     """Returns whether the CTest call of a module accepts *keyword*, by name or through ``**keywords``."""
     try:
         parameters = inspect.signature(run_ctest).parameters.values()

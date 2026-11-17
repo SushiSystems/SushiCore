@@ -44,7 +44,7 @@ class InMemoryConfigModule:
         """Return the config directory."""
         return self._config_dir
 
-    def load_config(self):
+    def load_config(self) -> object:
         """Return a settings object built from the values."""
         return self.Config(**self._values)
 

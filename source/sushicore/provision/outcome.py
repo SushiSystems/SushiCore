@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .result_console import ResultConsole
+
 K_EXIT_DONE = 0
 K_EXIT_FAILED = 1
 K_EXIT_USAGE = 2
@@ -32,7 +34,7 @@ def failed(code: int = K_EXIT_FAILED, payload: dict | None = None) -> Outcome:
     return Outcome(False, code, {} if payload is None else payload)
 
 
-def finish(console: object, outcome: Outcome) -> int:
+def finish(console: ResultConsole, outcome: Outcome) -> int:
     """Sends the one ``result`` event of a command to *console* and returns its exit code."""
     console.result(outcome.ok, outcome.payload)
     return outcome.code

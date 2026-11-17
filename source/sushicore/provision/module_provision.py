@@ -14,6 +14,7 @@ from ..profile import ModuleProfile
 from .closure import Locate
 from .config import ProvisionConfig
 from .default_console import DEFAULT_CONSOLE
+from .provision_console import ProvisionConsole
 from .check import Check
 from .git_client import GitClient, IGitClient
 from .machine_seams import MachineSeams
@@ -58,7 +59,7 @@ class ModuleProvision:
     profile: ModuleProfile
     project_root: Callable[[], Path]
     load_config: Callable[[], ProvisionConfig]
-    console: Callable[[], object] = DEFAULT_CONSOLE
+    console: Callable[[], ProvisionConsole] = DEFAULT_CONSOLE
     extra_checks: Callable[[], list[Check]] = lambda: []
     fragment: Optional[str] = None
     locate: Locate = _locate_nothing

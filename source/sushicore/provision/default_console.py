@@ -7,10 +7,13 @@
 from __future__ import annotations
 
 import warnings
-from typing import Callable
+from typing import Callable, TypeVar, cast
 
 from ..errors import SushiCoreError
 from .deprecated_name import warn_deprecated
+from .provision_console import ProvisionConsole
+
+_ConsoleT = TypeVar("_ConsoleT")
 
 
 class ConsoleNotBoundError(SushiCoreError, RuntimeError):
@@ -22,13 +25,13 @@ class DefaultConsole:
 
     def __init__(self) -> None:
         """Start unbound."""
-        self._provider: Callable[[], object] | None = None
+        self._provider: Callable[[], ProvisionConsole] | None = None
 
-    def bind(self, provider: Callable[[], object] | None) -> None:
+    def bind(self, provider: Callable[[], ProvisionConsole] | None) -> None:
         """Set the callable that returns the console; ``None`` unbinds."""
         self._provider = provider
 
-    def __call__(self) -> object:
+    def __call__(self) -> ProvisionConsole:
         """Return the bound console.
 
         Raises:
@@ -44,7 +47,7 @@ DEFAULT_CONSOLE = DefaultConsole()
 """The default console of a ``ModuleProvision`` that names none."""
 
 
-def bind_console(provider: Callable[[], object] | None) -> None:
+def bind_console(provider: Callable[[], ProvisionConsole] | None) -> None:
     """Set the console a ``ModuleProvision`` without one prints through.
 
     Deprecated: pass ``console=`` to :class:`~sushicore.provision.module_provision.ModuleProvision`.
@@ -67,7 +70,7 @@ class _DefaultConsoleProxy:
         return getattr(DEFAULT_CONSOLE(), name)
 
 
-def console_or_default(console: object | None, owner: str, *, depth: int = 2) -> object:
+def console_or_default(console: _ConsoleT | None, owner: str, *, depth: int = 2) -> _ConsoleT:
     """Return *console*, or the default console with a deprecation warning when it is ``None``.
 
     The default is read on each use, as the old module-level console was, so a CLI may bind it
@@ -82,4 +85,4 @@ def console_or_default(console: object | None, owner: str, *, depth: int = 2) ->
     if console is not None:
         return console
     warn_deprecated(f"{owner} without console=", "passing console=", depth=depth)
-    return _DefaultConsoleProxy()
+    return cast(_ConsoleT, _DefaultConsoleProxy())

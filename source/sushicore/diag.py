@@ -16,8 +16,9 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
 from .files import Files
-from .profile import ModuleProfile
 from .layered_toml import merge_platform_table, read_toml
+from .profile import ModuleProfile
+from .report_console import ReportConsole
 
 
 class ConfigModule(Protocol):
@@ -28,7 +29,7 @@ class ConfigModule(Protocol):
 
     def find_project_root(self, start: Path | None = ...) -> Path: ...
     def config_dir(self, root: Path | None = ...) -> Path: ...
-    def load_config(self): ...
+    def load_config(self) -> object: ...
     def sources(self) -> list[Path]: ...  # optional: every config file, lowest precedence first
 
 
@@ -63,7 +64,7 @@ class Diagnostics:
         self,
         *,
         profile: ModuleProfile,
-        console,
+        console: ReportConsole,
         config: ConfigModule,
         build_env: Callable[[object, Path], Mapping[str, str]] | None = None,
         build_dir: Callable[[Path], Path] = lambda root: root / "build",
@@ -110,7 +111,7 @@ class Diagnostics:
             return f"env:{env_var}"
         return origins.get(field_name, "default")
 
-    def _resolved_paths(self, cfg, root: Path) -> list[tuple[str, str]]:
+    def _resolved_paths(self, cfg: object, root: Path) -> list[tuple[str, str]]:
         """The runtime-resolved paths worth reporting, as label/value pairs.
 
         Siblings come from the profile rather than being listed again here. The

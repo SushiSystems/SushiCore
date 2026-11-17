@@ -15,6 +15,7 @@ from typing import Collection, Sequence
 from .check import Check
 from .check_result import CheckResult
 from .check_state import State
+from .doctor_console import DoctorConsole
 from .doctor_report import Report
 from .function_check import FunctionCheck  # noqa: F401
 
@@ -58,7 +59,7 @@ class Doctor:
             rows.append((check, result))
         return Report(tuple(rows), None if groups is None else frozenset(groups))
 
-    def render_table(self, report: Report, console: object) -> None:
+    def render_table(self, report: Report, console: DoctorConsole) -> None:
         """Print *report* as a table through *console*, without the closing result event."""
         rows = [
             [check.name, check.group, _markup(report, check, result), result.detail, result.fix]
@@ -66,7 +67,7 @@ class Doctor:
         ]
         console.table(["Check", "Group", "Result", "Detail", "Fix"], rows, title="Doctor")
 
-    def render(self, report: Report, console: object) -> None:
+    def render(self, report: Report, console: DoctorConsole) -> None:
         """Print *report* as a table followed by its result event, through *console*."""
         self.render_table(report, console)
         console.result(report.exit_code() == 0, report.payload())

@@ -8,29 +8,32 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from .default_console import console_or_default
 from .gpu.adapter_builder import AdapterBuilder, SubprocessBuildStepExecutor
 from .gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from .gpu.provisioning import provision_gpu_adapters
 from .gpu.registry import DEFAULT_REGISTRY
+from .adapter_provisioner import AdapterProvisioner
+from .config import ProvisionConfig
 from .gpu_machine import GpuMachine
 from .licence_consent import Licence, is_accepted
 from .packages import LinuxPackageManager, install_gpu_stack
 from .install_context import InstallContext
+from .provision_console import ProvisionConsole
 
 
-def _subprocess_builder(cfg: Any, console: Any) -> AdapterBuilder:
+def _subprocess_builder(cfg: ProvisionConfig, console: ProvisionConsole) -> AdapterBuilder:
     """Return the adapter builder that runs its commands as processes printing through *console*."""
     return AdapterBuilder(cfg=cfg, runner=SubprocessBuildStepExecutor(console), console=console)
 
 
 def provision_adapters_for_run(
-        ctx: InstallContext, *, console: Any = None,
+        ctx: InstallContext, *, console: ProvisionConsole | None = None,
         actions: GpuMachine,
-        make_builder: Callable[[Any, Any], Any] = _subprocess_builder,
-        build_adapters: Callable[..., None] | None = None) -> None:
+        make_builder: Callable[[ProvisionConfig, ProvisionConsole], AdapterBuilder] = _subprocess_builder,
+        build_adapters: AdapterProvisioner | None = None) -> None:
     """Build every located GPU backend's Unified Runtime adapter for this run.
 
     Args:
@@ -79,8 +82,8 @@ class GpuStage:
         toolkit_present: Answers whether the run's NVIDIA toolkit is already on the machine.
     """
 
-    def __init__(self, *, console: Any = None, actions: GpuMachine,
-                 install_stack: Callable[..., bool] | None = None,
+    def __init__(self, *, console: ProvisionConsole | None = None, actions: GpuMachine,
+                 install_stack: Callable[[ProvisionConfig, str, bool], bool] | None = None,
                  provision_adapters: Callable[[InstallContext], None] | None = None,
                  toolkit_present: Callable[[InstallContext], bool] | None = None,
                  ) -> None:

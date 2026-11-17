@@ -37,7 +37,7 @@ def _first_paragraph(help_text: str | None) -> str:
     return plain_text(" ".join(lines))
 
 
-def _default(param: "click.Parameter"):
+def _default(param: "click.Parameter") -> object:
     """Returns a parameter's default as JSON data, with an unset default as None."""
     value = param.default
     if value is Ellipsis:

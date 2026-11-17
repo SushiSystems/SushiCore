@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from rich.markup import escape
 
@@ -16,11 +16,13 @@ from .default_console import console_or_default
 from . import home, probe, selection
 from ..proc import CommandRunner
 from ..quiet_runner import quiet_runner
+from .config import ProvisionConfig
 from .dependency_presence import check_cmd_ok, dep_installed, dep_manager, vcpkg_manager
 from .fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
 from .gpu_vendor import detect_gpu_vendor
 from .packages import IPackageManager, refresh_windows_path
 from .install_context import InstallContext
+from .provision_console import ProvisionConsole
 from .step import Step
 from .step_result import StepResult
 from .target import target_of
@@ -56,7 +58,7 @@ def _status(present: bool) -> str:
     return _OK if present else _MISSING
 
 
-def _literal(text: str, out: Any) -> str:
+def _literal(text: str, out: ProvisionConsole) -> str:
     """Return *text* ready for ``out.info``: escaped on a terminal, untouched in JSON events."""
     return text if out.is_machine() else escape(text)
 
@@ -79,8 +81,8 @@ class DetectStep(Step):
     def __init__(self, source: IDependencySource,
                  managers: list[IPackageManager] | None = None,
                  after_inventory: Callable[[InstallContext, list[Dependency]], None] | None = None,
-                 *, toolchain_status=probe.toolchain_status,
-                 gpu_vendor=detect_gpu_vendor, console: Any = None,
+                 *, toolchain_status: Callable[[ProvisionConfig, bool], list[tuple[str, bool, str]]] = probe.toolchain_status,
+                 gpu_vendor: Callable[[], str] = detect_gpu_vendor, console: ProvisionConsole | None = None,
                  runner: CommandRunner | None = None) -> None:
         """Wire the dependency source, the package managers and the machine probes.
 
@@ -110,7 +112,7 @@ class DetectStep(Step):
         return vcpkg_manager(self._managers)
 
     def _base_tool_rows(self, ctx: InstallContext,
-                        owner_of) -> list[tuple[str, str, str, str]]:
+                        owner_of: Callable[[str], str]) -> list[tuple[str, str, str, str]]:
         """Probe the tools a build invokes directly and return their rows."""
         cfg = ctx.cfg
         configured = {
@@ -139,7 +141,7 @@ class DetectStep(Step):
                 f"{compiler or '-'} {where or ''}".strip())
 
     def _toolchain_rows(self, ctx: InstallContext, declared: set[str],
-                        owner_of) -> list[tuple[str, str, str, str]]:
+                        owner_of: Callable[[str], str]) -> list[tuple[str, str, str, str]]:
         """Return a row per SYCL toolchain (and CUDA), recording what is present.
 
         A declared toolchain that is absent while another member of its

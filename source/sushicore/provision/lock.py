@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
+from types import TracebackType
 from typing import Callable
 
 from ..errors import SushiCoreError
@@ -66,7 +67,8 @@ class ProvisionLock:
         self._fd = fd
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None,
+                 traceback: TracebackType | None) -> None:
         """Release the OS lock and close the lock file, without deleting it."""
         if self._fd is None:
             return

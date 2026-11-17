@@ -9,13 +9,15 @@ from __future__ import annotations
 import ctypes
 import sys
 
+from .console_api import ConsoleApi
+
 K_STD_OUTPUT_HANDLE = -11
 K_STD_ERROR_HANDLE = -12
 K_STANDARD_HANDLES = (K_STD_OUTPUT_HANDLE, K_STD_ERROR_HANDLE)
 K_ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
 
 
-def enable_virtual_terminal(kernel32=None, platform: str | None = None) -> bool:
+def enable_virtual_terminal(kernel32: ConsoleApi | None = None, platform: str | None = None) -> bool:
     """Turn on virtual terminal processing for stdout and stderr and report whether either is on.
 
     Args:
@@ -37,7 +39,7 @@ def enable_virtual_terminal(kernel32=None, platform: str | None = None) -> bool:
     return any(turned_on)
 
 
-def default_kernel32():
+def default_kernel32() -> ConsoleApi:
     """Return a private ``kernel32`` whose prototypes keep a 64-bit handle whole.
 
     Loading its own ``WinDLL`` leaves the prototypes of ``ctypes.windll.kernel32``, which other
@@ -55,7 +57,7 @@ def default_kernel32():
     return kernel32
 
 
-def _turn_on(kernel32, handle) -> bool:
+def _turn_on(kernel32: ConsoleApi, handle: int | None) -> bool:
     """Report whether the handle is a console with virtual terminal processing on afterwards."""
     from ctypes import wintypes
 

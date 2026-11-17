@@ -11,7 +11,7 @@ with one ``result`` event.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from . import selection
 from .doctor import GROUPS
@@ -30,7 +30,7 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
 
     program = module.profile.program
 
-    def command(*examples: str):
+    def command(*examples: str) -> Callable[[Callable[..., None]], Callable[..., None]]:
         """Return the decorator registering a command under the module's panel with *examples*."""
         epilog = "\n".join(f"{program} {example}" for example in examples)
         return app.command(rich_help_panel=module.panel, epilog=epilog)

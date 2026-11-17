@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Mapping, Protocol, Sequence
 
+from .cmake_tool_config import CMakeToolConfig
+
 
 class CMakeDriverPort(Protocol):
     """What a CLI asks of a CMake driver: the commands, and what a build tree holds.
@@ -17,10 +19,10 @@ class CMakeDriverPort(Protocol):
     :class:`sushicore.cmake_driver_memory.MemoryCMakeDriver` keeps its trees in memory.
     """
 
-    def cmake(self, cfg) -> str:
+    def cmake(self, cfg: CMakeToolConfig) -> str:
         """Returns the cmake executable: the configured path if set, else 'cmake'."""
 
-    def ctest(self, cfg) -> str:
+    def ctest(self, cfg: CMakeToolConfig) -> str:
         """Returns the ctest executable: the configured path if set, else 'ctest'."""
 
     def tree_exists(self, build_dir: Path) -> bool:
@@ -34,15 +36,17 @@ class CMakeDriverPort(Protocol):
                         root: Path | None = None) -> bool:
         """Returns whether *build_dir* must be configured before it can be built."""
 
-    def configure(self, args: Sequence[str], cwd: Path, env=None) -> int:
+    def configure(self, args: Sequence[str], cwd: Path,
+                  env: Mapping[str, str] | None = None) -> int:
         """Runs a configure whose argv the caller assembled and returns its exit code."""
 
-    def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
+    def compile(self, cfg: CMakeToolConfig, build_dir: Path, cwd: Path,
+                env: Mapping[str, str] | None, *,
                 config: str | None = None, targets: Sequence[str] = (),
                 jobs: int | None = None) -> int:
         """Brings a configured tree up to date and returns the build's exit code."""
 
-    def ctest_run(self, cfg, build_dir: Path, env, *,
+    def ctest_run(self, cfg: CMakeToolConfig, build_dir: Path, env: Mapping[str, str] | None, *,
                   label_regex: str | None = None, exclude_label_regex: str | None = None,
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
@@ -54,5 +58,6 @@ class CMakeDriverPort(Protocol):
     def clean_tree(self, build_dir: Path) -> None:
         """Removes *build_dir*, or raises ``CleanTreeError`` when it is still there."""
 
-    def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *, install_hint: str = ...) -> int:
+    def doxygen(self, cfg: CMakeToolConfig, doxyfile: Path, cwd: Path,
+                env: Mapping[str, str] | None, *, install_hint: str = ...) -> int:
         """Runs Doxygen over *doxyfile* and returns its exit code, or 1 when it cannot run."""

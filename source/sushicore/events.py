@@ -19,7 +19,7 @@ class UnknownEventKindError(SushiCoreError, ValueError):
     """Reports an event kind that ``EVENT_KINDS`` does not list."""
 
 
-def event_line(kind: str, **fields) -> str:
+def event_line(kind: str, **fields: object) -> str:
     """Serialise one event as a single JSON object with ``event`` as its first key.
 
     Args:

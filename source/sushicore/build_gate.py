@@ -20,13 +20,14 @@ import struct
 import sys
 import time
 from pathlib import Path
+from types import ModuleType, TracebackType
 from typing import TYPE_CHECKING, Callable, Mapping
 
 if TYPE_CHECKING:
     from .proc import CommandRunner
 
 
-def _load_sibling(name: str):
+def _load_sibling(name: str) -> ModuleType:
     """Returns the module `name`.py that sits beside this file, loaded by its path.
 
     The gate runs as `python -I`, which leaves its own folder off the import path, and importing the
@@ -158,7 +159,7 @@ class Locked:
             fcntl.flock(self._file, fcntl.LOCK_EX)
         return self
 
-    def __exit__(self, *_exc) -> None:
+    def __exit__(self, *_exc: object) -> None:
         if sys.platform == "win32":
             import msvcrt
             self._file.seek(0)

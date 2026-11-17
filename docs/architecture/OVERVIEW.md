@@ -35,7 +35,7 @@ and has no application of its own.
 | `cli_console` | `LazyConsole`, which builds the console on first use so `--help` runs outside a checkout |
 | `markup` | `escape_unknown_tags`, which keeps a bracket as text unless it names a style |
 | `terminal_background` | `is_dark_background`, decided from the `background` setting and `COLORFGBG` |
-| `windows_console` | `enable_virtual_terminal` for a classic Windows console |
+| `windows_console`, `console_api` | `enable_virtual_terminal` for a classic Windows console; `ConsoleApi`, the three kernel32 calls it makes |
 | `brand` | The Sushi Systems mark and wordmark as palettes and pixel grids |
 | [`ui`](../../source/sushicore/ui/README.md) | One file per terminal element, each drawn from a `Theme` |
 | [`help`](../../source/sushicore/help/README.md) | A help screen as data and the page that lays it out |
@@ -50,9 +50,10 @@ files a CLI hands it; the package re-exports it.
 | Module | Owns |
 | --- | --- |
 | `proc`, `proc_memory`, `quiet_console`, `quiet_runner` | `CommandRunner`, the surface callers run commands through: `run` (with an optional `timeout`), `run_drained`, `run_quiet` (shows only the tail of a failure), `capture` (takes a list or a string command, an optional `timeout`, `input_text` for stdin and an `encoding`) and `capture_bytes` (undecoded output); in machine mode a child's output reaches the console as `line` events, never stdout. `Runner` spawns a child process for a CLI; `RecordingRunner` records the commands and answers scripted results. `QuietConsole` (`quiet_console`) is the console that drops all output but errors, and `quiet_runner` (`quiet_runner`) returns a `Runner` over it, for a caller that reads results and shows nothing; `quiet_console` imports nothing from the package so `build_gate` loads it by path |
-| `build_env` | The environment a build runs under, with the vcvars snapshot on Windows |
+| `build_env`, `stack_build_config` | The environment a build runs under, with the vcvars snapshot on Windows; `StackBuildConfig`, the config fields it reads |
+| `message_console`, `report_console` | `MessageConsole`, the four message calls a unit that only reports needs; `ReportConsole`, the header, info, error and table calls of a diagnostic report |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
-| `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory` | `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
+| `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree |
 | `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |

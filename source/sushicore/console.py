@@ -12,9 +12,14 @@ or another backend can hand it any ``Renderer`` without subclassing.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .icons import IconSet
 from .renderer import JsonRenderer, Renderer
 from .theme import Theme
+
+if TYPE_CHECKING:
+    from rich.console import Console as RichConsole
 
 
 class Console:
@@ -39,7 +44,7 @@ class Console:
         self._prompt_count = 0
 
     @property
-    def console(self):
+    def console(self) -> RichConsole:
         """Return the underlying Rich ``Console`` for printing a Rich renderable directly."""
         return self._renderer.raw
 

@@ -9,19 +9,21 @@ from __future__ import annotations
 import dataclasses
 import shutil
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from .default_console import console_or_default
 from ..proc import CommandRunner
 from . import gpu_vendor, probe, vs_locator
+from .gpu_machine import ConfigResolver
 from .packages import refresh_windows_path
 from .install_context import InstallContext
 from .process_run import provision_runner
+from .provision_console import ProvisionConsole
 from .toolchains import oneapi
 
 
 def run_machine_command(command: list[str], runner: CommandRunner | None = None, *,
-                        console: Any = None) -> int:
+                        console: ProvisionConsole | None = None) -> int:
     """Run *command* in the current folder through *runner* and return its exit code.
 
     Args:
@@ -55,9 +57,10 @@ class MachineActions:
     refresh_path: Callable[[], None] = lambda: refresh_windows_path()
     which: Callable[[str], str | None] = lambda name: shutil.which(name)
     find_vcvars: Callable[[], Path | None] = lambda: vs_locator.find_vcvars()
-    run_command: Callable[..., int] = lambda cmd, console: run_machine_command(cmd, console=console)
-    resolve_config: Callable[..., dict[str, str]] = (
+    run_command: Callable[[list[str], ProvisionConsole], int] = (
+        lambda cmd, console: run_machine_command(cmd, console=console))
+    resolve_config: ConfigResolver = (
         lambda cfg, gpu=False: probe.resolve_local_config(cfg, gpu=gpu))
-    install_oneapi: Callable[[InstallContext, Any], bool] = (
+    install_oneapi: Callable[[InstallContext, ProvisionConsole], bool] = (
         lambda ctx, console: oneapi.install_oneapi(ctx, console=console))
     detect_vendor: Callable[[], str] = lambda: gpu_vendor.detect_gpu_vendor()

@@ -14,11 +14,14 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 from .errors import ProjectRootNotFoundError
+from .message_console import MessageConsole
 from .proc import CommandRunner
+from .profile import ModuleProfile
 from .quiet_runner import quiet_runner
+from .stack_build_config import StackBuildConfig
 
 _log = logging.getLogger(__name__)
 
@@ -95,7 +98,8 @@ def parse_windows_set(output: str) -> dict[str, str]:
     return env
 
 
-def snapshot_windows(cfg, console, runner: CommandRunner | None = None) -> dict[str, str] | None:
+def snapshot_windows(cfg: StackBuildConfig, console: MessageConsole,
+                     runner: CommandRunner | None = None) -> dict[str, str] | None:
     """Run vcvars64 in a child shell and return the environment it produced.
 
     None when no vcvars is configured or it fails, which callers treat as "use
@@ -110,7 +114,7 @@ def snapshot_windows(cfg, console, runner: CommandRunner | None = None) -> dict[
                      failed="vcvars64 returned non-zero; using current env.")
 
 
-def snapshot_vcvars(vcvars: Path, console,
+def snapshot_vcvars(vcvars: Path, console: MessageConsole,
                     runner: CommandRunner | None = None) -> dict[str, str] | None:
     """Run *vcvars* in a child shell and return the environment it produced, or None."""
     return _snapshot(str(vcvars), console, runner, redirect=" >nul",
@@ -118,8 +122,8 @@ def snapshot_vcvars(vcvars: Path, console,
                      failed="vcvars64.bat returned non-zero; using the current env.")
 
 
-def _snapshot(vcvars: str, console, runner: CommandRunner | None, *, redirect: str, loading: str,
-              failed: str) -> dict[str, str] | None:
+def _snapshot(vcvars: str, console: MessageConsole, runner: CommandRunner | None, *,
+              redirect: str, loading: str, failed: str) -> dict[str, str] | None:
     """Run `call "<vcvars>"<redirect> && set` in cmd and return the parsed environment, or None."""
     console.info(loading)
     # One string, not a list, keeps the quotes around the vcvars path intact.
@@ -174,28 +178,28 @@ class StackBuildEnv:
 
     __slots__ = ("_profile", "_console", "_find_root", "_cache_name")
 
-    def __init__(self, *, profile, console, find_root,
-                 cache_name: str = ".sushi_env.json") -> None:
+    def __init__(self, *, profile: ModuleProfile, console: MessageConsole,
+                 find_root: Callable[[], Path], cache_name: str = ".sushi_env.json") -> None:
         self._profile = profile
         self._console = console
         self._find_root = find_root
         self._cache_name = cache_name
 
-    def cache_key(self, cfg) -> str:
+    def cache_key(self, cfg: StackBuildConfig) -> str:
         """Hash of everything that would change the snapshot.
 
         The sibling directories are in here because moving one changes which
         toolchain bundle gets injected. They come from the profile rather than
         being listed again, which is exactly where the three copies differed.
         """
-        material = {"platform": cfg.platform, "vs_vcvars": cfg.vs_vcvars}
+        material: dict[str, str] = {"platform": cfg.platform, "vs_vcvars": cfg.vs_vcvars}
         for name in self._profile.siblings:
-            material[name + "_dir"] = getattr(cfg, name + "_dir", "")
+            material[name + "_dir"] = str(getattr(cfg, name + "_dir", ""))
         return hashlib.sha256(
             json.dumps(material, sort_keys=True).encode()
         ).hexdigest()
 
-    def inject_toolchain(self, cfg, env: dict[str, str]) -> None:
+    def inject_toolchain(self, cfg: StackBuildConfig, env: dict[str, str]) -> None:
         """Add the shared bundled clang++ bin/lib to a build or run environment.
 
         Neither platform ships a system SYCL compiler: these modules build with
@@ -222,7 +226,7 @@ class StackBuildEnv:
                 if vcpkg_bin.is_dir():
                     prepend_path(env, "PATH", [str(vcpkg_bin)])
 
-    def load(self, cfg, build_dir: Path) -> dict[str, str]:
+    def load(self, cfg: StackBuildConfig, build_dir: Path) -> dict[str, str]:
         """Return the environment for build, test and run subprocesses.
 
         Falls back to the current ``os.environ`` when no toolchain script is

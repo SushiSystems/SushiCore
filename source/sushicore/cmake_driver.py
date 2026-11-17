@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_stale
+from .cmake_tool_config import CMakeToolConfig
 from .errors import SushiCoreError
+from .message_console import MessageConsole
 from .proc import CommandRunner
 
 
@@ -77,15 +79,15 @@ class CMakeDriver:
 
     __slots__ = ("_console", "_runner")
 
-    def __init__(self, console, runner: CommandRunner) -> None:
+    def __init__(self, console: MessageConsole, runner: CommandRunner) -> None:
         self._console = console
         self._runner = runner
 
-    def cmake(self, cfg) -> str:
+    def cmake(self, cfg: CMakeToolConfig) -> str:
         """The cmake executable: the configured path if set, else 'cmake'."""
         return cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else "cmake"
 
-    def ctest(self, cfg) -> str:
+    def ctest(self, cfg: CMakeToolConfig) -> str:
         """The ctest executable: the configured path if set, else 'ctest'."""
         return cfg.expand(cfg.ctest_exe) if cfg.ctest_exe else "ctest"
 
@@ -93,7 +95,9 @@ class CMakeDriver:
         """Whether a build tree is at *build_dir*."""
         return build_dir.is_dir()
 
-    def tree_is_current(self, cfg, build_dir: Path, env=None, targets: Sequence[str] = ()) -> bool:
+    def tree_is_current(self, cfg: CMakeToolConfig, build_dir: Path,
+                        env: Mapping[str, str] | None = None,
+                        targets: Sequence[str] = ()) -> bool:
         """Whether the Ninja tree at *build_dir* has nothing left to build, by a dry run of its build.
 
         *targets* narrows the dry run to the targets a CLI builds; none asks of the whole tree.
@@ -146,7 +150,8 @@ class CMakeDriver:
                 return True
         return False
 
-    def configure(self, args: Sequence[str], cwd: Path, env=None) -> int:
+    def configure(self, args: Sequence[str], cwd: Path,
+                  env: Mapping[str, str] | None = None) -> int:
         """Run a configure whose argv the caller assembled.
 
         A cache configured with a compiler at another path is deleted first; the reason is
@@ -166,7 +171,8 @@ class CMakeDriver:
             f"configuring {build_dir} from an empty cache.")
         (Path(build_dir) / "CMakeCache.txt").unlink()
 
-    def compile(self, cfg, build_dir: Path, cwd: Path, env, *,
+    def compile(self, cfg: CMakeToolConfig, build_dir: Path, cwd: Path,
+                env: Mapping[str, str] | None, *,
                 config: str | None = None, targets: Sequence[str] = (),
                 jobs: int | None = None) -> int:
         """Bring an already-configured tree up to date.
@@ -194,7 +200,7 @@ class CMakeDriver:
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
 
-    def ctest_run(self, cfg, build_dir: Path, env, *,
+    def ctest_run(self, cfg: CMakeToolConfig, build_dir: Path, env: Mapping[str, str] | None, *,
                   label_regex: str | None = None, exclude_label_regex: str | None = None,
                   filter: str | None = None,
                   repeat: int = 0, jobs: int | None = None,
@@ -271,7 +277,8 @@ class CMakeDriver:
                 "in it and clean again.")
         self._console.success(f"{build_dir} removed.")
 
-    def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *,
+    def doxygen(self, cfg: CMakeToolConfig, doxyfile: Path, cwd: Path,
+                env: Mapping[str, str] | None, *,
                 install_hint: str = _DEFAULT_DOXYGEN_HINT) -> int:
         """Run Doxygen over *doxyfile*, or explain why it cannot.
 

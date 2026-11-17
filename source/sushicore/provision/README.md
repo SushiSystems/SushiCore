@@ -50,7 +50,8 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `step.py`, `step_result.py`, `install_context.py`, `toolchain_selection.py` | `Step`, `StepResult`, `InstallContext` and `ToolchainSelection`, one file each |
 | `pipeline_memory.py` | `ScriptedStep`, a `Step` that answers a scripted result and logs that it ran |
 | `machine_actions.py` | `MachineActions`: the calls the install steps make that reach the machine, each replaceable by a test |
-| `gpu_stage.py`, `gpu_machine.py` | `GpuStage` and `provision_adapters_for_run`: the compute SDK install, then the adapter builds; `GpuMachine`, the three machine calls they read, which `MachineActions` satisfies |
+| `gpu_stage.py`, `gpu_machine.py`, `adapter_provisioner.py` | `GpuStage` and `provision_adapters_for_run`: the compute SDK install, then the adapter builds; `GpuMachine`, the three machine calls they read, which `MachineActions` satisfies; `AdapterProvisioner`, the call that builds one toolchain's adapters |
+| `provision_console.py`, `result_console.py`, `doctor_console.py` | The console the install run prints through (`ProvisionConsole`), the one call that ends a command (`ResultConsole`) and the two calls of a doctor report (`DoctorConsole`) |
 | `detect_step.py` | `DetectStep`: inventories the tools and dependencies of the machine and prints the table |
 | `install_deps_step.py` | `InstallDepsStep`: installs the missing manifest dependencies, the toolchains and the GPU stage |
 | `configure_step.py` | `ConfigureStep`: writes the probed tool paths and the active toolchain to a `ConfigSink` |

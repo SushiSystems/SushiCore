@@ -12,6 +12,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from .stack_build_config import StackBuildConfig
+
 
 #: The C driver that sits beside each C++ driver whose personality is fixed to C++.
 K_C_SIBLINGS = {"clang++": "clang", "icpx": "icx"}
@@ -39,7 +41,7 @@ def c_compiler_for(cxx: str) -> str:
     return str(sibling) if sibling.is_file() else cxx
 
 
-def vcpkg_prefix(cfg, root: Path) -> str:
+def vcpkg_prefix(cfg: StackBuildConfig, root: Path) -> str:
     """The vcpkg installed-tree prefix for this triplet, or '' when unavailable.
 
     Only meaningful on Windows, where the bundled vcpkg tree is what

@@ -72,11 +72,11 @@ class PlatformLocator:
 
     def _for(self, cfg: "ProvisionConfig") -> ToolkitLocator:
         """Return the locator for cfg's platform, or a NotProvided fallback."""
-        platform = getattr(cfg, "platform", None)
+        platform = cfg.platform
         found = self._locators.get(platform)
         if found is not None:
             return found
-        return NotProvided(self._backend, str(platform))
+        return NotProvided(self._backend, platform)
 
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
         """Locate through the locator registered for cfg's platform."""

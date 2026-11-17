@@ -13,13 +13,14 @@ from . import module_plan
 from .checks import python_check
 from .check import Check
 from .doctor import Doctor
+from .doctor_console import DoctorConsole
 from .module_checks import ModuleState, doctor_checks
 from .module_provision import ModuleProvision
 from .outcome import Outcome, failed
 from .packages import IPackageManager
 
 
-def _report(checks: Sequence[Check], groups: Optional[set[str]], console: object) -> Outcome:
+def _report(checks: Sequence[Check], groups: Optional[set[str]], console: DoctorConsole) -> Outcome:
     """Runs *checks*, draws the report table on *console*, and returns how the run ended."""
     doctor = Doctor(checks)
     report = doctor.run(groups)
