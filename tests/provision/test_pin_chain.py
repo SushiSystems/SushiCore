@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.deps_fragment import SushiPin
-from sushicore.provision.pin_chain import PinConflict, conflicts
+from sushicore.provision.pin_chain import PinConflict, conflicts, walk
 
 K_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 K_ROOT = Path("/ws/sushiai")
@@ -66,3 +66,42 @@ def test_a_library_with_no_checkout_ends_its_branch():
     """Check that an unresolved library is not walked and raises nothing."""
     assert conflicts("sushiai", K_ROOT, [_pin("sushiblas", "v2.0.0")],
                      lambda checkout, name, version: None) == []
+
+
+def _library_set(*entries):
+    """Return the lookup of libraries given as (name, version, pins) rows."""
+    table = {(name, version): (Path("/ws") / name, list(pins)) for name, version, pins in entries}
+    return lambda checkout, name, version: table.get((name, version))
+
+
+@pytest.mark.small
+def test_walk_lists_a_library_pinned_only_by_a_pinned_library():
+    """Check that sushilog, pinned by sushiblas alone, is in the walk."""
+    pins_of = _library_set(("sushiblas", "v2.0.0", [_pin("sushilog", "v1.0.0")]))
+    found = walk("sushiai", K_ROOT, [_pin("sushiblas", "v2.0.0")], pins_of)
+    assert [pin.name for pin in found.pins] == ["sushiblas", "sushilog"]
+
+
+@pytest.mark.small
+def test_walk_follows_a_chain_of_three():
+    """Check that the pins of the third library down are listed."""
+    pins_of = _library_set(("a", "v1", [_pin("b", "v1")]), ("b", "v1", [_pin("c", "v1")]),
+                           ("c", "v1", [_pin("d", "v1")]))
+    found = walk("sushiai", K_ROOT, [_pin("a", "v1")], pins_of)
+    assert [pin.name for pin in found.pins] == ["a", "b", "c", "d"]
+
+
+@pytest.mark.small
+def test_walk_reports_two_versions_naming_both_pinners():
+    """Check that two libraries pinning another at two versions are both named."""
+    pins_of = _library_set(("a", "v1", [_pin("c", "v1")]), ("b", "v1", [_pin("c", "v2")]))
+    found = walk("sushiai", K_ROOT, [_pin("a", "v1"), _pin("b", "v1")], pins_of)
+    assert found.conflicts == (PinConflict("c", "a", "v1", "b", "v2"),)
+
+
+@pytest.mark.small
+def test_walk_ends_on_a_cycle():
+    """Check that libraries pinning each other end the walk with each listed once."""
+    pins_of = _library_set(("a", "v1", [_pin("b", "v1")]), ("b", "v1", [_pin("a", "v1")]))
+    found = walk("sushiai", K_ROOT, [_pin("a", "v1")], pins_of)
+    assert [pin.name for pin in found.pins] == ["a", "b"]

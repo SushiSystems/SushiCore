@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — provision: Made setup fetch, round by round, every Sushi library a fetched library pins, refusing two versions of one (RW-18, `pin_chain.py`).
 - 2026-11-17 — provision: Refused to remove the portable cmake or doxygen folder under a root is_removable_root does not accept (RW-92, `c90587c`).
 2026-11-17 — provision: Asked before accepting any third-party licence, split the steps into one file each, and split the clock into wall and monotonic ports (RW-46, RW-20, RW-66).
 2026-11-17 — provision: Deprecated gpu/windows_installer.py, which nothing here calls; it has no replacement and is removed in 0.16.0 (RW-7).

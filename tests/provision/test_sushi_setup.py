@@ -14,7 +14,9 @@ from sushicore.provision.closure_memory import TableLocator
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.pipeline import InstallContext
 
-from .sushi_fakes import pinned_git, write_fragment
+from sushicore.provision.git_client_memory import InMemoryGitClient
+
+from .sushi_fakes import K_PINNED, pinned_git, write_fragment
 
 pytestmark = pytest.mark.medium
 
@@ -68,3 +70,22 @@ def test_prepare_has_nothing_to_do_without_pins(tmp_path, provision_home):
     """Check that a module with no pins takes no lock and succeeds."""
     assert sushi_setup.prepare(_ctx(), tmp_path, [], pinned_git(), timeout=1.0)
     assert not (provision_home / ".lock").exists()
+
+
+def test_prepare_fetches_a_library_pinned_only_by_a_fetched_library(
+        tmp_path, provision_home, recording_console):
+    """Check that sushilog, pinned by the fetched sushiblas alone, is cloned too."""
+    root = tmp_path / "ws" / "sushiai"
+    write_fragment(root, {"sushiblas": "v2.0.0"})
+    pins = pins_at(root / "cli/sushistack.deps.toml")
+
+    def materialize(destination):
+        """Create the clone; sushiblas arrives with a fragment pinning sushilog."""
+        destination.mkdir(parents=True)
+        if destination.parent.name == "sushiblas":
+            write_fragment(destination, {"sushilog": "v1.0.0"})
+
+    git = InMemoryGitClient(commit=K_PINNED, materialize=materialize)
+
+    assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
+    assert (provision_home / "sources" / "sushilog" / "v1.0.0").is_dir()

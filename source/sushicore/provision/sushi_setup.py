@@ -16,7 +16,7 @@ from ._output import console
 from .closure import Locate
 from .git_client import IGitClient
 from .lock import LockTimeout, ProvisionLock
-from .pin_chain import conflicts
+from .pin_chain import PinWalk, walk
 from .pipeline import InstallContext, InstallPipeline
 from .sushi_fetch import FetchSushiSourcesStep
 from .sushi_sources import resolve
@@ -39,16 +39,16 @@ def locator(base: Locate, root: Path, pins: Sequence[SushiPin]) -> Locate:
     return locate
 
 
-def _pins_agree(owner: str, root: Path, pins: Sequence[SushiPin]) -> bool:
-    """Report whether the chain pins each library at one version; print each conflict."""
+def _walk(owner: str, root: Path, pins: Sequence[SushiPin]) -> PinWalk | None:
+    """Return the chain's walk; print each conflict or malformed fragment and return None."""
     try:
-        found = conflicts(owner, root, pins)
+        found = walk(owner, root, pins)
     except ValueError as exc:
         console.error(str(exc))
-        return False
-    for conflict in found:
+        return None
+    for conflict in found.conflicts:
         console.error(conflict.message())
-    return not found
+    return None if found.conflicts else found
 
 
 def _fetch(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitClient,
@@ -65,9 +65,10 @@ def _fetch(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitC
 
 def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitClient,
             timeout: float) -> bool:
-    """Check the chain's pins, fetch what is missing, and check again; report success.
+    """Fetch every pinned library of the chain, one layer at a time; report success.
 
-    The second check reads the fragments of the libraries just fetched.
+    Each round walks the pins of the libraries on disk, fetches what is missing, and walks
+    again, because a library just fetched can pin another. It ends when a round adds no library.
 
     Args:
         ctx: The run's context; ``ctx.consumer`` names the module at *root*.
@@ -78,9 +79,14 @@ def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGit
     """
     if not pins:
         return True
-    if not _pins_agree(ctx.consumer, root, pins):
-        return False
-    if not _fetch(ctx, root, pins, git, timeout):
-        return False
-    return _pins_agree(ctx.consumer, root, pins)
-
+    known: set[str] = set()
+    while True:
+        found = _walk(ctx.consumer, root, pins)
+        if found is None:
+            return False
+        names = {pin.name for pin in found.pins}
+        if names == known:
+            return True
+        known = names
+        if not _fetch(ctx, root, found.pins, git, timeout):
+            return False

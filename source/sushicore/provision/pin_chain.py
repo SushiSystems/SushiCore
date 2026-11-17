@@ -46,9 +46,26 @@ def _pins_on_disk(checkout: Path, name: str, version: str) -> tuple[Path, Sequen
     return source.path, deps_fragment.read(fragment).pins
 
 
+@dataclass(frozen=True)
+class PinWalk:
+    """What a walk of a chain found: each library once, and each library pinned twice."""
+
+    pins: tuple[SushiPin, ...]
+    conflicts: tuple[PinConflict, ...]
+
+
 def conflicts(owner: str, root: Path, pins: Sequence[SushiPin],
               pins_of: PinsOf | None = None) -> list[PinConflict]:
     """Return every library the chain under *owner* pins at more than one version.
+
+    See ``walk`` for how the chain is read.
+    """
+    return list(walk(owner, root, pins, pins_of).conflicts)
+
+
+def walk(owner: str, root: Path, pins: Sequence[SushiPin],
+         pins_of: PinsOf | None = None) -> PinWalk:
+    """Return the libraries the chain under *owner* pins, and those it pins at two versions.
 
     The walk reads the fragment of each pinned library whose checkout resolves; a
     library with no checkout yet ends its branch.
@@ -63,6 +80,7 @@ def conflicts(owner: str, root: Path, pins: Sequence[SushiPin],
         ValueError: A library's fragment is malformed.
     """
     seen: dict[str, tuple[str, str]] = {}
+    libraries: dict[str, SushiPin] = {}
     found: list[PinConflict] = []
     walked: set[tuple[str, str]] = set()
 
@@ -71,6 +89,7 @@ def conflicts(owner: str, root: Path, pins: Sequence[SushiPin],
         agreed = []
         for pin in own:
             first = seen.setdefault(pin.name, (pinner, pin.version))
+            libraries.setdefault(pin.name, pin)
             if first[1] != pin.version:
                 found.append(PinConflict(pin.name, first[0], first[1], pinner, pin.version))
             else:
@@ -84,4 +103,4 @@ def conflicts(owner: str, root: Path, pins: Sequence[SushiPin],
                 visit(pin.name, *library)
 
     visit(owner, root, pins)
-    return found
+    return PinWalk(tuple(libraries.values()), tuple(found))
