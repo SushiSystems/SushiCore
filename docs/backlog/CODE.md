@@ -25,6 +25,7 @@
 | RW-120 | P3 | open | Type the console seam in the provision files the audit did not name | no provision module takes console: Any; each takes ProvisionConsole or a narrower protocol |  | `source/sushicore/provision/provision_console.py` | 2026-11-17 |
 | RW-121 | P3 | open | Give each class in the multi-class files its own file | no file outside ui and help holds more than one public class beside its memory twin or its error |  | `source/sushicore/provision/doctor.py` | 2026-11-17 |
 | RW-122 | P3 | open | Run a type checker over the package in check_all | check_all runs mypy or pyright over source/sushicore and it passes |  | `tools/check_all.py` | 2026-11-17 |
+| RW-123 | P3 | open | Give install_adaptivecpp a parameter object instead of about 20 parameters | install_adaptivecpp takes at most five parameters |  | `source/sushicore/provision/toolchains/adaptivecpp.py` | 2026-11-17 |
 
 ## Known issues
 
