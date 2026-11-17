@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-17 — code: Split probe, workspace, pipeline, doctor, packages.linux, system and the console builder into one-job modules, keeping the moved names importable with a warning (RW-33, `74a616d`).
+- 2026-11-17 — code: Typed the build-side seams the audit named with narrow console and config protocols (RW-34, `fcb14fd`).
 - 2026-11-17 — console: Kept a config_dir that raises SystemExit meaning "outside a checkout" for one release, with a deprecation warning (RW-119, `cli_console.py`).
 - 2026-11-17 — provision: Restored provision.steps, prime_sudo, packages.run, the gh_latest helpers and the adapter runner names as deprecated shims for one release (RW-118, RW-119, `83edf89`).
 - 2026-11-17 — provision: Restored CapturedRun, capture_command and run_command in package_install as deprecated helpers over proc.Runner; they go in 0.17.0 (RW-117, `captured_run.py`).

@@ -6,8 +6,6 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-29 | P2 | open | Keep Rich behind the `Renderer` seam | `Console.console`, `diag.py`, `discovery.py` and the call sites in `provision` reach Rich only through `Renderer` (Code C10, Cli C6) |  |  | 2026-10-19 |
 | RW-32 | P2 | open | Bring docstrings to the source comment rule | no public symbol lacks a docstring and none exceeds eight lines; 33 and 37 on 2026-10-19 (Code C13, Code C14, Code C21) |  |  | 2026-10-19 |
-| RW-33 | P2 | open | Split the units that hold more than one responsibility | each unit outside `steps.py` that the audit named has one responsibility (Code C15) |  |  | 2026-10-19 |
-| RW-34 | P2 | open | Type the untyped seams on the build side | the build-side seams the audit named carry types (Code C16) |  |  | 2026-10-19 |
 | RW-35 | P2 | open | Stop tests reaching into private names | no test imports or calls a name with a leading underscore (Code C19) |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Remove hidden module state and apply the class-shape rules | no module keeps state outside an object, and classes outside `ui` and `help` follow the class-shape rules (Code C20, Code C22) |  |  | 2026-10-19 |
 | RW-91 | P3 | open | Split register_backlog_commands into one function per command | commands.py registers each backlog command through its own function and no function there exceeds 60 lines |  | `source/sushicore/backlog/commands.py` | 2026-11-17 |
@@ -27,6 +25,9 @@
 | RW-113 | P3 | open | Let detect read the toolchain registry's locate instead of its own probes | detect_step finds intel-llvm, AdaptiveCpp and oneAPI through TOOLCHAINS locate |  | `source/sushicore/provision/toolchains/registry.py` | 2026-11-17 |
 | RW-114 | P3 | open | Type the provision console with one Console protocol instead of Any | provision steps, managers and functions take a console typed by one protocol that names header, progress, table, prompt and the line methods |  | `source/sushicore/provision/default_console.py` | 2026-11-17 |
 | RW-116 | P3 | open | Give ModuleCycleError its own module and a provision layer | ModuleCycleError lives in a provision errors module listed in the layer table, and deps_fragment no longer defines it |  | `source/sushicore/deps_fragment.py` | 2026-11-17 |
+| RW-120 | P3 | open | Type the console seam in the provision files the audit did not name | no provision module takes console: Any; each takes ProvisionConsole or a narrower protocol |  | `source/sushicore/provision/provision_console.py` | 2026-11-17 |
+| RW-121 | P3 | open | Give each class in the multi-class files its own file | no file outside ui and help holds more than one public class beside its memory twin or its error |  | `source/sushicore/provision/doctor.py` | 2026-11-17 |
+| RW-122 | P3 | open | Run a type checker over the package in check_all | check_all runs mypy or pyright over source/sushicore and it passes |  | `tools/check_all.py` | 2026-11-17 |
 
 ## Known issues
 
