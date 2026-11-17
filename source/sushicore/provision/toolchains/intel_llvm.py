@@ -18,15 +18,57 @@ from sushicore.errors import ConfigError, DigestMismatchError
 
 from .._output import console
 from ..download_verifier import pinned_download, verify_download
+from ..install_location import ToolkitInstall
+from ..licence_consent import Licence
 from ..packages import download
+from ..pipeline import InstallContext
 from ..target import target_of
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
+from .toolchain import ToolchainEnv
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
-__all__ = ["install_intel_llvm"]
+__all__ = ["INTEL_LLVM", "IntelLlvmToolchain", "install_intel_llvm"]
+
+
+@typing.final
+class IntelLlvmToolchain:
+    """The intel/llvm nightly SYCL bundle, the primary toolchain."""
+
+    key = "intel-llvm"
+    selection_field = "install_intel_llvm"
+
+    def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
+        """Return the bundle under the toolchains folder, or None when its compiler is absent."""
+        root = toolchains_dir() / "llvm-sycl"
+        if not (root / "bin" / target_of(cfg).clang_executable).is_file():
+            return None
+        return ToolkitInstall(root=root, version=read_toolchain_stamp(root).get("tag"))
+
+    def licences(self, ctx: InstallContext) -> list[Licence]:
+        """Return no licence; the bundle is downloaded without a consent prompt."""
+        return []
+
+    def install(self, ctx: InstallContext, env: ToolchainEnv) -> bool:
+        """Install the bundle, record ``llvm_root`` in *ctx* and warn when it is missing.
+
+        Returns:
+            True; a missing bundle only leaves the toolchain unavailable.
+        """
+        llvm = install_intel_llvm(
+            ctx.cfg, ctx.dry_run, refresh=ctx.refresh_toolchains,
+            refresh_command=ctx.refresh_command)
+        if llvm:
+            ctx.resolved_paths["llvm_root"] = llvm
+        else:
+            env.console.warn("intel/llvm bundle not installed; the intel-llvm "
+                             "toolchain will be unavailable.")
+        return True
+
+
+INTEL_LLVM = IntelLlvmToolchain()
 
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,

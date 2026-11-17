@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — provision: Put intel-llvm, AdaptiveCpp and oneAPI behind one Toolchain contract and registry that shares ToolkitFinder with the GPU backends (RW-31, `af87062`).
 - 2026-11-17 — provision: Replaced the target-keyed tables of install, uninstall, probe, managers and the AdaptiveCpp LLVM with per-target plan files a registry finds (RW-24, `600bb48`).
 - 2026-11-17 — provision: Moved the branches on the run's target platform behind ITarget, picked once by target_of (RW-24, `provision/target/`).
 - 2026-11-17 — provision: Moved what differs by operating system behind IHost and the apt-only steps behind LinuxPackageManager methods, chosen once each (RW-24, `provision/host/`).

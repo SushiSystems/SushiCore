@@ -26,6 +26,8 @@
 | RW-109 | P3 | open | Merge the two cmake path tables and the version probe timeout in provision | the cmake install paths are one Path table that probe and direct_download read, and the --version timeout is one constant checks and probe share |  | `source/sushicore/provision/probe.py` | 2026-11-17 |
 | RW-110 | P3 | open | Key the GPU locators and the CUDA note on ITarget instead of the platform name | gpu/rocm.py, gpu/level_zero.py and detect_step.py read their per-platform values through ITarget or a target plan |  | `source/sushicore/provision/gpu/level_zero.py` | 2026-11-17 |
 | RW-111 | P3 | open | Split resolve_local_config of the Windows probe plan into its steps | probe_plans/windows.py resolve_local_config is a short method over named steps, each tested |  | `source/sushicore/provision/probe_plans/windows.py` | 2026-11-17 |
+| RW-112 | P2 | open | Pin oneAPI's order against the GPU stage and move its target switch into the plans | a test fixes whether oneAPI installs before or after the GPU stage, OneApiToolchain has no env.mgr is None branch, and ToolchainEnv names no toolchain |  | `source/sushicore/provision/toolchains/oneapi.py` | 2026-11-17 |
+| RW-113 | P3 | open | Let detect read the toolchain registry's locate instead of its own probes | detect_step finds intel-llvm, AdaptiveCpp and oneAPI through TOOLCHAINS locate |  | `source/sushicore/provision/toolchains/registry.py` | 2026-11-17 |
 
 ## Known issues
 

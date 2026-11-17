@@ -82,17 +82,7 @@ class LinuxInstallPlan(IInstallPlan):
         if not pkgs and not vcpkg_ports:
             console.info("All packages already present.")
 
-        install_toolchains(ctx, services, mgr=mgr, vcpkg=None)
-
-        if ctx.selection.oneapi and mgr.automates_oneapi:
-            console.info("oneAPI: configuring the Intel apt repository and installing "
-                         "intel-oneapi-compiler-dpcpp-cpp.")
-            if not mgr.install_oneapi(ctx.dry_run):
-                console.warn("oneAPI compiler install failed; continuing "
-                             "(intel-llvm/AdaptiveCpp remain available).")
-        elif ctx.selection.oneapi:
-            console.warn(f"oneAPI on {mgr.name} is not automated; install the "
-                         "Intel oneAPI DPC++ compiler manually.")
+        ok = install_toolchains(ctx, services, mgr=mgr, vcpkg=None) and ok
 
         services.gpu.provision_linux(ctx, mgr)
         return StepResult.OK if ok else StepResult.FAILED

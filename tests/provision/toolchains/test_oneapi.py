@@ -14,6 +14,7 @@ from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.toolchains.oneapi import K_ONEAPI_LICENCE
 from sushicore.provision.licence_consent_memory import granted_consent
 from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.install_location import ToolkitInstall
 from sushicore.provision.pipeline import InstallContext, ToolchainSelection
 from sushicore.provision.toolchains import oneapi
 
@@ -257,3 +258,14 @@ def test_oneapi_licences_name_the_eula_only_when_oneapi_will_install():
     """Check that the EULA is declared for a selected, missing oneAPI and not otherwise."""
     assert oneapi.oneapi_licences(_ctx(oneapi_selected=True)) == [K_ONEAPI_LICENCE]
     assert oneapi.oneapi_licences(_ctx(oneapi_selected=False)) == []
+
+
+@pytest.mark.small
+def test_locate_reports_the_configured_oneapi_root_when_it_is_a_folder(tmp_path):
+    """Check that locate returns the configured root, and None when it is not a folder."""
+    toolchain = oneapi.ONEAPI
+    present = ProvisionSettings(oneapi_root=str(tmp_path))
+    absent = ProvisionSettings(oneapi_root=str(tmp_path / "missing"))
+
+    assert (toolchain.locate(present), toolchain.locate(absent)) == (
+        ToolkitInstall(tmp_path, None), None)

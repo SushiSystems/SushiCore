@@ -15,6 +15,7 @@ import pytest
 from sushicore.deps_fragment import Download
 from sushicore.errors import ConfigError
 from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.install_location import ToolkitInstall
 from sushicore.provision.toolchains import intel_llvm
 from sushicore.provision.toolchains.stamp import (
     read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
@@ -176,3 +177,17 @@ def test_install_intel_llvm_leaves_an_unwrapped_layout_alone(provision_home, rec
 
     assert (root / "bin" / "clang++").is_file()
     assert (root / "lib" / "libsomething.so").is_file()
+
+
+def test_locate_reports_the_installed_bundle_with_its_stamped_tag(provision_home):
+    """Check that locate returns the bundle root and the tag its stamp records."""
+    root = toolchains_dir() / "llvm-sycl"
+    _install_clang(root)
+    write_toolchain_stamp(root, "intel/llvm", "nightly-7")
+
+    assert intel_llvm.INTEL_LLVM.locate(_linux_cfg()) == ToolkitInstall(root, "nightly-7")
+
+
+def test_locate_reports_nothing_when_the_bundle_has_no_compiler(provision_home):
+    """Check that locate returns None for a toolchains folder with no bundle."""
+    assert intel_llvm.INTEL_LLVM.locate(_linux_cfg()) is None

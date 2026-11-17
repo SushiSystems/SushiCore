@@ -66,7 +66,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B2 | RW-27: one brick for every child process | B1 | done |
 | B3 | RW-28: the probe tables and helpers of `provision` merged | B2 | done |
 | B4 | RW-24: dispatch on platform and manager through the contracts | B3 (OS and manager chains moved; the cfg.platform chains remain) | done |
-| B5 | RW-31: the toolchain installers on the GPU backends' contract | B4 | todo |
+| B5 | RW-31: the toolchain installers on the GPU backends' contract | B4 | done |
 | B6 | RW-29, RW-30: Rich behind `Renderer`, no module console | B2 (ad72f9c: line level, diag and discovery; the module console and ui/help Rich imports remain) | running |
 | B7 | RW-26: one base error for the package | B5, B6 | todo |
 | B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 | todo |

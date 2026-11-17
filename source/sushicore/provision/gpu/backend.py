@@ -7,35 +7,26 @@
 from __future__ import annotations
 
 import dataclasses
-import pathlib
 import typing
 
 from .._output import console
+from ..install_location import ToolkitFinder, ToolkitInstall
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
-
-@dataclasses.dataclass(frozen=True)
-class ToolkitInstall:
-    """The result of locating a vendor's GPU toolkit on the machine.
-
-    Args:
-        root: Install root of the toolkit.
-        version: The toolkit's version string, when known.
-    """
-
-    root: pathlib.Path
-    version: str | None
+__all__ = [
+    "GpuBackendSpec",
+    "NotProvided",
+    "PlatformLocator",
+    "ToolkitInstall",
+    "ToolkitLocator",
+]
 
 
 @typing.runtime_checkable
-class ToolkitLocator(typing.Protocol):
+class ToolkitLocator(ToolkitFinder, typing.Protocol):
     """Finds and, when possible, provisions one vendor's toolkit."""
-
-    def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
-        """Return the toolkit install found on this machine, or None."""
-        ...
 
     def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
         """Install or report on the toolkit. Return True unless it failed fatally."""

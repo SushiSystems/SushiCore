@@ -18,17 +18,22 @@ from typing import Callable, MutableMapping, Sequence
 from .. import home
 from ..probe import K_RC_GLOBS
 from .._output import console
+from ..dependency_presence import named_manager
+from ..install_location import ToolkitInstall
+from ..licence_consent import Licence
 from ..process_run import run
 from ..llvm_plan import LLVM_PLANS, LlvmRequest
+from ..pipeline import InstallContext
 from ..target import target_of
 from ._process import _run_quiet
 from .stamp import toolchains_dir
+from .toolchain import ToolchainEnv
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
     from ..packages import IPackageManager, LinuxPackageManager
 
-__all__ = ["install_adaptivecpp"]
+__all__ = ["ADAPTIVECPP", "AdaptiveCppToolchain", "install_adaptivecpp"]
 
 #: AdaptiveCpp release built from source.
 ACPP_VERSION = "v24.10.0"
@@ -36,6 +41,47 @@ ACPP_VERSION = "v24.10.0"
 ACPP_LLVM = "17"
 #: Full LLVM release vendored on Windows when no LLVM dev install exists.
 LLVM_WINDOWS_VERSION = "17.0.6"
+
+
+@typing.final
+class AdaptiveCppToolchain:
+    """AdaptiveCpp built from source, the secondary SYCL toolchain."""
+
+    key = "adaptivecpp"
+    selection_field = "install_acpp"
+
+    def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
+        """Return the prefix under the toolchains folder, or None when no ``acpp`` launcher is there."""
+        prefix = toolchains_dir() / "adaptivecpp"
+        launchers = (target_of(cfg).acpp_launcher, "acpp")
+        if not any((prefix / "bin" / name).is_file() for name in launchers):
+            return None
+        return ToolkitInstall(root=prefix, version=None)
+
+    def licences(self, ctx: InstallContext) -> list[Licence]:
+        """Return no licence; the LLVM prompt is a size consent, not a licence."""
+        return []
+
+    def install(self, ctx: InstallContext, env: ToolchainEnv) -> bool:
+        """Build AdaptiveCpp, record ``acpp_exe`` in *ctx* and warn when it is the only toolchain.
+
+        Returns:
+            True; a failed build only leaves the toolchain unavailable.
+        """
+        acpp = install_adaptivecpp(
+            ctx.cfg, env.mgr, env.vcpkg, ctx.dry_run,
+            assume_yes=ctx.assume_acpp_llvm,
+            winget=named_manager(env.managers, "winget"))
+        if acpp:
+            ctx.resolved_paths["acpp_exe"] = acpp
+        elif not ctx.selection.install_intel_llvm:
+            message = ("AdaptiveCpp is the only toolchain selected but it did "
+                       "not install; the project will not build.")
+            env.console.warn(f"{message} {ctx.fallback_hint}".strip())
+        return True
+
+
+ADAPTIVECPP = AdaptiveCppToolchain()
 
 
 def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> str:

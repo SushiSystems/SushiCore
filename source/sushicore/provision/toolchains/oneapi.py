@@ -14,14 +14,19 @@ from sushicore.proc import CommandRunner
 
 from .._output import console
 from ..download_verifier import verify_download
+from ..install_location import ToolkitInstall
 from ..licence_consent import Licence, LicenceConsent, is_accepted
+from ..pipeline import InstallContext
 from ..process_run import provision_runner
+from .toolchain import ToolchainEnv
 
 if typing.TYPE_CHECKING:
-    from ..pipeline import InstallContext
+    from ..config import ProvisionConfig
 
 __all__ = [
     "K_ONEAPI_LICENCE",
+    "ONEAPI",
+    "OneApiToolchain",
     "download_oneapi_installer",
     "install_oneapi",
     "oneapi_licences",
@@ -42,6 +47,50 @@ _ONEAPI_URL = (
 )
 #: WinError raised when starting a process that needs elevation.
 _ELEVATION_REQUIRED = 740
+
+
+@typing.final
+class OneApiToolchain:
+    """Intel oneAPI DPC++, the opt-in heavy toolchain: an offline installer, or the distro's apt repository."""
+
+    key = "oneapi"
+    selection_field = "oneapi"
+
+    def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
+        """Return the configured oneAPI root when it is a folder, or None."""
+        root = cfg.expand(cfg.oneapi_root) if cfg.oneapi_root else ""
+        if not (root and Path(root).is_dir()):
+            return None
+        return ToolkitInstall(root=Path(root), version=None)
+
+    def licences(self, ctx: InstallContext) -> list[Licence]:
+        """Return the EULA when the offline installer will run for *ctx*; empty otherwise."""
+        return oneapi_licences(ctx)
+
+    def install(self, ctx: InstallContext, env: ToolchainEnv) -> bool:
+        """Install oneAPI through the distro manager when the run has one, else the offline installer.
+
+        Returns:
+            False only when the offline installer fails; a distro install that fails or is not
+            automated warns and lets the run go on with the other toolchains.
+        """
+        if env.mgr is None:
+            return env.install_oneapi(ctx)
+        if not ctx.selection.oneapi:
+            return True
+        if env.mgr.automates_oneapi:
+            env.console.info("oneAPI: configuring the Intel apt repository and installing "
+                             "intel-oneapi-compiler-dpcpp-cpp.")
+            if not env.mgr.install_oneapi(ctx.dry_run):
+                env.console.warn("oneAPI compiler install failed; continuing "
+                                 "(intel-llvm/AdaptiveCpp remain available).")
+        else:
+            env.console.warn(f"oneAPI on {env.mgr.name} is not automated; install the "
+                             "Intel oneAPI DPC++ compiler manually.")
+        return True
+
+
+ONEAPI = OneApiToolchain()
 
 
 def install_oneapi(ctx: "InstallContext", *,

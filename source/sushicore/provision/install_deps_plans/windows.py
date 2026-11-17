@@ -17,8 +17,7 @@ from ..packages import WINGET_ID_TO_CMD, IPackageManager
 from ..packages.winget_licence import IWingetLicences
 from ..pipeline import InstallContext, StepResult
 from ..target import K_WINDOWS
-from ..toolchain_install import install_toolchains
-from ..toolchains.oneapi import oneapi_licences
+from ..toolchain_install import install_toolchains, toolchain_licences
 
 #: The winget id of the Visual Studio 2022 Build Tools.
 K_VS_BUILD_TOOLS_ID = "Microsoft.VisualStudio.2022.BuildTools"
@@ -45,7 +44,7 @@ class WindowsInstallPlan(IInstallPlan):
             needed.extend(held for held in (self._licence_of(winget, pkg)
                                             for missing, pkg in wanted if missing)
                           if held is not None)
-        return needed + oneapi_licences(ctx)
+        return needed + toolchain_licences(ctx)
 
     def run(self, ctx: InstallContext, services: InstallServices) -> StepResult:
         """Install dependencies, the toolchains and the GPU stack on Windows."""
@@ -63,11 +62,9 @@ class WindowsInstallPlan(IInstallPlan):
 
         tool_ok = self._install_vs_build_tools(ctx, services, winget) and tool_ok
 
-        install_toolchains(ctx, services, mgr=None, vcpkg=vcpkg)
+        tool_ok = install_toolchains(ctx, services, mgr=None, vcpkg=vcpkg) and tool_ok
 
         services.gpu.provision_windows(ctx)
-
-        tool_ok = services.actions.install_oneapi(ctx) and tool_ok
 
         return StepResult.OK if (tool_ok and lib_ok) else StepResult.FAILED
 

@@ -19,7 +19,8 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `manager_plan.py`, `manager_plans/` | `IManagerPlan` and `MANAGER_PLANS`; `windows.py` and `linux.py` build the package managers of each target |
 | `llvm_plan.py`, `llvm_plans/` | `ILlvmPlan`, `LlvmRequest` and `LLVM_PLANS`; `windows.py` and `linux.py` supply the LLVM the acpp build needs on each target |
 | `install_deps_plan.py`, `install_deps_plans/` | `IInstallPlan`, `InstallServices` and `INSTALL_PLANS`; `windows.py` and `linux.py` name the licences and run the install of each target |
-| `toolchain_install.py` | `install_toolchains`: installs the intel/llvm and AdaptiveCpp toolchains a run selected, for both install plans |
+| `install_location.py` | `ToolkitInstall` and `ToolkitFinder`, the `locate` contract the GPU backends and the SYCL toolchains share |
+| `toolchain_install.py` | `install_toolchains` and `toolchain_licences`: walk the toolchain registry for both install plans, so a plan names no toolchain |
 | `uninstall_plan.py`, `uninstall_plans/` | `IUninstallPlan`, `UninstallServices` and `UNINSTALL_PLANS`; `windows.py` and `linux.py` remove the packages and portable tools of each target |
 | `links.py` | Makes, reads and removes a directory link: a junction on Windows, a symlink elsewhere |
 | `migrate.py` | `migrate`, `rollback` and `finalize`: moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it; re-exports the names below |
@@ -41,7 +42,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
 | `process_run.py` | `run`: runs a command, streams its output through the console and returns its exit code; the package managers and `git_client.py` call it |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
-| `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
+| `toolchains/` | The `Toolchain` contract and `ToolchainEnv` in `toolchain.py`, one file per toolchain (intel/llvm, AdaptiveCpp, oneAPI) each declaring its `Toolchain`, `registry.py` listing them in install order, and the `.sushi_toolchain.json` stamp. A new toolchain adds a file and one line in `registry.py`, as a GPU backend does in `gpu/registry.py` |
 | `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.16.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
 | `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
 | `pipeline_memory.py` | `ScriptedStep`, a `Step` that answers a scripted result and logs that it ran |
