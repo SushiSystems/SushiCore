@@ -59,16 +59,11 @@ def vendor_llvm_windows(*, console: Any = None,
     """Download the official clang+llvm Windows tarball into the tools tree.
 
     Args:
-        console: The console the vendoring prints through.
-        resolve_asset: Maps a repository, a tag and an asset name to the asset URL.
         fetch: Downloads a URL into a file; the download transport.
-        runner: Runs the installer command; the provision runner on *console* when ``None``.
+        runner: Runs the installer command; the provision runner when ``None``.
 
-    Returns:
-        ``(LLVM_DIR, clang_prefix)`` for the vendored install, or None on failure.
-
-    Raises:
-        DigestMismatchError: The installer's SHA-256 is not the one its manifest entry pins.
+    Returns ``(LLVM_DIR, clang_prefix)``, or None on failure; raises DigestMismatchError when the
+    installer's SHA-256 differs from its manifest entry.
     """
     console = console_or_default(console, "vendor_llvm_windows")
     dest = home.root() / "tools" / "llvm"

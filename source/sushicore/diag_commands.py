@@ -19,8 +19,10 @@ if TYPE_CHECKING:
 class DiagnosticsLike(Protocol):
     """The two reports the commands print."""
 
-    def config_show(self) -> int: ...
-    def env_dump(self, show_all: bool = ...) -> int: ...
+    def config_show(self) -> int:
+        """Prints the resolved configuration and the files it came from."""
+    def env_dump(self, show_all: bool = ...) -> int:
+        """Prints the environment a build runs under; every variable when *show_all*."""
 
 
 def register_diagnostic_commands(

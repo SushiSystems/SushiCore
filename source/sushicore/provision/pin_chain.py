@@ -69,13 +69,7 @@ def walk(owner: str, root: Path, pins: Sequence[SushiPin],
          pins_of: PinsOf | None = None) -> PinWalk:
     """Return the libraries the chain under *owner* pins, and those it pins at two versions.
 
-    The walk reads the fragment of each pinned library whose checkout resolves; a
-    library with no checkout yet ends its branch.
-
     Args:
-        owner: The name of the repository at *root*.
-        root: Its checkout.
-        pins: The pins of its own fragment.
         pins_of: Gives a pinned library's checkout and pins; reads the disk when ``None``.
 
     Raises:

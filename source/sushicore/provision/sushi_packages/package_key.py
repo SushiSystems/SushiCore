@@ -25,9 +25,6 @@ class PackageKey:
         source: The hash of the library's source content.
         toolchain: The identity of the SYCL compiler the consumer builds with.
         build_type: The build type, lower case.
-        recipe: The build recipe: the lean flag set and the SushiCore version that drives it.
-        inputs: The hash of the configure inputs: local config, vcpkg, triplet and CMake version.
-        options: The extra arguments passed to the library's ``build``, in order.
         below: The ``(name, digest)`` of each Sushi package this one was built against.
     """
 

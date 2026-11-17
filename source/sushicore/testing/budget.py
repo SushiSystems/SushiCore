@@ -33,14 +33,12 @@ K_UNUSABLE_TEXT = "The budget reader could not judge the run; copy the shared to
 def scope_of(selection: LabelSelection, *, filtered: bool, every_size: bool, repeated: bool) -> str:
     """Returns the scope the budget reader judges a run by.
 
-    ``default`` is the run of ``small`` and ``medium`` that nothing narrowed, ``large`` is a run of every
-    size, and ``partial`` is any other, whose totals never gate.
+    ``default`` is the run of ``small`` and ``medium`` that nothing narrowed, ``large`` is a run
+    of every size, and ``partial`` is any other, whose totals never gate.
 
     Args:
         selection: The labels the run selected.
         filtered: Whether a name filter narrowed the run.
-        every_size: Whether the run was asked for every size.
-        repeated: Whether the run repeated its tests.
     """
     if filtered or repeated:
         return "partial"
@@ -59,18 +57,11 @@ def reader_command(root: Path, junit: Path, scope: str, wall_seconds: float,
     """Returns the command that judges a run, or None when the root carries no reader.
 
     Args:
-        root: The repository root.
-        junit: The JUnit file the run wrote.
         scope: What :func:`scope_of` returned.
-        wall_seconds: The wall time of the whole run.
-        rebuilt: Whether the tree was current when the run began; a run that was not is marked
-            "(not rebuilt)" and never gates.
-        files: The file system the reader and the exemption file are looked for in; the disk when None.
-        cases: The folder of the GoogleTest XML files the shards wrote; the reader adds their per-case times.
-        reruns: The JUnit files, or folders of GoogleTest XML files, of tests run again alone.
-        programs: The JSON file from suite name to test program.
+        rebuilt: Whether the tree was current when the run began; otherwise it never gates.
+        cases: The folder of the GoogleTest XML files the shards wrote.
+        reruns: The result files of tests run again alone.
         gate: Makes the reader exit 1 on a finding.
-        list_over: Makes the reader write the tests over a limit to this file and print nothing.
     """
     files = files if files is not None else DiskFiles()
     reader = root / K_READER
@@ -122,23 +113,12 @@ def judge_run(module: ModuleTests, tree: Path, junit: Path, scope: str, wall_sec
               cases: Path | None = None, rerun: Path | None = None) -> int:
     """Print the budget line of a run and return 1 when the run breaks a time limit, 0 otherwise.
 
-    The reader first lists the tests over a limit; they run again alone, one at a time, and the reader
-    then judges each by its time alone, so the load of the parallel run does not fail it. A tree that
-    was not current never gates. Nothing is judged when the repository carries no reader or the run
-    wrote no JUnit file, and a reader that cannot judge the run, such as one older than this command,
-    fails it with the reader's exit code.
+    Tests over a limit run again alone and are judged by that time. A tree that was not
+    current never gates, and nothing is judged without a reader or a JUnit file.
 
     Args:
-        module: What the module CLI hands the command.
-        tree: The built tree the run tested.
-        junit: The JUnit file the run wrote.
         scope: What :func:`scope_of` returned.
-        wall_seconds: The wall time of the whole run.
-        rebuilt: Whether the tree was current when the run began.
-        files: The file system the reader, the result files and the exemption file are looked for in;
-            the disk when None.
-        cases: The folder of the GoogleTest XML files the shards wrote, used when it exists.
-        rerun: The results of the failed tests rerun alone, which the reader also takes as times alone.
+        rerun: The results of the failed tests rerun alone.
     """
     files = files if files is not None else DiskFiles()
     root = module.project_root()

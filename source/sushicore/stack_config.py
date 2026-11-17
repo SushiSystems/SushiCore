@@ -81,13 +81,12 @@ class StackConfig(ProvisionSettings):
     def sushi_definitions(self, root: Path, packaged: PackageSet | None = None) -> list[str]:
         """Return ``-D<NAME>_DIR=<path>`` for each pinned Sushi library that resolves.
 
-        A library in *packaged* is consumed as a built package and is skipped: its
-        ``-D<Package>_DIR`` comes from :meth:`PackageSet.definitions`. A library the package
-        set left out is skipped as well, since the consumer asked not to link it. The CLI hands these to
-        the CMake configure; CMake never downloads.
+        A library in *packaged* is consumed as a built package and is skipped, as is one the
+        package set left out. The CLI hands these to the CMake configure.
 
-        @param root This module's project root.
-        @param packaged The packages :meth:`sushi_packages` resolved, or None.
+        Args:
+            root: This module's project root.
+            packaged: The packages :meth:`sushi_packages` resolved, or None.
         """
         skipped = ({*packaged.names(), *packaged.left_out}
                    if packaged is not None else set())
@@ -108,20 +107,12 @@ class StackConfig(ProvisionSettings):
                        assemble: Callable[..., PackageResolver] | None = None) -> PackageSet:
         """Return a built package of every Sushi library this module's chain links, or of *libraries*.
 
-        A package that the store lacks is built through the library's own CLI. One line per
-        library goes to *report*: ``reused <short>`` or ``built <short> in <s>s``.
+        A package that the store lacks is built through the library's own CLI.
 
-        @param root      This module's project root.
-        @param build_type The build type of this configure, such as ``release``.
-        @param options   The extra ``build`` arguments of a library, by library name.
-        @param report    Receives one line per library.
-        @param warn      Receives the warnings.
-        @param compiler  The compiler of this build; :meth:`resolved_compiler` when empty.
-        @param libraries The libraries to resolve, with what each depends on; None resolves every
-                         library of the closure. The package key of a library does not change.
-        @param assemble  Builds the resolver from the keep count, the report and warn callbacks and
-                         the ``cmake`` keyword; :func:`default_resolver` when None.
-        @raises sushicore.provision.sushi_packages.PackageError A package cannot be chosen.
+        Args:
+            build_type: The build type of this configure, such as ``release``.
+            report: Receives one line per library.
+            libraries: The libraries to resolve, with what each depends on; None resolves all.
         """
         vcpkg = self.resolved_vcpkg(root)
         configured = {item.name[:-len("_dir")]: self.expand(getattr(self, item.name))

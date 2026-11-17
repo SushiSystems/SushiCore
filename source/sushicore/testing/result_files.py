@@ -20,9 +20,6 @@ def failed_tests(junit_text: str) -> tuple[str, ...]:
 
     A test that was not run is not a failure and is left out.
 
-    Args:
-        junit_text: The text of the file ``ctest --output-junit`` wrote.
-
     Raises:
         ResultFileError: When the text is not XML or declares a DOCTYPE or an ENTITY.
     """
@@ -32,11 +29,7 @@ def failed_tests(junit_text: str) -> tuple[str, ...]:
 def failing_cases(gtest_text: str) -> tuple[str, ...]:
     """Return the ``Suite.Case`` names that failed in a GoogleTest XML file, in file order.
 
-    A parametrised case keeps its instantiation prefix and its ``/index``, so the name is a
-    ``--gtest_filter`` pattern that selects exactly that case.
-
-    Args:
-        gtest_text: The text of a file ``--gtest_output=xml:`` wrote.
+    A parametrised case keeps its instantiation prefix and its ``/index``.
 
     Raises:
         ResultFileError: When the text is not XML or declares a DOCTYPE or an ENTITY.

@@ -101,12 +101,8 @@ class CMakeDriver:
         """Whether the Ninja tree at *build_dir* has nothing left to build, by a dry run of its build.
 
         *targets* narrows the dry run to the targets a CLI builds; none asks of the whole tree.
-
-        A tree of another generator, or a dry run that fails, is not known to be current and reads as
-        not current, so the times of its tests are never taken for the code's. The tree's own
-        regeneration runs first for real, since a dry run lists the check of the globs of
-        ``CONFIGURE_DEPENDS`` and the regeneration after it every time; once it has run, those two
-        steps are left out of the dry run.
+        A tree of another generator, or a dry run that fails, reads as not current. The tree's own
+        regeneration runs first for real, and its two steps are left out of the dry run.
         """
         if cached_value(build_dir, "CMAKE_GENERATOR") not in ("Ninja", "Ninja Multi-Config"):
             return False
@@ -177,14 +173,12 @@ class CMakeDriver:
                 jobs: int | None = None) -> int:
         """Bring an already-configured tree up to date.
 
-        @param config The configuration to build. When None it is read from the
-            tree's own cache, because a caller that did not configure this tree
-            has no business choosing one.
-        @param jobs When set, passed as --parallel before the targets.
+        Args:
+            config: The configuration to build; read from the tree's own cache when None.
+            jobs: When set, passed as --parallel before the targets.
 
-        The compilers write their temporaries to the tree's own scratch folder, which is emptied
-        when the build ends, whatever its result: a SYCL device link leaves its split files
-        behind, and in the shared temp folder they are never removed.
+        The compilers write their temporaries to the tree's own scratch folder, emptied when the
+        build ends.
         """
         if config is None:
             config = cached_value(build_dir, "CMAKE_BUILD_TYPE") or "Release"
@@ -209,27 +203,12 @@ class CMakeDriver:
                   resource_spec_file: Path | None = None) -> int:
         """Run ctest over *build_dir*, draining its output.
 
-        @param exclude_label_regex A ctest -LE pattern; the tests whose labels match it are left
-            out, as a quarantined label is from a gating run.
-        @param filter A ctest -R pattern. gtest_discover_tests registers cases
-            as "Suite.Case", so this filters those names directly -- a richer
-            alternative to --gtest_filter.
-        @param repeat Re-run each selected test until it fails or this many runs
-            pass, the native ctest way to flush out flakiness.
-        @param jobs When set, passed as --parallel, so one job also overrides
-            CTEST_PARALLEL_LEVEL.
-        @param config When set, passed as -C.
-        @param output_junit When set, CTest writes a JUnit file of the run there. CTest reads a
-            relative path from the build tree, so a caller gives an absolute one.
-        @param shuffle_seed When set, the gtest programs run their tests in a random order with this
-            seed: ctest hands its environment to each test, so GTEST_SHUFFLE and GTEST_RANDOM_SEED
-            stand for --gtest_shuffle and --gtest_random_seed, which ctest cannot pass on.
-        @param gtest_filter When set, GTEST_FILTER stands for --gtest_filter in the environment of
-            every test, as ctest hands it on: a build that registers its cases in shards has no
-            ``Suite.Case`` CTest name for ``filter`` to match. A test whose command line names its
-            own ``--gtest_filter`` keeps that one, which gtest ranks above the variable.
-        @param resource_spec_file When set, passed as --resource-spec-file, so CTest hands each test
-            that declares RESOURCE_GROUPS a slot of the file's resources and never one slot to two tests.
+        Args:
+            exclude_label_regex: A ctest -LE pattern; matching labels are left out.
+            filter: A ctest -R pattern over the ``Suite.Case`` names.
+            repeat: Re-run each selected test until it fails or this many runs pass.
+            output_junit: Where CTest writes a JUnit file; give an absolute path.
+            gtest_filter: When set, GTEST_FILTER in every test's environment; a test's own wins.
         """
         cmd = [self.ctest(cfg), "--test-dir", str(build_dir), "--output-on-failure"]
         if label_regex:
@@ -282,17 +261,12 @@ class CMakeDriver:
                 install_hint: str = _DEFAULT_DOXYGEN_HINT) -> int:
         """Run Doxygen over *doxyfile*, or explain why it cannot.
 
-        @param install_hint Platform installation guidance, appended to the
-            not-installed message. Defaults to the common per-platform install
-            commands plus a pointer at `config.local.toml`, which is correct
-            for a module whose local config lives at that path relative to
-            cwd. Pass this only when a module genuinely has something extra to
-            say -- a different config path, an additional install method.
-        @precondition doxyfile must live under cwd. Every module passes
-            `root / ...` with `cwd=root`; a Doxyfile outside cwd raises
-            ValueError out of relative_to rather than silently falling back to
-            an absolute argument, which would change the command line for
-            whichever module hit it first.
+        Args:
+            install_hint: Platform installation guidance appended to the not-installed message;
+                the common per-platform commands when omitted.
+
+        Raises:
+            ValueError: *doxyfile* does not live under cwd.
         """
         if not doxyfile.is_file():
             self._console.error(f"Doxyfile not found at {doxyfile}.")

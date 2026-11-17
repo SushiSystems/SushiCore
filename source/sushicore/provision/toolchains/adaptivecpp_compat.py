@@ -46,12 +46,7 @@ def confirm_timeout(message: str, timeout: int = K_LLVM_CONSENT_TIMEOUT, default
 
     Args:
         message: The question to print, as Rich markup.
-        timeout: Seconds to wait for an answer before falling back to *default*.
-        default: The answer used when the wait times out.
         reader: Returns one line of the answer; ``input`` when omitted.
-
-    Returns:
-        True when the answer means yes.
     """
     warn_deprecated("_confirm_timeout", "the licence consent step")
     console = DEFAULT_CONSOLE()

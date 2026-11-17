@@ -27,10 +27,14 @@ class ConfigModule(Protocol):
     Config: type
     _ENV_OVERRIDES: Mapping[str, str]
 
-    def find_project_root(self, start: Path | None = ...) -> Path: ...
-    def config_dir(self, root: Path | None = ...) -> Path: ...
-    def load_config(self) -> object: ...
-    def sources(self) -> list[Path]: ...  # optional: every config file, lowest precedence first
+    def find_project_root(self, start: Path | None = ...) -> Path:
+        """Returns the project root, searching up from *start* when given."""
+    def config_dir(self, root: Path | None = ...) -> Path:
+        """Returns the config directory below *root*."""
+    def load_config(self) -> object:
+        """Loads the settings the commands show."""
+    def sources(self) -> list[Path]:
+        """Lists every config file, lowest precedence first."""
 
 
 #: Config files a module layers, in the order they are reported.
@@ -44,19 +48,12 @@ _WORKSPACE_LABEL = "workspace"
 class Diagnostics:
     """The ``config`` and ``env`` commands for one CLI.
 
-    @param profile     The module's identity; supplies the sibling list and the
-                       environment tokens worth showing.
-    @param console     The CLI's console module.
-    @param config      The CLI's config module.
-    @param build_env   ``(cfg, build_dir) -> dict`` returning the environment a
-                       build runs under. None when the module has no build
-                       environment to snapshot, which drops the ``env`` command.
-    @param build_dir   ``(root) -> Path``. Passed in rather than assumed: the
-                       engine derives it from a preset and sushiruntime has a
-                       separate sanitizer tree, so ``<root>/build`` is a guess
-                       this module has no business making.
-    @param files       The file system the config files are read through; the
-                       disk when None.
+    Args:
+        profile: The module's identity; supplies the sibling list and the environment tokens.
+        console: The CLI's console module.
+        config: The CLI's config module.
+        build_env: ``(cfg, build_dir) -> dict`` of the build environment; None drops ``env``.
+        build_dir: ``(root) -> Path``, passed in because modules derive it differently.
     """
 
     __slots__ = ("_profile", "_console", "_config", "_build_env", "_build_dir", "_files")

@@ -47,15 +47,10 @@ def _both(first: str, second: str) -> frozenset[str]:
 
 
 def intersect_filters(size_filter: str, user_filter: str) -> str | None:
-    """Return the GoogleTest filter that selects the cases *size_filter* and *user_filter* both select.
+    """Return the GoogleTest filter that selects the cases both filters select.
 
-    GoogleTest filters cannot be joined by AND, so each pair of positive patterns, one from each
-    filter, is replaced by the glob patterns that both of them match, and the negative patterns of
-    both filters are kept.
-
-    Args:
-        size_filter: The filter a shard registers, such as ``Small_*:*/Small_*-Small_Slow.*``.
-        user_filter: The filter the caller asked for, such as ``Small_Rect*``.
+    Each pair of positive patterns, one from each filter, is replaced by the glob patterns that
+    both match, and the negative patterns of both are kept.
 
     Returns:
         The joined filter, or None when no case can match both.

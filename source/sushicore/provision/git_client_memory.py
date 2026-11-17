@@ -16,18 +16,12 @@ from .git_client import IGitClient
 class InMemoryGitClient(IGitClient):
     """Clones the tags it was told about, leaves HEAD at the tag's commit and records each clone.
 
-    It writes nothing: a clone is a record and a HEAD held in memory. A test that needs a
-    checkout on disk hands in *materialize*. A clone of a tag that is neither in the table nor
-    covered by *commit*, or of any tag when *clones* is false, fails and is not materialized.
+    It writes nothing; a test that needs a checkout on disk hands in *materialize*.
 
     Args:
         tags: The commit each ``(url, tag)`` points at.
         commit: The commit every tag outside the table points at; ``None`` makes them fail.
         clones: Whether clones succeed at all.
-        heads: HEADs of checkouts that exist already, by folder.
-        default_head: The HEAD of every checkout not listed in *heads* or made by a clone;
-            '' says git cannot tell.
-        materialize: Called with the destination of each successful, non-dry clone.
     """
 
     def __init__(self, tags: Mapping[tuple[str, str], str] | None = None, *,

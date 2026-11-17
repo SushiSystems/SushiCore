@@ -30,6 +30,7 @@ _ENV_PREFIX = "SUSHI_CLI"
 @final
 @dataclass(slots=True)
 class AppearanceSpec:
+    """Names the theme, the icon set and the platform a console is drawn for."""
     theme: str = "default"
     icons: str = "text"
     color: str = "auto"  # auto | always | never

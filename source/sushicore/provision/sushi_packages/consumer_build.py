@@ -37,7 +37,6 @@ def configure_arguments(config: _Definitions, root: Path, packages: PackageSet) 
     Args:
         config: The consumer's module config.
         root: The consumer's project root.
-        packages: The packages the resolver chose.
     """
     return [*config.sushi_definitions(root, packages), *packages.definitions()]
 

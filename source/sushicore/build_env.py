@@ -166,15 +166,11 @@ def write_cache(cache_file: Path, key: str, env: Mapping[str, str]) -> None:
 class StackBuildEnv:
     """The build environment for a module that consumes the shared toolchain.
 
-    SushiEngine, SushiAI and SushiBLAS each carried a copy of this. Stripped of
-    comments the three were the same code but for one expression -- the cache
-    key, which lists the sibling checkouts -- and those the profile already
-    names. So even the one difference was not one.
-
-    @param profile    Supplies the siblings that belong in the cache key.
-    @param console    The CLI's console module.
-    @param find_root  The CLI's project-root resolver.
-    @param cache_name Filename of the on-disk snapshot, inside the build dir.
+    Args:
+        profile: Supplies the siblings that belong in the cache key.
+        console: The CLI's console module.
+        find_root: The CLI's project-root resolver.
+        cache_name: Filename of the on-disk snapshot, inside the build dir.
     """
 
     __slots__ = ("_profile", "_console", "_find_root", "_cache_name")

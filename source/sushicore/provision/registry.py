@@ -45,7 +45,6 @@ class Component:
         path: Absolute path to the installed component on disk.
         source: Where the component came from, e.g. a repository slug.
         installed_at: ISO-8601 UTC timestamp of the install.
-        consumers: Names of the modules currently depending on this install.
     """
 
     name: str
@@ -115,12 +114,10 @@ class Registry:
         """Return the component matching *name* (and *version* when given).
 
         Args:
-            name: The component name to look up.
             version: When given, only a component at this exact version matches.
 
         Raises:
-            RegistryError: *version* is omitted and more than one version of
-                *name* is registered.
+            RegistryError: *version* is omitted and more than one version of *name* is registered.
         """
         if version is not None:
             return self._components.get((name, version))
@@ -158,14 +155,9 @@ class Registry:
     def release(self, name: str, version: str, consumer: str) -> bool:
         """Remove *consumer* from a component's consumer list.
 
-        Args:
-            name: The component name.
-            version: The component version.
-            consumer: The consumer to drop.
-
         Returns:
-            ``True`` when the component has no consumer left after the removal,
-            ``False`` otherwise (including when the component is unregistered).
+            ``True`` when the component has no consumer left after the removal, ``False`` otherwise
+            (including when the component is unregistered).
         """
         key = (name, version)
         existing = self._components.get(key)

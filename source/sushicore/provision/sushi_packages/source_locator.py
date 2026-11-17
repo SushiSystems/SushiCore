@@ -56,8 +56,6 @@ class SushiSourceLocator:
         """Return the checkout of *name* for the consumer at *root*.
 
         Args:
-            root: The consumer's checkout.
-            name: The library's lower-case name.
             version: The pinned tag, or '' when nothing pins it.
             configured: ``<NAME>_DIR`` from the config, or ''.
 

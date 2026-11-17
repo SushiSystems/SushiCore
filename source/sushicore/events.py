@@ -26,9 +26,6 @@ def event_line(kind: str, **fields: object) -> str:
         kind: One of ``EVENT_KINDS``.
         **fields: The event's payload, kept in the order given.
 
-    Returns:
-        The JSON text without a trailing newline; embedded newlines are escaped.
-
     Raises:
         UnknownEventKindError: If ``kind`` is not in ``EVENT_KINDS``.
     """

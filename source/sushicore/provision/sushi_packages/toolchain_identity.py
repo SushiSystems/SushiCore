@@ -95,14 +95,8 @@ def compiler_identity(compiler: str, probe: Probe = run_probe,
                       read_stamp: ReadStamp | None = None) -> str:
     """Return the identity of *compiler*: its ``--version`` hash, plus its toolchain tag.
 
-    The tag is read from the stamp of the install folder that holds ``bin/<compiler>``, when it
-    has one. The version output alone separates two nightlies of one toolchain.
-
     Args:
-        compiler: The compiler path.
-        probe: Runs a command; replaced in tests.
-        read_stamp: Reads the stamp of an install folder; :func:`read_toolchain_stamp` when
-            None. It is looked up when the function runs, so a test can replace it.
+        read_stamp: Reads the stamp of an install folder; the toolchain stamp reader when None.
 
     Raises:
         PackageError: The compiler does not run, or prints nothing.

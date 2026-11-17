@@ -86,11 +86,8 @@ class PackageInstaller:
         only with *force*. The prefix is never the checkout or a protected folder.
 
         Args:
-            root: The module's checkout.
-            build_dir: The build tree to install from; relative paths are below *root*.
             prefix: Where to install; relative paths are below *root*.
             archive: Whether to run CPack after the install.
-            force: Whether a prefix this command did not stage may be cleared.
         """
         tree = build_dir if build_dir.is_absolute() else root / build_dir
         target = (prefix if prefix.is_absolute() else root / prefix).resolve()

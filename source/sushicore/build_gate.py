@@ -169,6 +169,7 @@ class Locked:
 
 
 def read_state(path: Path, empty: dict) -> dict:
+    """Returns the JSON object at *path*, or *empty* when it cannot be read."""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -218,12 +219,9 @@ def admit(
     """Admits *me* into *ledger* when its reservation fits and its turn has come.
 
     *is_alive* answers whether a process id is still running; the default asks the system.
-
     Its turn has come when it heads the queue, or when it fits and the head has waited less than
-    the backfill window. The budget is set by the first edge to arrive at an idle gate, from the
-    memory free then, so it counts what other programs hold at the start of a build and not what
-    this build holds later; memory another program frees during the build is used as well. An edge alone is always admitted, whatever its peak: nothing else
-    can make room.
+    the backfill window. The first edge to arrive at an idle gate sets the budget from the memory
+    free then. An edge alone is always admitted, whatever its peak.
     """
     running = ledger.setdefault("running", {})
     queue = ledger.setdefault("queue", [])

@@ -39,22 +39,10 @@ class InMemoryToolkitVendor:
     """Answers the vendor questions from fixed tables and touches no disk or network.
 
     Args:
-        base: The folder the releases would live in; it is only named, never created.
         labels: The release each hardware fingerprint needs; a fingerprint left out fits none.
         published: The releases an override may name.
         toolkit_roots: Folders that already hold a usable toolkit.
-        system_toolkit: What ``find_system_toolkit`` returns.
         hardware: What ``query_hardware`` returns; ``None`` stands for a machine without a driver.
-        name: The toolkit name for console lines.
-        root_variable: The variable that names the toolkit root.
-        override_variable: The variable that names a release.
-        platform_key: The platform key of the vendor's index.
-
-    Attributes:
-        offline: Whether the index is unreachable; every call that reads it raises.
-        chosen: The fingerprint of each hardware ``choose`` was asked about.
-        installed: The label of each release ``install`` put in place.
-        discards: How many times ``discard_downloads`` was called.
     """
 
     def __init__(self, base: Path, *, labels: Mapping[str, str] | None = None,

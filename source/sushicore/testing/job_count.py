@@ -46,14 +46,9 @@ class JobChoice:
 def share_of(sizes: Iterable[TestLabel]) -> int:
     """Return the memory share, in megabytes, of a run over *sizes*: the largest share of any of them.
 
-    A run of small tests alone is counted at the small share; a run that holds a medium or a large
-    test, or none at all, such as one of the quarantined tests, at the medium share.
-
-    A medium or large test is counted at 1024 MB: a device runtime, its queue and the buffers of the
-    case. A small test touches the memory of its own process only, with no device, no file and one
-    thread: the program's image, GoogleTest, the logger and the heap of the cases of its shard, which
-    run one after another. A quarter of the medium share leaves four times that room. It is a first
-    figure that the owner's machine calibrates with a measured run, as it does the time limits.
+    A run of small tests alone is counted at the small share; a run that holds a medium or a
+    large test, or none at all, at the medium share. A medium or large test is counted at
+    1024 MB for a device runtime, its queue and buffers.
     """
     chosen = tuple(sizes)
     return K_SMALL_SHARE_MB if chosen and all(size is TestLabel.SMALL for size in chosen) else K_TEST_SHARE_MB

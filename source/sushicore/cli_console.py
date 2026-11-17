@@ -29,18 +29,11 @@ _ATTRS = frozenset({
 class LazyConsole:
     """Builds a :class:`~sushicore.console.Console` on first attribute access.
 
-    *config_dir* is the CLI's own resolver for its ``cli/`` directory. It is
-    called -- not read -- on first use, and is allowed to raise
-    :class:`~sushicore.errors.ProjectRootNotFoundError`: that is how every CLI's ``config_dir`` reports "not inside a checkout", and
-    it degrades here to a console with no config sources rather than killing a
-    command that never needed a project.
-
-    *machine* selects the JSON renderer. It is read once, at the first build,
-    so a CLI sets it while parsing its command line, before anything prints.
-
-    *extra_sources* returns config files that are not in that directory, such as a
-    workspace's ``workspace.toml``. They sit below the directory's own files, so a
-    module's setting wins over the workspace's.
+    *config_dir* is the CLI's resolver for its ``cli/`` directory, called on first use; when it
+    raises :class:`~sushicore.errors.ProjectRootNotFoundError` the console has no config sources.
+    *machine* selects the JSON renderer and is read once, at the first build.
+    *extra_sources* returns config files outside that directory, such as a workspace's
+    ``workspace.toml``; they sit below the directory's own files.
     """
 
     __slots__ = ("_config_dir", "_console", "_extra_sources", "machine")

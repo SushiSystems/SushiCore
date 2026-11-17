@@ -128,9 +128,8 @@ class PackageStore:
         """Remove the least recently chosen packages of *name* beyond the keep count.
 
         A package is never removed when its digest is in *protect*, when a package of another
-        library lists it in its ``below``, or while it is a fresh ``.partial`` of another
-        process. A folder that cannot be renamed is skipped with a warning and retried at the
-        next prune. Leftover ``.trash`` folders and day-old ``.partial`` folders are swept first.
+        library lists it in its ``below``, or while it is a fresh ``.partial`` of another process.
+        A folder that cannot be renamed is skipped with a warning and retried at the next prune.
 
         Returns:
             The digests removed.

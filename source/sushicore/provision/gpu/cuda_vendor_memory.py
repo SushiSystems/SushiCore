@@ -41,7 +41,6 @@ class InMemoryRedistInstaller:
     Args:
         architectures: The architectures the compilers of each major version build for.
         broken: Versions whose compiler does not run.
-        base_dir: The folder releases would be installed under; it is only named.
 
     Attributes:
         installed: The label of each release ``install`` was given.

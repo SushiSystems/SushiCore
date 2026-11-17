@@ -41,9 +41,7 @@ class InstallPipeline:
         program as a ``progress`` event.
 
         Args:
-            ctx: The shared context steps read and populate.
-            show_progress: Ignored. It once drew a bar that repeated the progress line; callers that
-                still pass it keep working.
+            show_progress: Ignored; callers that still pass it keep working.
         """
         del show_progress
         total = len(self._steps)

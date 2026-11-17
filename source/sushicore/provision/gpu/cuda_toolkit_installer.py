@@ -132,9 +132,6 @@ class RedistToolkitInstaller:
 
         The caller holds the user's consent to :data:`K_CUDA_LICENCE`.
 
-        Args:
-            console: The console a download is announced on.
-
         Raises:
             ToolkitInstallError: A component is missing, mismatching or does not unpack.
         """

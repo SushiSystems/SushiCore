@@ -47,13 +47,8 @@ def _linked_pages(docs_dir: Path, page: str, files: Files) -> list[str]:
 def read_page_order(docs_dir: Path, *, files: Files | None = None) -> dict[str, int]:
     """Returns each page reached from the index, keyed by its path below docs/, with its position.
 
-    Pages are numbered from 1 in the order a breadth-first walk first reaches them: the pages
-    the index links to, then the pages those link to. A page under agent/ or archive/ gets a
-    position and is not read.
-
-    Args:
-        docs_dir: The documentation tree.
-        files: The file system the pages are read through; the disk when None.
+    Pages are numbered from 1 in the order a breadth-first walk first reaches them. A page
+    under agent/ or archive/ gets a position and is not read.
 
     Raises:
         PageError: The documentation tree has no index.

@@ -92,9 +92,7 @@ def legacy_roots(*, environ: Mapping[str, str] | None = None, cwd: Path | None =
         environ: The environment to read; the process's when ``None``.
         cwd: Where the workspace search starts; the working folder when ``None``.
         current: The root to leave out; :func:`root` when ``None``.
-        is_dir: Asked whether a candidate is a folder; ``Path.is_dir`` when ``None``.
-        workspace_of: Finds the workspace above a folder; a walk up to the workspace marker when
-            ``None``.
+        is_dir: Whether a candidate is a folder; ``Path.is_dir`` when ``None``.
     """
     env = os.environ if environ is None else environ
     start = Path.cwd() if cwd is None else cwd
@@ -131,14 +129,12 @@ def is_removable_root(path: Path, *, user_home: Path | None = None, cwd: Path | 
                       exists: Callable[[Path], bool] | None = None) -> bool:
     """Report whether *path* is safe to recursively delete as a dependency root.
 
-    Refuses the user's home directory, a filesystem anchor, the current
-    working directory, any ancestor of it, and any directory holding a
-    ``.git`` or :data:`WORKSPACE_MARKER` entry.
+    Refuses the user's home directory, a filesystem anchor, the current working directory, any
+    ancestor of it, and any directory holding a ``.git`` or :data:`WORKSPACE_MARKER` entry.
 
     Args:
         user_home: The home directory to refuse; the user's when ``None``.
         cwd: The working folder to refuse, and its ancestors; the process's when ``None``.
-        exists: Asked whether a marker exists; ``Path.exists`` when ``None``.
     """
     resolved = Path(path).resolve()
     home_dir = (Path.home() if user_home is None else user_home).resolve()

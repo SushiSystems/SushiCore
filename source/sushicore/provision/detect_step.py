@@ -235,13 +235,9 @@ class DetectStep(Step):
     def summarize_inventory(rows: list[_Row]) -> tuple[dict[str, int], list[_Row]]:
         """Count the inventory rows by status text and pick out the missing ones.
 
-        Args:
-            rows: The rows the inventory table shows, as ``inventory_rows`` returned them.
-
         Returns:
-            The count per status, ordered OK, MISSING, NOT NEEDED and then any other
-            status by first appearance, with no zero counts; and the MISSING rows in
-            table order.
+            The count per status, ordered OK, MISSING, NOT NEEDED and then any other status by
+            first appearance, with no zero counts; and the MISSING rows in table order.
         """
         seen: dict[str, int] = {}
         for _component, status, _owner, _detail in rows:

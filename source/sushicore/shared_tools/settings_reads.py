@@ -22,12 +22,8 @@ def missing_settings(
 
     Args:
         tools: The texts of the copied Python tools.
-        target_settings: The text of the repository's `tools/settings.py`, or None when it has none.
+        target_settings: The text of the repository's `tools/settings.py`, or None.
         core_settings: The text of SushiCore's `tools/settings.py` at the tag.
-
-    Returns:
-        The names in order, each with the source of its value in SushiCore, or None when SushiCore
-        does not define it either.
     """
     read = {name for text in tools for pair in K_READ.findall(text) for name in pair if name}
     held = _definitions(target_settings or "")

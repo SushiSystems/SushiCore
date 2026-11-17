@@ -66,15 +66,7 @@ class PlanProbes:
     Attributes:
         is_link: Reports whether a path is a directory link.
         link_target: Gives the directory a link points to, or None for a path that is no link.
-        is_dir: Reports whether a path is a directory.
-        present: Reports whether a path exists, a link with a missing target included.
-        resolve: Gives a path with its links followed.
-        absolute: Gives a path anchored to the working directory, links left alone.
-        subfolders: Lists the folders directly below a path.
-        file_sizes: Gives the size of every file under a folder by relative path.
         free_bytes: Gives the free space on the volume holding a path.
-        same_volume: Reports whether two roots are on one volume.
-        journal_exists: Reports whether a migration journal sits in a root.
     """
 
     is_link: Callable[[Path], bool] = lambda path: is_dir_link(path)

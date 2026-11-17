@@ -17,11 +17,6 @@ def moved_attribute(namespace: Mapping[str, object], moves: Mapping[str, str], n
 
     Called from a module's ``__getattr__``, so the warning points at the code that asked.
 
-    Args:
-        namespace: The module's globals; its ``__name__`` words the error.
-        moves: Each moved name and the dotted path of the module that now holds it.
-        name: The name asked for.
-
     Raises:
         AttributeError: *name* did not move out of the module.
     """

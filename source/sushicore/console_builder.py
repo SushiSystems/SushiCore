@@ -39,15 +39,11 @@ def build_console(config_paths: Sequence[Path] = (), *, machine: bool = False,
     """Build a themed :class:`Console` from a repo's own config files.
 
     Args:
-        config_paths: The TOML files a repo already resolves for its build config,
-            low to high precedence; only the ``[cli]`` table is read.
-        machine: When true, render through :class:`JsonRenderer` so stdout carries
-            one JSON event per line. Theme and icons are still loaded.
-        environment: The variables the appearance and the background are read from; the process
-            environment when None.
+        config_paths: The TOML files of the build config, low to high precedence.
+        machine: When true, render through :class:`JsonRenderer`, one JSON event per line.
+        environment: The variables the appearance is read from; the process's when None.
         files: The file system the config files are read through; the disk when None.
         theme_registry: The themes a config may name; the default registry when None.
-        icon_registry: The icon sets a config may name; the default registry when None.
     """
     environment = ProcessEnvironment() if environment is None else environment
     themes = theme_registry or DEFAULT_THEME_REGISTRY

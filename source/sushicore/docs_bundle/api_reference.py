@@ -76,13 +76,10 @@ def stage_api(
 
     Args:
         source: How the repository builds its API reference; None when it builds none.
-        destination: The folder the XML is copied into.
-        files: The file system the index and the files it names are looked up in; the disk
-            when None. The copy itself always reads and writes the disk.
+        files: The file system the index is looked up in; the disk when None.
 
     Raises:
-        ApiReferenceError: No source, a failed build, no XML, or a file the index names
-            and the output folder lacks.
+        ApiReferenceError: No source, a failed build, no XML, or a file the index names is missing.
     """
     if source is None:
         raise ApiReferenceError(

@@ -50,38 +50,11 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               free_memory: Callable[[], int] = free_memory_mb) -> int:
     """Run the tests *selection* names over the module's tree, then judge the run by its time limits.
 
-    The exit code is CTest's when the tests failed. When they passed, a run of a current tree that
-    breaks a time limit fails with the budget reader's code; a tree that was not current is only reported.
-    CTest gets a resource file with one slot per accelerator, so the shards that declare
-    ``RESOURCE_GROUPS`` never share one.
-
     Args:
-        module: What the module CLI hands the command.
-        selection: The labels to run.
-        name_filter: A CTest ``-R`` pattern over ``Suite.Case`` names; over a build that registers its
-            cases in shards, a GoogleTest filter. A module with a ``run_program`` runs the selected shards
-            itself, each under its size filter narrowed by this one; any other module's shards receive it
-            as ``GTEST_FILTER``.
+        name_filter: A CTest ``-R`` pattern; a GoogleTest filter over sharded tests.
         repeat: Reruns each test up to this many times, stopping at its first failure.
-        jobs: How many tests run at once; one per core, lowered to fit the free memory of the selected
-            sizes, when None.
-        every_size: Whether the run was asked for every size, which allows the ``large`` tests unfiltered.
-        sanitizer: Builds the tree of this sanitizer first and tests it, instead of the plain tree.
-        own_tests: Runs the module's own pytest suite for *selection* instead of CTest.
-        shuffle: Runs the tests of each program in a random order; the seed is printed.
-        seed: The shuffle seed, to repeat an order; a new random one when None.
-        files: The file system the tree check, the JUnit file and the budget reader are looked for in; the disk when None.
-        seed_source: Draws a seed between its two bounds when *seed* is None; ``random.randint`` when None.
-        cpu_count: Reports the cores of the machine; ``os.cpu_count`` by default.
-        free_memory: Reports the free physical memory in megabytes; the build gate's reader by default.
 
-    A failed test is rerun once, alone, before the budget line, and one that passes on the rerun is
-    reported flaky; the exit code stays CTest's. The per-case times of the shards, which a run over
-    sharded tests writes as GoogleTest XML, join the budget line.
-
-    Returns:
-        CTest's exit code when it is not 0, else the budget's: 1 for a broken time limit, 2 for a reader
-        that could not judge the run; 2 also when the request cannot be acted on.
+    Returns CTest's exit code when not 0, else the budget's: 1 or 2.
     """
     files = files if files is not None else DiskFiles()
     console = module.console()

@@ -46,15 +46,10 @@ def migrate(plan: MigrationPlan, report: Report,
     """Move every component of *plan*, set the old root aside and link it to the new root.
 
     Args:
-        verify: Reports whether a copy holds the same files as its source; the file-size
-            comparison when ``None``.
-
-    A run that stopped part-way goes on from its journal. An old root that already
-    links to the new root is reported and left alone.
+        verify: Whether a copy holds the same files as its source; file sizes when ``None``.
 
     Raises:
-        MigrationError: Space is short, a component could not be moved or its copy
-            differs, or the old root could not be set aside or linked.
+        MigrationError: Space is short, a move fails or a copy differs.
     """
     if plan.already_migrated:
         report(f"already migrated: {plan.old_root.as_posix()} links to "

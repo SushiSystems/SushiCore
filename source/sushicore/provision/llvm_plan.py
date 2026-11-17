@@ -26,7 +26,6 @@ class LlvmRequest:
         winget: The winget manager, or None when unavailable.
         assume_yes: Skip the consent prompt for the heavy LLVM download.
         llvm_bases: The Windows LLVM install roots to look in; the defaults when ``None``.
-        console: The console the plan prints through.
     """
 
     mgr: LinuxPackageManager | None

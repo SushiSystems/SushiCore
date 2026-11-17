@@ -19,11 +19,14 @@ class TestConsole(Protocol):
 
     __test__ = False
 
-    def info(self, text: str) -> None: ...
+    def info(self, text: str) -> None:
+        """Prints an info line."""
 
-    def warn(self, text: str) -> None: ...
+    def warn(self, text: str) -> None:
+        """Prints a warning line."""
 
-    def error(self, text: str) -> None: ...
+    def error(self, text: str) -> None:
+        """Prints an error line."""
 
 
 @final
@@ -56,27 +59,9 @@ class ModuleTests:
     Args:
         profile: Names the module and its program.
         project_root: The checkout the budget reader and the exemption file are looked for in.
-        console: Returns the console the command prints through.
         build_tree: The built tree CTest runs over.
-        run_ctest: Runs CTest over a tree with the module's environment. It takes the tree and the
-            keywords ``label_regex``, ``exclude_label_regex``, ``filter``, ``repeat``, ``jobs``,
-            ``output_junit``, and returns CTest's exit code. A call that names ``gtest_filter`` or takes ``**keywords`` also
-            receives the pattern of a filtered run over shards, as a GoogleTest filter for every shard. A call that names ``shuffle_seed`` or takes ``**keywords`` also
-            receives it, an int; any other runs in the given order and the command says so.
-        run_program: Runs one of the module's programs, such as a test program, by the name its CTest
-            tests carry, with the module's runtime environment and the given arguments, and returns its
-            exit code. It also takes the keywords ``env``, variables added to the environment, and ``timeout``,
-            in seconds, which a filtered run over shards passes; ``ProgramRunner`` does. None when the module
-            has none, which makes a failed shard rerun whole by CTest and a filter reach the shards as ``GTEST_FILTER``.
-        run: Runs a command in a folder and returns its exit code; the budget reader goes through it.
-        check_tree: Names a fault of the tree, such as a stale configuration, or returns None.
-        panel: The help panel the command is listed under, or None for the default.
-        sanitized: The sanitizer builds of the module; None when it has none, which hides ``--sanitize``.
-        rebuilt: Says whether the tree was rebuilt just before this run. None means it is not known, which the
-            command reads as not rebuilt: the budget line says so and never gates. A sanitizer run builds its tree
-            and counts as rebuilt.
-        cli_tests: Runs the module's own pytest suite for a selection and returns pytest's exit code; None
-            when it has none, which hides ``--cli``.
+        run_ctest: Runs CTest over a tree and returns its exit code.
+        run_program: Runs one of the module's programs by its CTest test name; None when none.
     """
 
     profile: ModuleProfile

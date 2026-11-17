@@ -98,20 +98,12 @@ def install_oneapi(ctx: "InstallContext", *, console: Any = None,
                    run_installer: Callable[[Path], bool] | None = None) -> bool:
     """Download and silently install Intel oneAPI DPC++, when selected and needed.
 
-    A no-op when oneAPI was not selected for this run, a SYCL compiler was
-    already detected, or the run is a dry run.
+    A no-op when oneAPI was not selected, a SYCL compiler was already detected, or the run is
+    a dry run. Returns True on success or when nothing needed doing.
 
     Args:
-        ctx: The shared install context; reads ``selection.oneapi``, ``detected``
-            and ``dry_run``.
-        console: The console the install prints through.
-        download_installer: Fetches the offline installer and returns its path, or None on
-            failure; :func:`download_oneapi_installer` when omitted.
-        run_installer: Runs the installer at a path and reports success;
-            :func:`run_oneapi_installer` with the run's consent when omitted.
-
-    Returns:
-        True on success or when nothing needed doing; False on failure.
+        download_installer: Fetches the installer; :func:`download_oneapi_installer` if omitted.
+        run_installer: Runs the installer; :func:`run_oneapi_installer` if omitted.
     """
     console = console_or_default(console, "install_oneapi")
     if not oneapi_licences(ctx):
@@ -136,19 +128,14 @@ def oneapi_licences(ctx: "InstallContext") -> list[Licence]:
 
 def download_oneapi_installer(*, console: Any = None, directory: Path | None = None,
                               runner: CommandRunner | None = None) -> Path | None:
-    """Download the Intel oneAPI offline installer into the user's home directory.
+    """Download the Intel oneAPI offline installer into the user's home directory, or None on failure.
 
     Args:
-        console: The console the download prints through.
         directory: Where the installer is kept; the user's home directory when omitted.
-        runner: Runs the curl command; the provision runner on *console* when ``None``.
-
-    Returns:
-        The downloaded (or already-present) installer path, or None on failure.
+        runner: Runs the curl command; the provision runner when ``None``.
 
     Raises:
-        DigestMismatchError: The installer's SHA-256 is not the one its manifest entry
-            pins, whether it was downloaded now or left by an earlier run.
+        DigestMismatchError: The installer's SHA-256 differs from its manifest entry.
     """
     console = console_or_default(console, "download_oneapi_installer")
     installer = (directory or Path.home()) / "intel-oneapi-toolkit-offline.exe"
@@ -165,19 +152,12 @@ def download_oneapi_installer(*, console: Any = None, directory: Path | None = N
 
 def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None, console: Any = None,
                          runner: CommandRunner | None = None) -> bool:
-    """Run the Intel oneAPI installer silently, elevating on demand.
+    """Run the Intel oneAPI installer silently, elevating on demand; return whether it succeeded.
 
     Args:
         installer: Path of the downloaded offline installer executable.
         consent: The run's licence consent; the installer launches only when it covers
             :data:`K_ONEAPI_LICENCE`.
-        console: The console the install prints through.
-        runner: Runs the installer, and the elevated PowerShell launch stopped after 1200
-            seconds; the provision runner on *console* when ``None``.
-
-    Returns:
-        True when the installer reports success; False without consent to
-        :data:`K_ONEAPI_LICENCE`, and nothing runs then.
     """
     console = console_or_default(console, "run_oneapi_installer")
     if not is_accepted(consent, K_ONEAPI_LICENCE):

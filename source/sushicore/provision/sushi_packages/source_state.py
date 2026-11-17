@@ -105,12 +105,7 @@ def describe_source(checkout: Path, inspector: ISourceInspector,
                     excludes: Sequence[str] = ()) -> str:
     """Return the SHA-256, as hex, of the path and bytes of the source files of *checkout*.
 
-    A file the working tree no longer holds is skipped, so a deletion that git has not staged
-    changes the hash as it changes the build.
-
     Args:
-        checkout: The library's checkout.
-        inspector: Lists the files.
         excludes: The ``package_exclude`` entries of the library's fragment.
 
     Raises:

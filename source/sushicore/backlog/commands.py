@@ -42,15 +42,12 @@ def register_backlog_commands(
     group_cls: type | None = None,
     unverified: Callable[[Path], frozenset[str] | None] = GitVerification().unverified,
 ) -> None:
-    """Adds the `backlog` group to *app*.
+    """Adds the `backlog` group to *app* under *panel*, with examples that name *program*.
 
     Args:
         app: The application to add the group to.
-        program: The command the user types, for the examples.
-        panel: The help panel the group is listed under.
         project_root: Returns the repository root; called when a command runs.
         report: Prints one line of the result the way the CLI prints.
-        group_cls: The Click group class the CLI draws its help with.
         unverified: Returns the IDs named after the verification stamp, or None without a stamp.
     """
     import typer

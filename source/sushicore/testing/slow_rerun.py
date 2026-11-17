@@ -22,15 +22,12 @@ from .shards import gtest_results_folder, program_of, slow_results_folder
 class SlowTestRerun:
     """Reruns the tests of one run that were over a time limit, alone.
 
-    A case of a shard reruns through its program, its cases of one shard in one process with no other
-    test running, and writes GoogleTest XML. Any other test reruns through CTest with one job and writes
-    JUnit. A shard case whose module cannot run its program is not rerun, and the reader judges its
-    time in the run.
+    A shard case reruns through its program and writes GoogleTest XML; any other test reruns
+    through CTest with one job and writes JUnit.
 
     Args:
         module: What the module CLI hands the command.
         tree: The built tree the run tested.
-        files: The file system the result files are read from and cleared in.
     """
 
     def __init__(self, module: ModuleTests, tree: Path, files: Files) -> None:

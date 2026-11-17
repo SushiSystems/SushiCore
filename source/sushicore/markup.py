@@ -27,11 +27,7 @@ def escape_unknown_tags(text: str, known_styles: Collection[str]) -> str:
     number of backslashes is already escaped and is left as it is, as Rich reads it.
 
     Args:
-        text: Markup that may hold brackets which are plain data.
         known_styles: Style names the caller's console knows besides Rich's own.
-
-    Returns:
-        The markup with every bracket that names no style turned into text.
     """
     open_names: list[str] = []
 

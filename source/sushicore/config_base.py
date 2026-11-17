@@ -59,6 +59,7 @@ class ToolConfig:
 
     @property
     def is_windows(self) -> bool:
+        """Reports whether the platform is Windows."""
         return self.platform == "windows"
 
     def expand(self, value: str) -> str:
@@ -75,14 +76,12 @@ def load_tool_config(cls: Type[C], sources: Iterable[Path], plat: str,
                      environment: Environment | None = None, files: Files | None = None) -> C:
     """Load *cls* from layered TOML sources, keeping only fields it declares.
 
-    @param cls       The ``ToolConfig`` subclass to instantiate.
-    @param sources   Config files in ascending precedence (later wins).
-    @param plat      Platform key selecting the ``[tool.<platform>]`` override.
-    @param env_map   ``field -> ENV_VAR``; a set env var overrides that field.
-    @param bool_keys Fields to coerce from string to bool.
-    @param environment The variables read for the overrides; the process environment when None.
-    @param files     The file system the sources are read through; the disk when None.
-    @return          A populated instance with ``platform`` set.
+    Args:
+        cls: The ``ToolConfig`` subclass to instantiate.
+        sources: Config files in ascending precedence (later wins).
+        plat: Platform key selecting the ``[tool.<platform>]`` override.
+        env_map: ``field -> ENV_VAR``; a set env var overrides that field.
+        bool_keys: Fields to coerce from string to bool.
     """
     values = load_layered(sources, plat, env_map, bool_keys=bool_keys,
                             environment=environment, files=files)

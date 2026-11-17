@@ -73,15 +73,11 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
     """Return the components to install for *source* on a machine holding *present*.
 
     Args:
-        source: The declared dependencies.
         present: Toolchain key to whether the machine already has it.
-        requested: Keys to install whatever the machine has. An optional
-            toolchain installs only this way.
-        gpu: Whether the run may provision the detected GPU's toolkit; it does only
-            when some declared dependency is ``gpu_only``.
+        requested: Keys to install whatever the machine has.
+        gpu: Whether the run may provision the detected GPU's toolkit.
 
-    Raises:
-        UnknownToolchainError: *requested* holds a key no component carries.
+    Raises UnknownToolchainError when *requested* holds a key no component carries.
     """
     unknown = [key for key in requested if key not in toolchain_keys()]
     if unknown:

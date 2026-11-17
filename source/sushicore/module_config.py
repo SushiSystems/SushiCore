@@ -48,20 +48,17 @@ class ModuleConfig:
 
     @property
     def profile(self) -> ModuleProfile:
+        """Returns the module's identity."""
         return self._profile
 
     def find_project_root(self, start: Path | None = None, *, files: Files | None = None) -> Path:
         """Walk up from *start* (default cwd) to any of the profile's markers.
 
-        The nearest directory carrying either marker wins, so the same walk
-        finds a checkout and an unpacked release.
+        The nearest directory carrying either marker wins, so the same walk finds a checkout and
+        an unpacked release.
 
-        @param files The file system the markers are looked up in; the disk when None. A start
-               path in memory is walked as given, not resolved.
-
-        @raise ProjectRootNotFoundError when run outside a checkout. The entry point
-               prints it as one line and exits 1; callers that can work without a
-               project, such as the console and ``--help``, catch it.
+        Raises:
+            ProjectRootNotFoundError: Run outside a checkout.
         """
         root = walk_up(start or Path.cwd(), has_marker(*self._profile.markers(), files=files),
                        resolve=files is None)

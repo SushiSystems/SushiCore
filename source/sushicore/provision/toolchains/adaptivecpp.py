@@ -111,29 +111,14 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
                         run_command: Callable[..., int] | None = None,
                         configure: Callable[[list[str], bool], bool] | None = None,
                         ) -> str | None:
-    """Build AdaptiveCpp from source; return the ``acpp`` executable path.
+    """Build AdaptiveCpp from source; return the ``acpp`` executable path, or None on failure.
 
     Args:
         cfg: Resolved configuration; selects platform-specific paths and tools.
-        mgr: The Linux distro package manager, or None off Linux.
-        vcpkg: The vcpkg manager, or None when unavailable.
         dry_run: Report the action without touching the filesystem.
         assume_yes: Skip the Windows LLVM consent prompt.
-        console: The console the build prints through.
-        winget: The winget manager, or None when unavailable; it installs LLVM only when it holds
-            the user's consent to winget's agreements.
-        which: Finds an executable on the search path; ``shutil.which`` when omitted.
-        glob: Expands a glob pattern when the Windows SDK is looked up; ``glob.glob`` when omitted.
-        llvm_bases: The Windows LLVM install roots to look in; see :func:`_find_windows_llvm`.
-        environ: The environment whose ``PATH`` gains the SDK resource compiler's folder;
-            ``os.environ`` when omitted.
-        run_command: Runs a command and returns its exit code; takes the command, the dry-run
-            flag and a ``check`` keyword. ``process_run.run`` on *console* when omitted.
-        configure: Runs the configure command quietly and reports success; takes the command
-            and the dry-run flag. The quiet subprocess runner when omitted.
-
-    Returns:
-        The ``acpp`` executable path on success, None when it could not be built.
+        winget: The winget manager; it installs LLVM only with the user's consent.
+        llvm_bases: The Windows LLVM install roots to look in.
     """
     console = console_or_default(console, "install_adaptivecpp")
     prefix = toolchains_dir() / "adaptivecpp"

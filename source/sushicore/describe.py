@@ -108,10 +108,8 @@ def catalogue(app: "typer.Typer", *, distribution: str, applies_to: Sequence[str
     """Serialises *app*'s visible commands, sorted by name, as the catalogue the contract fixes.
 
     Args:
-        app: The Typer application to describe.
         distribution: The distribution whose installed version the catalogue reports.
-        applies_to: What every command's ``applies_to`` holds; SushiHub passes the forms of
-            module presence, a module CLI passes nothing.
+        applies_to: What every command's ``applies_to`` holds; a module CLI passes nothing.
 
     Returns:
         A dict matching SushiHub's ``contract/describe.schema.json``.

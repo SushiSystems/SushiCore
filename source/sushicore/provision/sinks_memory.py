@@ -20,8 +20,6 @@ class InMemoryConfigSink:
 
     Attributes:
         calls: The name of each method called, in call order.
-        paths: The ``(platform, values)`` of each ``write_paths`` call.
-        tool: The ``updates`` of each ``write_tool`` call.
     """
 
     def __init__(self, target: Path = Path("config.local.toml"),

@@ -31,19 +31,12 @@ def run_with_timeout(command: list[str], cwd: Path, env: dict[str, str] | None, 
 class ProgramRunner:
     """Runs one test program of a build tree, with the environment the module runs its tests under.
 
-    A CLI hands an instance to ``ModuleTests`` as ``run_program``, so a failed shard reruns only its
-    failing cases. The executable is the one the tree's shard registrations name, so the CLI states
-    no path of its own.
+    A CLI hands an instance to ``ModuleTests`` as ``run_program``, so a failed shard reruns only
+    its failing cases.
 
     Args:
         tree: The built tree whose test files name the programs.
-        run: Runs a command in a folder under an environment and returns its exit code.
         env: The environment the program runs under; None for the caller's own.
-        files: The file system the tree's test files are read from; the disk when None.
-        run_timed: Runs a command in a folder under an environment and stops it after a number of
-            seconds; ``run_with_timeout`` through *runner* when None. Only a call that names a
-            timeout uses it.
-        runner: Spawns a program that has a timeout when *run_timed* is None; the real one when None.
     """
 
     def __init__(self, tree: Path, run: Callable[..., int], env: dict[str, str] | None = None,

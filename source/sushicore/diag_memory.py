@@ -20,10 +20,6 @@ class InMemoryConfigModule:
         root: The project root ``find_project_root`` returns.
         config_cls: The settings class, a dataclass.
         values: The field values ``load_config`` builds the settings from.
-        env_overrides: The environment variable that overrides each field.
-        config_dir: The config directory; ``<root>/cli`` when not given.
-        sources: The config files, lowest precedence first; the directory's
-            ``config.toml`` and ``config.local.toml`` when not given.
     """
 
     def __init__(self, root: Path, config_cls: type, values: Mapping[str, object] | None = None,

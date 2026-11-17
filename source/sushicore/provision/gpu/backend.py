@@ -99,16 +99,7 @@ class GpuBackendSpec:
         probe_vendor: The vendor key ``probe.py`` reports, e.g. ``"nvidia"``.
         locator: Finds and provisions the toolkit for this vendor.
         adapter_option: The Unified Runtime CMake option that builds this adapter.
-        adapter_definitions: Builds the extra configure definitions from a
-            located toolkit, naming its root to the adapter build.
-        adapter_target: The CMake build target that produces the adapter.
-        adapter_binaries: Base names of the binaries the adapter build
-            produces, without platform prefix or suffix. The adapter builder maps
-            each name to its platform file name: ``<name>.dll`` on Windows,
-            ``lib<name>.so*`` on Linux.
-        adapter_patches: File names, under the package's ``patches`` folder,
-            of the patches applied to the fetched sources before configuring.
-            Empty for a backend that builds from the pristine commit.
+        adapter_binaries: Base names of the adapter binaries, without platform prefix or suffix.
     """
 
     vendor: str

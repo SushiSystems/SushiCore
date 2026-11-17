@@ -46,19 +46,12 @@ _COMMON_ENV_TOKENS: tuple[str, ...] = (
 class ModuleProfile:
     """The identity of one Sushi* module, as its CLI and the shared code see it.
 
-    @param name          Display name used in messages, e.g. ``"SushiEngine"``.
-    @param program       The command a user types, e.g. ``"se"``.
-    @param env_prefix    Prefix on this CLI's environment overrides, e.g. ``"SE"``.
-    @param root_marker   File whose presence marks the root of a checkout.
-    @param release_manifest File whose presence marks the root of an unpacked
-                         binary install, and tells the two forms apart.
-    @param siblings      Sibling module directories this project builds in-tree.
-    @param default_target Executable ``run`` falls back to with no target named.
-    @param env_fields    Which config fields accept a prefixed override. Empty
-                         means all of them, which is what every CLI but sushidsp
-                         wants; sushidsp exposes a deliberate subset.
-    @param env_of_interest Extra environment-variable tokens `<prog> env` shows
-                         on top of the ones every build cares about.
+    Args:
+        name: Display name used in messages, e.g. ``"SushiEngine"``.
+        program: The command a user types, e.g. ``"se"``.
+        env_prefix: Prefix on this CLI's environment overrides, e.g. ``"SE"``.
+        root_marker: File whose presence marks the root of a checkout.
+        siblings: Sibling module directories this project builds in-tree.
     """
 
     name: str

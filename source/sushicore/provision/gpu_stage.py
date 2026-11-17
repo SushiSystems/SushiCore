@@ -76,11 +76,9 @@ class GpuStage:
     Args:
         console: The console the warnings are printed through.
         actions: The machine calls the stage reads.
-        install_stack: Installs the compute SDK of a vendor; defaults to
-            :func:`sushicore.provision.packages.install_gpu_stack`.
-        provision_adapters: Builds the adapters for a run; defaults to
-            :func:`provision_adapters_for_run`.
-        toolkit_present: Answers whether the run's NVIDIA toolkit is already on the machine.
+        install_stack: Installs the compute SDK of a vendor; the packages' default when omitted.
+        provision_adapters: Builds the adapters for a run; :func:`provision_adapters_for_run`.
+        toolkit_present: Whether the run's NVIDIA toolkit is already on the machine.
     """
 
     def __init__(self, *, console: ProvisionConsole | None = None, actions: GpuMachine,

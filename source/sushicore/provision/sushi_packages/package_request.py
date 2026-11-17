@@ -23,13 +23,7 @@ class PackageRequest:
         root: The consumer's checkout.
         compiler: The SYCL compiler the consumer builds with.
         build_type: The consumer's build type; lower-cased into the key.
-        options: The extra ``build`` arguments of a library, by library name.
-        configured: The ``<NAME>_DIR`` of a library from the config, by library name.
-        fragment: The consumer's fragment, below *root*.
-        vcpkg_root: The vcpkg tree the consumer uses, or None.
-        triplet: The vcpkg triplet the consumer uses.
-        libraries: The libraries to resolve, with what each depends on; None resolves the
-            whole closure of the consumer's fragment.
+        libraries: The libraries to resolve, with what each depends on; None resolves all.
     """
 
     owner: str

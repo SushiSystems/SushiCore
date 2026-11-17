@@ -39,15 +39,12 @@ def register_design_commands(
     today: Callable[[], datetime.date] = datetime.date.today,
     files: Files | None = None,
 ) -> None:
-    """Adds the `design` group to *app*.
+    """Adds the `design` group to *app* under *panel*, with examples that name *program*.
 
     Args:
         app: The application to add the group to.
-        program: The command the user types, for the examples.
-        panel: The help panel the group is listed under.
         project_root: Returns the repository root; called when a command runs.
         report: Prints one line of the result the way the CLI prints.
-        group_cls: The Click group class the CLI draws its help with.
         today: The clock a shipped status is dated with; the real date by default.
         files: The files the topics are read from and written to; the disk by default.
     """

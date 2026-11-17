@@ -198,9 +198,6 @@ def owner_order(source: IDependencySource, owners: Iterable[str]) -> list[str]:
         source: Reads each module's ``depends_on``; call its ``all()`` first.
         owners: The owner names to order, duplicates allowed.
 
-    Returns:
-        Every distinct owner, ordered.
-
     Raises:
         ValueError: The modules depend on one another in a cycle.
     """

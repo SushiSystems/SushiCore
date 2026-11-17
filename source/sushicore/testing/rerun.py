@@ -42,14 +42,12 @@ K_NOTHING_RERUN = RerunOutcome(results=None, flaky=(), failing=())
 class FailedTestRerun:
     """Reruns the failed tests of one run, once each, alone.
 
-    A failed shard reruns only its failing cases, by ``--gtest_filter`` on its program, so the
-    passing cases are not paid for again. Any other failed test, and a shard whose failing cases
-    cannot be read or whose module cannot run its program, reruns whole through CTest.
+    A failed shard reruns only its failing cases, by ``--gtest_filter`` on its program. Any other
+    failed test reruns whole through CTest.
 
     Args:
         module: What the module CLI hands the command.
         tree: The built tree the run tested.
-        files: The file system the result files are read from and cleared in.
     """
 
     def __init__(self, module: ModuleTests, tree: Path, files: Files) -> None:

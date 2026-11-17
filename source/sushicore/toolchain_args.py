@@ -22,13 +22,11 @@ K_C_SIBLINGS = {"clang++": "clang", "icpx": "icx"}
 def c_compiler_for(cxx: str) -> str:
     """The C compiler slot for a C++-personality driver: its sibling C driver.
 
-    clang++ and oneAPI's icpx hardcode C++ mode regardless of file extension, so
-    pointing CMAKE_C_COMPILER at the same path breaks the C-language probe for a
-    project declaring LANGUAGES CXX C. Each ships its C driver beside it; a bare
-    name is looked up on the PATH.
+    Args:
+        cxx: The resolved C++ compiler path, or a bare name looked up on the PATH.
 
-    @param cxx The resolved C++ compiler path, or a bare name.
-    @return The sibling C driver, or *cxx* unchanged when there is none.
+    Returns:
+        The sibling C driver, or *cxx* unchanged when there is none.
     """
     path = Path(cxx)
     sibling_stem = K_C_SIBLINGS.get(path.stem.lower())

@@ -23,13 +23,9 @@ class RecordedCommand:
     Attributes:
         argv: The command words as they were given.
         cwd: The folder the command was to run in.
-        env: A copy of the environment given, or ``None`` when the caller gave none.
-        drained: Whether the command ran through ``run_drained``, or through ``run`` in machine mode.
-        captured: Whether the command ran through ``capture``.
-        timeout: The timeout a capture was given, or ``None``.
-        quiet: Whether the command ran through ``run_quiet``.
-        input_text: The text a capture wrote to the command's stdin, or ``None``.
-        stdin_given: Whether a run was given a file to read as its stdin.
+        env: A copy of the environment given, or ``None``.
+        drained: Whether it ran through ``run_drained``, or ``run`` in machine mode.
+        captured: Whether it ran through ``capture``.
     """
 
     argv: tuple[str, ...]
@@ -50,8 +46,7 @@ class ScriptedRun:
 
     Attributes:
         exit_code: The exit code returned.
-        lines: The output lines a drained run prints, one per line, and a capture returns as stdout.
-            A failed quiet run shows the last `K_QUIET_TAIL_LINES` of them.
+        lines: The output lines a drained run prints and a capture returns as stdout.
         stderr: The error output a capture returns.
         missing: Whether the executable is missing, as if it were on no PATH.
         timed_out: Whether a capture outlives its timeout.

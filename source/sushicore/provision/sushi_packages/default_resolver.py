@@ -74,11 +74,6 @@ def default_resolver(keep: int, report: Callable[[str], None], warn: Callable[[s
         keep: How many packages of a library the store keeps.
         report: Receives one line per library.
         warn: Receives the warnings.
-        env: The environment of the CLI; ``os.environ`` when None.
-        cmake: The cmake executable the key's CMake version is read from.
-        run: Runs a library CLI command.
-        root: The packages folder; ``<home>/packages`` when None.
-        inspector: Lists a checkout's files for the source hash; git on PATH when None.
     """
     environment = os.environ if env is None else env
     root = home.root() / "packages" if root is None else root

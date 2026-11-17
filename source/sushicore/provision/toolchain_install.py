@@ -21,7 +21,6 @@ def install_toolchains(ctx: InstallContext, services: InstallServices,
 
     Args:
         mgr: The Linux distro package manager; None on a target without one.
-        vcpkg: The vcpkg manager, or None when unavailable.
         registry: The toolchains to walk; the declared set when omitted.
 
     Returns:

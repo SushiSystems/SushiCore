@@ -76,23 +76,14 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        console: Any = None,
                        pin: Callable[[str], Download] | None = None,
                        fetch: Callable[[str, Path], None] | None = None) -> str | None:
-    """Download and extract the intel/llvm SYCL bundle; return its root directory.
+    """Download and extract the intel/llvm SYCL bundle; return its root, or None on failure.
 
     Args:
-        cfg: Resolved configuration; selects the platform's asset.
-        dry_run: Report the action without touching the filesystem.
         refresh: Re-download over an existing install.
-        refresh_command: The command the consumer offers for a refresh; named in the note about a stale bundle.
-        console: The console the install prints through.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
-        fetch: Downloads a URL into a file; the download transport.
 
-    Returns:
-        The bundle root on success, None when it could not be installed.
-
-    Raises:
-        DigestMismatchError: The bundle's SHA-256 is not the one its manifest entry pins.
-        ConfigError: No fragment pins the ``intel-llvm`` download for this platform.
+    Raises DigestMismatchError when the SHA-256 differs from its manifest entry, and ConfigError
+    when no fragment pins the download for this platform.
     """
     console = console_or_default(console, "install_intel_llvm")
     root = toolchains_dir() / "llvm-sycl"

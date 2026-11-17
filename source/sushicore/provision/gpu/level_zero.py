@@ -50,15 +50,11 @@ class LinuxLevelZeroLocator:
     """Finds and installs the Intel GPU compute stack (Level Zero + OpenCL).
 
     Args:
-        find_library: Answers the path of a library by name; :func:`ctypes.util.find_library`
-            when None.
-        lib_dirs: The directories searched when the library lookup finds nothing; the
-            well-known Linux library directories when None.
-        ensure_repo: Sets up Intel's package repository and returns whether it is ready;
-            :func:`ensure_intel_oneapi_repo` on the run's console when None.
-        is_superuser: Reports whether the process is root; :func:`is_root` when None.
-        run_steps: Runs one shell line, with sudo where it says so, and returns whether it
-            succeeded; :func:`sudo_bash` on the run's console when None.
+        find_library: The path of a library by name; :func:`ctypes.util.find_library` when None.
+        lib_dirs: The directories searched when the lookup finds nothing; the well-known ones when None.
+        ensure_repo: Sets up Intel's package repository and returns whether it is ready.
+        is_superuser: Whether the process is root; :func:`is_root` when None.
+        run_steps: Runs one shell line, with sudo where it says so; :func:`sudo_bash` when None.
     """
 
     def __init__(self, *, find_library: typing.Callable[[str], str | None] | None = None,

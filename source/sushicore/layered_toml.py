@@ -108,17 +108,14 @@ def merge_platform_table(doc: dict, plat: str, section: str = "tool") -> dict:
 def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
                  section: str = "tool", bool_keys: Iterable[str] = (), *,
                  environment: Environment | None = None, files: Files | None = None) -> dict:
-    """Merge ``[section]`` from each path (low → high) then apply env overrides.
+    """Merge ``[section]`` from each path (low to high) then apply env overrides.
 
-    @param paths     Config files in ascending precedence (later wins).
-    @param plat      Platform key selecting the ``[section.<platform>]`` override.
-    @param env_map   ``field -> ENV_VAR``; a set env var overrides that field.
-    @param section   Top-level table name to read (default ``tool``).
-    @param bool_keys Fields to coerce from string ("1"/"true"/…) to bool.
-    @param environment The variables read for the overrides; the process environment when None.
-    @param files     The file system the files are read through; the disk when None.
-    @return          The merged ``field -> value`` mapping (unknown keys included;
-                     the caller filters to its dataclass fields).
+    Args:
+        paths: Config files in ascending precedence (later wins).
+        plat: Platform key selecting the ``[section.<platform>]`` override.
+        env_map: ``field -> ENV_VAR``; a set env var overrides that field.
+        section: Top-level table name to read (default ``tool``).
+        bool_keys: Fields to coerce from string to bool.
     """
     env = ProcessEnvironment() if environment is None else environment
     values: dict = {}

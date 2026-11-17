@@ -20,8 +20,7 @@ class InMemoryPackageManager(IPackageManager):
         installed: Packages installed before the test begins.
         is_available: Whether the manager reports itself present.
         succeeds: Whether an install or a removal reports success.
-        on_install: Called with the packages and the dry-run flag at each install, before the
-            result is reported; a test uses it to act as a download site would.
+        on_install: Called with the packages and the dry-run flag at each install.
     """
 
     def __init__(self, name: str = "apt", installed: Iterable[str] = (),

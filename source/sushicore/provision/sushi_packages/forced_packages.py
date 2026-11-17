@@ -35,16 +35,11 @@ class ForcedPackages:
     def read(self, names: Sequence[str], toolchain: str, build_type: str) -> dict[str, Package]:
         """Return the forced package of each library in *names* that has a variable.
 
-        Without the nested marker every variable is ignored, with one warning each: a stale
-        variable in a shell must not choose a package.
-
         Args:
-            names: The libraries of the closure.
             toolchain: The toolchain identity of the request.
-            build_type: The build type of the request, lower case.
 
         Raises:
-            PackageError: A package is not in the store, or has another toolchain or build type.
+            PackageError: A package is not in the store or has another toolchain or build type.
         """
         nested = self._env.get(K_MARKER) == "1"
         forced: dict[str, Package] = {}

@@ -128,9 +128,7 @@ class AliasTable:
         """Registers *word* under *parent* as the old spelling *old* of *callback*'s command.
 
         Args:
-            parent: The application or sub-application the old word answers under.
-            word: The old command word.
-            callback: The function of the command that replaces it.
+            parent: The application the old word answers under.
             old: The full old spelling, a key of this table.
             hidden: False when the parent itself is hidden and the word should list there.
             options: Passed to ``parent.command``, e.g. ``context_settings``.

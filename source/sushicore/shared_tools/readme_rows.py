@@ -17,12 +17,10 @@ K_TOOLS_PREFIX = "tools/"
 def merge_readme(current: str | None, source: str, shared: Collection[str]) -> str:
     """Returns the README text holding the shared rows of *source* beside the rows *current* owns.
 
-    A row of *current* whose path a shared row names is replaced in place; a shared row it lacks
-    follows its last table row; every other line stays. A *current* without a table gets one.
+    A row of *current* whose path a shared row names is replaced in place; a shared row it
+    lacks follows its last table row. A *current* without a table gets one.
 
     Args:
-        current: The README the repository holds, or None when it has none.
-        source: The README of the SushiCore tag.
         shared: The repository paths, such as `tools/check_all.py`, the sync copies.
     """
     rows = _shared_rows(source, shared)

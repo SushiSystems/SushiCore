@@ -42,14 +42,9 @@ def _emit_table(name: str, table: dict) -> list[str]:
 def render_toml_document(tables: dict, header_lines: Iterable[str]) -> str:
     """Render *tables* as the text of a whole TOML document.
 
-    ``tool`` is rendered first — its scalars under ``[tool]``, its sub-tables
-    (the machine-specific paths a probe wrote) as ``[tool.<platform>]`` — then
-    every other table follows, sorted by name. Backslashes become forward
-    slashes throughout, and a value the emitter cannot render raises rather
-    than disappearing. Returns the text.
-
-    @pre Every table in *tables* holds only strings, bools, or nested tables
-        of strings; anything else raises.
+    ``tool`` is rendered first, its sub-tables as ``[tool.<platform>]``, then every other table
+    sorted by name. Backslashes become forward slashes; a value the emitter cannot render raises.
+    Every table holds only strings, bools, or nested tables of strings; anything else raises.
     """
     tool = dict(tables.get("tool", {}))
     scalars = {k: v for k, v in tool.items() if not isinstance(v, dict)}

@@ -34,11 +34,14 @@ class ConsoleLike(Protocol):
     the dependency points from each CLI into this package, never back.
     """
 
-    def error(self, message: str) -> None: ...
+    def error(self, message: str) -> None:
+        """Prints an error line."""
 
-    def table(self, columns: list[str], rows: list[list[str]], title: str = "") -> None: ...
+    def table(self, columns: list[str], rows: list[list[str]], title: str = "") -> None:
+        """Prints a table of *rows* under *columns*."""
 
-    def prompt(self, message: str, default: str | None = None) -> str: ...
+    def prompt(self, message: str, default: str | None = None) -> str:
+        """Asks *message* and returns the answer, or *default*."""
 
 
 def _is_executable(path: Path) -> bool:
@@ -131,15 +134,9 @@ class ExecutableIndex:
                 sort: bool = False, default: str = "") -> Path | None:
         """The executable a `run` command should launch, or None with the reason printed.
 
-        This is the policy every `run` command shares: *sort* means "let me pick",
-        an explicit *target* wins over everything else, and *default* -- a CLI's
-        own configured ``target_bin`` -- is what runs when neither was given.
-        *default* is the only knob, because it is the only piece of this decision
-        that is actually build policy rather than the shared shape of the choice.
-
-        Every failing path prints the same message the four call sites used to
-        carry separately and returns None, so the caller's own ``return 1``
-        stays exactly where it already was.
+        *sort* means "let me pick", an explicit *target* wins over everything else, and *default*,
+        a CLI's configured ``target_bin``, runs when neither was given. Every failing path prints
+        one message and returns None.
         """
         if sort:
             return self.select(build_root, console)

@@ -38,11 +38,8 @@ def register_docs_commands(
     Args:
         app: The application to add the group to.
         program: The command the user types, for the examples.
-        panel: The help panel the group is listed under.
         project_root: Returns the repository root; called when a command runs.
         api: Returns how this CLI builds its API reference; None for a CLI that builds none.
-        report: Prints one line of the result the way the CLI prints.
-        group_cls: The Click group class the CLI draws its help with.
         producer: The producer `bundle` runs; a default `BundleProducer` when None.
     """
     import typer

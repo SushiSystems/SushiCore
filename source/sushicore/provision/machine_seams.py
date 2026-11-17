@@ -22,12 +22,11 @@ class MachineSeams:
     """What a module hands the shared commands in place of the real machine reads.
 
     Args:
-        managers: Builds the package managers a configuration provisions through; None builds the
-            platform's own.
-        base_checks: Builds the stock checks ``doctor`` opens with from a configuration and the
-            fix text; None uses the standard ones.
-        toolchains: Reads ``(name, present, detail)`` for each SYCL toolchain off the machine for a
-            configuration and the GPU flag; None probes the machine.
+        managers: Builds the package managers a configuration provisions through.
+        base_checks: Builds the stock checks ``doctor`` opens with.
+        toolchains: Reads ``(name, present, detail)`` of each SYCL toolchain off the machine.
+
+    Each is None to use the platform's own.
     """
 
     managers: Optional[Callable[[ProvisionConfig], "list[IPackageManager]"]] = None

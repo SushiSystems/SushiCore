@@ -23,30 +23,11 @@ def run_filtered_shards(module: ModuleTests, tree: Path, selection: LabelSelecti
                         jobs: int, repeat: int, shuffle_seed: int | None, junit: Path, files: Files) -> int:
     """Run the selected shards of *tree* under *user_filter* through the module's ``run_program``.
 
-    A shard registers its own ``--gtest_filter``, which GoogleTest ranks above any variable, so the
-    shard's program is run here with the filter narrowed to the cases the shard's filter and
-    *user_filter* both select. A shard that cannot hold such a case is not run, nor is one of a program
-    whose suites, as the last run listed them in ``programs.json``, the filter cannot reach; a program
-    that listing does not name, or one built after the listing was written, still runs. Each shard keeps its
-    sharding variables and its timeout, writes its GoogleTest XML to the results folder, and its
-    exit code goes into the JUnit file *junit*. The shards that need an accelerator run one after
-    another in one worker, beside the others, so no two of them share it, as CTest's resource groups
-    would have it.
+    A shard runs with the filter narrowed to the cases its filter and *user_filter* both
+    select; a shard that cannot hold such a case is not run. *repeat* runs the cases of each
+    shard that many times, once when 0.
 
-    Args:
-        module: What the module CLI hands the command; its ``run_program`` must be set.
-        tree: The built tree.
-        selection: The labels to run.
-        user_filter: The GoogleTest filter the caller asked for.
-        jobs: How many shards run at once.
-        repeat: Runs the cases of each shard this many times; once when 0.
-        shuffle_seed: The shuffle seed handed to each shard, or None for no shuffle.
-        junit: The JUnit file to write.
-        files: The file system the registrations are read from, whose modification times date the listing
-            and the executables, and the JUnit file is written to.
-
-    Returns:
-        0 when every shard that ran passed, otherwise 1.
+    Returns 0 when every shard that ran passed, otherwise 1.
     """
     suites = suites_by_program(tree, files)
     runs = [(shard, narrowed) for shard in shard_registrations(tree, files) if selection.selects(shard.labels)

@@ -34,13 +34,7 @@ def run_process(command: list[str], cwd: Path, env: Mapping[str, str],
                 runner: CommandRunner | None = None) -> int:
     """Run *command* in *cwd* with *env*; return its exit code.
 
-    A command whose executable is not found is reported on the console and returns the
-    runner's missing-executable code.
-
     Args:
-        command: The command words.
-        cwd: The folder the command runs in.
-        env: The environment of the command.
         runner: Runs the command; the quiet runner when ``None``.
 
     Raises:
@@ -106,17 +100,12 @@ class IPackageBuilder(Protocol):
 
 @final
 class RecordingBuilder:
-    """Builds nothing: it records each request and installs the files an install leaves.
+    """Builds nothing: it records each request in ``requests`` and installs the files an install leaves.
 
     Args:
-        spellings: The CMake spelling of each library's package; a library not in it is
-            spelled as its name.
+        spellings: The CMake spelling of each library's package; the name when absent.
         fail: Whether every build raises.
         pass_time: Called with the seconds a build takes, so a test clock moves.
-        build_seconds: The seconds each build takes.
-
-    Attributes:
-        requests: Every request built, in order.
     """
 
     def __init__(self, spellings: Mapping[str, str] | None = None, fail: bool = False,

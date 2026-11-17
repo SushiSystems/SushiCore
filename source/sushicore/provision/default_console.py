@@ -75,14 +75,12 @@ class _DefaultConsoleProxy:
 def console_or_default(console: _ConsoleT | None, owner: str, *, depth: int = 2) -> _ConsoleT:
     """Return *console*, or the default console with a deprecation warning when it is ``None``.
 
-    The default is read on each use, as the old module-level console was, so a CLI may bind it
-    after it builds what prints. Called as the first line of a deprecated-optional ``console=``
-    argument, so the warning points at the caller of *owner*.
+    The default is read on each use. Called as the first line of a deprecated-optional
+    ``console=`` argument, so the warning points at the caller of *owner*.
 
     Args:
-        console: The console the caller passed, or ``None``.
         owner: The name of the constructor or function that took it.
-        depth: The frames from the warning to the caller of *owner*; 2 when *owner* calls this itself.
+        depth: The frames from the warning to the caller of *owner*.
     """
     if console is not None:
         return console

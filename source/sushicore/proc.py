@@ -26,7 +26,8 @@ K_QUIET_TAIL_LINES = 20
 class RichConsoleLike(Protocol):
     """The one Rich console method this needs, so `console` is not typed `object`."""
 
-    def print(self, *objects: object, **kwargs: object) -> None: ...
+    def print(self, *objects: object, **kwargs: object) -> None:
+        """Prints *objects* the way Rich does."""
 
 
 class ConsoleLike(Protocol):
@@ -34,15 +35,20 @@ class ConsoleLike(Protocol):
 
     console: RichConsoleLike
 
-    def command(self, text: str) -> None: ...
+    def command(self, text: str) -> None:
+        """Prints a command line."""
 
-    def info(self, text: str) -> None: ...
+    def info(self, text: str) -> None:
+        """Prints an info line."""
 
-    def error(self, text: str) -> None: ...
+    def error(self, text: str) -> None:
+        """Prints an error line."""
 
-    def warn(self, text: str) -> None: ...
+    def warn(self, text: str) -> None:
+        """Prints a warning line."""
 
-    def is_machine(self) -> bool: ...
+    def is_machine(self) -> bool:
+        """Reports whether output is machine-readable JSON."""
 
 
 def emit_output_line(console: ConsoleLike, line: str) -> None:
@@ -136,18 +142,10 @@ class Runner:
     def resolve_exe(self, name: str, env: Mapping[str, str] | None = None) -> str:
         """The full path to *name* from *env*'s PATH, or *name* itself.
 
-        Resolving to a full path is what stops subprocess.CreateProcess from
-        doing its own PATH lookup against a plain-dict env. On Windows that dict
-        can hold both "Path" (from os.environ) and "PATH" (from a vcvars
-        overlay); subprocess sees two keys and picks between them
-        unpredictably, so a tool on one of the two is intermittently not found.
-
-        Every PATH-spelled key is searched, joined in the env's own iteration
-        order. Reading only the first one would move that same coin flip into
-        this function rather than remove it: whichever spelling `next()`
-        happened to reach would be searched and the other silently ignored,
-        which is how a tool that is genuinely on the path comes back as a bare
-        name. The union can only find a tool the single-key read misses.
+        A full path stops subprocess.CreateProcess from doing its own PATH lookup against a
+        plain-dict env. Every PATH-spelled key is searched, joined in the env's iteration order,
+        because a Windows env can hold both "Path" and "PATH" and a single-key read would miss a
+        tool on the other.
         """
         if env is None:
             return shutil.which(name) or name

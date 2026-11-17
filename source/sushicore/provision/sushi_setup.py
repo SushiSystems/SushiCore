@@ -68,16 +68,12 @@ def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGit
             timeout: float, console: Any = None) -> bool:
     """Fetch every pinned library of the chain, one layer at a time; report success.
 
-    Each round walks the pins of the libraries on disk, fetches what is missing, and walks
-    again, because a library just fetched can pin another. It ends when a round adds no library.
+    Each round walks the pins of the libraries on disk and fetches what is missing, because
+    a library just fetched can pin another. It ends when a round adds no library.
 
     Args:
         ctx: The run's context; ``ctx.consumer`` names the module at *root*.
-        root: The module's checkout.
-        pins: The pins of its own fragment.
-        git: Clones and inspects the libraries.
         timeout: Seconds to wait for another process's lock.
-        console: The console the run prints through.
     """
     console = console_or_default(console, "prepare")
     if not pins:

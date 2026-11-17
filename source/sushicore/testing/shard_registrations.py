@@ -38,12 +38,8 @@ class ShardRegistration:
         name: The CTest name, ``<program>.<size>_shard_<index>of<count>``.
         program: The test program the name carries.
         size_filter: The GoogleTest filter the shard registers for its size.
-        arguments: The registered arguments other than the filter and the XML output.
-        environment: The shard variables, ``GTEST_TOTAL_SHARDS`` and ``GTEST_SHARD_INDEX``.
         labels: The CTest labels, the size and possibly ``quarantined``.
-        timeout: The CTest timeout in seconds, or None when the shard has none.
-        needs_accelerator: Whether the shard declares ``RESOURCE_GROUPS``, which it does when it runs on a
-            real accelerator, so that no two such shards run at once on one.
+        needs_accelerator: Whether the shard declares ``RESOURCE_GROUPS``.
     """
 
     name: str

@@ -55,27 +55,14 @@ K_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
 def read(path: Path) -> Fragment:
-    """Read the fragment at *path*.
-
-    Args:
-        path: A ``sushistack.deps.toml`` file.
+    """Read the fragment at *path*, a ``sushistack.deps.toml`` file.
 
     Returns:
-        Its dependencies in file order, and the modules its ``[module]`` table
-        says it builds on.
+        Its dependencies in file order, and the modules its ``[module]`` table builds on.
 
     Raises:
-        ConfigError: A top-level key holds something other than a table. An array
-            of ``[[dependency]]`` tables reads as a list here, and skipping it is
-            how a fragment goes unread; the shape is named rather than ignored.
-            Or an entry's ``sha256`` is not a table of platform to hex digest, its ``url`` is
-            not a table of platform to address, or its ``version`` is not a string. Or an entry
-            declares one of ``version``, ``url`` and ``sha256`` without the other two, or its
-            ``url`` and ``sha256`` name different platforms.
-            Or a ``[sushisystems.<name>]`` pin is malformed or names a module
-            ``depends_on`` does not, or the file holds the pins under both table names. Or ``[module] cli`` is not a
-            string, or ``[module] package_exclude`` is not a list of strings. A module in ``depends_on`` may go unpinned; it is then never
-            fetched.
+        ConfigError: A top-level key is not a table, an entry's ``version``, ``url`` or
+            ``sha256`` is malformed or incomplete, a pin is malformed, or ``[module]`` is.
     """
     with path.open("rb") as handle:
         document = tomllib.load(handle)
@@ -289,12 +276,10 @@ def _require_whole_download(path: Path, dep: Dependency, table: dict) -> None:
 def status(dep: Dependency, platform: str, runner: CommandRunner | None = None) -> Status:
     """Report what is known about *dep* on this machine.
 
-    A ``check_cmd`` that exits 0 settles it. Without one, an entry naming no
-    package for *platform* has nothing to install and the rest is unknown here,
-    because answering it means asking a package manager.
+    A ``check_cmd`` that exits 0 settles it. Without one, an entry naming no package for
+    *platform* has nothing to install and the rest is unknown here.
 
     Args:
-        dep: The dependency to ask about.
         platform: ``"windows"`` or anything else, which means the apt column.
         runner: Runs the check command; the real one when None.
     """
@@ -316,12 +301,9 @@ def install_command(dep: Dependency, platform: str, *, vcpkg: str = "vcpkg",
     The caller runs it, or prints it and stops. Nothing here runs anything.
 
     Args:
-        dep: The dependency to install.
         platform: ``"windows"`` or anything else, which means apt.
-        vcpkg: The vcpkg executable to name on Windows; the caller knows where
-            its own tree is, and this library does not.
-        triplet: The vcpkg triplet to append to each port, when the caller pins
-            one.
+        vcpkg: The vcpkg executable to name on Windows.
+        triplet: The vcpkg triplet to append to each port, when the caller pins one.
     """
     packages = dep.packages_for(platform)
     if not packages:

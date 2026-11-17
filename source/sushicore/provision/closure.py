@@ -36,13 +36,8 @@ def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRA
     """Return the closure of the module *key* checked out at *root*.
 
     Args:
-        key: The module's lower-cased name.
-        root: The module's checkout.
         locate: Finds the checkout of a module named in ``depends_on``.
-        fragment: The module's own fragment, relative to *root*.
         shared: Fragments placed before every module's.
-        is_file: Asked whether a fragment path holds a fragment; ``Path.is_file`` when ``None``.
-        read: Asked to read one fragment; ``deps_fragment.read`` when ``None``.
 
     Raises:
         ModuleCycleError: The modules depend on one another in a cycle.

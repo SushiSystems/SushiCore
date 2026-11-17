@@ -36,28 +36,11 @@ class ModuleProvision:
     """What one module CLI hands the shared commands.
 
     Args:
-        console: Returns the console the commands print through, called on each use; the one the
-            deprecated ``bind_console`` set when omitted.
+        console: Returns the console the commands print through, called on each use.
         locate: Finds the checkout of a module the fragment's ``depends_on`` names.
-        panel: The help panel the commands are listed under, or None for the default.
         is_binary: Reports a binary install, which registers ``doctor`` alone.
         uses_base: Whether the shared base fragment joins the module's own.
-        git: Builds the git client that fetches and inspects pinned Sushi libraries; None builds
-            the stock one, printing through the module's console.
-        fragment: The dependency fragment below the project root; None reads the module's manifest.
-        config_dir: The folder below the project root that holds the local configuration and the
-            workspace link.
-        groups: Check groups beyond the stock ones that this module's extra checks belong to; they
-            join the groups ``doctor --for`` accepts and lists.
-        seams: The package managers, the stock checks and the toolchain read, passed once; the
-            real ones when left at the default.
-        actions: The calls the setup steps make that reach the machine; None makes the real ones.
-        register: Records the module in a workspace as ``(workspace, key, root)``; None writes the
-            workspace's registry file.
-        home: The dependency home whose root the commands read; the one the deprecated ``bind_root``
-            set when omitted.
-        lock_timeout: Seconds ``setup`` waits for the provision lock and for a pinned module's fetch
-            lock; None waits the stock ten minutes.
+        lock_timeout: Seconds ``setup`` waits for a lock; None waits ten minutes.
     """
 
     profile: ModuleProfile

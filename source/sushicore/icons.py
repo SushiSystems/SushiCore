@@ -23,12 +23,14 @@ from .icon_registry import IconRegistry
 @final
 @dataclass(frozen=True)
 class IconSet:
+    """The icons a console prints before its info, success, warn and error lines."""
     info: str = "[INFO]"
     success: str = "[SUCCESS]"
     warn: str = "[WARN]"
     error: str = "[ERROR]"
 
     def merged(self, overrides: dict) -> "IconSet":
+        """Returns a set with the known, non-empty entries of *overrides* applied."""
         known = {f.name for f in fields(self)}
         return replace(self, **{k: v for k, v in overrides.items() if k in known and v})
 
@@ -51,8 +53,6 @@ def register_icon_set(
     pass it to ``build_console`` as ``icon_registry=``.
 
     Args:
-        name: The name the set is found under.
-        icons: The set to keep.
         presets: The mapping to add to; the default registry when None.
     """
     if presets is not None:
