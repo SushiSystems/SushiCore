@@ -12,7 +12,7 @@ from ..proc import CommandRunner
 from .fragments import Dependency
 from .packages import IPackageManager, LinuxPackageManager
 from .process_run import provision_runner
-from .target import K_LINUX_MANAGERS, target_for_platform
+from .target import K_LINUX, target_for_platform
 
 
 def check_cmd_ok(cmd: list[str], runner: CommandRunner | None = None) -> bool:
@@ -52,10 +52,9 @@ def named_manager(managers: list[IPackageManager], name: str) -> IPackageManager
 
 
 def available_linux_manager(managers: list[IPackageManager]) -> LinuxPackageManager | None:
-    """Return the first available manager of ``K_LINUX_MANAGERS``, taken in that order, or None."""
-    found = (named_manager(managers, name) for name in K_LINUX_MANAGERS)
-    return next((m for m in found
-                 if isinstance(m, LinuxPackageManager) and m.available()), None)
+    """Return the Linux target's dependency manager among the distro managers of *managers*, or None."""
+    distro = [m for m in managers if isinstance(m, LinuxPackageManager)]
+    return target_for_platform(K_LINUX).dependency_manager(distro)
 
 
 def dep_manager(managers: list[IPackageManager], platform: str) -> IPackageManager | None:

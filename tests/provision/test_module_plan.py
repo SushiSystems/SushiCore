@@ -10,7 +10,6 @@ import pytest
 
 from sushicore.profile import ModuleProfile
 from sushicore.provision import module_plan
-from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.module_provision import ModuleProvision
 
 
@@ -19,22 +18,6 @@ def _module(**overrides):
     profile = ModuleProfile(name="sushidsp", program="sd", env_prefix="SD", root_marker="m")
     return ModuleProvision(profile=profile, project_root=lambda: Path("."), load_config=lambda: None,
                            console=lambda: None, **overrides)
-
-
-@pytest.mark.small
-def test_windows_uses_winget_a_direct_download_and_vcpkg():
-    """Check that Windows provisions through winget, a direct download and vcpkg, in that order."""
-    names = [manager.name for manager in
-             module_plan.managers_for(ProvisionSettings(platform="windows"))]
-    assert names == ["winget", "direct-download", "vcpkg"]
-
-
-@pytest.mark.small
-def test_linux_uses_every_system_manager_and_vcpkg_last():
-    """Check that Linux tries every system manager and vcpkg last."""
-    names = [manager.name for manager in
-             module_plan.managers_for(ProvisionSettings(platform="linux"))]
-    assert names == ["apt", "dnf", "yum", "pacman", "zypper", "vcpkg"]
 
 
 @pytest.mark.small

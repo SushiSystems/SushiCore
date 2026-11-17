@@ -25,6 +25,8 @@
 | RW-107 | P3 | open | Move status and install_command out of deps_fragment and fold digests into download_for | deps_fragment.py only reads fragments and the verifier reads digests through download_for |  | `source/sushicore/deps_fragment.py` | 2026-11-17 |
 | RW-108 | P3 | open | Let RecordingRunner script raw bytes so a test can pin the byte decode of capture_bytes | RecordingRunner.capture_bytes answers scripted bytes and source_state has a test of a non-UTF-8 and a NUL-separated listing |  | `source/sushicore/proc_memory.py` | 2026-11-17 |
 | RW-109 | P3 | open | Merge the two cmake path tables and the version probe timeout in provision | the cmake install paths are one Path table that probe and direct_download read, and the --version timeout is one constant checks and probe share |  | `source/sushicore/provision/probe.py` | 2026-11-17 |
+| RW-110 | P3 | open | Key the GPU locators and the CUDA note on ITarget instead of the platform name | gpu/rocm.py, gpu/level_zero.py and detect_step.py read their per-platform values through ITarget or a target plan |  | `source/sushicore/provision/gpu/level_zero.py` | 2026-11-17 |
+| RW-111 | P3 | open | Split resolve_local_config of the Windows probe plan into its steps | probe_plans/windows.py resolve_local_config is a short method over named steps, each tested |  | `source/sushicore/provision/probe_plans/windows.py` | 2026-11-17 |
 
 ## Known issues
 

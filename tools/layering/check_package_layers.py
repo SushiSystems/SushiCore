@@ -105,10 +105,17 @@ K_LAYERED = (
             "gpu.toolkit_vendor_memory": 1, "gpu.cuda_selection_memory": 1, "gpu.cuda_vendor_memory": 2,
             "gpu.rocm_vendor_memory": 2,
             "gpu.windows_installer_memory": 1,
+            "target_plans": 0, "probe_plan": 0, "probe_plans": 2,
+            "manager_plan": 3, "manager_plans": 4, "llvm_plan": 3, "llvm_plans": 5,
+            "install_deps_plan": 5, "toolchain_install": 5, "install_deps_plans": 6,
+            "uninstall_plan": 3, "uninstall_plans": 5,
         },
         strict=False,
         nested=True,
-        grouped=frozenset({"packages", "sushi_packages"}),
+        grouped=frozenset({
+            "packages", "sushi_packages", "probe_plans", "manager_plans", "llvm_plans",
+            "install_deps_plans", "uninstall_plans",
+        }),
         forbidden=frozenset({"sushihub"}),
     ),
 )

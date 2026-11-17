@@ -14,16 +14,13 @@ import typing
 from pathlib import Path
 from typing import Callable, MutableMapping, Sequence
 
-from sushicore.errors import DigestMismatchError
-from sushicore.proc import CommandRunner
 
 from .. import home
 from ..probe import K_RC_GLOBS
 from .._output import console
-from ..download_verifier import verify_download
-from ..packages import download, gh_tagged_asset
-from ..process_run import provision_runner, run
-from ..target import K_LINUX, K_WINDOWS, target_of
+from ..process_run import run
+from ..llvm_plan import LLVM_PLANS, LlvmRequest
+from ..target import target_of
 from ._process import _run_quiet
 from .stamp import toolchains_dir
 
@@ -52,89 +49,6 @@ def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> 
         if hits:
             return str(Path(hits[-1]).parent)
     return ""
-
-
-def llvm_missing(bases: Sequence[Path] | None = None) -> bool:
-    """Report whether no Windows LLVM is found in *bases*; see :func:`_find_windows_llvm`."""
-    return _find_windows_llvm(bases) is None
-
-
-def _find_windows_llvm(bases: Sequence[Path] | None = None) -> tuple[str, str] | None:
-    """Return ``(LLVM_DIR, clang_prefix)`` for an existing Windows LLVM, else None.
-
-    Args:
-        bases: The LLVM install roots to look in, first match wins; the vendored tree,
-            then the two Program Files folders when omitted.
-    """
-    roots = bases if bases is not None else [
-        home.root() / "tools" / "llvm",
-        Path(r"C:/Program Files/LLVM"),
-        Path(r"C:/Program Files (x86)/LLVM"),
-    ]
-    for base in roots:
-        cm = base / "lib" / "cmake" / "llvm"
-        if cm.is_dir():
-            return (str(cm), str(base))
-    return None
-
-
-class _LlvmInstallerError(RuntimeError):
-    """The elevated LLVM installer ended with a non-zero exit code."""
-
-
-def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None = None,
-                         fetch: Callable[[str, Path], None] | None = None,
-                         runner: CommandRunner | None = None) -> tuple[str, str] | None:
-    """Download the official clang+llvm Windows tarball into the tools tree.
-
-    Args:
-        resolve_asset: Maps a repository, a tag and an asset name to the asset URL.
-        fetch: Downloads a URL into a file; the download transport.
-        runner: Runs the installer command; the provision runner when ``None``.
-
-    Returns:
-        ``(LLVM_DIR, clang_prefix)`` for the vendored install, or None on failure.
-
-    Raises:
-        DigestMismatchError: The installer's SHA-256 is not the one its manifest entry pins.
-    """
-    dest = home.root() / "tools" / "llvm"
-    tag = f"llvmorg-{LLVM_WINDOWS_VERSION}"
-    asset = f"LLVM-{LLVM_WINDOWS_VERSION}-win64.exe"
-    try:
-        url = (resolve_asset or gh_tagged_asset)("llvm/llvm-project", tag, asset)
-    except Exception as exc:
-        console.error(f"Could not resolve LLVM {LLVM_WINDOWS_VERSION} asset: {exc}")
-        return None
-    with tempfile.TemporaryDirectory() as tmp:
-        archive = Path(tmp) / asset
-        try:
-            console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
-            (fetch or download)(url, archive)
-            verify_download("adaptivecpp", archive)
-            console.info("Installing LLVM silently (this takes a minute) ...")
-            dest.mkdir(parents=True, exist_ok=True)
-            # PowerShell triggers a UAC prompt via -Verb RunAs to install silently.
-            ps_cmd = (
-                f"Start-Process -FilePath '{archive}' "
-                f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
-            )
-            code = (runner or provision_runner()).run_drained(
-                ["powershell", "-NoProfile", "-Command", ps_cmd], None)
-            if code != 0:
-                raise _LlvmInstallerError(f"the LLVM installer exited with {code}")
-        except DigestMismatchError:
-            raise
-        except Exception as exc:
-            console.error(f"LLVM vendor failed: {exc}")
-            shutil.rmtree(dest, ignore_errors=True)
-            return None
-    found = _find_windows_llvm()
-    if found:
-        console.success(f"LLVM {LLVM_WINDOWS_VERSION} vendored into {dest}")
-    else:
-        console.error("LLVM extracted but lib/cmake/llvm is missing.")
-    return found
 
 
 def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None",
@@ -193,12 +107,9 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         console.info(f"(dry-run) would build AdaptiveCpp {ACPP_VERSION} -> {prefix}")
         return str(acpp_exe)
 
-    llvm_dependencies = {
-        K_WINDOWS: lambda: _acpp_deps_windows(vcpkg, assume_yes=assume_yes, winget=winget,
-                                              llvm_bases=llvm_bases),
-        K_LINUX: lambda: _acpp_deps_linux(mgr),
-    }
-    llvm_dir, clang_prefix = llvm_dependencies[target.name]()
+    llvm_dir, clang_prefix = LLVM_PLANS.plan_for(target).resolve(
+        LlvmRequest(mgr=mgr, vcpkg=vcpkg, winget=winget, assume_yes=assume_yes,
+                    llvm_bases=llvm_bases))
     if llvm_dir is None:
         _explain_acpp_skip(cfg)
         return None
@@ -263,49 +174,3 @@ def _explain_acpp_skip(cfg: "ProvisionConfig") -> None:
         console.info(note)
     console.info("This is non-fatal: intel-llvm is installed and selected, so you "
                  "can build and run now. acpp is the secondary toolchain.")
-
-
-def _acpp_deps_linux(mgr: "LinuxPackageManager | None") -> tuple[str | None, str | None]:
-    """Install acpp build deps via the distro manager; return ``(LLVM_DIR, clang_prefix)``.
-
-    Args:
-        mgr: The Linux distro package manager, or None when unavailable.
-    """
-    if mgr is None:
-        return (None, None)
-    return mgr.install_acpp_build_deps(ACPP_LLVM)
-
-
-def _acpp_deps_windows(vcpkg: "IPackageManager | None", assume_yes: bool = False, *,
-                       winget: "IPackageManager | None" = None,
-                       llvm_bases: Sequence[Path] | None = None,
-                       ) -> tuple[str | None, str | None]:
-    """Install acpp build deps on Windows; return ``(LLVM_DIR, clang_prefix)``.
-
-    Args:
-        vcpkg: The vcpkg manager, or None when unavailable.
-        assume_yes: Skip the consent prompt for the heavy LLVM download.
-        winget: The winget manager, or None when unavailable.
-        llvm_bases: The LLVM install roots to look in; see :func:`_find_windows_llvm`.
-    """
-    if vcpkg is not None:
-        vcpkg.install(["boost-context", "boost-fiber"], dry_run=False)
-
-    existing = _find_windows_llvm(llvm_bases)
-    if existing:
-        return existing
-
-    # Consent is gathered by the caller before the progress spinner, never here.
-    if not assume_yes:
-        return (None, None)
-
-    # Prefer winget when available; otherwise vendor the official tarball.
-    if winget is not None and winget.available():
-        console.info("Installing LLVM via winget ...")
-        winget.install(["LLVM.LLVM"], dry_run=False)
-        existing = _find_windows_llvm(llvm_bases)
-        if existing:
-            return existing
-
-    vendored = _vendor_llvm_windows()
-    return vendored if vendored else (None, None)

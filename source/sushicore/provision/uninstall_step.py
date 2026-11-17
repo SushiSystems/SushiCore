@@ -12,13 +12,12 @@ from typing import Any, Callable
 
 from . import home
 from ._output import console
-from .dependency_presence import available_linux_manager, named_manager
 from .fragments import IDependencySource
-from .package_lists import dedup
-from .packages import IPackageManager, tools_dir
+from .packages import IPackageManager
 from .pipeline import InstallContext, Step, StepResult
 from .sinks import ConfigSink
-from .target import K_LINUX, K_WINDOWS, target_of
+from .target import target_of
+from .uninstall_plan import UNINSTALL_PLANS, UninstallServices
 
 
 class UninstallStep(Step):
@@ -36,89 +35,19 @@ class UninstallStep(Step):
             console: The console the step prints through.
             root: Returns the dependency root this step may remove; the bound root when omitted.
         """
-        self._source = source
-        self._managers = managers
+        self._services = UninstallServices(source=source, managers=managers, console=console)
         self._sink = sink
         self._console = console
         self._root = root or (lambda: home.root())
-        self._run_plans = {K_WINDOWS: self._run_windows, K_LINUX: self._run_linux}
 
     def run(self, ctx: InstallContext) -> StepResult:
-        """Dispatch to the Linux or Windows uninstall routine for this platform."""
-        return self._run_plans[target_of(ctx.cfg).name](ctx)
-
-    def _run_linux(self, ctx: InstallContext) -> StepResult:
-        """Remove Linux packages and vcpkg ports, and toolchains too with ``ctx.everything``."""
+        """Remove the target's packages, then the toolchains with ``ctx.everything``, then the config."""
         if not _root_is_safe(self._console, self._root):
             return StepResult.FAILED
-        mgr = available_linux_manager(self._managers)
-        vcpkg = named_manager(self._managers, "vcpkg")
-        pkgs: list[str] = []
-        vcpkg_ports: list[str] = []
-        for dep in self._source.selected("linux", ctx.gpu):
-            pkgs.extend(mgr.translate_apt(dep.linux_apt) if mgr else dep.linux_apt)
-            vcpkg_ports.extend(dep.vcpkg_fallback_ports("linux"))
-        pkgs = dedup(pkgs)
-        vcpkg_ports = dedup(vcpkg_ports)
-
-        if mgr and pkgs:
-            self._console.info(f"Removing via {mgr.name}: {', '.join(pkgs)}")
-            mgr.remove(pkgs, ctx.dry_run)
-
-        if vcpkg and vcpkg_ports:
-            self._console.info(f"Removing vcpkg ports: {', '.join(vcpkg_ports)}")
-            vcpkg.remove(vcpkg_ports, ctx.dry_run)
-
+        UNINSTALL_PLANS.plan_for(target_of(ctx.cfg)).remove_packages(ctx, self._services)
         if ctx.everything:
             if not self._remove_installed_toolchains(ctx):
                 return StepResult.FAILED
-        self._remove_config(ctx)
-        return StepResult.OK
-
-    def _run_windows(self, ctx: InstallContext) -> StepResult:
-        """Remove Windows vcpkg ports, portable tools, and toolchains with ``ctx.everything``."""
-        if not _root_is_safe(self._console, self._root):
-            return StepResult.FAILED
-        vcpkg = named_manager(self._managers, "vcpkg")
-
-        ports: list[str] = []
-        for dep in self._source.selected("windows", ctx.gpu):
-            ports.extend(dep.windows_vcpkg)
-        ports = dedup(ports)
-
-        if vcpkg and ports:
-            self._console.info(f"Removing vcpkg ports: {', '.join(ports)}")
-            vcpkg.remove(ports, ctx.dry_run)
-
-        tools = tools_dir()
-        ninja_exe = tools / "ninja.exe"
-        if ninja_exe.is_file():
-            if ctx.dry_run:
-                self._console.info(f"(dry-run) would remove {ninja_exe}")
-            else:
-                ninja_exe.unlink()
-                self._console.info(f"Removed {ninja_exe}")
-        cmake_dir = tools / "cmake"
-        if cmake_dir.is_dir():
-            if ctx.dry_run:
-                self._console.info(f"(dry-run) would remove {cmake_dir}")
-            else:
-                shutil.rmtree(cmake_dir, ignore_errors=True)
-                self._console.info(f"Removed {cmake_dir}")
-        doxygen_dir = tools / "doxygen"
-        if doxygen_dir.is_dir():
-            if ctx.dry_run:
-                self._console.info(f"(dry-run) would remove {doxygen_dir}")
-            else:
-                shutil.rmtree(doxygen_dir, ignore_errors=True)
-                self._console.info(f"Removed {doxygen_dir}")
-        if tools.is_dir() and not any(tools.iterdir()) and not ctx.dry_run:
-            tools.rmdir()
-
-        if ctx.everything:
-            if not self._remove_installed_toolchains(ctx):
-                return StepResult.FAILED
-
         self._remove_config(ctx)
         return StepResult.OK
 

@@ -13,6 +13,7 @@ import pytest
 from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
+from sushicore.provision.llvm_plans import windows as llvm_windows
 from sushicore.provision.packages import winget as winget_module
 from sushicore.provision.packages.linux import AptManager
 from sushicore.provision.packages.winget import WingetManager
@@ -207,7 +208,7 @@ def test_adaptivecpp_installs_no_llvm_through_winget_without_consent(
     """Check that a run whose user accepted no winget agreements installs no LLVM through winget."""
     runner = RecordingRunner(recording_console)
     winget = WingetManager(show=lambda command: "", runner=runner)
-    monkeypatch.setattr(adaptivecpp, "_vendor_llvm_windows", lambda: None)
+    monkeypatch.setattr(llvm_windows, "vendor_llvm_windows", lambda: None)
     monkeypatch.setattr(winget_module.shutil, "which", lambda name: "C:/winget.exe")
 
     result = adaptivecpp.install_adaptivecpp(

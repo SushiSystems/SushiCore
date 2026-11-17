@@ -21,7 +21,8 @@ from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.download_verifier import DownloadVerifier, bind_verifier
 from sushicore.provision.packages import direct_download as dd
-from sushicore.provision.toolchains import adaptivecpp, intel_llvm, oneapi
+from sushicore.provision.llvm_plans import windows as llvm_windows
+from sushicore.provision.toolchains import intel_llvm, oneapi
 from sushicore.provision.toolchains.stamp import toolchains_dir
 
 
@@ -225,7 +226,7 @@ def test_an_llvm_installer_with_the_wrong_digest_is_not_run(
     pins.digests["adaptivecpp"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        adaptivecpp._vendor_llvm_windows(
+        llvm_windows.vendor_llvm_windows(
             resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES),
             runner=runner)
 
@@ -238,7 +239,7 @@ def test_an_llvm_installer_with_the_pinned_digest_is_run(
     runner = RecordingRunner(recording_console)
     pins.digests["adaptivecpp"] = _digest(K_INSTALLER_BYTES)
 
-    adaptivecpp._vendor_llvm_windows(
+    llvm_windows.vendor_llvm_windows(
         resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
 
     assert len(runner.commands) == 1

@@ -83,23 +83,6 @@ def test_find_vcvars_is_none_when_nothing_is_installed():
     assert probe.find_vcvars(host=WindowsHost(), vswhere=lambda: None, program_files=[]) is None
 
 
-def _windows_cfg():
-    """Return a Windows configuration naming no tool path."""
-    return ProvisionSettings(platform="windows")
-
-
-@pytest.mark.small
-@pytest.mark.parametrize(("glob_hit", "found", "expected"), [
-    ("C:/VS/2022/x.bat", None, "C:/VS/2022/x.bat"),
-    ("", Path("/machine/vcvars64.bat"), str(Path("/machine/vcvars64.bat"))),
-], ids=["the 2022 glob comes first", "find_vcvars is the fallback"])
-def test_resolve_windows_takes_the_glob_first_and_find_vcvars_second(glob_hit, found, expected):
-    """Check the order in which the Visual Studio script is looked for."""
-    values = probe._resolve_windows(_windows_cfg(), first_glob=lambda patterns: glob_hit,
-                                    vcvars_finder=lambda: found)
-    assert values["vs_vcvars"] == expected
-
-
 def _bundle(root):
     """Create an llvm-sycl bundle holding a clang++ under *root* and return the file."""
     exe = root / "toolchains" / "llvm-sycl" / _CLANG

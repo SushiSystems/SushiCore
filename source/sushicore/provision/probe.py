@@ -18,22 +18,14 @@ from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.host import IHost, current_host
 from sushicore.provision.process_run import provision_runner
-from sushicore.provision.target import K_LINUX, K_WINDOWS, target_of
+from sushicore.provision.probe_plan import PROBE_PLANS
+from sushicore.provision.target import target_of
 
 _log = logging.getLogger(__name__)
 
-# Common Windows install roots probed when a tool is not already on PATH.
-_VS_VCVARS_GLOBS = [
-    r"C:/Program Files/Microsoft Visual Studio/2022/*/VC/Auxiliary/Build/vcvars64.bat",
-    r"C:/Program Files (x86)/Microsoft Visual Studio/2022/*/VC/Auxiliary/Build/vcvars64.bat",
-]
 _VS_EDITIONS = ("BuildTools", "Community", "Professional", "Enterprise")
 _VCVARS_REL = Path("VC") / "Auxiliary" / "Build" / "vcvars64.bat"
-_ONEAPI_ROOTS = [
-    r"C:/Program Files (x86)/Intel/oneAPI",
-    r"C:/Program Files/Intel/oneAPI",
-]
-_ICX_GLOBS = [
+K_ICX_GLOBS = [
     r"C:/Program Files (x86)/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
     r"C:/Program Files/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
 ]
@@ -46,7 +38,7 @@ K_NVCC_GLOBS_LINUX = [
     "/usr/local/cuda/bin/nvcc",
     "/usr/local/cuda-*/bin/nvcc",
 ]
-_ICX_GLOBS_LINUX = [
+K_ICX_GLOBS_LINUX = [
     "/opt/intel/oneapi/compiler/*/bin/icpx",
     "/opt/intel/oneapi/compiler/*/bin/icx",
 ]
@@ -61,7 +53,7 @@ def first_glob_match(patterns: list[str]) -> str:
     return ""
 
 
-def _first_existing(paths: list[str]) -> str:
+def first_existing(paths: list[str]) -> str:
     """Return the first path in *paths* that exists, or ''."""
     for p in paths:
         if Path(p).exists():
@@ -137,11 +129,6 @@ def find_vcvars(host: IHost | None = None,
     return (vswhere or _vcvars_from_vswhere)() or _vcvars_from_disk_scan(program_files)
 
 
-def _tools_dir() -> Path:
-    """Where a provisioning CLI extracts portable tools (cmake, ninja)."""
-    return home.tools_dir()
-
-
 def _toolchains_dir() -> Path:
     """Where a provisioning CLI installs the intel-llvm bundle and AdaptiveCpp."""
     return home.toolchains_dir()
@@ -177,7 +164,7 @@ def _installed_acpp() -> Path | None:
     return None
 
 
-def _discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str]) -> None:
+def discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str]) -> None:
     """Record the paths of toolchains installed by the provisioning CLI, if present."""
     clang = _installed_clang(cfg)
     if clang is not None:
@@ -201,9 +188,9 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
 
     # oneAPI is system-wide; reuse the active-compiler probe. See source/sushicore/provision/README.md.
     active, _ = find_sycl_compiler(cfg)
-    oneapi_bin = (first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl")
+    oneapi_bin = (first_glob_match(K_ICX_GLOBS) or shutil.which("icx-cl")
                   or shutil.which("icpx") or shutil.which("icx")
-                  or (first_glob_match(_ICX_GLOBS_LINUX) if target.searches_system_prefixes else ""))
+                  or (first_glob_match(K_ICX_GLOBS_LINUX) if target.searches_system_prefixes else ""))
     oneapi_ok = (active in ("icx-cl", "icpx")
                  or (bool(oneapi_bin) and binary_works(oneapi_bin)))
 
@@ -329,32 +316,7 @@ def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
     Existence of the binary is not enough — a partial install can leave the exe
     on disk with missing DLLs. The binary is verified by running --version.
     """
-    return _SYCL_COMPILER_FINDERS[target_of(cfg).name](cfg)
-
-
-def _find_windows_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
-    """Return the working oneAPI ``icx-cl`` from the config, the install roots or PATH."""
-    icx = cfg.expand(cfg.icx_compiler) if cfg.icx_compiler else ""
-    if icx and Path(icx).is_file() and binary_works(icx):
-        return ("icx-cl", icx)
-    hit = first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
-    if hit and binary_works(hit):
-        return ("icx-cl", hit)
-    return (None, "")
-
-
-def _find_linux_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
-    """Return the first working of oneAPI ``icpx`` and the intel/llvm ``clang++`` on PATH."""
-    for cc in ("icpx", "clang++"):
-        path = shutil.which(cc)
-        if path and binary_works(path):
-            return (cc, path)
-    return (None, "")
-
-
-#: The SYCL compiler finder of each target.
-_SYCL_COMPILER_FINDERS = {K_WINDOWS: _find_windows_sycl_compiler,
-                          K_LINUX: _find_linux_sycl_compiler}
+    return PROBE_PLANS.plan_for(target_of(cfg)).find_sycl_compiler(cfg)
 
 
 def find_configured_toolchain(cfg: ProvisionConfig) -> tuple[str | None, str]:
@@ -393,109 +355,9 @@ def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False) -> dict[str, s
     Returns only the fields that were actually found, so we never write empty
     placeholders that would shadow the committed defaults.
     """
-    return _LOCAL_CONFIG_RESOLVERS[target_of(cfg).name](cfg)
-
-
-def _resolve_windows(cfg: ProvisionConfig,
-                     first_glob: Callable[[list[str]], str] | None = None,
-                     vcvars_finder: Callable[[], Path | None] | None = None) -> dict[str, str]:
-    """Probe Windows-specific tool paths for :func:`resolve_local_config`.
-
-    Args:
-        first_glob: Gives the best match among glob patterns, or ''; :func:`_first_glob` when ``None``.
-        vcvars_finder: Gives the Visual Studio script the scan finds; :func:`find_vcvars` when ``None``.
-    """
-    values: dict[str, str] = {}
-
-    glob_of = first_glob or first_glob_match
-    vcvars = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
-    if not (vcvars and Path(vcvars).is_file()):
-        vcvars = glob_of(_VS_VCVARS_GLOBS) or str((vcvars_finder or find_vcvars)() or "")
-    if vcvars:
-        values["vs_vcvars"] = vcvars
-
-    oneapi = cfg.expand(cfg.oneapi_root) if cfg.oneapi_root else ""
-    if not (oneapi and Path(oneapi).is_dir()):
-        oneapi = _first_existing(_ONEAPI_ROOTS)
-    if oneapi:
-        values["oneapi_root"] = oneapi
-
-    icx = first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
-    if icx:
-        values["icx_compiler"] = icx
-
-    # clang++ runs GNU-like, not clang-cl, so vcvars is never sourced for rc.exe.
-    rc = shutil.which("rc") or first_glob_match(K_RC_GLOBS)
-    if rc:
-        values["rc_exe"] = rc
-
-    portable_bin = _tools_dir() / "cmake" / "bin"
-    ninja = shutil.which("ninja") or _first_existing([str(_tools_dir() / "ninja.exe")])
-    if ninja:
-        values["ninja_exe"] = ninja
-
-    # cmake/ctest may be off PATH in a non-interactive shell, so known install locations are checked too.
-    _cmake_pf = [str(portable_bin / "cmake.exe"),
-                 r"C:/Program Files/CMake/bin/cmake.exe",
-                 r"C:/Program Files (x86)/CMake/bin/cmake.exe"]
-    _ctest_pf = [str(portable_bin / "ctest.exe"),
-                 r"C:/Program Files/CMake/bin/ctest.exe",
-                 r"C:/Program Files (x86)/CMake/bin/ctest.exe"]
-    cmake = shutil.which("cmake") or _first_existing(_cmake_pf)
-    if cmake:
-        values["cmake_exe"] = cmake
-    ctest = shutil.which("ctest") or _first_existing(_ctest_pf)
-    if ctest:
-        values["ctest_exe"] = ctest
-
-    pkgconf = shutil.which("pkg-config") or shutil.which("pkgconf")
-    vcpkg_root = cfg.expand(cfg.vcpkg_root) if cfg.vcpkg_root else ""
-    # Ignore a configured path that points inside a conda/venv tree.
-    if vcpkg_root and (".conda" in vcpkg_root or "envs" in vcpkg_root):
-        vcpkg_root = ""
-    if not (vcpkg_root and Path(vcpkg_root).is_dir()):
-        # Default to the first dependency root holding a vcpkg tree, else the current root's.
-        vcpkg_root = str(home.found_vcpkg_dir())
-    if vcpkg_root:
-        values["vcpkg_root"] = vcpkg_root
-        # pkgconf shipped by vcpkg is the one CMakeLists expects.
-        vcpkg_pkgconf = Path(vcpkg_root) / "installed" / (cfg.vcpkg_triplet or "x64-windows") / "tools" / "pkgconf" / "pkgconf.exe"
-        if vcpkg_pkgconf.is_file():
-            pkgconf = str(vcpkg_pkgconf)
-    if pkgconf:
-        values["pkgconf_exe"] = pkgconf
-
-    doxy = shutil.which("doxygen") or _first_existing([
-        str(_tools_dir() / "doxygen" / "doxygen.exe"),
-        r"C:/Program Files/doxygen/bin/doxygen.exe",
-        r"C:/Program Files (x86)/doxygen/bin/doxygen.exe",
-    ])
-    if doxy:
-        values["doxygen_exe"] = doxy
-
-    _discover_installed_toolchains(cfg, values)
-    return values
-
-
-def _resolve_linux(cfg: ProvisionConfig) -> dict[str, str]:
-    """Probe Linux-specific tool paths for :func:`resolve_local_config`."""
-    values: dict[str, str] = {}
-    compiler, path = find_sycl_compiler(cfg)
-    if compiler == "clang++":
-        values["cxx"] = "clang++"
-        values["cc"] = "clang"
-    oneapi = cfg.expand(cfg.oneapi_root) if cfg.oneapi_root else ""
-    if oneapi and Path(oneapi, "setvars.sh").is_file():
-        values["oneapi_root"] = oneapi
-    del path
-    _discover_installed_toolchains(cfg, values)
-    return values
+    return PROBE_PLANS.plan_for(target_of(cfg)).resolve_local_config(cfg)
 
 
 def toolchain_presence(cfg: "ProvisionConfig") -> dict[str, bool]:
     """Return each SYCL toolchain's key mapped to whether this machine holds it."""
     return {name: present for name, present, _detail in toolchain_status(cfg, False)}
-
-
-#: The local-config resolver of each target.
-_LOCAL_CONFIG_RESOLVERS = {K_WINDOWS: _resolve_windows, K_LINUX: _resolve_linux}

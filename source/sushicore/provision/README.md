@@ -14,6 +14,13 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `lock.py` | The file lock around every operation that changes the root |
 | `host/` | `IHost`, what differs by operating system (links, the root lock, registry paths, display adapters, long paths, CUDA names), with `WindowsHost`, `PosixHost` and `current_host()`, the one place that picks one |
 | `target/` | `ITarget`, what the run's target platform decides (executable names, vcpkg triplet and bootstrap, adapter file names, compiler and manager choice, messages), with `WindowsTarget`, `LinuxTarget` and `target_of(cfg)`, the one place that picks one |
+| `target_plans.py` | `TargetPlans`: the plans one dispatch holds, one per target, filled by the modules of the dispatch's plan package so a new target adds files and no table entry |
+| `probe_plan.py`, `probe_plans/` | `IProbePlan` and `PROBE_PLANS`; `windows.py` and `linux.py` find the SYCL compiler and the local tool paths of each target |
+| `manager_plan.py`, `manager_plans/` | `IManagerPlan` and `MANAGER_PLANS`; `windows.py` and `linux.py` build the package managers of each target |
+| `llvm_plan.py`, `llvm_plans/` | `ILlvmPlan`, `LlvmRequest` and `LLVM_PLANS`; `windows.py` and `linux.py` supply the LLVM the acpp build needs on each target |
+| `install_deps_plan.py`, `install_deps_plans/` | `IInstallPlan`, `InstallServices` and `INSTALL_PLANS`; `windows.py` and `linux.py` name the licences and run the install of each target |
+| `toolchain_install.py` | `install_toolchains`: installs the intel/llvm and AdaptiveCpp toolchains a run selected, for both install plans |
+| `uninstall_plan.py`, `uninstall_plans/` | `IUninstallPlan`, `UninstallServices` and `UNINSTALL_PLANS`; `windows.py` and `linux.py` remove the packages and portable tools of each target |
 | `links.py` | Makes, reads and removes a directory link: a junction on Windows, a symlink elsewhere |
 | `migrate.py` | `migrate`, `rollback` and `finalize`: moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it; re-exports the names below |
 | `migration_plan.py` | `plan` and the `Move`, `MigrationPlan` and `PlanProbes` it returns and reads through: what a migration moves, worked out without changing the disk |
