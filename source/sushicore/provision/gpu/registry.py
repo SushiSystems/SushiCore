@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import final
+
 from ...errors import SushiCoreError
 from .backend import GpuBackendSpec
 from .cuda import CUDA
@@ -17,6 +19,7 @@ class DuplicateBackendError(SushiCoreError, ValueError):
     """Reports two GPU backend specs that share a vendor or a probe key."""
 
 
+@final
 class Registry:
     """An ordered, duplicate-free set of :class:`GpuBackendSpec`.
 

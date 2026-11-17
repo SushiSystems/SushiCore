@@ -82,7 +82,7 @@ K_LAYERED = (
     LayeredPackage(
         name="sushicore.provision",
         layers={
-            "default_console": 0, "output_memory": 0, "config": 0, "home": 0, "manifests": 0, "integrity": 0, "closure": 1, "closure_memory": 1,
+            "default_console": 0, "dependency_home": 0, "download_checking": 0, "verifier_slot": 0, "output_memory": 0, "config": 0, "home": 0, "manifests": 0, "integrity": 0, "closure": 1, "closure_memory": 1,
             "download_verifier": 1, "selection": 2,
             "system": 1, "probe": 1, "glob_search": 0, "intel_oneapi_repo": 2, "gpu_vendor": 1, "vs_locator": 1, "toolchains.stamp": 1, "gpu.compiler_identity": 1,
             "gpu.windows_installer": 1, "fragments": 1, "registry": 1, "lock": 1, "doctor": 1, "check_state": 0, "check_result": 1, "check": 1, "function_check": 1, "doctor_report": 1,

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Sequence, final
 
 from .console import Console
 from .errors import ProjectRootNotFoundError
@@ -25,6 +25,7 @@ _ATTRS = frozenset({
 })
 
 
+@final
 class LazyConsole:
     """Builds a :class:`~sushicore.console.Console` on first attribute access.
 

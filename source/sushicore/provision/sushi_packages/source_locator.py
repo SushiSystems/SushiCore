@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Mapping, Protocol, final
 
 from .. import sushi_sources
 from .package_error import PackageError
@@ -20,6 +20,7 @@ class ISourceLocator(Protocol):
         """Return the checkout of *name*; raise :class:`PackageError` when there is none."""
 
 
+@final
 class MemoryLocator:
     """Answers the checkout set for a library and searches nothing.
 
@@ -47,6 +48,7 @@ class MemoryLocator:
         return self._checkouts[name]
 
 
+@final
 class SushiSourceLocator:
     """Finds a checkout through ``<NAME>_DIR``, the sibling and the fetched copy."""
 

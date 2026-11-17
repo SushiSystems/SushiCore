@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 from .check_state import State
 
 
+@final
 @dataclass(frozen=True)
 class CheckResult:
     """The outcome of one check's run, with the detail a report line shows.

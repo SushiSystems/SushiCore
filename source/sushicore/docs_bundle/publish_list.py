@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from ..files import DiskFiles, Files
 from ..layered_toml import read_toml
@@ -21,6 +22,7 @@ K_NAME = re.compile(r"^[a-z][a-z0-9]*$")
 K_ADDRESS_PREFIX = "https://"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PublishList:
     """Holds what one repository publishes and how the site names it."""

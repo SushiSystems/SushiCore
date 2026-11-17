@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from .package import K_PREFIX, Package
 from .package_key import PackageKey
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class ResolvedPackage:
     """One library of the closure and the package chosen for it."""
@@ -47,6 +49,7 @@ class ResolvedPackage:
         return self.prefix() / real.relative_to(self.package.prefix)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PackageSet:
     """The resolved packages of a closure, in dependency order, and the libraries left out."""

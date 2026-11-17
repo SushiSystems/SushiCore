@@ -16,6 +16,7 @@ import posixpath
 import re
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+from typing import final
 
 from ..citations import K_EXTENSIONS, Rewrite, files_citing, repair_citations
 from ..proc import CommandRunner
@@ -77,6 +78,7 @@ K_LINK = re.compile(r"(\]\()([^)\s#:]+)((?:#[^)\s]*)?\))")
 K_DETAIL_FOLDER = "docs/backlog/detail"
 
 
+@final
 @dataclass(slots=True)
 class LegacyEntry:
     """One entry of the retired form: its heading, its fields and the prose after them."""
@@ -90,6 +92,7 @@ class LegacyEntry:
     prose: list[str] = field(default_factory=list)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class ImportResult:
     """What `import` wrote: the entries per kind, the detail files, the pins and the citations.
@@ -107,6 +110,7 @@ class ImportResult:
     left: tuple[Path, ...] = ()
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class RenumberResult:
     """What `renumber` changed: each old ID with its new one, for the caller to cite."""
@@ -167,6 +171,7 @@ def area_key(section: str) -> str:
     return key
 
 
+@final
 class BacklogImporter:
     """Writes the store from the retired files of one repository and deletes them."""
 
@@ -315,6 +320,7 @@ def entry_path(store: BacklogStore, item: LegacyEntry) -> Path:
     return store.area_path(key)
 
 
+@final
 class BacklogRenumberer:
     """Gives each entry that shares an ID with a different entry the next free number."""
 

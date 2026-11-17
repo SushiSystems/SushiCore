@@ -14,7 +14,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import IO, Mapping, Protocol
+from typing import IO, Mapping, Protocol, final
 
 K_TIMEOUT_EXIT_CODE = 124
 """The exit code a capture returns when its command outlives its timeout, as GNU `timeout` returns."""
@@ -114,6 +114,7 @@ class CommandRunner(Protocol):
         ...
 
 
+@final
 class Runner:
     """Runs external commands and says what it ran; implements :class:`CommandRunner`.
 

@@ -14,7 +14,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Mapping, Sequence, final
 
 from .errors import ProjectRootNotFoundError
 from .message_console import MessageConsole
@@ -162,6 +162,7 @@ def write_cache(cache_file: Path, key: str, env: Mapping[str, str]) -> None:
         )
 
 
+@final
 class StackBuildEnv:
     """The build environment for a module that consumes the shared toolchain.
 

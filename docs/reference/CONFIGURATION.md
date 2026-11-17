@@ -10,8 +10,8 @@ machine-local and not committed. Only the `[cli]` table is read for appearance.
 
 ```toml
 [cli]
-theme = "default"      # default | mono | muted, or a name given to register_theme
-icons = "text"         # text | emoji | minimal | none, or a name given to register_icon_set
+theme = "default"      # default | mono | muted, or a name registered on the ThemeRegistry given to build_console
+icons = "text"         # text | emoji | minimal | none, or a name registered on the IconRegistry given to build_console
 color = "auto"         # auto | always | never
 background = "auto"    # auto | dark | light
 

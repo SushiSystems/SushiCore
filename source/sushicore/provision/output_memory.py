@@ -6,9 +6,12 @@
 
 from __future__ import annotations
 
+from typing import final
+
 from ..console_memory import RecordingConsole
 
 
+@final
 class MemoryConsole(RecordingConsole):
     """The in-memory console adapter beside the real one: it records every call and prints nothing.
 

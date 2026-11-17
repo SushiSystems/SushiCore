@@ -7,7 +7,14 @@
 import pytest
 
 from sushicore.errors import ConfigError
-from sushicore.icons import IconSet, get_icon_set, known_icon_sets, register_icon_set
+from sushicore import icons as icons_module
+from sushicore.icon_registry import IconRegistry
+from sushicore.icons import (
+    IconSet,
+    get_icon_set,
+    known_icon_sets,
+    register_icon_set,
+)
 
 pytestmark = pytest.mark.small
 
@@ -35,3 +42,11 @@ def test_a_registered_set_is_found_by_name():
 def test_known_icon_sets_lists_the_registered_names_sorted():
     presets = {"zebra": IconSet(), "arrows": IconSet()}
     assert known_icon_sets(presets=presets) == ("arrows", "zebra")
+
+
+def test_register_icon_set_without_presets_warns_and_adds_to_the_default_registry(monkeypatch):
+    default = IconRegistry()
+    monkeypatch.setattr(icons_module, "DEFAULT_ICON_REGISTRY", default)
+    with pytest.warns(DeprecationWarning, match="register_icon_set"):
+        register_icon_set("shim-test", IconSet(info="?"))
+    assert default.get("shim-test").info == "?"

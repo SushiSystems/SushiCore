@@ -12,7 +12,7 @@ from __future__ import annotations
 import io
 import logging
 import sys
-from typing import TYPE_CHECKING, Callable, Iterable, Literal, Protocol, TextIO
+from typing import TYPE_CHECKING, Callable, Iterable, Literal, Protocol, TextIO, final
 
 from .events import event_line
 from .plain_text import plain_text
@@ -112,6 +112,7 @@ def _progress_text(label: str, index: int, count: int, fraction: float | None) -
     return text
 
 
+@final
 class RichRenderer:
     """Render through Rich; ``no_color=True`` keeps the layout and strips the ANSI codes."""
 
@@ -281,6 +282,7 @@ class PlainRenderer:
         return _answer(answer, default)
 
 
+@final
 class TerminalMemoryRenderer(PlainRenderer):
     """Render as plain text, with a raw Rich console that is a terminal of a given colour system.
 
@@ -322,6 +324,7 @@ class TerminalMemoryRenderer(PlainRenderer):
         return self._memory.getvalue()
 
 
+@final
 class JsonRenderer:
     """Write one JSON event per line to stdout and route every stray Rich print to stderr."""
 

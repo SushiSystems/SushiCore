@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, final
 
 
+@final
 class InMemoryBuildStepExecutor:
     """Records every command and answers 0, except for the one it is told to fail.
 
@@ -36,6 +37,7 @@ class InMemoryBuildStepExecutor:
         return 0
 
 
+@final
 class InMemoryAdapterBuilder:
     """Records the vendor of every build it is asked for and answers a fixed outcome per vendor.
 

@@ -13,18 +13,22 @@ from __future__ import annotations
 import platform
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import final
 
 from .environment import Environment, ProcessEnvironment
 from .files import Files
-from .icons import known_icon_sets
+from .icon_registry import IconRegistry
+from .icons import DEFAULT_ICON_REGISTRY
 from .terminal_background import K_AUTO, K_VALUES
-from .theme import known_themes
+from .theme import DEFAULT_THEME_REGISTRY
+from .theme_registry import ThemeRegistry
 from .layered_toml import read_toml
 
 _ENV_PREFIX = "SUSHI_CLI"
 
 
-@dataclass
+@final
+@dataclass(slots=True)
 class AppearanceSpec:
     theme: str = "default"
     icons: str = "text"
@@ -52,11 +56,14 @@ def _merge_cli_table(doc: dict, plat: str) -> dict:
 
 
 def load_appearance(config_paths: list[Path], *, environment: Environment | None = None,
-                    files: Files | None = None) -> AppearanceSpec:
+                    files: Files | None = None, theme_registry: ThemeRegistry | None = None,
+                    icon_registry: IconRegistry | None = None) -> AppearanceSpec:
     """Merge ``config_paths`` (low -> high precedence) and environment overrides.
 
     @param environment The variables read for the overrides; the process environment when None.
     @param files       The file system the config files are read through; the disk when None.
+    @param theme_registry The themes a name may select; the default registry when None.
+    @param icon_registry  The icon sets a name may select; the default registry when None.
     @throws ConfigError When a config file is not valid TOML.
     """
     plat = platform.system().lower()  # 'windows' | 'linux' | 'darwin'
@@ -90,8 +97,8 @@ def load_appearance(config_paths: list[Path], *, environment: Environment | None
     if env.has("NO_COLOR"):  # https://no-color.org — always wins when set
         spec.color = "never"
 
-    _settle(spec, "theme", known_themes(), "default")
-    _settle(spec, "icons", known_icon_sets(), "text")
+    _settle(spec, "theme", (theme_registry or DEFAULT_THEME_REGISTRY).known(), "default")
+    _settle(spec, "icons", (icon_registry or DEFAULT_ICON_REGISTRY).known(), "text")
     _settle(spec, "color", ("auto", "always", "never"), "auto")
     _settle(spec, "background", K_VALUES, K_AUTO)
     return spec

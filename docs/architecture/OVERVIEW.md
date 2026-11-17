@@ -30,6 +30,8 @@ and has no application of its own.
 | `config` | `load_appearance`: the `[cli]` table and the `SUSHI_CLI_*` variables resolved into one `AppearanceSpec`, read through the `environment=` and `files=` it is given |
 | `theme` | `Theme`, the style tokens, and the presets `default`, `mono` and `muted` |
 | `icons` | `IconSet`, the prefix printed before a line, and the presets `text`, `emoji`, `minimal` and `none` |
+| `theme_registry` | `ThemeRegistry`, the named themes a console builder chooses from; `build_console` takes one as `theme_registry=` |
+| `icon_registry` | `IconRegistry`, the named icon sets a console builder chooses from; `build_console` takes one as `icon_registry=` |
 | `renderer` | The `Renderer` protocol and its three backends: `RichRenderer`, `PlainRenderer`, `JsonRenderer`; `TerminalMemoryRenderer` is the in-memory terminal tests use |
 | `events` | The event kinds `JsonRenderer` writes and `event_line`, their one serialisation |
 | `console`, `console_memory` | `Console`, the facade a CLI calls: `info`, `success`, `warn`, `error`, `command`, `header`, `fail_panel`, `table`, `progress`, `result`, `prompt`; `RecordingConsole`, which records every call in order |
@@ -81,8 +83,9 @@ files a CLI hands it; the package re-exports it.
 - `Console` talks to the `Renderer` protocol and never to Rich. A renderer is any object with
   the protocol's eight methods (`line`, `command`, `header`, `panel`, `table`, `progress`,
   `result`, `prompt`) and its `raw` property.
-- `Theme` and `IconSet` are data. A new preset is registered with `register_theme` or
-  `register_icon_set`; no other module changes.
+- `Theme` and `IconSet` are data. A new preset is registered on a `ThemeRegistry` or
+  `IconRegistry` the caller passes to `build_console`; no other module changes. `register_theme` and
+  `register_icon_set` stay one release as deprecated shims over the default registries.
 - A component in `ui` reads `Theme` and `brand` and nothing else. `tools/layering/check_package_layers.py`
   reports one that imports more.
 - `typer_help` is the only module that imports Typer when it is loaded. `typer_theme`,

@@ -10,6 +10,7 @@ from rich.color import Color
 from rich.style import Style
 
 from sushicore.provision import home
+from sushicore.provision.dependency_home import DEFAULT_HOME
 
 
 def _clear_caches(owner: type) -> None:
@@ -56,9 +57,9 @@ def provision_home(tmp_path, monkeypatch):
     monkeypatch.delenv("SUSHISTACK_HOME", raising=False)
     monkeypatch.delenv("SUSHISTACK_DEPS_DIR", raising=False)
     monkeypatch.chdir(tmp_path)
-    home.bind_root(None)
+    DEFAULT_HOME.bind(None)
     yield root
-    home.bind_root(None)
+    DEFAULT_HOME.bind(None)
 
 
 K_SIZE_TIMEOUTS = {"small": 1, "medium": 10, "large": 120}

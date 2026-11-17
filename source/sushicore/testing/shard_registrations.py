@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from ..files import Files
 from .shards import test_file_texts
@@ -28,6 +29,7 @@ _K_FILTER = "--gtest_filter="
 _K_OUTPUT = "--gtest_output="
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class ShardRegistration:
     """One CTest test that runs a share of a GoogleTest program's cases.

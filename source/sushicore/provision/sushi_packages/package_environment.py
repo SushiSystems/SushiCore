@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, final
 
 #: Set in every nested build, so a library CLI knows a ``<NAME>_PACKAGE`` came from its parent.
 K_MARKER = "SUSHISTACK_PACKAGE_NESTED"
@@ -24,6 +24,7 @@ def package_variable(name: str) -> str:
     return f"{name.upper()}{K_SUFFIX}"
 
 
+@final
 class PackageEnvironment:
     """Builds the environment of a library build from the parent's and the chosen packages."""
 

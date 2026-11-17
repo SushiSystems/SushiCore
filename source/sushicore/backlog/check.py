@@ -14,6 +14,7 @@ import datetime
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import final
 
 from .errors import BacklogError
 from .model import (
@@ -43,6 +44,7 @@ from .store import (
 K_RETIRED = (Path("docs/design/REMAINING_WORK.md"), Path("docs/reference/KNOWN_ISSUES.md"))
 
 
+@final
 @dataclass(slots=True)
 class BacklogCheck:
     """What one run of the check reads from a repository, read once and shared by the rules."""

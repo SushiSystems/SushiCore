@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Mapping, final
 
 
+@final
 class MemoryEnvironment:
     """Variables held by name; nothing is read from the process."""
 

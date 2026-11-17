@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import re
 from pathlib import Path
+from typing import final
 
 from .licence_toolkit import LicenceToolkit
 
@@ -37,6 +38,7 @@ def first_year(this_year: int, *texts: str | None) -> int:
     return this_year
 
 
+@final
 class HeaderMerger:
     """Builds the text of a shared file under the header of one repository."""
 

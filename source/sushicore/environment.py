@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import os
-from typing import Protocol
+from typing import Protocol, final
 
 
 class Environment(Protocol):
@@ -20,6 +20,7 @@ class Environment(Protocol):
         """Returns whether a variable is set, an empty value included."""
 
 
+@final
 class ProcessEnvironment:
     """The environment of the running process, read live from ``os.environ``."""
 

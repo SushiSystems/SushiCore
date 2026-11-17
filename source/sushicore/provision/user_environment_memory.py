@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+from typing import final
 
+
+@final
 class InMemoryEnvironmentKey:
     """Holds values in a dict and logs when it is closed, as an opened registry key would.
 

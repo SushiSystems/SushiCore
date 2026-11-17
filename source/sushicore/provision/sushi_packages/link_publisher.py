@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import final
 
 from .package import Package
 from .package_error import PackageError
@@ -14,6 +15,7 @@ from .package_locks import PackageLocks
 from .stable_link import ILinkStore
 
 
+@final
 class LinkPublisher:
     """Sets the per-consumer link of a package under the link lock."""
 

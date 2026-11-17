@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.provision import home
+from sushicore.provision.dependency_home import DEFAULT_HOME
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.gpu.adapter_builder import AdapterBuilder
 from sushicore.provision.gpu.adapter_builder_memory import InMemoryBuildStepExecutor
@@ -438,12 +438,12 @@ def test_a_long_work_root_is_refused_on_windows(tmp_path, recording_console):
 def test_the_default_work_root_is_ur_under_the_dependency_root(recording_console):
     """Check that build trees go under ``ur`` in the root the dependency root is bound to."""
     root = Path("dependency-root")
-    home.bind_root(lambda: root)
+    DEFAULT_HOME.bind(lambda: root)
     try:
         builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryBuildStepExecutor(),
                                  console=recording_console)
     finally:
-        home.bind_root(None)
+        DEFAULT_HOME.bind(None)
 
     assert builder.work_root == root.resolve() / "ur"
 

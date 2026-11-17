@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import final
 
 from ..intel_oneapi_repo import ensure_intel_oneapi_repo
 from ..system import is_root
 from .linux_manager import LinuxPackageManager
 
 
+@final
 class AptManager(LinuxPackageManager):
     """Installs Debian/Ubuntu packages through apt-get."""
 

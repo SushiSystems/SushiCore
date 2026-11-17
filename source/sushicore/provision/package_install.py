@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Callable, Protocol, final
 
 from ..cmake_cache import cached_value
 from ..proc import CommandRunner
@@ -62,6 +62,7 @@ def install_summary(output: str, prefix: Path,
             f"into {prefix}")
 
 
+@final
 class PackageInstaller:
     """Runs ``cmake --install`` of a built tree into a prefix, then CPack when asked."""
 

@@ -12,12 +12,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import final
 
 from .errors import EntryNotFoundError, RefusedChangeError
 from .model import K_ISSUE_PREFIX, K_WORK_PREFIX, IssueEntry, WorkEntry
 from .store import K_PIN_CEILING, AnyEntry, AreaFile, BacklogConfig, BacklogStore, is_area_name
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Closed:
     """What closing an entry did: the entry it deleted and the changelog line to write."""
@@ -27,6 +29,7 @@ class Closed:
     changelog_line: str
 
 
+@final
 class BacklogEditor:
     """Makes the changes of the backlog commands on one store."""
 

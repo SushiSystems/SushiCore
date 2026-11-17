@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import Callable, Mapping, Protocol, Sequence, final
 
 from sushicore.proc import CommandRunner
 
@@ -52,6 +52,7 @@ def run_process(command: list[str], cwd: Path, env: Mapping[str, str],
         raise PackageError(f"cannot run {command[0]}: {exc}") from exc
 
 
+@final
 class MemoryRun:
     """Runs nothing: it records each command and answers an exit code per call.
 
@@ -79,6 +80,7 @@ class MemoryRun:
         return self._codes[position]
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class BuildRequest:
     """What one library build needs."""
@@ -102,6 +104,7 @@ class IPackageBuilder(Protocol):
         """Build and install; raise :class:`PackageError` on failure."""
 
 
+@final
 class RecordingBuilder:
     """Builds nothing: it records each request and installs the files an install leaves.
 
@@ -143,6 +146,7 @@ class RecordingBuilder:
         self._pass_time(self._seconds)
 
 
+@final
 class CliPackageBuilder:
     """Runs ``<cli> build`` then ``<cli> package`` in the library's checkout."""
 

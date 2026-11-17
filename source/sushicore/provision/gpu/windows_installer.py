@@ -42,6 +42,7 @@ _MACHINE_ENVIRONMENT_KEY = r"SYSTEM\CurrentControlSet\Control\Session Manager\En
 _FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 
+@typing.final
 @dataclasses.dataclass(frozen=True)
 class InstallerDownload:
     """One vendor installer file and the digest the vendor publishes for it.
@@ -56,6 +57,7 @@ class InstallerDownload:
     md5: str
 
 
+@typing.final
 @dataclasses.dataclass(frozen=True)
 class ElevatedResult:
     """The outcome of one elevated run.
@@ -111,6 +113,7 @@ def _md5_of(path: Path) -> str:
     return digest.hexdigest()
 
 
+@typing.final
 class HttpDownloader:
     """Downloads over HTTPS to a ``.part`` file and renames it only when its MD5 matches.
 
@@ -176,6 +179,7 @@ def _ps_quote(text: str) -> str:
     return "'" + text.replace("'", "''") + "'"
 
 
+@typing.final
 class PowerShellElevatedRunner:
     """Starts a process through ``Start-Process -Verb RunAs``, showing one UAC prompt.
 
@@ -221,6 +225,7 @@ def _query_machine_registry(name: str) -> object:
     return value
 
 
+@typing.final
 class RegistryMachineEnvironment:
     """Reads the machine environment block under HKLM, expanding embedded variables.
 
@@ -270,6 +275,7 @@ def prepend_machine_path(environment: MachineEnvironment) -> None:
         os.environ["PATH"] = merged
 
 
+@typing.final
 @dataclasses.dataclass(frozen=True)
 class WindowsInstallerTools:
     """The three helpers a Windows toolkit installer needs, injected as one bundle.

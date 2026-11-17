@@ -28,6 +28,7 @@ K_MANIFEST_NAME = "bundle.json"
 K_STAGING = ".docs-bundle-staging"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class BundleRequest:
     """Holds what to bundle, the release to name it after and where to write it."""
@@ -38,6 +39,7 @@ class BundleRequest:
     api: ApiSource | None = None
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class BundleResult:
     """Holds the archive a run wrote, its SHA-256 and how many pages it carries."""

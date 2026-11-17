@@ -11,14 +11,14 @@ import re
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from ..deprecated_name import warn_deprecated
 from ..layered_toml import has_marker, walk_up
 from ..workspace import WORKSPACE_MARKER
+from .dependency_home import DEFAULT_HOME, DependencyHome
 
 ENV_HOME = "SUSHISYSTEMS_HOME"
 DIR_NAME = ".sushisystems"
 _LEGACY_ENV = "SUSHISTACK_DEPS_DIR"
-
-_bound: Callable[[], Path] | None = None
 
 _VARIABLE = re.compile(r"\$(\w+)|\$\{(\w+)\}|%(\w+)%")
 
@@ -29,9 +29,13 @@ def default_root(user_home: Path | None = None) -> Path:
 
 
 def bind_root(provider: Callable[[], Path] | None) -> None:
-    """Make *provider* the source of the root, overriding the env var; ``None`` unbinds."""
-    global _bound
-    _bound = provider
+    """Make *provider* the source of the root, overriding the env var; ``None`` unbinds.
+
+    Deprecated: hold a :class:`~sushicore.provision.dependency_home.DependencyHome` and pass it
+    as ``home=`` to :func:`root`.
+    """
+    warn_deprecated("home.bind_root", "a DependencyHome passed as home=")
+    DEFAULT_HOME.bind(provider)
 
 
 def _expand(value: str, environ: Mapping[str, str], user_home: Path | None) -> str:
@@ -55,16 +59,18 @@ def _env_path(environ: Mapping[str, str], name: str, user_home: Path | None,
 
 
 def root(*, environ: Mapping[str, str] | None = None, user_home: Path | None = None,
-         cwd: Path | None = None, bound: Callable[[], Path] | None = None) -> Path:
+         cwd: Path | None = None, bound: Callable[[], Path] | None = None,
+         home: DependencyHome | None = None) -> Path:
     """Return the absolute dependency root: bound provider, then env var, then default.
 
     Args:
         environ: The environment to read; the process's when ``None``.
         user_home: The home directory ``~`` and the default root start from; the user's when ``None``.
         cwd: The folder a relative env value is taken from; the working folder when ``None``.
-        bound: A provider that wins over the module's bound one; the bound one when ``None``.
+        bound: A provider that wins over the one *home* holds; *home*'s when ``None``.
+        home: The home whose provider is read; the deprecated default home when ``None``.
     """
-    provider = bound or _bound
+    provider = bound or (DEFAULT_HOME if home is None else home).provider
     if provider is not None:
         return Path(provider()).expanduser().resolve()
     env = os.environ if environ is None else environ

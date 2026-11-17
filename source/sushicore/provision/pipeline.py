@@ -10,7 +10,7 @@ module CLIs that import them from here.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, final
 
 from .default_console import console_or_default
 from .install_context import InstallContext
@@ -19,6 +19,7 @@ from .step_result import StepResult
 from .toolchain_selection import ToolchainSelection  # noqa: F401
 
 
+@final
 class InstallPipeline:
     """Runs an ordered list of steps, stopping on the first failure."""
 

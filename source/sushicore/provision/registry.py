@@ -11,6 +11,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import final
 
 try:
     import tomllib  # Python 3.11+
@@ -33,6 +34,7 @@ _SINGLE_COMPONENTS = ("vcpkg",)
 _HEADER = "# Components installed under this dependency root. Written by sushicore.provision.\n"
 
 
+@final
 @dataclass(frozen=True)
 class Component:
     """One installed component and the consumers that depend on it.
@@ -63,6 +65,7 @@ def default_path() -> Path:
     return home.root() / "registry.toml"
 
 
+@final
 class Registry:
     """Tracks components installed under a dependency root, backed by a TOML file."""
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, final
 
 from .default_console import console_or_default
 from ..proc import CommandRunner
@@ -30,6 +30,7 @@ class IGitClient(ABC):
         """Return the commit *checkout*'s HEAD points at, or '' when git cannot say."""
 
 
+@final
 class GitClient(IGitClient):
     """Runs the git on PATH, or the executable it was given.
 

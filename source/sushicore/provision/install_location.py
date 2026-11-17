@@ -14,6 +14,7 @@ if typing.TYPE_CHECKING:
     from .config import ProvisionConfig
 
 
+@typing.final
 @dataclasses.dataclass(frozen=True)
 class ToolkitInstall:
     """The result of locating a toolkit or toolchain on the machine.

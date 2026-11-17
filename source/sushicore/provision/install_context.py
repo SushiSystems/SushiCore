@@ -7,12 +7,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import final
 
 from .config import ProvisionConfig
+from .dependency_home import DEFAULT_HOME, DependencyHome
 from .licence_consent import LicenceConsent
 from .toolchain_selection import ToolchainSelection
 
 
+@final
 @dataclass
 class InstallContext:
     """State shared across steps for one installer run."""
@@ -32,6 +35,8 @@ class InstallContext:
     #: The command that replaces a stale intel/llvm bundle; empty names the refresh option only.
     refresh_command: str = ""
     dry_run: bool = False
+    #: The home whose dependency root the steps of this run read.
+    home: DependencyHome = DEFAULT_HOME
     #: The run's licence consent; installers that accept a licence read it, None means none given.
     consent: LicenceConsent | None = None
     everything: bool = False

@@ -10,7 +10,7 @@ import os
 import time
 from pathlib import Path
 from types import TracebackType
-from typing import Callable
+from typing import Callable, final
 
 from ..errors import SushiCoreError
 from .host import current_host
@@ -23,6 +23,7 @@ class LockTimeout(SushiCoreError):
     """Raised when a lock is not acquired before its timeout elapses."""
 
 
+@final
 class ProvisionLock:
     """A context manager guarding *path* against concurrent provisioning."""
 

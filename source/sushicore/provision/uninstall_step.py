@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, final
 
 from .default_console import console_or_default
 from . import home
+from .dependency_home import DependencyHome
 from .fragments import IDependencySource
 from .packages import IPackageManager
 from .install_context import InstallContext
@@ -22,6 +23,7 @@ from .target import target_of
 from .uninstall_plan import UNINSTALL_PLANS, UninstallServices
 
 
+@final
 class UninstallStep(Step):
     """Remove packages and files that the installer placed on this system."""
 
@@ -30,18 +32,20 @@ class UninstallStep(Step):
     def __init__(self, source: IDependencySource,
                  managers: list[IPackageManager], sink: ConfigSink,
                  *, console: Any = None,
-                 root: Callable[[], Path] | None = None) -> None:
+                 root: Callable[[], Path] | None = None,
+                 dependency_home: DependencyHome | None = None) -> None:
         """Wire the dependency source, the package managers and the sink this step clears.
 
         Args:
             console: The console the step prints through.
-            root: Returns the dependency root this step may remove; the bound root when omitted.
+            root: Returns the dependency root this step may remove; *dependency_home*'s when omitted.
+            dependency_home: The home whose root is removed; the deprecated default home when omitted.
         """
         console = console_or_default(console, "UninstallStep")
         self._services = UninstallServices(source=source, managers=managers, console=console)
         self._sink = sink
         self._console = console
-        self._root = root or (lambda: home.root())
+        self._root = root or (lambda: home.root(home=dependency_home))
 
     def run(self, ctx: InstallContext) -> StepResult:
         """Remove the target's packages, then the toolchains with ``ctx.everything``, then the config."""

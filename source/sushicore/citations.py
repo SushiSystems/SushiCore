@@ -14,6 +14,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from .proc import CommandRunner, did_not_run
 from .quiet_runner import quiet_runner
@@ -44,6 +45,7 @@ K_EXIT_SOME_IGNORED = 0
 K_EXIT_NONE_IGNORED = 1
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Rewrite:
     """One citation, the line it is on, and its replacement, or None when it cannot be placed."""

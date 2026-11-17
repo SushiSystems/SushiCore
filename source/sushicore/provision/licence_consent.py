@@ -23,6 +23,7 @@ __all__ = [
 _YES = frozenset({"y", "yes"})
 
 
+@typing.final
 @dataclass(frozen=True, slots=True)
 class Licence:
     """Names one third-party licence and the page that holds its text."""
@@ -31,6 +32,7 @@ class Licence:
     link: str
 
 
+@typing.final
 @dataclass(frozen=True, slots=True)
 class ConsentDecision:
     """Holds whether the run may install, the licences asked about and the refusal's exit code."""

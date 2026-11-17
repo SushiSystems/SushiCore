@@ -21,7 +21,7 @@ import sys
 import time
 from pathlib import Path
 from types import ModuleType, TracebackType
-from typing import TYPE_CHECKING, Callable, Mapping
+from typing import TYPE_CHECKING, Callable, Mapping, final
 
 if TYPE_CHECKING:
     from .proc import CommandRunner
@@ -137,6 +137,7 @@ def alive(pid: int) -> bool:
     return True
 
 
+@final
 class Locked:
     """Holds the state directory's lock file for the length of a `with` block."""
 
@@ -250,6 +251,7 @@ def admit(
     return True
 
 
+@final
 class PeakMeter:
     """Measures the peak memory of this process and every process it starts, in megabytes."""
 

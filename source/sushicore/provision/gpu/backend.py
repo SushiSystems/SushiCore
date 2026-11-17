@@ -32,6 +32,7 @@ class ToolkitLocator(ToolkitFinder, typing.Protocol):
         ...
 
 
+@typing.final
 class NotProvided:
     """A locator for a backend that has no answer on the current platform.
 
@@ -55,6 +56,7 @@ class NotProvided:
         return True
 
 
+@typing.final
 class PlatformLocator:
     """Dispatches to a per-platform locator, falling back to :class:`NotProvided`.
 
@@ -87,6 +89,7 @@ class PlatformLocator:
         return self._for(cfg).provision(cfg, dry_run, console)
 
 
+@typing.final
 @dataclasses.dataclass(frozen=True)
 class GpuBackendSpec:
     """One vendor's complete answer to the GPU backend contract.

@@ -16,6 +16,7 @@ from ..packages import IPackageManager, LinuxPackageManager
 from ..install_context import InstallContext
 
 
+@typing.final
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolchainEnv:
     """What one install run hands every toolchain installer.

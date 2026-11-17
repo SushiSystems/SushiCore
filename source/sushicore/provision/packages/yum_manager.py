@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import shutil
+from typing import final
 
 from ..system import is_root
 from .apt_names import K_APT_TO_DNF, translate_names
 from .linux_manager import LinuxPackageManager
 
 
+@final
 class YumManager(LinuxPackageManager):
     """Installs legacy RHEL/CentOS packages through yum."""
 

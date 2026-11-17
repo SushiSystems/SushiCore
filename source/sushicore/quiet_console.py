@@ -11,12 +11,13 @@ It imports nothing from the package at run time, so `build_gate.py` loads it by 
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 if TYPE_CHECKING:
     from .proc import RichConsoleLike
 
 
+@final
 class QuietConsole:
     """A console for a runner whose caller reads results and shows no output; only errors reach stderr."""
 

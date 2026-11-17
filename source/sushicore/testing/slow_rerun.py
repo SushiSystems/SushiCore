@@ -10,6 +10,7 @@ import re
 from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
+from typing import final
 
 from ..files import Files
 from .module_tests import ModuleTests
@@ -17,6 +18,7 @@ from .result_files import ResultFileError, case_names
 from .shards import gtest_results_folder, program_of, slow_results_folder
 
 
+@final
 class SlowTestRerun:
     """Reruns the tests of one run that were over a time limit, alone.
 

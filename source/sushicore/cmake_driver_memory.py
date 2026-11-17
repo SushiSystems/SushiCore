@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, final
 
 from .cmake_cache import same_path
 from .cmake_driver import CMakeDriver, option_value
@@ -16,6 +16,7 @@ from .cmake_tool_config import CMakeToolConfig
 from .message_console import MessageConsole
 
 
+@final
 @dataclass(slots=True)
 class MemoryTree:
     """One build tree held in memory.
@@ -29,6 +30,7 @@ class MemoryTree:
     cache: dict[str, str] = field(default_factory=dict)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class CMakeCall:
     """One command the driver was asked to run.

@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, final
 
 from .gpu_hardware import GpuHardware
 from .toolkit_vendor import ToolkitSourceError
 
 
+@final
 class FixedHardware:
     """Cards named by one text, which is also their fingerprint.
 
@@ -33,6 +34,7 @@ class FixedHardware:
         return self.cards
 
 
+@final
 class InMemoryToolkitVendor:
     """Answers the vendor questions from fixed tables and touches no disk or network.
 

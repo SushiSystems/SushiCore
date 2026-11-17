@@ -9,9 +9,10 @@ Deprecated since 0.15.0 and removed in 0.16.0, with ``windows_installer``.
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Mapping, final
 
 
+@final
 class InMemoryMachineEnvironment:
     """Serves machine environment variables from the values it was given.
 

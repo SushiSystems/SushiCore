@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class LibraryNode:
     """A library's name, checkout, CLI, source exclusions and the libraries it depends on."""

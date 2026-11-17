@@ -12,7 +12,7 @@ or another backend can hand it any ``Renderer`` without subclassing.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 from .icons import IconSet
 from .renderer import JsonRenderer, Renderer
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from rich.console import Console as RichConsole
 
 
+@final
 class Console:
     """Translate semantic calls into renderer calls with a theme and an icon set."""
 

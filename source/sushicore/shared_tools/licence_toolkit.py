@@ -14,12 +14,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
+from typing import final
 
 from .git_reader import GitReader
 
 K_FOLDER = "tools"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class LicenceToolkit:
     """The names of the writer in the tag's `tools/` that the sync uses."""

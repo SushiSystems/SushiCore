@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
+from typing import final
 
 
+@final
 @dataclass(frozen=True)
 class ToolchainSelection:
     """Which of the four customizable toolchain components a run provisions."""

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import final
 
 from .result_console import ResultConsole
 
@@ -15,6 +16,7 @@ K_EXIT_FAILED = 1
 K_EXIT_USAGE = 2
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Outcome:
     """Holds how a command ended: whether it succeeded, its exit code and its result payload."""

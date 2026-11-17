@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, field
-from typing import ContextManager, NamedTuple, Sequence
+from typing import ContextManager, NamedTuple, Sequence, final
 
 
 class ConsoleCall(NamedTuple):
@@ -27,6 +27,7 @@ class ConsoleCall(NamedTuple):
         return str(self.args[0]) if self.args else ""
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PrintedOutput:
     """One ``console.print`` call of the Rich console: its objects and its keyword options."""
@@ -40,6 +41,7 @@ class PrintedOutput:
         return str(self.objects[0]) if self.objects else ""
 
 
+@final
 class RecordingRichConsole:
     """Stands in for the Rich console behind ``console``; records ``print`` and ``status``."""
 

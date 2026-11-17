@@ -13,6 +13,7 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from urllib.parse import unquote
+from typing import final
 
 K_FENCE = re.compile(r"^\s{0,3}(```|~~~)")
 K_CODE_SPAN = re.compile(r"`[^`]*`")
@@ -21,6 +22,7 @@ K_HEADING = re.compile(r"^#\s+(.*?)\s*#*\s*$")
 K_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class MarkdownLink:
     """Holds one link target and the line it stands on."""

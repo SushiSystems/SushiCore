@@ -12,10 +12,13 @@ support a new color scheme.
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
+from typing import final
 
-from .errors import ConfigError
+from .deprecated_name import warn_deprecated
+from .theme_registry import ThemeRegistry
 
 
+@final
 @dataclass(frozen=True)
 class Theme:
     """Style tokens used by :class:`sushicore.console.Console`.
@@ -75,7 +78,7 @@ _SUSHIWEB = Theme(
     rule_line="default",
 )
 
-_THEME_PRESETS: dict[str, Theme] = {
+DEFAULT_THEME_REGISTRY = ThemeRegistry({
     "default": _SUSHIWEB,
     "sushiweb": _SUSHIWEB,
     "mono": Theme(
@@ -86,21 +89,36 @@ _THEME_PRESETS: dict[str, Theme] = {
         info="blue", success="green", warn="yellow", error="red",
         cmd="dim cyan", header="#f0a500", panel_border="red",
     ),
-}
+})
+"""The registry the module-level functions read when their caller passes none."""
 
 
 def register_theme(name: str, theme: Theme) -> None:
-    """Add or replace a named theme preset. Lets a downstream CLI ship its own."""
-    _THEME_PRESETS[name] = theme
+    """Add or replace a named theme preset in the default registry.
+
+    Deprecated: hold a :class:`~sushicore.theme_registry.ThemeRegistry` and pass it to
+    ``build_console`` as ``theme_registry=``.
+    """
+    warn_deprecated("register_theme", "ThemeRegistry.register on a registry passed to build_console")
+    DEFAULT_THEME_REGISTRY.register(name, theme)
 
 
-def get_theme(name: str) -> Theme:
-    try:
-        return _THEME_PRESETS[name]
-    except KeyError:
-        known = ", ".join(sorted(_THEME_PRESETS))
-        raise ConfigError(f"Unknown CLI theme '{name}'. Known themes: {known}") from None
+def get_theme(name: str, *, registry: ThemeRegistry | None = None) -> Theme:
+    """Return the theme registered under *name*.
+
+    Args:
+        registry: The registry to look in; the default one when None.
+
+    Raises:
+        ConfigError: If no theme has that name; the message lists the known names.
+    """
+    return (DEFAULT_THEME_REGISTRY if registry is None else registry).get(name)
 
 
-def known_themes() -> tuple[str, ...]:
-    return tuple(sorted(_THEME_PRESETS))
+def known_themes(*, registry: ThemeRegistry | None = None) -> tuple[str, ...]:
+    """Return the registered theme names, sorted.
+
+    Args:
+        registry: The registry to list; the default one when None.
+    """
+    return (DEFAULT_THEME_REGISTRY if registry is None else registry).known()

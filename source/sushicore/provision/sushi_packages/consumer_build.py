@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, final
 
 from ...build_env import prepend_path
 from .package_set import PackageSet
@@ -47,6 +47,7 @@ def search_path_variable(windows: bool) -> str:
     return K_WINDOWS_PATH if windows else K_POSIX_PATH
 
 
+@final
 class MemoryDefinitions:
     """A module config that pins some libraries and reads no file.
 
@@ -64,6 +65,7 @@ class MemoryDefinitions:
                 if packaged is None or packaged.get(pin) is None]
 
 
+@final
 class RunDirs:
     """Keeps the run-time folders of the packages a build tree linked, in a file of that tree.
 

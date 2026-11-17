@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, final
 
 _DEFAULT_MAX_DEPTH = 4
 
@@ -59,6 +59,7 @@ def _is_executable(path: Path) -> bool:
     return os.access(path, os.X_OK)
 
 
+@final
 class ExecutableIndex:
     """Finds runnable programs under a build tree, skipping what the CLI names.
 

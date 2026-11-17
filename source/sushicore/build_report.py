@@ -15,6 +15,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import final
 
 #: The file a report is written to, inside the tree it measures.
 K_REPORT_NAME = "build_report.json"
@@ -38,6 +39,7 @@ class EdgeKind(str, Enum):
     other = "other"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Edge:
     """One edge a build ran: its first output, its kind, its wall time in seconds and when it
@@ -49,6 +51,7 @@ class Edge:
     started: float = 0.0
 
 
+@final
 @dataclass(slots=True)
 class KindTotals:
     """What the edges of one kind cost together."""
@@ -59,6 +62,7 @@ class KindTotals:
     peak_mb: int = 0
 
 
+@final
 @dataclass(slots=True)
 class BuildReport:
     """The costs of one build, per kind of edge, with the run's lowest free memory."""

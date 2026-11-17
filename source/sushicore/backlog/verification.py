@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import final
 
 from ..proc import CommandRunner
 from ..quiet_runner import quiet_runner
@@ -34,6 +35,7 @@ def run_git(root: Path, *arguments: str, runner: CommandRunner | None = None) ->
     return stdout if code == 0 else None
 
 
+@final
 class GitVerification:
     """Reads which IDs are unverified in a checkout: those named after the stamped commit."""
 

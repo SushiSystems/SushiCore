@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime
 import re
 from dataclasses import dataclass, field
+from typing import final
 
 from .errors import DesignError
 
@@ -44,6 +45,7 @@ K_STATUS_FORMS = re.compile(
 )
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Phase:
     """One row of a phase table."""
@@ -54,6 +56,7 @@ class Phase:
     line: int = 0
 
 
+@final
 @dataclass(slots=True)
 class TopicDocument:
     """A topic's README.md read into its frame, with the line each part sits on."""

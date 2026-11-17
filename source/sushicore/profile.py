@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, final
 
 #: Names the file a release build writes at an install's root; docs/architecture/OVERVIEW.md.
 RELEASE_MANIFEST = "sushi-release.json"
@@ -41,6 +41,7 @@ _COMMON_ENV_TOKENS: tuple[str, ...] = (
 )
 
 
+@final
 @dataclass(frozen=True)
 class ModuleProfile:
     """The identity of one Sushi* module, as its CLI and the shared code see it.

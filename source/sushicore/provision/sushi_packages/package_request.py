@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Collection, Mapping
+from typing import Collection, Mapping, final
 
 from ..closure import DEFAULT_FRAGMENT
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PackageRequest:
     """The consumer, its compiler and its build type, and the choices it makes per library.

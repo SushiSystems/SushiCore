@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+from typing import final
 
+
+@final
 class RecordedLines:
     """Keeps every line it is given, in order.
 

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, final
 
 from ..closure import DEFAULT_FRAGMENT
 from .build_tree import BuildTree
@@ -36,6 +36,7 @@ K_SOURCE_OWNER = "the source tree"
 K_NESTED_LINK = "-package"
 
 
+@final
 @dataclass
 class _Resolution:
     """The state of one call to :meth:`PackageResolver.resolve`."""
@@ -46,6 +47,7 @@ class _Resolution:
     resolved: dict[str, ResolvedPackage] = field(default_factory=dict)
 
 
+@final
 class PackageResolver:
     """Resolves a consumer's chain bottom-up and refuses a library at two keys."""
 

@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import final
 
 
+@final
 class InMemoryConfigSink:
     """Records every call a step makes on it, in order, and writes nothing.
 

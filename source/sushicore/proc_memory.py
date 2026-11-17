@@ -9,12 +9,13 @@ from __future__ import annotations
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Mapping
+from typing import IO, Mapping, final
 
 from .proc import (K_QUIET_TAIL_LINES, K_TIMEOUT_EXIT_CODE, ConsoleLike, emit_output_line,
                    not_found_message, timed_out_message)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class RecordedCommand:
     """One command a runner was asked to run.
@@ -42,6 +43,7 @@ class RecordedCommand:
     stdin_given: bool = False
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class ScriptedRun:
     """What the runner answers to one command.

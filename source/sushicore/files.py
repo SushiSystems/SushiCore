@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, final
 
 
 class Files(Protocol):
@@ -41,6 +41,7 @@ class Files(Protocol):
         """Returns the modification time of the file at the path in seconds, or None when it is not known."""
 
 
+@final
 class DiskFiles:
     """The files of the real file system."""
 

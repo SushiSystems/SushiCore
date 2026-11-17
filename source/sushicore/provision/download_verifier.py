@@ -15,9 +15,12 @@ from pathlib import Path
 from typing import Collection, Mapping
 
 from sushicore.deps_fragment import Download
+from sushicore.deprecated_name import warn_deprecated
 from sushicore.errors import ConfigError, DigestMismatchError
 
+from .download_checking import DownloadChecking
 from .integrity import verify_sha256
+from .verifier_slot import VerifierSlot
 
 _log = logging.getLogger(__name__)
 
@@ -91,31 +94,42 @@ class DownloadVerifier:
         )
 
 
-_bound = DownloadVerifier({})
+DEFAULT_VERIFIER_SLOT = VerifierSlot(lambda: DownloadVerifier({}))
+"""The slot the download sites read when their caller passes no verifier; set by ``bind_verifier``."""
 
 
 def bind_verifier(verifier: DownloadVerifier | None) -> None:
-    """Make *verifier* the one the download sites call;``None`` binds one that pins nothing."""
-    global _bound
-    _bound = verifier if verifier is not None else DownloadVerifier({})
+    """Make *verifier* the one the download sites call;``None`` binds one that pins nothing.
+
+    Deprecated: pass the verifier as ``verifier=`` to the download site, or hold it with
+    :meth:`VerifierSlot.holding`.
+    """
+    warn_deprecated("download_verifier.bind_verifier", "a verifier passed as verifier=")
+    DEFAULT_VERIFIER_SLOT.bind(verifier)
 
 
-def verify_download(name: str, path: Path) -> None:
-    """Verify the file downloaded for the manifest entry *name* through the bound verifier.
+def verify_download(name: str, path: Path, *, verifier: DownloadChecking | None = None) -> None:
+    """Verify the file downloaded for the manifest entry *name* through *verifier*.
+
+    Args:
+        verifier: The verifier to use; the one the default slot holds when ``None``.
 
     Raises:
         DigestMismatchError: The entry pins a digest the file does not have.
     """
-    _bound.verify(name, path)
+    (verifier or DEFAULT_VERIFIER_SLOT.current()).verify(name, path)
 
 
-def pinned_download(name: str) -> Download:
-    """Return the download the manifest entry *name* pins, through the bound verifier.
+def pinned_download(name: str, *, verifier: DownloadChecking | None = None) -> Download:
+    """Return the download the manifest entry *name* pins, through *verifier*.
+
+    Args:
+        verifier: The verifier to use; the one the default slot holds when ``None``.
 
     Raises:
         ConfigError: No fragment of the run pins a download under *name*.
     """
-    return _bound.pinned(name)
+    return (verifier or DEFAULT_VERIFIER_SLOT.current()).pinned(name)
 
 
 def unpinned_downloads(declared: Collection[str], digests: Mapping[str, str],

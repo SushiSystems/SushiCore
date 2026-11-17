@@ -11,7 +11,7 @@ import os
 import shutil
 import time
 from pathlib import Path
-from typing import Callable, Collection
+from typing import Callable, Collection, final
 
 from .package import K_PREFIX, Package
 from .package_error import PackageError
@@ -41,6 +41,7 @@ K_STALE_PARTIAL = 24 * 3600.0
 K_RENAME_TRIES, K_RENAME_WAIT = 5, 0.2
 
 
+@final
 class PackageStore:
     """Packages under ``<root>/<name>/<digest>/``, each complete only once its stamp exists."""
 

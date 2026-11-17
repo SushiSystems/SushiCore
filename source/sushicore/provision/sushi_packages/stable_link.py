@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, final
 
 from .. import links
 from ..host import IHost, current_host
@@ -26,6 +26,7 @@ class ILinkStore(Protocol):
         """Return the digests, as folder names, that any link of *name* points at."""
 
 
+@final
 class MemoryLinks:
     """Keeps links in a dictionary and touches no folder.
 
@@ -55,6 +56,7 @@ class MemoryLinks:
         return {target.name for link, target in self._links.items() if link.parent.name == name}
 
 
+@final
 class StableLink:
     """Reads and moves the per-consumer links under ``<packages>/<name>/``."""
 

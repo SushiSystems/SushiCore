@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Sequence, final
 
 from sushicore.deps_fragment import SushiPin
 
@@ -26,6 +26,7 @@ _log = logging.getLogger(__name__)
 K_REPOSITORY_URL = "https://github.com/sushisystems/{name}.git"
 
 
+@final
 class FetchSushiSourcesStep(Step):
     """Clones each pinned Sushi library at its tag and refuses a commit off the pin."""
 

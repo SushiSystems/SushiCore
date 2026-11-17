@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, final
 
 from .fragments import Dependency, IDependencySource
 
 
+@final
 class InMemoryDependencySource(IDependencySource):
     """Serves the dependencies and the module-to-modules map it was given.
 

@@ -59,7 +59,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         console.error(str(exc))
         return failed()
     fetch = InstallContext(cfg=cfg, consumer=module.profile.key,
-                           program=module.profile.program, dry_run=dry_run)
+                           program=module.profile.program, dry_run=dry_run, home=module.home)
     if not sushi_setup.prepare(fetch, root, pins, module.git_client(), timeout, console):
         return failed()
     try:
@@ -96,9 +96,10 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         dry_run=dry_run,
         consent=consent,
         assume_acpp_llvm=yes,
+        home=module.home,
     )
     try:
-        with ProvisionLock(home.root() / ".lock", timeout=timeout):
+        with ProvisionLock(home.root(home=module.home) / ".lock", timeout=timeout):
             ok = pipeline.run(ctx)
     except LockTimeout as exc:
         console.error(str(exc))

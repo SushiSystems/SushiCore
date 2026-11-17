@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, final
 
 
+@final
 class MemoryFiles:
     """Files held by path; a folder exists while a file sits under it."""
 

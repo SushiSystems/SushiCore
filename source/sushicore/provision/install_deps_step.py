@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, final
 
 from .default_console import console_or_default
-from .download_verifier import DownloadVerifier, bind_verifier
+from .download_verifier import DEFAULT_VERIFIER_SLOT, DownloadVerifier
 from .fragments import IDependencySource
 from .gpu_stage import GpuStage
 from .install_deps_plan import INSTALL_PLANS, InstallServices
@@ -22,6 +22,7 @@ from .step_result import StepResult
 from .target import target_of
 
 
+@final
 class InstallDepsStep(Step):
     """Install missing manifest dependencies and system toolchain."""
 
@@ -59,9 +60,7 @@ class InstallDepsStep(Step):
             DigestMismatchError: A download's SHA-256 is not the one its entry pins.
         """
         platform = ctx.cfg.platform
-        bind_verifier(DownloadVerifier(self._source.digests(platform),
-                                       self._source.downloads(platform)))
-        try:
+        verifier = DownloadVerifier(self._source.digests(platform),
+                                    self._source.downloads(platform))
+        with DEFAULT_VERIFIER_SLOT.holding(verifier):
             return INSTALL_PLANS.plan_for(target_of(ctx.cfg)).run(ctx, self._services)
-        finally:
-            bind_verifier(None)

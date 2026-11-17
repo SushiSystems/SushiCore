@@ -10,6 +10,7 @@ import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from ..proc import Runner
 from ..quiet_console import QuietConsole
@@ -18,6 +19,7 @@ from ..quiet_console import QuietConsole
 K_CANNOT_START = 127
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class CapturedRun:
     """The exit code and the combined output of a command run with its output held back."""

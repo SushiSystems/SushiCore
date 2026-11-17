@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Mapping, Sequence, final
 
 from .package import Package
 from .package_environment import K_MARKER, package_variable
@@ -15,6 +15,7 @@ from .package_error import PackageError
 from .package_store import PackageStore
 
 
+@final
 class ForcedPackages:
     """Turns the ``<NAME>_PACKAGE`` variables of a nested build into stored packages."""
 

@@ -10,6 +10,7 @@ import enum
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from . import home
 
@@ -25,6 +26,7 @@ class SourceKind(str, enum.Enum):
     FETCHED = "fetched"
 
 
+@final
 @dataclass(frozen=True)
 class ResolvedSource:
     """The checkout of one Sushi library and where it was found."""

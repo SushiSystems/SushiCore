@@ -9,12 +9,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Sequence, final
 
 from .packages import IPackageManager, LinuxPackageManager
 from .target_plans import TargetPlans
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class LlvmRequest:
     """What a plan may use to supply the LLVM dependency of the acpp build.

@@ -10,6 +10,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from ..files import Files
 from .module_tests import ModuleTests
@@ -17,6 +18,7 @@ from .result_files import ResultFileError, failed_tests, failing_cases
 from .shards import gtest_results_folder, program_of, rerun_results_folder
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class RerunOutcome:
     """What the rerun of the failed tests of a run found.
@@ -36,6 +38,7 @@ class RerunOutcome:
 K_NOTHING_RERUN = RerunOutcome(results=None, flaky=(), failing=())
 
 
+@final
 class FailedTestRerun:
     """Reruns the failed tests of one run, once each, alone.
 

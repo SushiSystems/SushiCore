@@ -6,9 +6,12 @@
 
 from __future__ import annotations
 
+from typing import final
+
 from .package_error import PackageConflictError
 
 
+@final
 class PackageChoices:
     """One digest per library: a second, different digest is a conflict."""
 

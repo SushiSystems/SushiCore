@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime
 import re
 from dataclasses import dataclass, replace
-from typing import ClassVar, Protocol
+from typing import ClassVar, Protocol, final
 
 from .errors import RowError
 
@@ -97,6 +97,7 @@ class Entry(Protocol):
         """Returns each entry ID this entry cites."""
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class WorkEntry:
     """One remaining work entry: what is to be done, when it is done, and its place in the order."""
@@ -171,6 +172,7 @@ class WorkEntry:
         return found
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class IssueEntry:
     """One known issue: a condition a reader can meet, where it comes from and how to work around it."""

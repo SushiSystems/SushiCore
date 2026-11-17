@@ -15,7 +15,7 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, TextIO
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, TextIO, final
 
 from .errors import SushiCoreError
 
@@ -29,6 +29,7 @@ class UnknownAliasError(SushiCoreError):
     """Reports an old spelling the alias table does not hold."""
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Alias:
     """Holds one old spelling, the spelling that replaces it and its last day.
@@ -43,6 +44,7 @@ class Alias:
     removed_after: date | None
 
 
+@final
 class AliasTable:
     """Holds one CLI's old spellings and announces them.
 

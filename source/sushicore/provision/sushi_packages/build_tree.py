@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from typing import final
 
 #: The folder, below the library's ``build``, that holds package build trees.
 K_PREFIX = "pkg-"
@@ -17,6 +18,7 @@ K_PREFIX = "pkg-"
 K_ID_LENGTH = 12
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class BuildTree:
     """The configuration identity of a package build: build type, options and toolchain."""

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from ... import deps_fragment
 from ..closure import DEFAULT_FRAGMENT
@@ -20,6 +20,7 @@ from .source_locator import ISourceLocator
 ReadFragment = Callable[[Path], "deps_fragment.Fragment | None"]
 
 
+@final
 class ClosureWalk:
     """Follows ``depends_on`` through the fragments of the libraries."""
 

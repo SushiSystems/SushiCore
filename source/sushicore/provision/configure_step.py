@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, final
 
 from .default_console import console_or_default
 from .install_context import InstallContext
@@ -18,6 +18,7 @@ from .sinks import ConfigSink, render_local_config
 from .machine_actions import MachineActions
 
 
+@final
 class ConfigureStep(Step):
     """Probe installed tools and write them through a :class:`ConfigSink`."""
 

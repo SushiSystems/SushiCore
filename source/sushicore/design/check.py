@@ -13,6 +13,7 @@ import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from .model import (
     K_ABOUT_FIELD,
@@ -42,6 +43,7 @@ K_EXECUTION_RECORD = re.compile(
 )
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Finding:
     """A line of a design document that breaks a rule."""
@@ -51,6 +53,7 @@ class Finding:
     message: str
 
 
+@final
 @dataclass(slots=True)
 class DesignCheck:
     """What one run of the check reads, read once and shared by the rules."""

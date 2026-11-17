@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Callable, TypeVar, cast
+from typing import Callable, TypeVar, cast, final
 
 from ..errors import SushiCoreError
 from ..deprecated_name import warn_deprecated
@@ -20,6 +20,7 @@ class ConsoleNotBoundError(SushiCoreError, RuntimeError):
     """Reports a default console that nothing has bound."""
 
 
+@final
 class DefaultConsole:
     """Holds the provider that ``bind_console`` set and returns the console it builds."""
 
@@ -62,6 +63,7 @@ def bind_console(provider: Callable[[], ProvisionConsole] | None) -> None:
     DEFAULT_CONSOLE.bind(provider)
 
 
+@final
 class _DefaultConsoleProxy:
     """Forwards each attribute to the default console as it is read, so it may be bound later."""
 

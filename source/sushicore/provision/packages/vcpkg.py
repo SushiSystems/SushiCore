@@ -27,6 +27,7 @@ def _port_name(pkg: str) -> str:
     return pkg.split("[", 1)[0]
 
 
+@typing.final
 class VcpkgManager(IPackageManager):
     """Installs C++ library ports (hwloc, gtest, pkgconf, …) through vcpkg."""
 

@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from dataclasses import fields as dc_fields
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, final
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import Dependency as FragmentDependency
@@ -23,6 +23,7 @@ from sushicore.provision.target import target_for_platform
 SHARED_OWNER = "shared"
 
 
+@final
 @dataclass(frozen=True)
 class Dependency(FragmentDependency):
     """Carries a fragment's entry plus the owner that contributed it."""
@@ -144,6 +145,7 @@ def _parse_manifest(path: Path, owner: str) -> tuple[list[Dependency], list[str]
     return owned, fragment.depends_on
 
 
+@final
 class TomlDependencySource(IDependencySource):
     """Aggregates dependency fragments from an explicit list of ``(path, owner)`` pairs."""
 

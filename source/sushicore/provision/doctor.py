@@ -10,7 +10,7 @@ module CLIs that import them from here.
 
 from __future__ import annotations
 
-from typing import Collection, Sequence
+from typing import Collection, Sequence, final
 
 from .check import Check
 from .check_result import CheckResult
@@ -35,6 +35,7 @@ def _markup(report: Report, check: Check, result: CheckResult) -> str:
     return _STATE_MARKUP[report.shown_state(check, result)]
 
 
+@final
 class Doctor:
     """Runs a set of checks, filtered by group, and reports their outcome."""
 

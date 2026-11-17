@@ -45,6 +45,7 @@ def _find_ze_loader(find_library: typing.Callable[[str], str | None],
     return None
 
 
+@typing.final
 class LinuxLevelZeroLocator:
     """Finds and installs the Intel GPU compute stack (Level Zero + OpenCL).
 

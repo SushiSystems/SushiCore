@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, final
 
 from sushicore.deps_fragment import Fragment
 
 from . import home, probe
+from .dependency_home import DependencyHome
 from .checks import (
     capability_check,
     digest_check,
@@ -30,6 +31,7 @@ from .packages import IPackageManager
 from .sushi_source_check import pin_conflict_check, sushi_source_check, unpinned_check
 
 
+@final
 @dataclass(frozen=True)
 class ModuleState:
     """What the doctor rows of one module read.
@@ -66,12 +68,14 @@ def _sushi_checks(state: ModuleState, git: IGitClient, fix: str) -> list[Check]:
 
 def doctor_checks(state: ModuleState, managers: list[IPackageManager], git: IGitClient,
                   base_checks: Optional[Callable[[ProvisionConfig, str], list[Check]]] = None,
-                  presence: Optional[dict[str, bool]] = None) -> list[Check]:
+                  presence: Optional[dict[str, bool]] = None,
+                  dependency_home: DependencyHome | None = None) -> list[Check]:
     """Return every check ``doctor`` runs for *state*'s module, before its own extra checks.
 
     Args:
         base_checks: Builds the stock checks the rows open with; the standard ones when None.
         presence: Each toolchain mapped to whether the machine has it; probed when None.
+        dependency_home: The home whose root the stamp is read from; the default home when None.
     """
     cfg = state.cfg
     fix = f"{state.program} setup"
@@ -82,6 +86,6 @@ def doctor_checks(state: ModuleState, managers: list[IPackageManager], git: IGit
                                        else probe.toolchain_presence(cfg)), fix),
                fragment_check(state.source, cfg.platform, False, fix,
                               held_by_managers(managers, cfg.platform)),
-               stamp_check(home.root()),
+               stamp_check(home.root(home=dependency_home)),
                digest_check(state.source, cfg.platform)]
             + _sushi_checks(state, git, fix))

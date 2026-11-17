@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import final
 
 from ..memory_reading import K_RESERVE_MB
 from .labels import TestLabel
@@ -19,6 +20,7 @@ K_TEST_SHARE_MB = 1024
 K_SMALL_SHARE_MB = 256
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class JobChoice:
     """The job count of a run and the figures it came from.

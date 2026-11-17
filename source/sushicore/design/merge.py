@@ -15,6 +15,7 @@ import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import final
 
 from ..citations import Rewrite, repair_citations
 from .errors import DesignError
@@ -34,6 +35,7 @@ K_COMMON_WORDS = frozenset({"AND", "THE", "FOR", "SYSTEM", "SYSTEMS", "TOOL", "T
 K_GENERATED_BLOCK = re.compile(r"<!-- (\w+):begin -->.*?<!-- \1:end -->\n?", re.DOTALL)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Overlap:
     """What `overlap` found: shared modules, nested modules and names that share a word."""
@@ -43,6 +45,7 @@ class Overlap:
     words: tuple[tuple[str, str, str], ...]
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class MergeResult:
     """What `merge` did: the page it wrote, the files it moved, the phase ids and the citations."""
@@ -71,6 +74,7 @@ def find_overlap(store: DesignStore) -> Overlap:
     return Overlap(shared, tuple(nested), tuple(words))
 
 
+@final
 class TopicMerger:
     """Merges one topic of a store into another."""
 

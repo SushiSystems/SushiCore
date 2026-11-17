@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, final
 
 from ..config_base import write_toml_document, write_tool_section
 from ..layered_toml import read_toml
@@ -88,6 +88,7 @@ def _clear_tool_table(target: Path, header: list[str]) -> None:
         target.unlink(missing_ok=True)
 
 
+@final
 class WorkspaceSink:
     """A :class:`ConfigSink` writing into a workspace's shared ``workspace.toml``."""
 
@@ -113,6 +114,7 @@ class WorkspaceSink:
         _clear_tool_table(self.target, self._header)
 
 
+@final
 class ModuleSink:
     """A :class:`ConfigSink` writing into a module's own ``config.local.toml``."""
 

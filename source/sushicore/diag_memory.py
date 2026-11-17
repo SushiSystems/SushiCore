@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, final
 
 
+@final
 class InMemoryConfigModule:
     """Offers a fixed project root, config directory, config values and config file list.
 

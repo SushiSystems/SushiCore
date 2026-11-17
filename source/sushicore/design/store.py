@@ -14,6 +14,7 @@ import datetime
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import final
 
 from ..files import DiskFiles, Files
 from .errors import DesignError, OwnedModuleError, TopicNotFoundError
@@ -42,6 +43,7 @@ K_INDEXES = frozenset({"README.md", "REMAINING_WORK.md"})
 K_WORK_FILES_IN_ORDER = ("SPEC.md", "PLAN.md", "REPORT.md")
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Topic:
     """One topic: its name, its document and the frame read from it."""
@@ -55,6 +57,7 @@ class Topic:
         return K_REVISION in self.path.parts
 
 
+@final
 class DesignStore:
     """The design topics of one repository."""
 

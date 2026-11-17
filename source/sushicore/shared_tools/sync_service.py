@@ -10,6 +10,7 @@ from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import final
 
 from .errors import LocalEditsError
 from .git_reader import GitReader, tracked_files
@@ -41,6 +42,7 @@ K_EXCLUDED = frozenset(
 )
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class SyncResult:
     """What a sync did: the files written, the files dropped, the lock and the missing settings.
@@ -55,6 +57,7 @@ class SyncResult:
     missing_settings: dict[str, str | None] = field(default_factory=dict)
 
 
+@final
 class SharedToolsSync:
     """Brings one repository's shared tools to the state of a SushiCore tag."""
 

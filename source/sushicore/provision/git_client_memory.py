@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Mapping, final
 
 from .git_client import IGitClient
 
 
+@final
 class InMemoryGitClient(IGitClient):
     """Clones the tags it was told about, leaves HEAD at the tag's commit and records each clone.
 

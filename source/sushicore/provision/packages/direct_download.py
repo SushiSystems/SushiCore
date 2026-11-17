@@ -13,7 +13,7 @@ import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Any, Callable, MutableMapping
+from typing import Any, Callable, MutableMapping, final
 
 from sushicore.errors import ConfigError, DigestMismatchError
 from sushicore.proc import CommandRunner
@@ -314,6 +314,7 @@ _DIRECT_RECIPES: dict[str, Callable[..., bool]] = {
 }
 
 
+@final
 class DirectDownloadWindowsManager(IPackageManager):
     """Installs cmake, ninja, git and doxygen via direct downloads when winget is absent."""
 

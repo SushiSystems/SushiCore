@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, final
 
 from .rocm_package import RocmPackage
 
 
+@final
 class InMemoryTarballIndex:
     """Lists fixed tarballs for every platform.
 
@@ -28,6 +29,7 @@ class InMemoryTarballIndex:
         return list(self._packages)
 
 
+@final
 class InMemoryTarballInstaller:
     """Records the tarballs it is asked to install and unpacks nothing.
 

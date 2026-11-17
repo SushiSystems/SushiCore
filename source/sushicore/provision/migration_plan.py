@@ -9,7 +9,7 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from .links import is_dir_link, link_target
 from .migration_disk import absolute, aside_path, existing_ancestor, file_sizes, is_present, same_volume
@@ -21,6 +21,7 @@ from .migration_journal import TRANSFER_STEPS, MigrationJournal
 SPACE_MARGIN = 1.1
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Move:
     """Holds one top-level component of the old root and where it goes."""
@@ -32,6 +33,7 @@ class Move:
     bytes: int
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class MigrationPlan:
     """Holds what a migration will move and whether the target can take it."""
@@ -54,6 +56,7 @@ class MigrationPlan:
         return links_to(self.old_root, self.new_root)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PlanProbes:
     """Holds the reads :func:`plan` makes of the disk, each replaceable by a test.

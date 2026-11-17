@@ -57,7 +57,7 @@ def _fetch(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitC
     """Clone each of *pins* that no directory or sibling provides, under the root's lock."""
     pipeline = InstallPipeline([FetchSushiSourcesStep(root, pins, git, console)], console)
     try:
-        with ProvisionLock(home.root() / ".lock", timeout=timeout):
+        with ProvisionLock(home.root(home=ctx.home) / ".lock", timeout=timeout):
             return pipeline.run(ctx, show_progress=False)
     except LockTimeout as exc:
         console.error(str(exc))

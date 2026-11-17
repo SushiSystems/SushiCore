@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, final
 
 
+@final
 class TableLocator:
     """Finds the checkout of a module in a table, as a :data:`closure.Locate` does.
 

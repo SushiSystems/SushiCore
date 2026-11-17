@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, final
 
 from .check_result import CheckResult
 
 
-@dataclass
+@final
+@dataclass(frozen=True, slots=True)
 class FunctionCheck:
     """Adapts a zero-argument callable returning :class:`CheckResult` into a :class:`Check`."""
 

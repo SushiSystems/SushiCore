@@ -27,6 +27,7 @@ K_FAQ = "guides/FAQ.md"
 K_BACKSLASH = "\\"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Page:
     """Holds one published page: its path below docs/, section, title and order."""
@@ -37,6 +38,7 @@ class Page:
     order: int
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PageSet:
     """Holds everything a bundle carries under pages/."""

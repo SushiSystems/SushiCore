@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, final
 
 from .package_error import PackageError
 
@@ -19,6 +19,7 @@ K_PREFIX = "prefix"
 K_WINDOWS = "windows"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Package:
     """One complete package: its library, digest, folder and stamp."""

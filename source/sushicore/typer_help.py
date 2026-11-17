@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, ClassVar
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, final
 
 from rich.console import Console as RichConsole
 from typer.core import TyperGroup
@@ -45,6 +45,7 @@ class _ClickHelpMissingError(_HelpPageError, TypeError):
     """Reports a command whose bases hold no Click ``format_help`` to fall back on."""
 
 
+@final
 class HelpGroup(TyperGroup):
     """Draws its own help, and its children's, as a HelpPage."""
 

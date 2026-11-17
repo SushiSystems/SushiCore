@@ -10,6 +10,7 @@ The fields and their rules are in `docs/reference/DOCS_BUNDLE.md`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 from .page_set import K_DOCS, PageSet
 from .publish_list import PublishList
@@ -20,6 +21,7 @@ K_API_ROOT = "api/xml"
 K_API_FORMAT = "doxygen-xml"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class BundleIdentity:
     """Holds the release a bundle is named after and the commit it was built from."""

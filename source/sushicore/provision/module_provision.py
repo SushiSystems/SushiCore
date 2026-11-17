@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional, final
 
 from ..profile import ModuleProfile
 from .closure import Locate
 from .config import ProvisionConfig
 from .default_console import DEFAULT_CONSOLE
+from .dependency_home import DEFAULT_HOME, DependencyHome
 from .provision_console import ProvisionConsole
 from .check import Check
 from .git_client import GitClient, IGitClient
@@ -29,6 +30,7 @@ def _locate_nothing(name: str) -> Optional[Path]:
     return None
 
 
+@final
 @dataclass(frozen=True)
 class ModuleProvision:
     """What one module CLI hands the shared commands.
@@ -52,6 +54,8 @@ class ModuleProvision:
         actions: The calls the setup steps make that reach the machine; None makes the real ones.
         register: Records the module in a workspace as ``(workspace, key, root)``; None writes the
             workspace's registry file.
+        home: The dependency home whose root the commands read; the one the deprecated ``bind_root``
+            set when omitted.
         lock_timeout: Seconds ``setup`` waits for the provision lock and for a pinned module's fetch
             lock; None waits the stock ten minutes.
     """
@@ -72,6 +76,7 @@ class ModuleProvision:
     seams: MachineSeams = MachineSeams()
     actions: Optional["MachineActions"] = None
     lock_timeout: Optional[float] = None
+    home: DependencyHome = DEFAULT_HOME
     register: Optional[Callable[[Path, str, Path], None]] = None
 
     def git_client(self) -> IGitClient:

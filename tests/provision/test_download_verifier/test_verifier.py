@@ -13,6 +13,7 @@ import pytest
 from sushicore.deps_fragment import Download
 from sushicore.errors import ConfigError, DigestMismatchError
 from sushicore.provision.download_verifier import (
+    DEFAULT_VERIFIER_SLOT,
     DownloadVerifier,
     bind_verifier,
     pinned_download,
@@ -97,24 +98,20 @@ def test_an_unpinned_download_is_reported_once_per_run(tmp_path, caplog):
 @pytest.mark.medium
 def test_verify_download_goes_through_the_bound_verifier(tmp_path):
     """Check that the module-level call uses the verifier a run bound."""
-    bind_verifier(DownloadVerifier({"cmake": K_WRONG_DIGEST}))
-    try:
+    with DEFAULT_VERIFIER_SLOT.holding(DownloadVerifier({"cmake": K_WRONG_DIGEST})):
         with pytest.raises(DigestMismatchError):
             verify_download("cmake", _file(tmp_path))
-    finally:
-        bind_verifier(None)
 
 
 @pytest.mark.medium
 def test_unbinding_leaves_a_verifier_that_pins_nothing(tmp_path, caplog):
     """Check that with no run bound a download proceeds and is still reported."""
-    bind_verifier(None)
+    DEFAULT_VERIFIER_SLOT.bind(None)
 
     with caplog.at_level("WARNING", logger="sushicore.provision"):
         verify_download("cmake", _file(tmp_path))
 
     assert len(_warnings(caplog)) == 1
-    bind_verifier(None)
 
 
 @pytest.mark.small
@@ -170,8 +167,32 @@ def test_pinned_names_the_entry_when_no_fragment_pins_it():
 def test_pinned_download_reads_the_bound_verifier():
     """Check that the module function answers from the verifier bound for the run."""
     pinned = Download("git", "v2", "https://example.invalid/g.exe", K_DIGEST)
-    bind_verifier(DownloadVerifier({}, {"git": pinned}))
-    try:
+    with DEFAULT_VERIFIER_SLOT.holding(DownloadVerifier({}, {"git": pinned})):
         assert pinned_download("git") == pinned
+
+
+@pytest.mark.small
+def test_pinned_download_prefers_the_verifier_it_is_passed():
+    """Check that an explicit verifier answers before the default slot's."""
+    pinned = Download("git", "v2", "https://example.invalid/g.exe", K_DIGEST)
+    assert pinned_download("git", verifier=DownloadVerifier({}, {"git": pinned})) == pinned
+
+
+@pytest.mark.medium
+def test_verify_download_prefers_the_verifier_it_is_passed(tmp_path):
+    """Check that an explicit verifier checks the file instead of the default slot's."""
+    with pytest.raises(DigestMismatchError):
+        verify_download("cmake", _file(tmp_path),
+                        verifier=DownloadVerifier({"cmake": K_WRONG_DIGEST}))
+
+
+@pytest.mark.small
+def test_bind_verifier_warns_and_binds_the_default_slot():
+    """Check that the deprecated binder warns and still sets what the sites read."""
+    verifier = DownloadVerifier({})
+    try:
+        with pytest.warns(DeprecationWarning, match="bind_verifier"):
+            bind_verifier(verifier)
+        assert DEFAULT_VERIFIER_SLOT.current() is verifier
     finally:
-        bind_verifier(None)
+        DEFAULT_VERIFIER_SLOT.bind(None)

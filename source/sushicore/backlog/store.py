@@ -15,7 +15,7 @@ import datetime
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterator, Union
+from typing import Callable, Iterator, Union, final
 
 try:
     import tomllib  # Python 3.11+
@@ -51,6 +51,7 @@ K_KIND_TABLES = {K_WORK_PREFIX: "work", K_ISSUE_PREFIX: "issue"}
 AnyEntry = Union[WorkEntry, IssueEntry]
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Fault:
     """A line of a backlog file that is not in the shape the tool writes."""
@@ -60,6 +61,7 @@ class Fault:
     message: str
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class Located:
     """An entry with the file and the line it was read from."""
@@ -70,6 +72,7 @@ class Located:
     area: str
 
 
+@final
 @dataclass(slots=True)
 class AreaFile:
     """The entries of one area, both kinds, in the order the file holds them."""
@@ -99,6 +102,7 @@ class AreaFile:
         return len(self.work) + len(self.issues) != before
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class BacklogConfig:
     """The areas a repository allows and the owner's pins, from `backlog.toml`."""
@@ -107,6 +111,7 @@ class BacklogConfig:
     pins: tuple[str, ...] = ()
 
 
+@final
 @dataclass(slots=True)
 class IdLedger:
     """The next number of each kind and every number ever closed, from `ids.toml`."""
@@ -194,6 +199,7 @@ def parse_area(
     return area, faults
 
 
+@final
 class BacklogStore:
     """The backlog of one repository, read from and written to `docs/backlog/`."""
 

@@ -12,11 +12,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, final
 
 K_OBJECT_SUFFIXES = (".obj", ".o")
 
 
+@final
 @dataclass(slots=True)
 class Cost:
     """The time one header or one template cost, and how many units paid it."""
@@ -25,6 +26,7 @@ class Cost:
     units: int = 0
 
 
+@final
 @dataclass(slots=True)
 class UnitTimes:
     """The frontend and backend time of one unit, in seconds."""
@@ -33,6 +35,7 @@ class UnitTimes:
     backend: float = 0.0
 
 
+@final
 @dataclass(slots=True)
 class TraceSummary:
     """What the time traces of a tree say: the costliest headers and templates, and each unit."""

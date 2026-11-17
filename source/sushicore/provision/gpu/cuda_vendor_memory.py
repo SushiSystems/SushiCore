@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, final
 
 from .cuda_release import RedistRelease, Version
 from .cuda_toolkit_installer import ToolkitInstallError
 
 
+@final
 class InMemoryRedistIndex:
     """Publishes fixed versions, each with a release that holds no archive.
 
@@ -33,6 +34,7 @@ class InMemoryRedistIndex:
         return RedistRelease(version, {})
 
 
+@final
 class InMemoryRedistInstaller:
     """Answers the compiler architectures of each major and records installs.
 

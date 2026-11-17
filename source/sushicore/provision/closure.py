@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, final
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import ModuleCycleError
@@ -20,6 +20,7 @@ DEFAULT_FRAGMENT = "cli/sushistack.deps.toml"
 Locate = Callable[[str], Optional[Path]]
 
 
+@final
 @dataclass(frozen=True)
 class Closure:
     """The fragments to read, dependencies first, and the modules with no checkout."""

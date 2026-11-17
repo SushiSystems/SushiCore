@@ -10,7 +10,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from sushicore.proc import K_TIMEOUT_EXIT_CODE, CommandRunner
 
@@ -27,6 +27,7 @@ CMakeVersion = Callable[[], str]
 VcpkgHead = Callable[[Path], str]
 
 
+@final
 class MemoryCMakeVersion:
     """Answers one CMake version text and runs nothing."""
 
@@ -39,6 +40,7 @@ class MemoryCMakeVersion:
         return self._version
 
 
+@final
 class MemoryVcpkgHead:
     """Answers one vcpkg commit for every tree and runs nothing."""
 
@@ -88,6 +90,7 @@ def probe_vcpkg_head(vcpkg_root: Path, runner: CommandRunner | None = None) -> s
     return output.strip() if code == 0 else ""
 
 
+@final
 class ConfigureInputs:
     """Reads the configure inputs of a library into one hash."""
 

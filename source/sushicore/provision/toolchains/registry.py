@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import final
+
 from ...errors import SushiCoreError
 from .adaptivecpp import ADAPTIVECPP
 from .intel_llvm import INTEL_LLVM
@@ -17,6 +19,7 @@ class DuplicateToolchainError(SushiCoreError, ValueError):
     """Reports two toolchains that share a key or a selection field."""
 
 
+@final
 class ToolchainRegistry:
     """An ordered, duplicate-free set of :class:`Toolchain`.
 

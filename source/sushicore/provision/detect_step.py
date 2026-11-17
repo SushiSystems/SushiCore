@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from rich.markup import escape
 
@@ -73,6 +73,7 @@ def removal_note(ctx: InstallContext) -> str:
     return f"Remove the whole install by deleting that folder. {ctx.removal_hint}".strip()
 
 
+@final
 class DetectStep(Step):
     """Inventory tools and dependencies; fill ``ctx.detected``."""
 
@@ -264,7 +265,7 @@ class DetectStep(Step):
             group_by="Owner",
         )
 
-        self._console.info(f"Vendored dependencies go in one folder: {home.root()}")
+        self._console.info(f"Vendored dependencies go in one folder: {home.root(home=ctx.home)}")
         self._console.info(removal_note(ctx))
         self._console.info(target_of(ctx.cfg).system_prerequisites_note)
 

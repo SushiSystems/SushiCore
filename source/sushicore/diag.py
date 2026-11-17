@@ -13,7 +13,7 @@ import os
 import platform
 from dataclasses import fields
 from pathlib import Path
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Mapping, Protocol, final
 
 from .files import Files
 from .layered_toml import merge_platform_table, read_toml
@@ -40,6 +40,7 @@ _CONFIG_FILES = ("config.toml", "config.local.toml")
 _WORKSPACE_LABEL = "workspace"
 
 
+@final
 class Diagnostics:
     """The ``config`` and ``env`` commands for one CLI.
 

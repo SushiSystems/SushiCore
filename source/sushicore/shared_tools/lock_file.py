@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import final
 
 from ..errors import ConfigError
 from ..layered_toml import read_toml
@@ -22,6 +23,7 @@ def digest(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class SharedToolsLock:
     """Holds the SushiCore release the shared files came from and the hash of each as written."""

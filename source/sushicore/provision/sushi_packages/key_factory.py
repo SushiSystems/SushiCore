@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, final
 
 from .configure_inputs import ConfigureInputs
 from .library_node import LibraryNode
@@ -18,6 +18,7 @@ from .source_state import ISourceInspector, describe_source
 K_RECIPE = "lean-1"
 
 
+@final
 class KeyFactory:
     """Builds the key of a library for a request."""
 

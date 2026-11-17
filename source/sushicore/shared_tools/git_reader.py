@@ -9,12 +9,14 @@ from __future__ import annotations
 import io
 import tarfile
 from pathlib import Path
+from typing import final
 
 from ..proc import CommandRunner
 from ..quiet_runner import quiet_runner
 from .errors import SharedToolsError, TagNotFoundError
 
 
+@final
 class GitReader:
     """Reads one git checkout; every read names the revision it wants."""
 

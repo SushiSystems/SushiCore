@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from ..files import DiskFiles, Files
 from ..proc import CommandRunner
@@ -27,6 +27,7 @@ def run_with_timeout(command: list[str], cwd: Path, env: dict[str, str] | None, 
     return (runner if runner is not None else quiet_runner()).run(command, cwd, env, timeout=timeout)
 
 
+@final
 class ProgramRunner:
     """Runs one test program of a build tree, with the environment the module runs its tests under.
 

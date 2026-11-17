@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import final
 
 from .check import Check
 from .check_result import CheckResult
 from .check_state import State
 
 
+@final
 @dataclass(frozen=True)
 class Report:
     """The outcome of a :class:`Doctor` run: every check paired with its result."""

@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Mapping, final
 
 from .cuda_release import Version
 
 
+@final
 class TableArchitectureProbe:
     """Answers the architectures of a release from the table row of its major version.
 

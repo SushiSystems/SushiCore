@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, final
 
 from ..errors import SushiCoreError
 from .fragments import SHARED_OWNER, IDependencySource
@@ -18,6 +18,7 @@ class UnknownToolchainError(SushiCoreError, ValueError):
     """Reports a requested toolchain key that no component carries."""
 
 
+@final
 @dataclass(frozen=True)
 class Component:
     """One heavy component a run can install, and the selection field it sets."""

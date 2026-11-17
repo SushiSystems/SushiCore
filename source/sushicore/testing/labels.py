@@ -9,6 +9,7 @@ from __future__ import annotations
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import final
 
 
 class TestLabel(str, enum.Enum):
@@ -29,6 +30,7 @@ K_DEFAULT_LABELS = (TestLabel.SMALL, TestLabel.MEDIUM)
 K_EVERY_SIZE = (TestLabel.SMALL, TestLabel.MEDIUM, TestLabel.LARGE)
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class LabelSelection:
     """Describes which tests a set of labels selects.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Protocol
+from typing import Callable, Optional, Protocol, final
 
 from ..profile import ModuleProfile
 from .labels import LabelSelection
@@ -26,6 +26,7 @@ class TestConsole(Protocol):
     def error(self, text: str) -> None: ...
 
 
+@final
 @dataclass(frozen=True)
 class SanitizedTests:
     """The sanitizer builds a module can test.
@@ -47,6 +48,7 @@ def _tree_is_fine(tree: Path) -> Optional[str]:
     return None
 
 
+@final
 @dataclass(frozen=True)
 class ModuleTests:
     """What one module CLI hands the shared ``test`` command.

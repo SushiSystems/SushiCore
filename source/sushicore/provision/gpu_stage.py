@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from .default_console import console_or_default
 from .gpu.adapter_builder import AdapterBuilder, SubprocessBuildStepExecutor
@@ -69,6 +69,7 @@ def _resolve_gpu_vendor(ctx: InstallContext, detect: Callable[[], str]) -> str:
     return ctx.gpu_vendor
 
 
+@final
 class GpuStage:
     """The GPU part of an install run: the compute SDK, then the adapter builds.
 

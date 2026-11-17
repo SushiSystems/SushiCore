@@ -19,7 +19,7 @@ from sushicore.deps_fragment import Download
 from sushicore.errors import DigestMismatchError
 from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.download_verifier import DownloadVerifier, bind_verifier
+from sushicore.provision.download_verifier import DEFAULT_VERIFIER_SLOT, DownloadVerifier
 from sushicore.provision.packages import direct_download as dd
 from sushicore.provision.llvm_plans import windows as llvm_windows
 from sushicore.provision.toolchains import intel_llvm, oneapi
@@ -122,9 +122,9 @@ def pins():
     """Bind a verifier over the digests a test stores, then unbind it."""
     digests: dict[str, str] = {}
     verifier = DownloadVerifier(digests)
-    bind_verifier(verifier)
+    DEFAULT_VERIFIER_SLOT.bind(verifier)
     yield types.SimpleNamespace(digests=digests, verifier=verifier)
-    bind_verifier(None)
+    DEFAULT_VERIFIER_SLOT.bind(None)
 
 
 @pytest.mark.parametrize(("installer", "name", "payload", "installed", "extra"), K_ZIP_INSTALLS)

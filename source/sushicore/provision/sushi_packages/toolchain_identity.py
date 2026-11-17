@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, final
 
 from sushicore.proc import K_TIMEOUT_EXIT_CODE, CommandRunner
 
@@ -43,6 +43,7 @@ def run_probe(command: list[str], runner: CommandRunner | None = None) -> tuple[
 ReadStamp = Callable[[Path], Mapping[str, Any]]
 
 
+@final
 class MemoryProbe:
     """Answers the exit code and the output set for a compiler, and runs nothing.
 
@@ -68,6 +69,7 @@ class MemoryProbe:
         return self._answers[command[0]]
 
 
+@final
 class MemoryIdentity:
     """Names every compiler with one identity and counts how often it was asked.
 

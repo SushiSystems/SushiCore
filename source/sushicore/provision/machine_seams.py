@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional, final
 
 from .config import ProvisionConfig
 from .check import Check
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .packages import IPackageManager
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class MachineSeams:
     """What a module hands the shared commands in place of the real machine reads.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, final
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import SushiPin
@@ -17,6 +17,7 @@ from .closure import DEFAULT_FRAGMENT
 from .sushi_sources import resolve
 
 
+@final
 @dataclass(frozen=True)
 class PinConflict:
     """One library two repositories of a chain pin at different versions."""
@@ -46,6 +47,7 @@ def _pins_on_disk(checkout: Path, name: str, version: str) -> tuple[Path, Sequen
     return source.path, deps_fragment.read(fragment).pins
 
 
+@final
 @dataclass(frozen=True)
 class PinWalk:
     """What a walk of a chain found: each library once, and each library pinned twice."""

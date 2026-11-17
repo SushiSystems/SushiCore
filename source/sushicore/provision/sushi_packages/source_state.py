@@ -9,7 +9,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 from pathlib import Path, PurePosixPath
-from typing import Mapping, Protocol, Sequence
+from typing import Mapping, Protocol, Sequence, final
 
 from ...proc import CommandRunner, did_not_run
 from ...quiet_runner import quiet_runner
@@ -32,6 +32,7 @@ class ISourceInspector(Protocol):
         """Return the tracked and the untracked, not ignored files, relative to *checkout*."""
 
 
+@final
 class MemoryInspector:
     """Lists the files it was given for a checkout, as git would, and runs nothing.
 
@@ -55,6 +56,7 @@ class MemoryInspector:
         return sorted(self.listing[checkout])
 
 
+@final
 class GitSourceInspector:
     """Asks the git on PATH."""
 

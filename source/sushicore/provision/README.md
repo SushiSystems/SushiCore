@@ -9,7 +9,8 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 
 | Path | Job |
 | --- | --- |
-| `home.py` | Resolves the dependency root, its subdirectories and the legacy trees read beside it |
+| `home.py` | Resolves the dependency root, its subdirectories and the legacy trees read beside it; `bind_root` is the deprecated binder |
+| `dependency_home.py` | `DependencyHome`, the object that holds the provider of the dependency root, and `DEFAULT_HOME`, the one the deprecated `bind_root` sets |
 | `registry.py` | Reads and writes `registry.toml`, the record of installed components and their consumers, and seeds it from a tree already on disk |
 | `lock.py` | The file lock around every operation that changes the root |
 | `host/` | `IHost`, what differs by operating system (links, the root lock, registry paths, display adapters, long paths, CUDA names), with `WindowsHost`, `PosixHost` and `current_host()`, the one place that picks one |
@@ -38,7 +39,9 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `selection.py` | Decides which toolchain components a run installs |
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |
-| `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
+| `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins; `bind_verifier` is the deprecated binder |
+| `download_checking.py` | The `DownloadChecking` protocol: the `verify` and `pinned` calls a download site makes |
+| `verifier_slot.py` | `VerifierSlot`, the object that holds the verifier of the current run |
 | `packages/` | One file per package manager: `linux_manager.py` holds the Linux contract, and `apt_manager.py`, `dnf_manager.py`, `yum_manager.py`, `pacman_manager.py` and `zypper_manager.py` each hold one manager, with `apt_names.py` translating apt names for the others; then winget, direct download, vcpkg, GitHub releases, `windows_path.py` and the GPU stack; `linux.py` is the deprecated module that re-exports the Linux managers; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
 | `process_run.py` | `provision_runner(console)` and `run`: run a command, stream its output through the console they are given and return its exit code; the package managers and `git_client.py` call them |
 | `probe.py` | Finds the SYCL and CUDA toolchains on this machine and checks that their binaries run; it re-exports the GPU vendor and Visual Studio finders, and answers the deprecated `K_RC_GLOBS`, `first_existing` and `is_integrated_adapter` from the modules that hold them |
@@ -131,7 +134,7 @@ Each command takes the console from `ModuleProvision.console` and hands it to th
 ## The dependency root
 
 The root is `SUSHISYSTEMS_HOME`, else `~/.sushisystems`; a consumer overrides it with
-`home.bind_root(provider)`. Toolchains and vcpkg are looked up across `home.search_roots()`:
+a `DependencyHome` it passes as `ModuleProvision.home` (the deprecated `home.bind_root(provider)` sets the default one). Toolchains and vcpkg are looked up across `home.search_roots()`:
 the dependency root first, then the folder `SUSHISTACK_DEPS_DIR` names and a legacy
 `<workspace>/dependencies` tree. New installs go to the dependency root.
 `StackConfig.dependency_roots(root)` puts the tree of the workspace a module sits in, or is
@@ -281,12 +284,12 @@ list is in
 third-party software".
 
 The call
-goes to the `DownloadVerifier` bound for the run. `InstallDepsStep.run` binds one built from
-`IDependencySource.digests(platform)` and `downloads(platform)` and unbinds it when the step ends, so `hub install` and a
+goes to the `DownloadVerifier` it is passed as `verifier=`, else the one the default `VerifierSlot` holds. `InstallDepsStep.run` holds one built from
+`IDependencySource.digests(platform)` and `downloads(platform)` in that slot until the step ends, so `hub install` and a
 module's `setup` verify against the fragments they read without passing anything down. An
 installer called outside that step meets a verifier that pins nothing.
 
-The verifier is bound at module level, the way `home.bind_root` is. The
+The slot is one object, `download_verifier.DEFAULT_VERIFIER_SLOT`; `bind_verifier` is a deprecated shim over it, the way `home.bind_root` is over `DEFAULT_HOME`. The
 download sites sit under `IPackageManager.install`, `install_gpu_stack` and the toolchain
 functions, and none of those carries the run's fragments.
 

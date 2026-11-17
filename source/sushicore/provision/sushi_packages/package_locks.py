@@ -10,7 +10,7 @@ import contextlib
 import hashlib
 import re
 from pathlib import Path
-from typing import Callable, ContextManager, Iterator
+from typing import Callable, ContextManager, Iterator, final
 
 from ..lock import ProvisionLock
 from .package_error import PackageError
@@ -33,6 +33,7 @@ def _file_safe(text: str) -> str:
     return re.sub(r"[^a-z0-9._-]", "_", text.lower())
 
 
+@final
 class MemoryLocks:
     """Opens no file: it records the lock files asked for and the ones held now.
 
@@ -57,6 +58,7 @@ class MemoryLocks:
             self.held.remove(path)
 
 
+@final
 class PackageLocks:
     """Hands out the locks in the one order the design allows: checkout, key, link."""
 

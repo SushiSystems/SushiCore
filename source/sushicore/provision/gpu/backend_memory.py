@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
 
+@typing.final
 class InMemoryToolkitLocator:
     """Locates a fixed toolkit, provisions with a fixed outcome and records every call.
 

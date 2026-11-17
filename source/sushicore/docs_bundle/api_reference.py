@@ -19,6 +19,7 @@ from .errors import ApiReferenceError
 K_INDEX = "index.xml"
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class ApiSource:
     """Holds how a repository builds its API reference and where the XML lands."""

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Callable
-from typing import Any
+from typing import Any, final
 
 from sushicore.proc import CommandRunner
 
@@ -19,6 +19,7 @@ from .base import IPackageManager
 from .winget_licence import read_licence
 
 
+@final
 class WingetManager(IPackageManager):
     """Installs Windows system toolchain packages through winget."""
 

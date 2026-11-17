@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from ...cmake_cache import cached_value
 from .package_error import PackageError
 from .toolchain_identity import Probe, compiler_identity, run_probe
 
 
+@final
 class CompilerCheck:
     """Compares the identity of a tree's cached compiler with an expected identity."""
 

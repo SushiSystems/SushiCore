@@ -9,12 +9,13 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, final
 
 #: How many hex digits of the digest the short form keeps.
 K_SHORT_LENGTH = 12
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class PackageKey:
     """The parts that decide whether a built package can serve a consumer.

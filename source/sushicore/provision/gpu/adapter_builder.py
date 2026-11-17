@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 import logging
@@ -51,6 +50,7 @@ class BuildStepExecutor(typing.Protocol):
         ...
 
 
+@typing.final
 class SubprocessBuildStepExecutor:
     """Runs a command through the shared runner, streaming its output to the console.
 
@@ -95,37 +95,42 @@ def _adapters_present(toolchain_root: Path, spec: "GpuBackendSpec",
     return True
 
 
-@dataclasses.dataclass
+@typing.final
 class AdapterBuilder:
-    """Builds one vendor's Unified Runtime adapter into a toolchain tree.
+    """Builds one vendor's Unified Runtime adapter into a toolchain tree."""
 
-    :param cfg: Resolved configuration; selects the platform's tools and file
-        mapping.
-    :param runner: Runs the fetch, configure and build commands.
-    :param console: The console the build reports through.
-    :param work_root: Scratch directory for sources and build trees. Defaults
-        to a short path under the shared dependency tree.
-    :param environment: Returns the environment the build subprocesses run
-        under. A vcvars64 snapshot on Windows and the current
-        environment elsewhere when ``None``. Called at most once per builder instance.
-    """
+    def __init__(self, cfg: "ProvisionConfig", runner: BuildStepExecutor,
+                 console: typing.Any = None, work_root: Path | None = None,
+                 environment: typing.Callable[["ProvisionConfig"], dict[str, str]] | None = None,
+                 replace: typing.Callable[[Path, Path], None] = os.replace,
+                 unlink: typing.Callable[[Path], None] = Path.unlink,
+                 log: logging.Logger = _log, patches_dir: Path | None = None) -> None:
+        """Hold what the build reads and runs through.
 
-    cfg: "ProvisionConfig"
-    runner: BuildStepExecutor
-    console: typing.Any = None
-    work_root: Path = dataclasses.field(default_factory=_default_work_root)
-    environment: typing.Callable[["ProvisionConfig"], dict[str, str]] | None = None
-    replace: typing.Callable[[Path, Path], None] = os.replace
-    unlink: typing.Callable[[Path], None] = Path.unlink
-    log: logging.Logger = _log
-    patches_dir: Path = dataclasses.field(default_factory=_default_patches_dir)
-
-    _cached_environment: dict[str, str] | None = dataclasses.field(
-        default=None, init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        """Resolve a console left out to the default one, with a deprecation warning."""
-        self.console = console_or_default(self.console, "AdapterBuilder", depth=3)
+        Args:
+            cfg: Resolved configuration; selects the platform's tools and file mapping.
+            runner: Runs the fetch, configure and build commands.
+            console: The console the build reports through.
+            work_root: Scratch directory for sources and build trees; a short path under the
+                shared dependency tree when ``None``.
+            environment: Returns the environment the build subprocesses run under; a vcvars64
+                snapshot on Windows and the current environment elsewhere when ``None``. Called
+                at most once per builder.
+            replace: Moves a built binary into the toolchain tree.
+            unlink: Deletes a file.
+            log: The logger the build writes to.
+            patches_dir: The folder the adapter patches are read from; the packaged one when ``None``.
+        """
+        self.cfg = cfg
+        self.runner = runner
+        self.console = console_or_default(console, "AdapterBuilder")
+        self.work_root = _default_work_root() if work_root is None else work_root
+        self.environment = environment
+        self.replace = replace
+        self.unlink = unlink
+        self.log = log
+        self.patches_dir = _default_patches_dir() if patches_dir is None else patches_dir
+        self._cached_environment: dict[str, str] | None = None
 
     def build(self, spec: "GpuBackendSpec", install: "ToolkitInstall",
              toolchain_root: Path, commit: str, dry_run: bool) -> bool:

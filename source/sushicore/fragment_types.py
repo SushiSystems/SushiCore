@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import final
 
 #: The platform string that selects the vcpkg column; anything else selects apt.
 WINDOWS = "windows"
@@ -24,6 +25,7 @@ class Status(str, Enum):
     UNKNOWN = "unknown"
 
 
+@final
 @dataclass(frozen=True)
 class Download:
     """One file an installer downloads for an entry on one platform, fully pinned."""
@@ -38,6 +40,7 @@ class Download:
     sha256: str
 
 
+@final
 @dataclass(frozen=True)
 class Dependency:
     """One entry of a fragment, as the file declares it."""
@@ -72,6 +75,7 @@ class Dependency:
         return self.sha256.get(platform, "")
 
 
+@final
 @dataclass(frozen=True)
 class SushiPin:
     """One Sushi library a module links, pinned to a release tag and its commit."""
@@ -83,6 +87,7 @@ class SushiPin:
     commit: str
 
 
+@final
 @dataclass(frozen=True)
 class Fragment:
     """What one fragment file declares."""

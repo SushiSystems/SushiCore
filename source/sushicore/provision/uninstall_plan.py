@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, final
 
 from .fragments import IDependencySource
 from .packages import IPackageManager
@@ -16,6 +16,7 @@ from .install_context import InstallContext
 from .target_plans import TargetPlans
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class UninstallServices:
     """What the uninstall step hands a plan: the run's source, managers and console.

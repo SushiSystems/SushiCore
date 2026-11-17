@@ -9,7 +9,7 @@ from __future__ import annotations
 import dataclasses
 import shutil
 from pathlib import Path
-from typing import Callable
+from typing import Callable, final
 
 from .default_console import console_or_default
 from ..proc import CommandRunner
@@ -35,6 +35,7 @@ def run_machine_command(command: list[str], runner: CommandRunner | None = None,
     return (runner or provision_runner(console)).run(command, Path.cwd())
 
 
+@final
 @dataclasses.dataclass(frozen=True)
 class MachineActions:
     """The calls the steps make that reach the machine, each replaceable by a test.
