@@ -20,7 +20,8 @@ def test_capture_command_returns_the_code_and_the_output_and_warns(tmp_path: Pat
     """Check that a captured run keeps its output and warns as deprecated."""
     with pytest.warns(DeprecationWarning):
         done = capture_command([sys.executable, "-c", "print('hi')"], tmp_path)
-    assert done == CapturedRun(0, "hi\n") or (done.code == 0 and "hi" in done.output)
+    assert isinstance(done, CapturedRun)
+    assert (done.code, done.output.strip()) == (0, "hi")
 
 
 def test_run_command_returns_the_exit_code_and_warns(tmp_path: Path):
