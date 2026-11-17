@@ -13,7 +13,8 @@ from pathlib import Path
 
 from .. import home
 from .._output import console
-from .base import IPackageManager, run
+from ..process_run import run
+from .base import IPackageManager
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig

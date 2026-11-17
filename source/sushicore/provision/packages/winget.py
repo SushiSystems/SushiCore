@@ -12,7 +12,8 @@ from collections.abc import Callable
 
 from .._output import console
 from ..licence_consent import Licence, LicenceConsent, is_accepted
-from .base import IPackageManager, run
+from ..process_run import run
+from .base import IPackageManager
 from .winget_licence import read_licence
 
 

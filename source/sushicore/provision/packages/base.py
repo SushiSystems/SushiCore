@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""The package-manager contract and the process helpers its implementations share."""
+"""The package-manager contract and the sudo and PATH helpers its implementations share."""
 
 from __future__ import annotations
 
@@ -20,25 +20,6 @@ from ..system import is_root
 _log = logging.getLogger(__name__)
 
 K_WINDOWS_PATH_SEPARATOR = ";"
-
-
-def run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
-    """Run *cmd*, streaming its output through the console; return its exit code."""
-    console.command(subprocess.list2cmdline(cmd))
-    if dry_run:
-        console.info("(dry-run) not executed")
-        return 0
-    process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace",
-    )
-    if process.stdout:
-        for line in iter(process.stdout.readline, ""):
-            console.console.print(line.rstrip("\n"), markup=False, highlight=False)
-    process.wait()
-    if check and process.returncode != 0:
-        console.error(f"Command failed ({process.returncode}).")
-    return process.returncode
 
 
 def prime_sudo() -> None:

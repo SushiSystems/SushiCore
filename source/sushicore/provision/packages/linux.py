@@ -10,8 +10,9 @@ import shutil
 import subprocess
 
 from .._output import console
+from ..process_run import run
 from ..system import is_root
-from .base import IPackageManager, run
+from .base import IPackageManager
 
 _APT_TO_DNF: dict[str, list[str]] = {
     "build-essential":     ["gcc", "gcc-c++", "make"],

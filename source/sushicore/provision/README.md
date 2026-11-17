@@ -30,6 +30,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |
 | `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
+| `process_run.py` | `run`: runs a command, streams its output through the console and returns its exit code; the package managers and `git_client.py` call it |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The intel/llvm, AdaptiveCpp and oneAPI installers, and the `.sushi_toolchain.json` stamp |
 | `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.16.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |

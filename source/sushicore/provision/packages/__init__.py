@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from ..system import ensure_intel_oneapi_repo
-from .base import IPackageManager, run, prime_sudo, refresh_windows_path
+from .base import IPackageManager, prime_sudo, refresh_windows_path
 from .direct_download import (
     WINGET_ID_TO_CMD,
     DirectDownloadWindowsManager,
@@ -53,6 +53,5 @@ __all__ = [
     "gh_latest_asset_including_prerelease",
     "gh_latest_release_asset",
     "gh_tagged_asset",
-    "run",
     "tools_dir",
 ]

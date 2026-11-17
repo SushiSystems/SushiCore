@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Callable, Optional
 
-from .packages.base import run
+from .process_run import run
 
 _log = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class GitClient(IGitClient):
     Args:
         git: The git executable; ``git`` on PATH by default.
         runner: Runs a clone command as ``(command, dry_run, check=True)`` and returns its exit code;
-            ``packages.base.run`` when ``None``.
+            ``process_run.run`` when ``None``.
     """
 
     def __init__(self, git: str = "git",

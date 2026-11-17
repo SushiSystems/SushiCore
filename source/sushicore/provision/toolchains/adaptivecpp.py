@@ -20,7 +20,8 @@ from sushicore.errors import DigestMismatchError
 from .. import home
 from .._output import console
 from ..download_verifier import verify_download
-from ..packages import download, gh_tagged_asset, run
+from ..packages import download, gh_tagged_asset
+from ..process_run import run
 from ._process import _run_quiet
 from .stamp import toolchains_dir
 
@@ -158,7 +159,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "IPackageManager | None",
         environ: The environment whose ``PATH`` gains the SDK resource compiler's folder;
             ``os.environ`` when omitted.
         run_command: Runs a command and returns its exit code; takes the command, the dry-run
-            flag and a ``check`` keyword. ``packages.run`` when omitted.
+            flag and a ``check`` keyword. ``process_run.run`` when omitted.
         configure: Runs the configure command quietly and reports success; takes the command
             and the dry-run flag. The quiet subprocess runner when omitted.
 
