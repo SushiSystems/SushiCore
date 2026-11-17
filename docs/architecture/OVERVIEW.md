@@ -11,7 +11,7 @@ and has no application of its own.
 | Module | Owns |
 | --- | --- |
 | `layered_toml` | `read_toml`, `walk_up` and `has_marker`, `resolve_env_path`, and `load_layered`, which merges the `[tool]` table with its platform override and the environment variables |
-| `workspace` | The workspace marker and data file, and its `[modules]` table; it re-exports the `layered_toml` readers the module CLIs import from it |
+| `workspace` | The workspace marker and data file, and its `[modules]` table; it re-exports the `layered_toml` readers the module CLIs import from it, and answers the deprecated `load_layered`, `merge_platform_table` and the link functions from the modules that hold them |
 | `link_pointer` | A module's `[link]` pointer to its workspace: `read_link`, `write_link` and `clear_link` |
 | `files`, `files_memory` | `Files`, the port the backlog and design stores read and write their text files through; `DiskFiles`, its default on the real file system; `MemoryFiles`, which holds each file by path |
 | `environment`, `environment_memory` | `Environment`, the port a config loader reads variables through; `ProcessEnvironment`, its default over `os.environ`; `MemoryEnvironment`, which holds each variable by name |

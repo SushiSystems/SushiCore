@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from sushicore.proc import CommandRunner
 from sushicore.provision.process_run import provision_runner
+from sushicore.provision.moved_name import moved_attribute
 
 _log = logging.getLogger(__name__)
 
@@ -74,3 +75,11 @@ def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None, *,
         console.info("(dry-run) not executed")
         return True
     return run_bash(cmd, runner, console) == 0
+
+#: Each name that left this module and the module that holds it now.
+K_MOVED = {"ensure_intel_oneapi_repo": "sushicore.provision.intel_oneapi_repo"}
+
+
+def __getattr__(name: str) -> object:
+    """Return a name that moved to another module, with a deprecation warning."""
+    return moved_attribute(globals(), K_MOVED, name)

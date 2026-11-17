@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from ..default_console import console_or_default
+from ..moved_name import moved_attribute
 
 
 class IPackageManager(ABC):
@@ -50,3 +51,14 @@ class IPackageManager(ABC):
         """
         self._console.warn(f"{self.name}: remove not implemented, skipping.")
         return True
+
+#: Each name that left this module and the module that holds it now.
+K_MOVED = {
+    "refresh_windows_path": "sushicore.provision.packages.windows_path",
+    "K_WINDOWS_PATH_SEPARATOR": "sushicore.provision.packages.windows_path",
+}
+
+
+def __getattr__(name: str) -> object:
+    """Return a name that moved to another module, with a deprecation warning."""
+    return moved_attribute(globals(), K_MOVED, name)

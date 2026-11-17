@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .layered_toml import has_marker, read_toml, resolve_env_path, walk_up  # noqa: F401
+from .provision.moved_name import moved_attribute
 from .toml_writer import write_toml_document
 
 #: The directory `hub init` writes at a workspace root. Every Sushi CLI walks up for it.
@@ -85,3 +86,19 @@ def remove_module(root: Path, name: str) -> bool:
     target.parent.mkdir(parents=True, exist_ok=True)
     write_toml_document(target, document, WORKSPACE_HEADER)
     return True
+
+#: Each name that left this module and the module that holds it now.
+K_MOVED = {
+    "LINK_SECTION": "sushicore.link_pointer",
+    "LinkEditError": "sushicore.link_pointer",
+    "clear_link": "sushicore.link_pointer",
+    "read_link": "sushicore.link_pointer",
+    "write_link": "sushicore.link_pointer",
+    "load_layered": "sushicore.layered_toml",
+    "merge_platform_table": "sushicore.layered_toml",
+}
+
+
+def __getattr__(name: str) -> object:
+    """Return a name that moved to another module, with a deprecation warning."""
+    return moved_attribute(globals(), K_MOVED, name)

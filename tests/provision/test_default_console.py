@@ -22,7 +22,7 @@ from sushicore.provision.gpu_stage import GpuStage
 from sushicore.provision.install_deps_step import InstallDepsStep
 from sushicore.provision.module_provision import ModuleProvision
 from sushicore.provision.packages.direct_download import DirectDownloadWindowsManager, downloader
-from sushicore.provision.packages.linux import AptManager
+from sushicore.provision.packages.apt_manager import AptManager
 from sushicore.provision.packages.winget import WingetManager
 from sushicore.provision.pipeline import InstallPipeline
 from sushicore.provision.process_run import provision_runner
@@ -127,7 +127,7 @@ K_BUILDERS = {
     "GitClient": lambda **kw: GitClient(**kw),
     "SubprocessBuildStepExecutor": lambda **kw: SubprocessBuildStepExecutor(**kw),
     "AdapterBuilder": lambda **kw: AdapterBuilder(object(), object(), **kw),
-    "GpuStage": lambda **kw: GpuStage(**kw),
+    "GpuStage": lambda **kw: GpuStage(actions=object(), **kw),
     "InstallDepsStep": lambda **kw: InstallDepsStep(object(), [], **kw),
     "DirectDownloadWindowsManager": lambda **kw: DirectDownloadWindowsManager(**kw),
     "downloader": lambda **kw: downloader(**kw),
