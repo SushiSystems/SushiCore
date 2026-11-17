@@ -1,6 +1,6 @@
 # Backlog sweep: plan
 
-**Status:** Open — waves A, D and E and jobs B1 to B8a and C2 are committed on 2026-11-17; B8b and B9 finish this session; C1's second half (RW-45) and C3 move to a later session by the owner's call
+**Status:** Open — waves A, D and E and jobs B1 to B8a and C2 are committed on 2026-11-17; B8b, B8c and B9 are committed the same day; C1's second half (RW-45) and C3 move to a later session by the owner's call
 
 Closes the open work entries the owner handed over on 2026-11-17, in hierarchy order. Wave A holds
 the jobs whose file sets do not meet. Wave B reshapes `provision` and the console, one seam at a
@@ -57,7 +57,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | A3 | RW-86, RW-87, KI-33: `source/sushicore/shared_tools*` and its tests |  | done |
 | A4 | RW-76: the shard runner of `source/sushicore/testing/` (not `slow_rerun.py`) and its tests |  | done |
 | A5 | KI-32: the console encoding of `design show` and its test |  | done |
-| A6 | RW-59: the unverified state of `source/sushicore/backlog/` and its tests |  | failed |
+| A6 | RW-59: the unverified state of `source/sushicore/backlog/` and its tests |  | done (by D1) |
 | A7 | RW-65: `provision/gpu/adapter_builder.py` and its callers and tests |  | done |
 | A8 | RW-66: `provision/sushi_packages/clock.py`, the store, the resolver and their tests |  | done |
 | A9 | RW-67, RW-71: in-memory package managers in `provision/packages/` and the tests that copy one |  | done |
@@ -69,7 +69,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B5 | RW-31: the toolchain installers on the GPU backends' contract | B4 | done |
 | B6 | RW-29, RW-30: Rich behind `Renderer`, no module console | B2 (ad72f9c: line level, diag and discovery; the module console and ui/help Rich imports remain) | done |
 | B7 | RW-26: one base error for the package | B5, B6 | done |
-| B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 (RW-33, RW-34 done; RW-36 open: about 30 sites still read the default home) | done |
+| B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 | done |
 | B9 | RW-35, RW-32: tests off private names, docstrings | B8 | done |
 | C1 | RW-44 (RW-105 holds the two unpinned), RW-45: a version and digest for every download, pinned keys and commits | B1 | running |
 | C2 | RW-18: a Sushi library pinned only by a fetched library | A10 | done |

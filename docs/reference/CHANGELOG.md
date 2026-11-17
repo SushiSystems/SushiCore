@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — code: Remove hidden module state and apply the class-shape rules (RW-36, `d3f6a0e`).
 - 2026-11-17 — tests: Reached code only through public names, making the direct-download installers and build_gate's read_state public (RW-35, `03bb347`).
 - 2026-11-17 — docs: Gave every public symbol a docstring of at most eight lines (RW-32, `db0088a`).
 - 2026-11-17 — code: Moved the dependency home, the download verifier and the theme and icon presets into objects, deprecating their binders, and marked leaf classes final (RW-36, `e5b724e`).
