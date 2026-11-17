@@ -21,6 +21,7 @@ and has no application of its own.
 | `profile` | `ModuleProfile`: what one CLI says about itself, such as its name, command, environment prefix and root marker |
 | `deps_fragment` | The one reader of a `sushistack.deps.toml` fragment |
 | `errors` | `SushiCoreError`, the one base every exception class the package defines derives from, so a caller catches one type; `ConfigError`, `DigestMismatchError` and `ProjectRootNotFoundError`, the failures an entry point prints as one line. Where a class also derived from a built-in, it keeps that built-in as a second base |
+| `deprecated_name`, `moved_name` | `warn_deprecated`, the `DeprecationWarning` every restored name raises, naming its replacement and pointing at the caller; `moved_attribute`, what a module's `__getattr__` calls to answer a name that moved to another module |
 
 ### Printing
 

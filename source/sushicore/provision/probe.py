@@ -20,7 +20,7 @@ from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.glob_search import K_ICX_GLOBS, K_ICX_GLOBS_LINUX, K_NVCC_GLOBS_LINUX, first_glob_match
 from sushicore.provision.gpu_vendor import classify_display_adapters, detect_gpu_vendor  # noqa: F401
-from sushicore.provision.moved_name import moved_attribute
+from sushicore.moved_name import moved_attribute
 from sushicore.provision.probe_plan import PROBE_PLANS
 from sushicore.provision.target import target_of
 from sushicore.provision.vs_locator import find_vcvars  # noqa: F401

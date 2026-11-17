@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from ..deprecated_name import warn_deprecated
+from ...deprecated_name import warn_deprecated
 from .apt_manager import AptManager
 from .dnf_manager import DnfManager
 from .linux_manager import LinuxPackageManager

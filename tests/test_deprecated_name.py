@@ -10,7 +10,7 @@ import warnings
 
 import pytest
 
-from sushicore.provision.deprecated_name import warn_deprecated
+from sushicore.deprecated_name import warn_deprecated
 
 pytestmark = pytest.mark.small
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .layered_toml import has_marker, read_toml, resolve_env_path, walk_up  # noqa: F401
-from .provision.moved_name import moved_attribute
+from .moved_name import moved_attribute
 from .toml_writer import write_toml_document
 
 #: The directory `hub init` writes at a workspace root. Every Sushi CLI walks up for it.

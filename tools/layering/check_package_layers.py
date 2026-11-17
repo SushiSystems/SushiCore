@@ -101,7 +101,7 @@ K_LAYERED = (
             "doctor_command": 7, "setup_command": 8, "commands": 9, "sushi_sources": 1, "git_client": 2, "process_run": 1,
             "sushi_fetch": 5, "pin_chain": 2, "sushi_setup": 5, "module_checks": 5, "sushi_source_check": 5,
             "host": 0, "host.base": 0, "host.current": 0, "host.posix": 0, "host.windows": 0, "target": 0, "target.base": 0, "target.current": 0, "target.linux": 0, "target.windows": 0, "links": 0, "user_environment": 0, "user_environment_memory": 0, "migrate": 4, "migration_error": 0, "migration_journal": 0, "migration_disk": 1, "migration_plan": 2, "migration_movers": 3,
-            "sushi_packages": 2, "package_install": 1, "captured_run": 0, "package_command": 7, "steps": 7, "deprecated_name": 0, "moved_name": 1,
+            "sushi_packages": 2, "package_install": 1, "captured_run": 0, "package_command": 7, "steps": 7, 
             "gpu.adapter_builder_compat": 1, "toolchains.adaptivecpp_compat": 3,
             "fragments_memory": 1, "pipeline_memory": 1, "sinks_memory": 0, "git_client_memory": 4, "gpu.backend_memory": 2, "gpu.adapter_builder_memory": 2,
             "gpu.toolkit_vendor_memory": 1, "gpu.cuda_selection_memory": 1, "gpu.cuda_vendor_memory": 2,

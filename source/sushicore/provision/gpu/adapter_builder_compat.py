@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ..deprecated_name import warn_deprecated
+from ...deprecated_name import warn_deprecated
 
 #: Each removed name and the name that replaces it.
 K_RENAMES = {

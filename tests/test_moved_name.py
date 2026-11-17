@@ -11,8 +11,8 @@ import warnings
 
 import pytest
 
-from sushicore import link_pointer, layered_toml, workspace
-from sushicore.provision import glob_search, gpu_vendor, intel_oneapi_repo, moved_name, probe, system
+from sushicore import link_pointer, layered_toml, moved_name, workspace
+from sushicore.provision import glob_search, gpu_vendor, intel_oneapi_repo, probe, system
 from sushicore.provision.packages import base, windows_path
 
 pytestmark = pytest.mark.small

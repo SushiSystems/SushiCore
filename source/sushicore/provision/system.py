@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 from sushicore.proc import CommandRunner
 from sushicore.provision.process_run import provision_runner
-from sushicore.provision.moved_name import moved_attribute
+from sushicore.moved_name import moved_attribute
 
 _log = logging.getLogger(__name__)
 

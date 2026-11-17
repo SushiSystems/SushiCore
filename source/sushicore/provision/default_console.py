@@ -10,7 +10,7 @@ import warnings
 from typing import Callable, TypeVar, cast
 
 from ..errors import SushiCoreError
-from .deprecated_name import warn_deprecated
+from ..deprecated_name import warn_deprecated
 from .provision_console import ProvisionConsole
 
 _ConsoleT = TypeVar("_ConsoleT")

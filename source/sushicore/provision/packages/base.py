@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from ..default_console import console_or_default
-from ..moved_name import moved_attribute
+from ...moved_name import moved_attribute
 
 
 class IPackageManager(ABC):

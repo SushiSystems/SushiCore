@@ -15,7 +15,7 @@ from pathlib import Path
 from rich.text import Text
 
 from ..default_console import DEFAULT_CONSOLE
-from ..deprecated_name import warn_deprecated
+from ...deprecated_name import warn_deprecated
 
 _log = logging.getLogger(__name__)
 

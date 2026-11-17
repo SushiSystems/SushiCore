@@ -17,7 +17,7 @@ from typing import Any
 from ...proc import Runner
 from ...quiet_console import QuietConsole
 from ..default_console import DEFAULT_CONSOLE
-from ..deprecated_name import warn_deprecated
+from ...deprecated_name import warn_deprecated
 from ..process_run import run as run_command
 from ..system import USER_AGENT, is_root
 from .github_release import AssetNotFoundError
