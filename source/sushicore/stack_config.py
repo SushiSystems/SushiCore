@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, fields
+from functools import partial
 from pathlib import Path
 from typing import Callable, ClassVar, Collection, Mapping
 
@@ -20,6 +21,7 @@ from .provision import sushi_sources
 from .provision.sushi_packages import (
     PackageRequest, PackageResolver, PackageSet, default_resolver,
 )
+from .provision.dependency_home import DEFAULT_HOME, DependencyHome
 from .provision.module_manifest import fragment_path
 from .provision.config import ProvisionSettings
 
@@ -34,6 +36,9 @@ class StackConfig(ProvisionSettings):
 
     #: The fragment below the project root when a subclass names one; None reads the module's manifest.
     fragment: ClassVar[str | None] = None
+
+    #: The home whose dependency root the module reads; a subclass names its own, the deprecated default home otherwise.
+    home: ClassVar[DependencyHome] = DEFAULT_HOME
 
     def sibling_dir(self, root: Path, name: str, configured: str = "") -> Path:
         """Resolve a sibling module checkout.
@@ -76,7 +81,8 @@ class StackConfig(ProvisionSettings):
         versions = {pin.name: pin.version for pin in self.sushi_pins(root)}
         configured = getattr(self, f"{name}_dir", "")
         return sushi_sources.resolve(root, name, versions.get(name, ""),
-                                     self.expand(configured) if configured else "")
+                                     self.expand(configured) if configured else "",
+                                     home=self.home)
 
     def sushi_definitions(self, root: Path, packaged: PackageSet | None = None) -> list[str]:
         """Return ``-D<NAME>_DIR=<path>`` for each pinned Sushi library that resolves.
@@ -124,7 +130,7 @@ class StackConfig(ProvisionSettings):
             fragment=self.fragment or fragment_path(root), vcpkg_root=Path(vcpkg) if vcpkg else None,
             triplet=self.vcpkg_triplet, libraries=libraries)
         cmake = self.expand(self.cmake_exe) if self.cmake_exe else "cmake"
-        build = assemble or default_resolver
+        build = assemble or partial(default_resolver, home=self.home)
         return build(self.package_keep, report, warn, cmake=cmake).resolve(request)
 
     def standalone_deps_dir(self, root: Path) -> Path:
@@ -134,7 +140,7 @@ class StackConfig(ProvisionSettings):
         search order. It stays one release for subclasses that still call it.
         """
         del root
-        return provision_home.root()
+        return provision_home.root(home=self.home)
 
     def workspace_home(self, root: Path) -> Path | None:
         """The SushiStack workspace root, or None when standalone.
@@ -170,7 +176,7 @@ class StackConfig(ProvisionSettings):
         workspace = self.workspace_home(root)
         if workspace:
             roots.append((workspace / "dependencies").resolve())
-        for candidate in provision_home.search_roots():
+        for candidate in provision_home.search_roots(home=self.home):
             if candidate not in roots:
                 roots.append(candidate)
         return roots

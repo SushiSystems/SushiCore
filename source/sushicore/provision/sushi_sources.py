@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import final
 
-from . import home
+from . import home as home_paths
+from .dependency_home import DependencyHome
 
 
 class SourceKind(str, enum.Enum):
@@ -40,9 +41,13 @@ def directory_variable(name: str) -> str:
     return f"{name.upper()}_DIR"
 
 
-def fetched_dir(name: str, version: str) -> Path:
-    """Return ``<home>/sources/<name>/<version>``, where ``setup`` clones *name* at *version*."""
-    return home.sources_dir() / name / version
+def fetched_dir(name: str, version: str, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<home>/sources/<name>/<version>``, where ``setup`` clones *name* at *version*.
+
+    Args:
+        home: The home whose root holds the sources; the default home when ``None``.
+    """
+    return home_paths.sources_dir(home=home) / name / version
 
 
 def sibling_dir(root: Path, name: str) -> Path:
@@ -50,7 +55,8 @@ def sibling_dir(root: Path, name: str) -> Path:
     return (root / ".." / name).resolve()
 
 
-def resolve(root: Path, name: str, version: str = "", configured: str = "") -> ResolvedSource | None:
+def resolve(root: Path, name: str, version: str = "", configured: str = "", *,
+            home: DependencyHome | None = None) -> ResolvedSource | None:
     """Return the first checkout of *name* that exists, or None when there is none.
 
     Args:
@@ -58,6 +64,7 @@ def resolve(root: Path, name: str, version: str = "", configured: str = "") -> R
         name: The library's lower-case name, such as ``sushilog``.
         version: The pinned release tag; without one the fetched copy is not looked for.
         configured: ``<NAME>_DIR`` from the config; it is tried before the environment variable.
+        home: The home whose fetched copies are looked for; the default home when ``None``.
     """
     candidates: list[tuple[Path, SourceKind]] = []
     for explicit in (configured, os.environ.get(directory_variable(name), "")):
@@ -66,7 +73,7 @@ def resolve(root: Path, name: str, version: str = "", configured: str = "") -> R
             candidates.append((Path(expanded).resolve(), SourceKind.DIRECTORY))
     candidates.append((sibling_dir(root, name), SourceKind.SIBLING))
     if version:
-        candidates.append((fetched_dir(name, version), SourceKind.FETCHED))
+        candidates.append((fetched_dir(name, version, home=home), SourceKind.FETCHED))
     for path, kind in candidates:
         if path.is_dir():
             return ResolvedSource(path, kind)

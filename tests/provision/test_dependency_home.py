@@ -47,3 +47,14 @@ def test_bind_root_warns_and_sets_the_default_home():
         assert home.root() == (Path.cwd() / "shim-root").resolve()
     finally:
         DEFAULT_HOME.bind(None)
+
+
+def test_every_root_helper_reads_the_home_it_is_passed():
+    held = DependencyHome(lambda: Path.cwd() / "held-root")
+    base = (Path.cwd() / "held-root").resolve()
+    assert home.toolchains_dir(home=held) == base / "toolchains"
+    assert home.tools_dir(home=held) == base / "tools"
+    assert home.sources_dir(home=held) == base / "sources"
+    assert home.build_dir(home=held) == base / "build"
+    assert home.ur_dir(home=held) == base / "ur"
+    assert home.search_roots(home=held, legacy=None)[0] == base

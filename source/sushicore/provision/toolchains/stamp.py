@@ -11,15 +11,20 @@ import os
 from pathlib import Path
 from typing import Callable
 
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DependencyHome
 
 #: Records which release a toolchain tree came from, written beside the bundle.
 TOOLCHAIN_STAMP = ".sushi_toolchain.json"
 
 
-def toolchains_dir() -> Path:
-    """Return the base directory for SYCL toolchains installed by provisioning."""
-    return home.toolchains_dir()
+def toolchains_dir(*, home: DependencyHome | None = None) -> Path:
+    """Return the base directory for SYCL toolchains installed by provisioning.
+
+    Args:
+        home: The home whose root holds the toolchains; the default home when ``None``.
+    """
+    return home_paths.toolchains_dir(home=home)
 
 
 def read_toolchain_stamp(root: Path) -> dict:

@@ -14,9 +14,10 @@ from .default_console import console_or_default
 from .gpu.adapter_builder import AdapterBuilder, SubprocessBuildStepExecutor
 from .gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from .gpu.provisioning import provision_gpu_adapters
-from .gpu.registry import DEFAULT_REGISTRY
+from .gpu.registry import DEFAULT_REGISTRY, Registry
 from .adapter_provisioner import AdapterProvisioner
 from .config import ProvisionConfig
+from .dependency_home import DEFAULT_HOME, DependencyHome
 from .gpu_machine import GpuMachine
 from .licence_consent import Licence, is_accepted
 from .packages import LinuxPackageManager, install_gpu_stack
@@ -24,27 +25,39 @@ from .install_context import InstallContext
 from .provision_console import ProvisionConsole
 
 
-def _subprocess_builder(cfg: ProvisionConfig, console: ProvisionConsole) -> AdapterBuilder:
-    """Return the adapter builder that runs its commands as processes printing through *console*."""
-    return AdapterBuilder(cfg=cfg, runner=SubprocessBuildStepExecutor(console), console=console)
+def _subprocess_builder(cfg: ProvisionConfig, console: ProvisionConsole, *,
+                        home: DependencyHome = DEFAULT_HOME) -> AdapterBuilder:
+    """Return the adapter builder that runs its commands as processes printing through *console*.
+
+    Args:
+        home: The home whose dependency tree holds the build's work root.
+    """
+    return AdapterBuilder(cfg=cfg, runner=SubprocessBuildStepExecutor(console), console=console,
+                          home=home)
 
 
 def provision_adapters_for_run(
         ctx: InstallContext, *, console: ProvisionConsole | None = None,
         actions: GpuMachine,
-        make_builder: Callable[[ProvisionConfig, ProvisionConsole], AdapterBuilder] = _subprocess_builder,
-        build_adapters: AdapterProvisioner | None = None) -> None:
+        make_builder: Callable[[ProvisionConfig, ProvisionConsole], AdapterBuilder] | None = None,
+        build_adapters: AdapterProvisioner | None = None,
+        registry: Registry = DEFAULT_REGISTRY) -> None:
     """Build every located GPU backend's Unified Runtime adapter for this run.
 
     Args:
         console: The console the skip message is printed through.
         actions: The machine calls the run reads.
-        make_builder: Builds the adapter builder from the probed configuration and the console.
+        make_builder: Builds the adapter builder from the probed configuration and the console;
+            the subprocess builder over the home of *ctx* when ``None``.
         build_adapters: Builds the adapters of one toolchain; defaults to
             :func:`sushicore.provision.gpu.provisioning.provision_gpu_adapters`.
+        registry: The GPU backends the adapters are built for; the deprecated default registry
+            when omitted.
     """
     console = console_or_default(console, "provision_adapters_for_run")
     build_adapters = build_adapters or provision_gpu_adapters
+    make_builder = make_builder or (
+        lambda cfg, out: _subprocess_builder(cfg, out, home=ctx.home))
     actions.refresh_path()
     probed = actions.resolve_config(ctx.cfg, gpu=ctx.gpu)
     llvm_root = ctx.resolved_paths.get("llvm_root") or probed.get("llvm_root")
@@ -53,13 +66,13 @@ def provision_adapters_for_run(
         return
     held = {field.name for field in dataclasses.fields(ctx.cfg)}
     cfg = dataclasses.replace(ctx.cfg, **{key: value for key, value in probed.items() if key in held})
-    build_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), make_builder(cfg, console), ctx.dry_run,
+    build_adapters(cfg, registry, Path(llvm_root), make_builder(cfg, console), ctx.dry_run,
                    console=console)
 
 
-def _nvidia_toolkit_present(ctx: InstallContext) -> bool:
-    """Return whether a CUDA toolkit is already found on this machine for the run's platform."""
-    spec = DEFAULT_REGISTRY.for_probe_vendor("nvidia")
+def _nvidia_toolkit_present(ctx: InstallContext, registry: Registry) -> bool:
+    """Return whether a CUDA toolkit of *registry* is already found on this machine for the run's platform."""
+    spec = registry.for_probe_vendor("nvidia")
     return spec is not None and spec.locator.locate(ctx.cfg) is not None
 
 
@@ -79,24 +92,27 @@ class GpuStage:
         install_stack: Installs the compute SDK of a vendor; the packages' default when omitted.
         provision_adapters: Builds the adapters for a run; :func:`provision_adapters_for_run`.
         toolkit_present: Whether the run's NVIDIA toolkit is already on the machine.
+        registry: The GPU backends the stage installs and builds for; the deprecated default
+            registry when omitted.
     """
 
     def __init__(self, *, console: ProvisionConsole | None = None, actions: GpuMachine,
                  install_stack: Callable[[ProvisionConfig, str, bool], bool] | None = None,
                  provision_adapters: Callable[[InstallContext], None] | None = None,
                  toolkit_present: Callable[[InstallContext], bool] | None = None,
-                 ) -> None:
+                 registry: Registry = DEFAULT_REGISTRY) -> None:
         """Wire the console, the machine calls and the GPU actions."""
         console = console_or_default(console, "GpuStage")
         self._console = console
-        self._toolkit_present = toolkit_present or (lambda ctx: _nvidia_toolkit_present(ctx))
+        self._toolkit_present = toolkit_present or (
+            lambda ctx: _nvidia_toolkit_present(ctx, registry))
         self._actions = actions
         self._install_stack = install_stack or (
             lambda cfg, vendor, dry_run: install_gpu_stack(
                 cfg, vendor, dry_run, console=self._console))
         self._provision_adapters = provision_adapters or (
             lambda ctx: provision_adapters_for_run(
-                ctx, console=self._console, actions=self._actions))
+                ctx, console=self._console, actions=self._actions, registry=registry))
 
     def toolkit_licences(self, ctx: InstallContext) -> list[Licence]:
         """Returns the licences the toolkit this stage installs for *ctx* needs; empty when none."""

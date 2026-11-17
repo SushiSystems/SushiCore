@@ -17,6 +17,7 @@ from sushicore.deps_fragment import Download
 from sushicore.errors import ConfigError, DigestMismatchError
 
 from ..default_console import console_or_default
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..download_verifier import pinned_download, verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
@@ -40,9 +41,17 @@ class IntelLlvmToolchain:
     key = "intel-llvm"
     selection_field = "install_intel_llvm"
 
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the home :meth:`locate` reads; :meth:`install` reads the home of its context.
+
+        Args:
+            home: The home whose toolchains folder is searched; the deprecated default home when omitted.
+        """
+        self._home = home
+
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
         """Return the bundle under the toolchains folder, or None when its compiler is absent."""
-        root = toolchains_dir() / "llvm-sycl"
+        root = toolchains_dir(home=self._home) / "llvm-sycl"
         if not (root / "bin" / target_of(cfg).clang_executable).is_file():
             return None
         return ToolkitInstall(root=root, version=read_toolchain_stamp(root).get("tag"))
@@ -59,7 +68,7 @@ class IntelLlvmToolchain:
         """
         llvm = install_intel_llvm(
             ctx.cfg, ctx.dry_run, refresh=ctx.refresh_toolchains,
-            refresh_command=ctx.refresh_command, console=env.console)
+            refresh_command=ctx.refresh_command, console=env.console, home=ctx.home)
         if llvm:
             ctx.resolved_paths["llvm_root"] = llvm
         else:
@@ -75,18 +84,20 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        refresh: bool = False, refresh_command: str = "", *,
                        console: Any = None,
                        pin: Callable[[str], Download] | None = None,
-                       fetch: Callable[[str, Path], None] | None = None) -> str | None:
+                       fetch: Callable[[str, Path], None] | None = None,
+                       home: DependencyHome | None = None) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root, or None on failure.
 
     Args:
         refresh: Re-download over an existing install.
+        home: The home whose toolchains folder receives the bundle; the default home when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
 
     Raises DigestMismatchError when the SHA-256 differs from its manifest entry, and ConfigError
     when no fragment pins the download for this platform.
     """
     console = console_or_default(console, "install_intel_llvm")
-    root = toolchains_dir() / "llvm-sycl"
+    root = toolchains_dir(home=home) / "llvm-sycl"
     target = target_of(cfg)
     clang = root / "bin" / target.clang_executable
     asset = target.intel_llvm_asset

@@ -11,6 +11,7 @@ import shutil
 import typing
 from pathlib import Path
 
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..host import current_host
 from ..glob_search import K_NVCC_GLOBS_LINUX, first_glob_match
 from .cuda_hardware import NvidiaHardware, query_hardware
@@ -31,16 +32,19 @@ class CudaVendor:
         hardware: Returns the cards and the driver's CUDA ceiling, or None without a driver.
         index: NVIDIA's redistributable index.
         installer: Downloads and unpacks releases.
+        home: The home whose root holds the releases when *installer* is omitted; the deprecated
+            default home when omitted.
     """
 
     def __init__(self,
                  hardware: typing.Callable[[], NvidiaHardware | None] = query_hardware,
                  index: RedistIndex | None = None,
-                 installer: RedistToolkitInstaller | None = None) -> None:
+                 installer: RedistToolkitInstaller | None = None, *,
+                 home: DependencyHome = DEFAULT_HOME) -> None:
         """Store the collaborators, defaulting to the real ones."""
         self._hardware = hardware
         self._index = index or RedistIndex()
-        self._installer = installer or RedistToolkitInstaller()
+        self._installer = installer or RedistToolkitInstaller(home=home)
 
     @property
     def name(self) -> str:

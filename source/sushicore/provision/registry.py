@@ -19,7 +19,8 @@ except ModuleNotFoundError:  # Python 3.10 fallback
     import tomli as tomllib
 
 from ..errors import SushiCoreError
-from . import home
+from . import home as home_paths
+from .dependency_home import DependencyHome
 from .toolchains.stamp import read_toolchain_stamp
 
 #: The version recorded for a component whose tree carries no stamp tag.
@@ -59,9 +60,13 @@ class RegistryError(SushiCoreError):
     """Raised when the registry file exists but cannot be parsed."""
 
 
-def default_path() -> Path:
-    """Return ``home.root() / "registry.toml"``."""
-    return home.root() / "registry.toml"
+def default_path(*, home: DependencyHome | None = None) -> Path:
+    """Return ``home.root() / "registry.toml"``.
+
+    Args:
+        home: The home whose root holds the file; the default home when ``None``.
+    """
+    return home_paths.root(home=home) / "registry.toml"
 
 
 @final

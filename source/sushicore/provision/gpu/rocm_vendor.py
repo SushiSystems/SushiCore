@@ -11,6 +11,7 @@ import shutil
 import typing
 from pathlib import Path
 
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..host import current_host
 from .amd_hardware import AmdHardware, query_hardware
 from .rocm_package import RocmPackage
@@ -30,16 +31,19 @@ class RocmVendor:
         hardware: Returns the AMD cards, or None without the amdgpu driver.
         index: AMD's tarball listing.
         installer: Downloads and unpacks tarballs.
+        home: The home whose root holds the tarballs when *installer* is omitted; the deprecated
+            default home when omitted.
     """
 
     def __init__(self,
                  hardware: typing.Callable[[], AmdHardware | None] = query_hardware,
                  index: RocmTarballIndex | None = None,
-                 installer: RocmTarballInstaller | None = None) -> None:
+                 installer: RocmTarballInstaller | None = None, *,
+                 home: DependencyHome = DEFAULT_HOME) -> None:
         """Store the collaborators, defaulting to the real ones."""
         self._hardware = hardware
         self._index = index or RocmTarballIndex()
-        self._installer = installer or RocmTarballInstaller()
+        self._installer = installer or RocmTarballInstaller(home=home)
 
     @property
     def name(self) -> str:

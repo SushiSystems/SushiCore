@@ -39,7 +39,7 @@ class WindowsInstallPlan(IInstallPlan):
             git_missing = not services.actions.which("git")
             vs_missing = self._vs_build_tools_missing(services, winget)
             llvm_wanted = (ctx.selection.install_acpp and ctx.assume_acpp_llvm
-                           and llvm_missing())
+                           and llvm_missing(home=ctx.home))
             wanted = [(git_missing, "Git.Git"), (vs_missing, K_VS_BUILD_TOOLS_ID),
                       (llvm_wanted, K_LLVM_ID)]
             needed.extend(held for held in (self._licence_of(winget, pkg)

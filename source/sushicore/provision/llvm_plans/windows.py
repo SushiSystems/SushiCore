@@ -15,7 +15,8 @@ from sushicore.errors import DigestMismatchError, SushiCoreError
 from sushicore.proc import CommandRunner
 
 from ..default_console import console_or_default
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..download_verifier import verify_download
 from ..llvm_plan import LLVM_PLANS, ILlvmPlan, LlvmRequest
 from ..packages import downloader, gh_tagged_asset
@@ -24,20 +25,23 @@ from ..target import K_WINDOWS
 from ..toolchains.adaptivecpp import LLVM_WINDOWS_VERSION
 
 
-def llvm_missing(bases: Sequence[Path] | None = None) -> bool:
+def llvm_missing(bases: Sequence[Path] | None = None, *,
+                 home: DependencyHome | None = None) -> bool:
     """Report whether no Windows LLVM is found in *bases*; see :func:`find_windows_llvm`."""
-    return find_windows_llvm(bases) is None
+    return find_windows_llvm(bases, home=home) is None
 
 
-def find_windows_llvm(bases: Sequence[Path] | None = None) -> tuple[str, str] | None:
+def find_windows_llvm(bases: Sequence[Path] | None = None, *,
+                      home: DependencyHome | None = None) -> tuple[str, str] | None:
     """Return ``(LLVM_DIR, clang_prefix)`` for an existing Windows LLVM, else None.
 
     Args:
         bases: The LLVM install roots to look in, first match wins; the vendored tree,
             then the two Program Files folders when omitted.
+        home: The home whose root holds the vendored tree; the default home when ``None``.
     """
     roots = bases if bases is not None else [
-        home.root() / "tools" / "llvm",
+        home_paths.root(home=home) / "tools" / "llvm",
         Path(r"C:/Program Files/LLVM"),
         Path(r"C:/Program Files (x86)/LLVM"),
     ]
@@ -55,18 +59,20 @@ class _LlvmInstallerError(SushiCoreError, RuntimeError):
 def vendor_llvm_windows(*, console: Any = None,
                         resolve_asset: Callable[[str, str, str], str] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
-                        runner: CommandRunner | None = None) -> tuple[str, str] | None:
+                        runner: CommandRunner | None = None,
+                        home: DependencyHome | None = None) -> tuple[str, str] | None:
     """Download the official clang+llvm Windows tarball into the tools tree.
 
     Args:
         fetch: Downloads a URL into a file; the download transport.
         runner: Runs the installer command; the provision runner when ``None``.
+        home: The home whose root holds the tools tree; the default home when ``None``.
 
     Returns ``(LLVM_DIR, clang_prefix)``, or None on failure; raises DigestMismatchError when the
     installer's SHA-256 differs from its manifest entry.
     """
     console = console_or_default(console, "vendor_llvm_windows")
-    dest = home.root() / "tools" / "llvm"
+    dest = home_paths.root(home=home) / "tools" / "llvm"
     tag = f"llvmorg-{LLVM_WINDOWS_VERSION}"
     asset = f"LLVM-{LLVM_WINDOWS_VERSION}-win64.exe"
     try:
@@ -97,7 +103,7 @@ def vendor_llvm_windows(*, console: Any = None,
             console.error(f"LLVM vendor failed: {exc}")
             shutil.rmtree(dest, ignore_errors=True)
             return None
-    found = find_windows_llvm()
+    found = find_windows_llvm(home=home)
     if found:
         console.success(f"LLVM {LLVM_WINDOWS_VERSION} vendored into {dest}")
     else:
@@ -109,12 +115,20 @@ def vendor_llvm_windows(*, console: Any = None,
 class WindowsLlvmPlan(ILlvmPlan):
     """Installs the boost ports through vcpkg and finds, installs or vendors the LLVM."""
 
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the home whose root holds the vendored LLVM.
+
+        Args:
+            home: The home the plan reads; the deprecated default home when omitted.
+        """
+        self._home = home
+
     def resolve(self, request: LlvmRequest) -> tuple[str | None, str | None]:
         """Install acpp build deps on Windows; return ``(LLVM_DIR, clang_prefix)``."""
         if request.vcpkg is not None:
             request.vcpkg.install(["boost-context", "boost-fiber"], dry_run=False)
 
-        existing = find_windows_llvm(request.llvm_bases)
+        existing = find_windows_llvm(request.llvm_bases, home=self._home)
         if existing:
             return existing
 
@@ -127,11 +141,11 @@ class WindowsLlvmPlan(ILlvmPlan):
         if winget is not None and winget.available():
             request.console.info("Installing LLVM via winget ...")
             winget.install(["LLVM.LLVM"], dry_run=False)
-            existing = find_windows_llvm(request.llvm_bases)
+            existing = find_windows_llvm(request.llvm_bases, home=self._home)
             if existing:
                 return existing
 
-        vendored = vendor_llvm_windows(console=request.console)
+        vendored = vendor_llvm_windows(console=request.console, home=self._home)
         return vendored if vendored else (None, None)
 
 

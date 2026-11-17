@@ -10,8 +10,9 @@ import shutil
 from pathlib import Path
 from typing import Callable, final
 
-from .. import home
+from .. import home as home_paths
 from ..config import ProvisionConfig
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..glob_search import K_ICX_GLOBS, K_RC_GLOBS, first_existing, first_glob_match
 from ..probe import binary_works, discover_installed_toolchains
 from ..probe_plan import PROBE_PLANS, IProbePlan
@@ -36,15 +37,18 @@ class WindowsProbePlan(IProbePlan):
     """Finds oneAPI ``icx-cl`` and the Windows tool paths in the config, install roots and PATH."""
 
     def __init__(self, first_glob: Callable[[list[str]], str] | None = None,
-                 vcvars_finder: Callable[[], Path | None] | None = None) -> None:
-        """Bind the seams that read the machine.
+                 vcvars_finder: Callable[[], Path | None] | None = None, *,
+                 home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the seams that read the machine and the home whose roots it searches.
 
         Args:
             first_glob: Gives the best match among glob patterns, or ''; ``first_glob_match`` when ``None``.
             vcvars_finder: Gives the Visual Studio script the scan finds; ``find_vcvars`` when ``None``.
+            home: The home whose dependency root the plan reads; the deprecated default home when omitted.
         """
         self._first_glob = first_glob or first_glob_match
         self._vcvars_finder = vcvars_finder or find_vcvars
+        self._home = home
 
     def find_sycl_compiler(self, cfg: ProvisionConfig) -> tuple[str | None, str]:
         """Return the working oneAPI ``icx-cl`` from the config, the install roots or PATH."""
@@ -81,7 +85,7 @@ class WindowsProbePlan(IProbePlan):
         if rc:
             values["rc_exe"] = rc
 
-        tools = home.tools_dir()
+        tools = home_paths.tools_dir(home=self._home)
         portable_bin = tools / "cmake" / "bin"
         ninja = shutil.which("ninja") or first_existing([str(tools / "ninja.exe")])
         if ninja:
@@ -108,7 +112,7 @@ class WindowsProbePlan(IProbePlan):
             vcpkg_root = ""
         if not (vcpkg_root and Path(vcpkg_root).is_dir()):
             # Default to the first dependency root holding a vcpkg tree, else the current root's.
-            vcpkg_root = str(home.found_vcpkg_dir())
+            vcpkg_root = str(home_paths.found_vcpkg_dir(home=self._home))
         if vcpkg_root:
             values["vcpkg_root"] = vcpkg_root
             # pkgconf shipped by vcpkg is the one CMakeLists expects.
@@ -127,7 +131,7 @@ class WindowsProbePlan(IProbePlan):
         if doxy:
             values["doxygen_exe"] = doxy
 
-        discover_installed_toolchains(cfg, values)
+        discover_installed_toolchains(cfg, values, home=self._home)
         return values
 
 

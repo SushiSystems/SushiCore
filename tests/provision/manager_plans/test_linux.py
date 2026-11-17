@@ -20,3 +20,19 @@ def test_linux_provisions_through_every_distro_manager_and_vcpkg_last():
         ProvisionSettings(platform="linux"), None, MemoryConsole())
 
     assert [manager.name for manager in managers] == ["apt", "dnf", "yum", "pacman", "zypper", "vcpkg"]
+
+
+@pytest.mark.small
+def test_linux_plan_looks_for_vcpkg_under_its_home(tmp_path, monkeypatch):
+    """Check that the vcpkg manager the plan builds finds the tree of the plan's home."""
+    from sushicore.provision.dependency_home import DependencyHome
+
+    monkeypatch.setenv("PATH", "")
+    tree = tmp_path / "held-root" / "vcpkg"
+    tree.mkdir(parents=True)
+    (tree / "vcpkg").write_text("")
+    held = DependencyHome(lambda: tmp_path / "held-root")
+    managers = LinuxManagerPlan(home=held).managers(
+        ProvisionSettings(platform="linux"), None, MemoryConsole())
+
+    assert managers[-1].name == "vcpkg" and managers[-1].available()

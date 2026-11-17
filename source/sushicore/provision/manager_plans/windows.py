@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, final
 
 from ..config import ProvisionConfig
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..licence_consent import LicenceConsent
 from ..manager_plan import MANAGER_PLANS, IManagerPlan
 from ..packages import DirectDownloadWindowsManager, IPackageManager, VcpkgManager, WingetManager
@@ -19,11 +20,20 @@ from ..target import K_WINDOWS
 class WindowsManagerPlan(IManagerPlan):
     """Provisions through winget, the direct downloads and vcpkg."""
 
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the home the managers it builds read.
+
+        Args:
+            home: The home whose root the managers use; the deprecated default home when omitted.
+        """
+        self._home = home
+
     def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None,
                  console: Any) -> list[IPackageManager]:
         """Return winget, the direct downloads and vcpkg."""
         return [WingetManager(consent, console=console),
-                DirectDownloadWindowsManager(console=console), VcpkgManager(cfg, console=console)]
+                DirectDownloadWindowsManager(console=console, home=self._home),
+                VcpkgManager(cfg, console=console, home=self._home)]
 
 
 MANAGER_PLANS.register(K_WINDOWS, WindowsManagerPlan())

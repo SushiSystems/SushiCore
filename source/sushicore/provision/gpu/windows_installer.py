@@ -19,7 +19,8 @@ import warnings
 from pathlib import Path
 
 from ...proc import CommandRunner, did_not_run
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DependencyHome
 from ...quiet_runner import quiet_runner
 from ..system import USER_AGENT
 
@@ -70,9 +71,13 @@ class ElevatedResult:
     message: str = ""
 
 
-def installers_dir() -> Path:
-    """Return the folder under the dependencies tree that holds vendor installers."""
-    return home.root() / "installers"
+def installers_dir(*, home: DependencyHome | None = None) -> Path:
+    """Return the folder under the dependencies tree that holds vendor installers.
+
+    Args:
+        home: The home whose root holds the folder; the default home when ``None``.
+    """
+    return home_paths.root(home=home) / "installers"
 
 
 class Downloader(typing.Protocol):

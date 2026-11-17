@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Mapping, Protocol, final
 
 from .. import sushi_sources
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from .package_error import PackageError
 
 
@@ -52,6 +53,14 @@ class MemoryLocator:
 class SushiSourceLocator:
     """Finds a checkout through ``<NAME>_DIR``, the sibling and the fetched copy."""
 
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the home whose fetched copies are looked for.
+
+        Args:
+            home: The home the locator reads; the deprecated default home when omitted.
+        """
+        self._home = home
+
     def locate(self, root: Path, name: str, version: str, configured: str) -> Path:
         """Return the checkout of *name* for the consumer at *root*.
 
@@ -62,7 +71,7 @@ class SushiSourceLocator:
         Raises:
             PackageError: No checkout exists; the message names ``<NAME>_DIR``.
         """
-        found = sushi_sources.resolve(root, name, version, configured)
+        found = sushi_sources.resolve(root, name, version, configured, home=self._home)
         if found is None:
             raise PackageError(
                 f"{name} has no checkout: set {sushi_sources.directory_variable(name)}, place it "

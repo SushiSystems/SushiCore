@@ -13,7 +13,8 @@ from pathlib import Path
 from sushicore.proc import CommandRunner
 
 from ..default_console import console_or_default
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..process_run import provision_runner
 from ..target import target_of
 from .base import IPackageManager
@@ -34,7 +35,7 @@ class VcpkgManager(IPackageManager):
     name = "vcpkg"
 
     def __init__(self, cfg: "ProvisionConfig", runner: CommandRunner | None = None, *,
-                 console: typing.Any = None) -> None:
+                 console: typing.Any = None, home: DependencyHome = DEFAULT_HOME) -> None:
         """Store *cfg*, the runner of the vcpkg commands, and resolve the triplet to install for.
 
         Args:
@@ -42,10 +43,13 @@ class VcpkgManager(IPackageManager):
             runner: Runs the git, bootstrap and vcpkg commands; the provision runner on *console*
                 when ``None``.
             console: The console the manager and its runner print through.
+            home: The home whose roots are searched for a vcpkg tree; the deprecated default home
+                when omitted.
         """
         console = console_or_default(console, "VcpkgManager")
         super().__init__(console=console)
         self._cfg = cfg
+        self._home = home
         self._runner = runner or provision_runner(console)
         self._target = target_of(cfg)
         self._triplet = cfg.vcpkg_triplet or self._target.vcpkg_triplet
@@ -59,7 +63,7 @@ class VcpkgManager(IPackageManager):
         root = self._cfg.expand(self._cfg.vcpkg_root) if self._cfg.vcpkg_root else ""
         if root:
             return Path(root)
-        return home.found_vcpkg_dir()
+        return home_paths.found_vcpkg_dir(home=self._home)
 
     def _exe(self) -> Path:
         """Return the path of the vcpkg executable under this manager's root."""

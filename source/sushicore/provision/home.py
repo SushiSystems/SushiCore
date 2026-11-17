@@ -85,7 +85,8 @@ def _walk_up_workspace(start: Path) -> Path | None:
 
 def legacy_roots(*, environ: Mapping[str, str] | None = None, cwd: Path | None = None,
                  current: Path | None = None, is_dir: Callable[[Path], bool] | None = None,
-                 workspace_of: Callable[[Path], Path | None] | None = None) -> list[Path]:
+                 workspace_of: Callable[[Path], Path | None] | None = None,
+                 home: DependencyHome | None = None) -> list[Path]:
     """Return existing hub trees read as installed, excluding the current root.
 
     Args:
@@ -93,6 +94,7 @@ def legacy_roots(*, environ: Mapping[str, str] | None = None, cwd: Path | None =
         cwd: Where the workspace search starts; the working folder when ``None``.
         current: The root to leave out; :func:`root` when ``None``.
         is_dir: Whether a candidate is a folder; ``Path.is_dir`` when ``None``.
+        home: The home whose root is left out when *current* is ``None``; the default home when ``None``.
     """
     env = os.environ if environ is None else environ
     start = Path.cwd() if cwd is None else cwd
@@ -104,7 +106,7 @@ def legacy_roots(*, environ: Mapping[str, str] | None = None, cwd: Path | None =
         workspace_of or _walk_up_workspace)(start)
     if workspace is not None:
         found.append((workspace / "dependencies").resolve())
-    excluded = root(environ=env, cwd=start) if current is None else current
+    excluded = root(environ=env, cwd=start, home=home) if current is None else current
     exists = is_dir or Path.is_dir
     result: list[Path] = []
     for path in found:
@@ -113,16 +115,17 @@ def legacy_roots(*, environ: Mapping[str, str] | None = None, cwd: Path | None =
     return result
 
 
-def search_roots(*, current: Path | None = None,
-                 legacy: Sequence[Path] | None = None) -> list[Path]:
+def search_roots(*, current: Path | None = None, legacy: Sequence[Path] | None = None,
+                 home: DependencyHome | None = None) -> list[Path]:
     """Return the root followed by every legacy root, in lookup order.
 
     Args:
         current: The root; :func:`root` when ``None``.
         legacy: The legacy roots; :func:`legacy_roots` when ``None``.
+        home: The home whose root is read; the default home when ``None``.
     """
-    return [root() if current is None else current,
-            *(legacy_roots() if legacy is None else legacy)]
+    return [root(home=home) if current is None else current,
+            *(legacy_roots(home=home) if legacy is None else legacy)]
 
 
 def is_removable_root(path: Path, *, user_home: Path | None = None, cwd: Path | None = None,
@@ -147,48 +150,75 @@ def is_removable_root(path: Path, *, user_home: Path | None = None, cwd: Path | 
     return not (present(resolved / ".git") or present(resolved / WORKSPACE_MARKER))
 
 
-def toolchains_dir(base: Path | None = None) -> Path:
-    """Return ``<root>/toolchains``, the root being *base* when given."""
-    return (root() if base is None else base) / "toolchains"
+def toolchains_dir(base: Path | None = None, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<root>/toolchains``, the root being *base* when given.
+
+    Args:
+        home: The home whose root is read when *base* is ``None``; the default home when ``None``.
+    """
+    return (root(home=home) if base is None else base) / "toolchains"
 
 
-def tools_dir(base: Path | None = None) -> Path:
-    """Return ``<root>/tools``, the root being *base* when given."""
-    return (root() if base is None else base) / "tools"
+def tools_dir(base: Path | None = None, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<root>/tools``, the root being *base* when given.
+
+    Args:
+        home: The home whose root is read when *base* is ``None``; the default home when ``None``.
+    """
+    return (root(home=home) if base is None else base) / "tools"
 
 
-def vcpkg_dir(base: Path | None = None) -> Path:
-    """Return ``<root>/vcpkg``, the root being *base* when given."""
-    return (root() if base is None else base) / "vcpkg"
+def vcpkg_dir(base: Path | None = None, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<root>/vcpkg``, the root being *base* when given.
+
+    Args:
+        home: The home whose root is read when *base* is ``None``; the default home when ``None``.
+    """
+    return (root(home=home) if base is None else base) / "vcpkg"
 
 
 def found_vcpkg_dir(roots: Sequence[Path] | None = None,
-                    is_dir: Callable[[Path], bool] | None = None) -> Path:
+                    is_dir: Callable[[Path], bool] | None = None, *,
+                    home: DependencyHome | None = None) -> Path:
     """Return the first vcpkg tree across the search roots, else ``<root>/vcpkg``.
 
     Args:
         roots: The roots to look through, the first being the current one; :func:`search_roots`
             when ``None``.
         is_dir: Asked whether a candidate is a folder; ``Path.is_dir`` when ``None``.
+        home: The home whose roots are searched when *roots* is ``None``; the default home when ``None``.
     """
-    candidates = search_roots() if roots is None else list(roots)
+    candidates = search_roots(home=home) if roots is None else list(roots)
     exists = is_dir or Path.is_dir
     for candidate in candidates:
         if exists(candidate / "vcpkg"):
             return candidate / "vcpkg"
-    return vcpkg_dir(candidates[0] if candidates else None)
+    return vcpkg_dir(candidates[0] if candidates else None, home=home)
 
 
-def ur_dir(base: Path | None = None) -> Path:
-    """Return ``<root>/ur``, the root being *base* when given."""
-    return (root() if base is None else base) / "ur"
+def ur_dir(base: Path | None = None, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<root>/ur``, the root being *base* when given.
+
+    Args:
+        home: The home whose root is read when *base* is ``None``; the default home when ``None``.
+    """
+    return (root(home=home) if base is None else base) / "ur"
 
 
-def sources_dir(base: Path | None = None) -> Path:
-    """Return ``<root>/sources``, where ``setup`` clones pinned Sushi libraries."""
-    return (root() if base is None else base) / "sources"
+def sources_dir(base: Path | None = None, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<root>/sources``, where ``setup`` clones pinned Sushi libraries.
+
+    Args:
+        base: The root; the one *home* holds when ``None``.
+        home: The home whose root is read when *base* is ``None``; the default home when ``None``.
+    """
+    return (root(home=home) if base is None else base) / "sources"
 
 
-def build_dir(base: Path | None = None) -> Path:
-    """Return ``<root>/build``, the root being *base* when given."""
-    return (root() if base is None else base) / "build"
+def build_dir(base: Path | None = None, *, home: DependencyHome | None = None) -> Path:
+    """Return ``<root>/build``, the root being *base* when given.
+
+    Args:
+        home: The home whose root is read when *base* is ``None``; the default home when ``None``.
+    """
+    return (root(home=home) if base is None else base) / "build"

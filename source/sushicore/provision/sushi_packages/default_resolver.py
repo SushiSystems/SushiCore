@@ -11,7 +11,8 @@ import os
 from pathlib import Path
 from typing import Callable, Mapping
 
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from .closure_walk import ClosureWalk
 from .compiler_check import CompilerCheck
 from .configure_inputs import ConfigureInputs, probe_cmake_version
@@ -65,7 +66,8 @@ def effective_keep(configured: int, env: Mapping[str, str]) -> int:
 def default_resolver(keep: int, report: Callable[[str], None], warn: Callable[[str], None],
                      env: Mapping[str, str] | None = None, cmake: str = "cmake",
                      run: Run = run_process, root: Path | None = None,
-                     inspector: ISourceInspector | None = None) -> PackageResolver:
+                     inspector: ISourceInspector | None = None, *,
+                     home: DependencyHome = DEFAULT_HOME) -> PackageResolver:
     """Return the resolver over ``<home>/packages`` that starts git and the library CLIs.
 
     No process starts until :meth:`PackageResolver.resolve` runs.
@@ -74,9 +76,11 @@ def default_resolver(keep: int, report: Callable[[str], None], warn: Callable[[s
         keep: How many packages of a library the store keeps.
         report: Receives one line per library.
         warn: Receives the warnings.
+        home: The home whose root holds the store and whose fetched copies are searched; the
+            deprecated default home when omitted.
     """
     environment = os.environ if env is None else env
-    root = home.root() / "packages" if root is None else root
+    root = home_paths.root(home=home) / "packages" if root is None else root
     store = PackageStore(root, effective_keep(keep, environment), warn=warn)
     locks = PackageLocks(root)
     keys = KeyFactory(GitSourceInspector() if inspector is None else inspector,
@@ -84,6 +88,6 @@ def default_resolver(keep: int, report: Callable[[str], None], warn: Callable[[s
                       compiler_identity, sushicore_version())
     builder = CliPackageBuilder(run, CompilerCheck(warn=warn), PackageEnvironment(environment))
     return PackageResolver(
-        ClosureWalk(SushiSourceLocator()), keys, store, builder,
+        ClosureWalk(SushiSourceLocator(home=home)), keys, store, builder,
         ForcedPackages(environment, store, warn), locks,
         LinkPublisher(locks, StableLink(root)), report)

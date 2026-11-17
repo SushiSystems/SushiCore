@@ -14,6 +14,7 @@ from typing import Any, Sequence, final
 from sushicore.deps_fragment import SushiPin
 
 from .default_console import console_or_default
+from .dependency_home import DependencyHome
 from .git_client import IGitClient
 from .install_context import InstallContext
 from .step import Step
@@ -44,20 +45,20 @@ class FetchSushiSourcesStep(Step):
         """Fetch every pin that needs it; FAILED on the first clone or commit that fails."""
         fetched = 0
         for pin in self._pins:
-            found = resolve(self._root, pin.name, pin.version)
+            found = resolve(self._root, pin.name, pin.version, home=ctx.home)
             if found is not None and found.kind is not SourceKind.FETCHED:
                 _log.info("%s comes from the %s %s", pin.name, found.kind.value, found.path)
                 continue
             if found is not None and self._git.head(found.path) == pin.commit:
                 continue
-            if not self._fetch(pin, ctx.dry_run):
+            if not self._fetch(pin, ctx.dry_run, ctx.home):
                 return StepResult.FAILED
             fetched += 1
         return StepResult.OK if fetched else StepResult.SKIPPED
 
-    def _fetch(self, pin: SushiPin, dry_run: bool) -> bool:
-        """Clone *pin* into its folder and keep it only when HEAD is the pinned commit."""
-        destination = fetched_dir(pin.name, pin.version)
+    def _fetch(self, pin: SushiPin, dry_run: bool, home: DependencyHome) -> bool:
+        """Clone *pin* into its folder under *home* and keep it only when HEAD is the pinned commit."""
+        destination = fetched_dir(pin.name, pin.version, home=home)
         if destination.exists() and not dry_run:
             shutil.rmtree(destination)
         destination.parent.mkdir(parents=True, exist_ok=True)

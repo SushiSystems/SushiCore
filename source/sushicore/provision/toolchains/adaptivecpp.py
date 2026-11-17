@@ -16,7 +16,8 @@ from typing import Any, Callable, MutableMapping, Sequence
 
 
 from ..default_console import console_or_default
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..glob_search import K_RC_GLOBS
 from ..dependency_presence import named_manager
 from ..install_location import ToolkitInstall
@@ -52,9 +53,17 @@ class AdaptiveCppToolchain:
     key = "adaptivecpp"
     selection_field = "install_acpp"
 
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the home :meth:`locate` reads; :meth:`install` reads the home of its context.
+
+        Args:
+            home: The home whose toolchains folder is searched; the deprecated default home when omitted.
+        """
+        self._home = home
+
     def locate(self, cfg: "ProvisionConfig") -> ToolkitInstall | None:
         """Return the prefix under the toolchains folder, or None when no ``acpp`` launcher is there."""
-        prefix = toolchains_dir() / "adaptivecpp"
+        prefix = toolchains_dir(home=self._home) / "adaptivecpp"
         launchers = (target_of(cfg).acpp_launcher, "acpp")
         if not any((prefix / "bin" / name).is_file() for name in launchers):
             return None
@@ -73,7 +82,7 @@ class AdaptiveCppToolchain:
         acpp = install_adaptivecpp(
             ctx.cfg, env.mgr, env.vcpkg, ctx.dry_run,
             assume_yes=ctx.assume_acpp_llvm,
-            winget=named_manager(env.managers, "winget"), console=env.console)
+            winget=named_manager(env.managers, "winget"), console=env.console, home=ctx.home)
         if acpp:
             ctx.resolved_paths["acpp_exe"] = acpp
         elif not ctx.selection.install_intel_llvm:
@@ -110,6 +119,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
                         environ: MutableMapping[str, str] | None = None,
                         run_command: Callable[..., int] | None = None,
                         configure: Callable[[list[str], bool], bool] | None = None,
+                        home: DependencyHome | None = None,
                         ) -> str | None:
     """Build AdaptiveCpp from source; return the ``acpp`` executable path, or None on failure.
 
@@ -119,9 +129,10 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         assume_yes: Skip the Windows LLVM consent prompt.
         winget: The winget manager; it installs LLVM only with the user's consent.
         llvm_bases: The Windows LLVM install roots to look in.
+        home: The home whose root holds the toolchains and vcpkg; the default home when ``None``.
     """
     console = console_or_default(console, "install_adaptivecpp")
-    prefix = toolchains_dir() / "adaptivecpp"
+    prefix = toolchains_dir(home=home) / "adaptivecpp"
     target = target_of(cfg)
     acpp = prefix / "bin" / target.acpp_launcher
     acpp_exe = prefix / "bin" / "acpp"
@@ -174,7 +185,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         if clang_prefix:
             cfg_cmd.append(f"-DCLANG_INSTALL_PREFIX={clang_prefix}")
             cfg_cmd.extend(target.acpp_configure_args(
-                home.root() / "vcpkg" / "scripts" / "buildsystems" / "vcpkg.cmake"))
+                home_paths.root(home=home) / "vcpkg" / "scripts" / "buildsystems" / "vcpkg.cmake"))
         if cfg.ninja_exe:
             cfg_cmd.append(f"-DCMAKE_MAKE_PROGRAM={cfg.expand(cfg.ninja_exe)}")
 

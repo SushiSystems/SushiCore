@@ -22,7 +22,8 @@ from pathlib import Path, PurePosixPath
 from sushicore.errors import DigestMismatchError
 from sushicore.proc import CommandRunner
 
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..host import current_host
 from ..integrity import verify_sha256
 from ..licence_consent import Licence
@@ -47,9 +48,13 @@ class ToolkitInstallError(ToolkitSourceError):
     """A release could not be downloaded, verified or unpacked."""
 
 
-def toolkits_dir() -> Path:
-    """Return ``<home>/cuda``, the folder every installed release lives under."""
-    return home.root() / "cuda"
+def toolkits_dir(*, home: DependencyHome | None = None) -> Path:
+    """Return ``<home>/cuda``, the folder every installed release lives under.
+
+    Args:
+        home: The home whose root holds the folder; the default home when ``None``.
+    """
+    return home_paths.root(home=home) / "cuda"
 
 
 def nvcc_in(root: Path) -> Path:
@@ -84,14 +89,17 @@ class RedistToolkitInstaller:
         download: Writes the body at a URL to a path; raises ``OSError`` on failure.
         list_architectures: Asks an unpacked nvcc for its architectures; defaults to
             :func:`list_gpu_architectures`.
+        home: The home whose root holds the default target folder; the deprecated default home
+            when omitted.
     """
 
     def __init__(self, target_dir: Path | None = None,
                  download: typing.Callable[[str, Path], None] | None = None,
                  list_architectures: typing.Callable[[Path], frozenset[str]] | None = None,
-                 ) -> None:
+                 *, home: DependencyHome = DEFAULT_HOME) -> None:
         """Store the target folder, the download function and the architecture query."""
         self._target_dir = target_dir
+        self._home = home
         self._download = download or _download
         self._list_architectures = list_architectures or list_gpu_architectures
 
@@ -195,7 +203,7 @@ class RedistToolkitInstaller:
 
     def _base(self) -> Path:
         """Return the folder releases are installed under."""
-        return self._target_dir or toolkits_dir()
+        return self._target_dir or toolkits_dir(home=self._home)
 
     def _downloads(self) -> Path:
         """Return the folder archives are kept in until their release is installed."""

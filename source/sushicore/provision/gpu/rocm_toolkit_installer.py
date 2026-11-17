@@ -16,7 +16,8 @@ import typing
 import urllib.request
 from pathlib import Path
 
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..system import USER_AGENT
 from .rocm_package import RocmPackage
 from .toolkit_vendor import ToolkitSourceError
@@ -44,18 +45,22 @@ class RocmTarballInstaller:
     Args:
         target_dir: The folder releases are installed under; ``<home>/rocm`` when None.
         download: Writes the body at a URL to a path; raises ``OSError`` on failure.
+        home: The home whose root holds the default target folder; the deprecated default home
+            when omitted.
     """
 
     def __init__(self, target_dir: Path | None = None,
-                 download: typing.Callable[[str, Path], None] | None = None) -> None:
-        """Store the target folder and the download function."""
+                 download: typing.Callable[[str, Path], None] | None = None, *,
+                 home: DependencyHome = DEFAULT_HOME) -> None:
+        """Store the target folder, the download function and the home."""
         self._target_dir = target_dir
+        self._home = home
         self._download = download or _download
 
     @property
     def base_dir(self) -> Path:
         """Return the folder releases are installed under."""
-        return self._target_dir or home.root() / "rocm"
+        return self._target_dir or home_paths.root(home=self._home) / "rocm"
 
     def root_of(self, label: str) -> Path:
         """Return where the release labelled *label* is, or would be, installed."""

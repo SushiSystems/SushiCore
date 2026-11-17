@@ -736,7 +736,7 @@ def _nvidia_app(tmp_path, console, manager):
 def test_setup_in_machine_mode_without_accept_licences_exits_2_and_lists_them(
         tmp_path, provision_home, monkeypatch):
     """Check that a machine run needing the CUDA licence stops with code 2 before installing."""
-    monkeypatch.setattr(gpu_stage, "_nvidia_toolkit_present", lambda ctx: False)
+    monkeypatch.setattr(gpu_stage, "_nvidia_toolkit_present", lambda ctx, registry: False)
     console = RecordingConsole(machine=True)
     manager = InMemoryLinuxPackageManager()
 

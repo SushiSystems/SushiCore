@@ -15,7 +15,8 @@ import typing
 from pathlib import Path
 
 from ..default_console import console_or_default
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..process_run import provision_runner
 from ..target import ITarget, target_of
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
@@ -74,9 +75,9 @@ def __getattr__(name: str) -> object:
     return renamed_attribute(globals(), name)
 
 
-def _default_work_root() -> Path:
-    """Return a short build directory under the shared dependency tree."""
-    return home.root() / "ur"
+def _default_work_root(home: DependencyHome) -> Path:
+    """Return a short build directory under the dependency tree of *home*."""
+    return home_paths.root(home=home) / "ur"
 
 
 def default_patches_dir() -> Path:
@@ -104,7 +105,8 @@ class AdapterBuilder:
                  environment: typing.Callable[["ProvisionConfig"], dict[str, str]] | None = None,
                  replace: typing.Callable[[Path, Path], None] = os.replace,
                  unlink: typing.Callable[[Path], None] = Path.unlink,
-                 log: logging.Logger = _log, patches_dir: Path | None = None) -> None:
+                 log: logging.Logger = _log, patches_dir: Path | None = None, *,
+                 home: DependencyHome = DEFAULT_HOME) -> None:
         """Hold what the build reads and runs through.
 
         Args:
@@ -120,11 +122,13 @@ class AdapterBuilder:
             unlink: Deletes a file.
             log: The logger the build writes to.
             patches_dir: The folder the adapter patches are read from; the packaged one when ``None``.
+            home: The home whose dependency tree holds the default work root; the deprecated
+                default home when omitted.
         """
         self.cfg = cfg
         self.runner = runner
         self.console = console_or_default(console, "AdapterBuilder")
-        self.work_root = _default_work_root() if work_root is None else work_root
+        self.work_root = _default_work_root(home) if work_root is None else work_root
         self.environment = environment
         self.replace = replace
         self.unlink = unlink

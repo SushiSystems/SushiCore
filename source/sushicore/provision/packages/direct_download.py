@@ -19,7 +19,8 @@ from sushicore.errors import ConfigError, DigestMismatchError
 from sushicore.proc import CommandRunner
 
 from ..default_console import console_or_default
-from .. import home
+from .. import home as home_paths
+from ..dependency_home import DEFAULT_HOME, DependencyHome
 from sushicore.deps_fragment import Download
 
 from ..download_verifier import pinned_download, verify_download
@@ -32,9 +33,13 @@ from .windows_path import refresh_windows_path
 _log = logging.getLogger(__name__)
 
 
-def tools_dir() -> Path:
-    """Return the directory where portable tools (cmake, ninja) install."""
-    return home.tools_dir()
+def tools_dir(*, home: DependencyHome | None = None) -> Path:
+    """Return the directory where portable tools (cmake, ninja) install.
+
+    Args:
+        home: The home whose root holds the tools; the default home when ``None``.
+    """
+    return home_paths.tools_dir(home=home)
 
 
 def download(url: str, dest: Path, console: Any = None) -> None:
@@ -108,13 +113,13 @@ def put_on_user_path(directory: str, console: Any,
         )
 
 
-def _cmake_portable_bin() -> Path:
+def _cmake_portable_bin(home: DependencyHome | None = None) -> Path:
     """Return the bin/ directory of the portable CMake the direct-download manager extracts."""
-    return tools_dir() / "cmake" / "bin"
+    return tools_dir(home=home) / "cmake" / "bin"
 
 
-def _cmake_on_system() -> str:
-    """Resolve a usable cmake after a refresh: PATH, Program Files, portable dir."""
+def _cmake_on_system(home: DependencyHome | None = None) -> str:
+    """Resolve a usable cmake after a refresh: PATH, Program Files, portable dir under *home*."""
     refresh_windows_path()
     found = shutil.which("cmake")
     if found:
@@ -122,7 +127,7 @@ def _cmake_on_system() -> str:
     candidates = [
         r"C:\Program Files\CMake\bin\cmake.exe",
         r"C:\Program Files (x86)\CMake\bin\cmake.exe",
-        str(_cmake_portable_bin() / "cmake.exe"),
+        str(_cmake_portable_bin(home) / "cmake.exe"),
     ]
     for base in candidates:
         if Path(base).is_file():
@@ -146,7 +151,7 @@ def _replace_folder_with_archive(archive: Path, target: Path, console: Any) -> b
         entries = list(stage.iterdir())
         srcroot = entries[0] if len(entries) == 1 and entries[0].is_dir() else stage
         if target.exists():
-            if not home.is_removable_root(target):
+            if not home_paths.is_removable_root(target):
                 console.error(f"Refusing to remove {target}: not a safe dependency root.")
                 return False
             shutil.rmtree(target, ignore_errors=True)
@@ -157,17 +162,19 @@ def _replace_folder_with_archive(archive: Path, target: Path, console: Any) -> b
 def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           cmake_on_system: Callable[[], str] | None = None,
-                          on_path: Callable[[str], None] | None = None) -> bool:
+                          on_path: Callable[[str], None] | None = None,
+                          home: DependencyHome | None = None) -> bool:
     """Extract the portable CMake zip into the tools dir and add it to PATH.
 
     Args:
         console: The console the install prints through.
+        home: The home whose root holds the tools dir; the default home when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         cmake_on_system: Finds a cmake already installed, or returns an empty string.
         on_path: Puts a directory on the user's PATH.
     """
-    if (cmake_on_system or _cmake_on_system)():
+    if (cmake_on_system or (lambda: _cmake_on_system(home)))():
         console.info("cmake: already present, skipping.")
         return True
     try:
@@ -176,14 +183,14 @@ def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None 
             zip_dest = Path(f.name)
         (fetch or downloader(console))(pinned.url, zip_dest)
         verify_download("cmake", zip_dest)
-        target = tools_dir() / "cmake"
+        target = tools_dir(home=home) / "cmake"
         console.info(f"Extracting CMake to {target} ...")
         if not _replace_folder_with_archive(zip_dest, target, console):
             return False
         zip_dest.unlink(missing_ok=True)
         (on_path or (lambda directory: put_on_user_path(directory, console)))(
-            str(_cmake_portable_bin()))
-        if (_cmake_portable_bin() / "cmake.exe").is_file():
+            str(_cmake_portable_bin(home)))
+        if (_cmake_portable_bin(home) / "cmake.exe").is_file():
             return True
         console.error("CMake not found after extracting the portable archive.")
         return False
@@ -196,11 +203,13 @@ def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None 
 
 def install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
-                          on_path: Callable[[str], None] | None = None) -> bool:
+                          on_path: Callable[[str], None] | None = None,
+                          home: DependencyHome | None = None) -> bool:
     """Extract the ninja.exe archive into the tools dir and add it to PATH.
 
     Args:
         console: The console the install prints through.
+        home: The home whose root holds the tools dir; the default home when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         on_path: Puts a directory on the user's PATH.
@@ -211,7 +220,7 @@ def install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None 
             dest = Path(f.name)
         (fetch or downloader(console))(pinned.url, dest)
         verify_download("ninja", dest)
-        tools = tools_dir()
+        tools = tools_dir(home=home)
         tools.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(dest) as zf:
             zf.extract("ninja.exe", tools)
@@ -227,16 +236,18 @@ def install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None 
 
 def install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                             fetch: Callable[[str, Path], None] | None = None,
-                            on_path: Callable[[str], None] | None = None) -> bool:
+                            on_path: Callable[[str], None] | None = None,
+                            home: DependencyHome | None = None) -> bool:
     """Extract the portable Doxygen zip into the tools dir and add it to PATH.
 
     Args:
         console: The console the install prints through.
+        home: The home whose root holds the tools dir; the default home when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         on_path: Puts a directory on the user's PATH.
     """
-    target = tools_dir() / "doxygen"
+    target = tools_dir(home=home) / "doxygen"
     exe = target / "doxygen.exe"
     if exe.is_file():
         console.info("doxygen: already present in deps/tools, skipping.")
@@ -265,11 +276,13 @@ def install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | Non
 
 def install_git_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
-                        runner: CommandRunner | None = None) -> bool:
+                        runner: CommandRunner | None = None,
+                        home: DependencyHome | None = None) -> bool:
     """Download and silently run the Git for Windows installer.
 
     Args:
         console: The console the install prints through.
+        home: Accepted so every recipe is called alike; the installer writes outside the root.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         runner: Runs the installer command, stopped after 300 seconds; the provision runner
@@ -320,16 +333,19 @@ class DirectDownloadWindowsManager(IPackageManager):
 
     name = "direct-download"
 
-    def __init__(self, runner: CommandRunner | None = None, *, console: Any = None) -> None:
-        """Bind the console and the runner that probes whether a tool runs.
+    def __init__(self, runner: CommandRunner | None = None, *, console: Any = None,
+                 home: DependencyHome = DEFAULT_HOME) -> None:
+        """Bind the console, the runner that probes whether a tool runs and the home the tools go under.
 
         Args:
             runner: Probes whether a tool runs; the provision runner on *console* when ``None``.
             console: The console the manager and its recipes print through.
+            home: The home whose root holds the tools; the deprecated default home when omitted.
         """
         console = console_or_default(console, "DirectDownloadWindowsManager")
         super().__init__(console=console)
         self._runner = runner if runner is not None else provision_runner(console)
+        self._home = home
 
     def available(self) -> bool:
         """Report that this manager is always usable."""
@@ -357,5 +373,5 @@ class DirectDownloadWindowsManager(IPackageManager):
             if dry_run:
                 self._console.info(f"(dry-run) would download and install {pkg}.")
                 continue
-            ok = recipe(console=self._console) and ok
+            ok = recipe(console=self._console, home=self._home) and ok
         return ok

@@ -252,7 +252,7 @@ def test_direct_install_warns_only_when_the_user_path_write_is_refused(
 def test_a_direct_install_removes_its_folder_only_when_the_root_is_safe(
         installer, member, folder, safe, provision_home, recording_console, monkeypatch):
     """Check that an unsafe root is refused with its files kept, and a safe one is replaced."""
-    monkeypatch.setattr(dd.home, "is_removable_root", lambda _path: safe)
+    monkeypatch.setattr(dd.home_paths, "is_removable_root", lambda _path: safe)
     target = dd.tools_dir() / folder
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")

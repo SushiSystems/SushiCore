@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from sushicore.proc import CommandRunner, did_not_run
-from sushicore.provision import home
+from sushicore.provision import home as home_paths
+from sushicore.provision.dependency_home import DependencyHome
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.glob_search import K_ICX_GLOBS, K_ICX_GLOBS_LINUX, K_NVCC_GLOBS_LINUX, first_glob_match
 from sushicore.provision.gpu_vendor import classify_display_adapters, detect_gpu_vendor  # noqa: F401
@@ -29,60 +30,73 @@ from sushicore.quiet_runner import quiet_runner
 _log = logging.getLogger(__name__)
 
 
-def _toolchains_dir() -> Path:
-    """Where a provisioning CLI installs the intel-llvm bundle and AdaptiveCpp."""
-    return home.toolchains_dir()
+def _toolchains_dir(home: DependencyHome | None = None) -> Path:
+    """Where a provisioning CLI installs the intel-llvm bundle and AdaptiveCpp under *home*'s root."""
+    return home_paths.toolchains_dir(home=home)
 
 
 def installed_toolchain(name: str, relative: Path, roots: Sequence[Path] | None = None,
-                        is_file: Callable[[Path], bool] | None = None) -> Path | None:
+                        is_file: Callable[[Path], bool] | None = None, *,
+                        home: DependencyHome | None = None) -> Path | None:
     """Return the first ``toolchains/<name>/<relative>`` file across the dependency roots.
 
     Args:
         roots: The roots to look through, in order; the search roots when ``None``.
         is_file: Asked whether a candidate is a file; ``Path.is_file`` when ``None``.
+        home: The home whose search roots are read when *roots* is ``None``; the default home when ``None``.
     """
     present = is_file or Path.is_file
-    for root in (home.search_roots() if roots is None else roots):
+    for root in (home_paths.search_roots(home=home) if roots is None else roots):
         candidate = root / "toolchains" / name / relative
         if present(candidate):
             return candidate
     return None
 
 
-def _installed_clang(cfg: ProvisionConfig) -> Path | None:
-    """Return the intel/llvm bundle's clang++ in any dependency root, or None."""
-    return installed_toolchain("llvm-sycl", Path("bin") / target_of(cfg).clang_executable)
+def _installed_clang(cfg: ProvisionConfig, home: DependencyHome | None) -> Path | None:
+    """Return the intel/llvm bundle's clang++ in any root of *home*, or None."""
+    return installed_toolchain("llvm-sycl", Path("bin") / target_of(cfg).clang_executable,
+                               home=home)
 
 
-def _installed_acpp() -> Path | None:
-    """Return the AdaptiveCpp launcher in any dependency root, or None."""
+def _installed_acpp(home: DependencyHome | None) -> Path | None:
+    """Return the AdaptiveCpp launcher in any root of *home*, or None."""
     for name in ("acpp.bat", "acpp"):
-        found = installed_toolchain("adaptivecpp", Path("bin") / name)
+        found = installed_toolchain("adaptivecpp", Path("bin") / name, home=home)
         if found is not None:
             return found
     return None
 
 
-def discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str]) -> None:
-    """Record the paths of toolchains installed by the provisioning CLI, if present."""
-    clang = _installed_clang(cfg)
+def discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str], *,
+                                  home: DependencyHome | None = None) -> None:
+    """Record the paths of toolchains installed by the provisioning CLI, if present.
+
+    Args:
+        home: The home whose roots are searched; the default home when ``None``.
+    """
+    clang = _installed_clang(cfg, home)
     if clang is not None:
         values["llvm_root"] = str(clang.parents[1])
-    acpp = _installed_acpp()
+    acpp = _installed_acpp(home)
     if acpp is not None:
         values["acpp_exe"] = str(acpp)
 
 
-def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, str]]:
-    """Return one ``(name, present, detail)`` row per SYCL toolchain (and CUDA if *gpu*)."""
+def toolchain_status(cfg: ProvisionConfig, gpu: bool, *,
+                     home: DependencyHome | None = None) -> list[tuple[str, bool, str]]:
+    """Return one ``(name, present, detail)`` row per SYCL toolchain (and CUDA if *gpu*).
+
+    Args:
+        home: The home whose roots are searched; the default home when ``None``.
+    """
     target = target_of(cfg)
 
-    found_clang = _installed_clang(cfg)
-    clang = found_clang or _toolchains_dir() / "llvm-sycl" / "bin" / target.clang_executable
+    found_clang = _installed_clang(cfg, home)
+    clang = found_clang or _toolchains_dir(home) / "llvm-sycl" / "bin" / target.clang_executable
     intel_ok = found_clang is not None and binary_works(str(clang))
 
-    found_acpp = _installed_acpp()
+    found_acpp = _installed_acpp(home)
     acpp_path = str(found_acpp) if found_acpp is not None else ""
     acpp_ok = bool(acpp_path) and binary_works(acpp_path)
 
@@ -145,10 +159,15 @@ def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
     return PROBE_PLANS.plan_for(target_of(cfg)).find_sycl_compiler(cfg)
 
 
-def find_configured_toolchain(cfg: ProvisionConfig) -> tuple[str | None, str]:
-    """Return (label, path) for a SYCL compiler installed by the provisioning CLI, or (None, '')."""
+def find_configured_toolchain(cfg: ProvisionConfig, *,
+                              home: DependencyHome | None = None) -> tuple[str | None, str]:
+    """Return (label, path) for a SYCL compiler installed by the provisioning CLI, or (None, '').
+
+    Args:
+        home: The home whose toolchains folder is read; the default home when ``None``.
+    """
     clang_executable = target_of(cfg).clang_executable
-    base = _toolchains_dir()
+    base = _toolchains_dir(home)
 
     bundle = ""
     if cfg.llvm_root:
@@ -184,9 +203,14 @@ def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False) -> dict[str, s
     return PROBE_PLANS.plan_for(target_of(cfg)).resolve_local_config(cfg)
 
 
-def toolchain_presence(cfg: "ProvisionConfig") -> dict[str, bool]:
-    """Return each SYCL toolchain's key mapped to whether this machine holds it."""
-    return {name: present for name, present, _detail in toolchain_status(cfg, False)}
+def toolchain_presence(cfg: "ProvisionConfig", *,
+                       home: DependencyHome | None = None) -> dict[str, bool]:
+    """Return each SYCL toolchain's key mapped to whether this machine holds it.
+
+    Args:
+        home: The home whose roots are searched; the default home when ``None``.
+    """
+    return {name: present for name, present, _detail in toolchain_status(cfg, False, home=home)}
 
 #: Each name that left this module and the module that holds it now.
 K_MOVED = {

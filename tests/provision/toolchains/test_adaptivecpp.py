@@ -213,7 +213,7 @@ def test_adaptivecpp_installs_no_llvm_through_winget_without_consent(
     """Check that a run whose user accepted no winget agreements installs no LLVM through winget."""
     runner = RecordingRunner(recording_console)
     winget = WingetManager(show=lambda command: "", runner=runner, console=recording_console)
-    monkeypatch.setattr(llvm_windows, "vendor_llvm_windows", lambda console: None)
+    monkeypatch.setattr(llvm_windows, "vendor_llvm_windows", lambda console, home: None)
     monkeypatch.setattr(winget_module.shutil, "which", lambda name: "C:/winget.exe")
 
     result = adaptivecpp.install_adaptivecpp(

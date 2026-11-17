@@ -20,3 +20,19 @@ def test_windows_provisions_through_winget_a_direct_download_and_vcpkg_in_that_o
         ProvisionSettings(platform="windows"), None, MemoryConsole())
 
     assert [manager.name for manager in managers] == ["winget", "direct-download", "vcpkg"]
+
+
+@pytest.mark.small
+def test_windows_plan_looks_for_vcpkg_under_its_home(tmp_path, monkeypatch):
+    """Check that the vcpkg manager the plan builds finds the tree of the plan's home."""
+    from sushicore.provision.dependency_home import DependencyHome
+
+    monkeypatch.setenv("PATH", "")
+    tree = tmp_path / "held-root" / "vcpkg"
+    tree.mkdir(parents=True)
+    (tree / "vcpkg.exe").write_text("")
+    held = DependencyHome(lambda: tmp_path / "held-root")
+    managers = WindowsManagerPlan(home=held).managers(
+        ProvisionSettings(platform="windows"), None, MemoryConsole())
+
+    assert managers[2].name == "vcpkg" and managers[2].available()

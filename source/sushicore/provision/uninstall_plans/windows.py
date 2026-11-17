@@ -36,7 +36,7 @@ class WindowsUninstallPlan(IUninstallPlan):
             console.info(f"Removing vcpkg ports: {', '.join(ports)}")
             vcpkg.remove(ports, ctx.dry_run)
 
-        tools = tools_dir()
+        tools = tools_dir(home=ctx.home)
         ninja_exe = tools / "ninja.exe"
         if ninja_exe.is_file():
             if ctx.dry_run:
