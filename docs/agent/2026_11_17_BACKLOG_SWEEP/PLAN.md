@@ -68,7 +68,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B4 | RW-24: dispatch on platform and manager through the contracts | B3 (OS and manager chains moved; the cfg.platform chains remain) | done |
 | B5 | RW-31: the toolchain installers on the GPU backends' contract | B4 | done |
 | B6 | RW-29, RW-30: Rich behind `Renderer`, no module console | B2 (ad72f9c: line level, diag and discovery; the module console and ui/help Rich imports remain) | done |
-| B7 | RW-26: one base error for the package | B5, B6 | todo |
+| B7 | RW-26: one base error for the package | B5, B6 | done |
 | B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 | todo |
 | B9 | RW-35, RW-32: tests off private names, docstrings | B8 | todo |
 | C1 | RW-44 (RW-105 holds the two unpinned), RW-45: a version and digest for every download, pinned keys and commits | B1 | running |
@@ -93,3 +93,6 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 - RW-24, the rest: the 32 `cfg.platform == "windows"` branches switch on the run's target, so the
   target platform becomes a contract chosen once from `ProvisionConfig` (Windows and Linux plans of
   install, uninstall and detect). It runs as B4b before B5.
+- RW-26: an install or remove step that prints its own failure and returns a bool the pipeline sums
+  is a result, not a failure signal, and stays. `build_gate.parse_command_line` answers a usage
+  error with None under `python -I`, where the package cannot be imported, and stays.
