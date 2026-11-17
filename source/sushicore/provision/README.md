@@ -39,15 +39,18 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `manifests/` | The shared base fragment, `base.deps.toml`, and the function that returns its path |
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |
 | `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
-| `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
+| `packages/` | One file per package manager: `linux_manager.py` holds the Linux contract, and `apt_manager.py`, `dnf_manager.py`, `yum_manager.py`, `pacman_manager.py` and `zypper_manager.py` each hold one manager, with `apt_names.py` translating apt names for the others; then winget, direct download, vcpkg, GitHub releases, `windows_path.py` and the GPU stack; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
 | `process_run.py` | `provision_runner(console)` and `run`: run a command, stream its output through the console they are given and return its exit code; the package managers and `git_client.py` call them |
-| `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
+| `probe.py` | Finds the SYCL and CUDA toolchains on this machine and checks that their binaries run; it re-exports the GPU vendor and Visual Studio finders |
+| `glob_search.py`, `vs_locator.py`, `gpu_vendor.py` | The tool glob tables and lookups, the Visual Studio script finder, and the GPU vendor named from tools and display adapters |
+| `system.py`, `intel_oneapi_repo.py` | The operating-system facts and the bash call; the Intel oneAPI apt repository setup |
 | `toolchains/` | The `Toolchain` contract and `ToolchainEnv` in `toolchain.py`, one file per toolchain (intel/llvm, AdaptiveCpp, oneAPI) each declaring its `Toolchain`, `registry.py` listing them in install order, and the `.sushi_toolchain.json` stamp. A new toolchain adds a file and one line in `registry.py`, as a GPU backend does in `gpu/registry.py` |
 | `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.16.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
-| `pipeline.py` | `Step`, `StepResult`, `InstallContext`, `InstallPipeline`, `ToolchainSelection` |
+| `pipeline.py` | `InstallPipeline`; it re-exports `Step`, `StepResult`, `InstallContext` and `ToolchainSelection` for the module CLIs that import them from here |
+| `step.py`, `step_result.py`, `install_context.py`, `toolchain_selection.py` | `Step`, `StepResult`, `InstallContext` and `ToolchainSelection`, one file each |
 | `pipeline_memory.py` | `ScriptedStep`, a `Step` that answers a scripted result and logs that it ran |
 | `machine_actions.py` | `MachineActions`: the calls the install steps make that reach the machine, each replaceable by a test |
-| `gpu_stage.py` | `GpuStage` and `provision_adapters_for_run`: the compute SDK install, then the adapter builds |
+| `gpu_stage.py`, `gpu_machine.py` | `GpuStage` and `provision_adapters_for_run`: the compute SDK install, then the adapter builds; `GpuMachine`, the three machine calls they read, which `MachineActions` satisfies |
 | `detect_step.py` | `DetectStep`: inventories the tools and dependencies of the machine and prints the table |
 | `install_deps_step.py` | `InstallDepsStep`: installs the missing manifest dependencies, the toolchains and the GPU stage |
 | `configure_step.py` | `ConfigureStep`: writes the probed tool paths and the active toolchain to a `ConfigSink` |
@@ -56,7 +59,8 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `package_lists.py` | `dedup`: a list of package names without repeats, in first-seen order |
 | `sinks.py` | `ConfigSink` and its two forms: a workspace's `[tool]` table and a module's `cli/config.local.toml` |
 | `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |
-| `doctor.py`, `checks.py` | The doctor framework and the stock checks |
+| `doctor.py`, `doctor_report.py`, `checks.py` | `Doctor`, the report it builds and the stock checks; `doctor.py` re-exports `Check`, `CheckResult`, `FunctionCheck`, `Report` and `State` for the module CLIs that import them from here |
+| `check.py`, `check_result.py`, `check_state.py`, `function_check.py` | The `Check` contract, the `CheckResult` and `State` it returns, and the `FunctionCheck` that wraps a function |
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
 | `default_console.py` | `bind_console`, deprecated: sets the console a `ModuleProvision` without one prints through; `console_or_default`, deprecated: what each public constructor and function that takes `console=` uses when it is left out, with a warning |
 | `output_memory.py` | `MemoryConsole`, the in-memory console adapter a test passes to what prints |

@@ -9,7 +9,7 @@ from __future__ import annotations
 from .install_deps_plan import InstallServices
 from .licence_consent import Licence
 from .packages import IPackageManager, LinuxPackageManager
-from .pipeline import InstallContext
+from .install_context import InstallContext
 from .toolchains.registry import DEFAULT_REGISTRY, ToolchainRegistry
 from .toolchains.toolchain import ToolchainEnv
 

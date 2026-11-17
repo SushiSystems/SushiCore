@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-from sushicore import build_console
 from sushicore.config import load_appearance
 from sushicore.environment_memory import MemoryEnvironment
 from sushicore.errors import ConfigError
@@ -43,9 +42,3 @@ def test_an_unknown_theme_in_memory_warns_and_falls_back():
     spec = load_appearance([], environment=MemoryEnvironment({"SUSHI_CLI_THEME": "nope"}),
                            files=MemoryFiles())
     assert spec.theme == "default" and "Unknown CLI theme 'nope'" in spec.warnings[0]
-
-
-def test_build_console_reads_the_background_from_the_environment_given():
-    console = build_console([], environment=MemoryEnvironment({"SUSHI_CLI_BACKGROUND": "dark"}),
-                            files=MemoryFiles())
-    assert console.dark_background is True

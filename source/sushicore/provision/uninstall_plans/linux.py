@@ -10,7 +10,7 @@ from typing import final
 
 from ..dependency_presence import available_linux_manager, named_manager
 from ..package_lists import dedup
-from ..pipeline import InstallContext
+from ..install_context import InstallContext
 from ..target import K_LINUX
 from ..uninstall_plan import UNINSTALL_PLANS, IUninstallPlan, UninstallServices
 

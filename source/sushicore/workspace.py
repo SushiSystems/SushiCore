@@ -2,28 +2,18 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Locates a workspace and merges the layered TOML config the Sushi CLIs share.
+"""Names a workspace's marker and data file and keeps the ``[modules]`` table it holds.
 
-The reasoning is in docs/architecture/OVERVIEW.md, section `workspace`.
+The walk-up and TOML readers it re-exports for the module CLIs that import them here live in
+``layered_toml``. What the workspace holds is in docs/architecture/OVERVIEW.md, section `workspace`.
 """
 
 from __future__ import annotations
 
-import os
-import re
 from pathlib import Path
-from typing import Callable, Iterable
 
-from .environment import Environment, ProcessEnvironment
-from .errors import ConfigError, SushiCoreError
-from .files import Files
+from .layered_toml import has_marker, read_toml, resolve_env_path, walk_up  # noqa: F401
 from .toml_writer import write_toml_document
-
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:  # Python 3.10 fallback
-    import tomli as tomllib
-
 
 #: The directory `hub init` writes at a workspace root. Every Sushi CLI walks up for it.
 WORKSPACE_MARKER = ".sushistack"
@@ -38,121 +28,6 @@ LEGACY_SHARED_CONFIG = Path("sushihub") / "cli" / "config.local.toml"
 def workspace_file(root: Path) -> Path:
     """The file a workspace keeps its own data in: ``<root>/.sushistack/workspace.toml``."""
     return root / WORKSPACE_MARKER / WORKSPACE_FILE
-
-
-def read_toml(path: Path, *, files: Files | None = None) -> dict:
-    """Parse a TOML file, or return ``{}`` when it does not exist.
-
-    @param files The file system the file is read through; the disk when None.
-    @throws ConfigError When the file is not valid TOML.
-    """
-    if files is not None:
-        return _parse_toml(path, files.read_text(path)) if files.is_file(path) else {}
-    if not path.is_file():
-        return {}
-    try:
-        with path.open("rb") as fh:
-            return tomllib.load(fh)
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigError(f"{path}: {exc}") from exc
-
-
-def _parse_toml(path: Path, text: str) -> dict:
-    """Parse TOML *text* read from *path*.
-
-    @throws ConfigError When the text is not valid TOML.
-    """
-    try:
-        return tomllib.loads(text)
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigError(f"{path}: {exc}") from exc
-
-
-def walk_up(start: Path, predicate: Callable[[Path], bool], *, resolve: bool = True) -> Path | None:
-    """Return the nearest ancestor of *start* (inclusive) satisfying *predicate*.
-
-    The CLIs are installed outside their checkout, so the invocation directory —
-    not the package location — tells us where the project/workspace lives.
-
-    @param resolve Whether *start* is resolved on the disk first; False keeps the path as given,
-           for a path that names a place in memory.
-    """
-    cur = start.resolve() if resolve else start
-    for d in (cur, *cur.parents):
-        if predicate(d):
-            return d
-    return None
-
-
-def has_marker(*names: str, files: Files | None = None) -> Callable[[Path], bool]:
-    """Predicate: a directory contains any of the named marker files or dirs.
-
-    @param files The file system the markers are looked up in; the disk when None.
-    """
-    def _pred(d: Path) -> bool:
-        if files is not None:
-            return any(files.exists(d / name) for name in names)
-        return any((d / name).exists() for name in names)
-    return _pred
-
-
-def resolve_env_path(name: str, *, environment: Environment | None = None,
-                     resolve: bool = True) -> Path | None:
-    """Return an env var as an expanded, resolved path, or None when unset.
-
-    @param environment The variables read; the process environment when None.
-    @param resolve     Whether the path is resolved on the disk; False keeps it as expanded.
-    """
-    val = (ProcessEnvironment() if environment is None else environment).get(name)
-    if not val:
-        return None
-    path = Path(os.path.expandvars(os.path.expanduser(val)))
-    return path.resolve() if resolve else path
-
-
-def merge_platform_table(doc: dict, plat: str, section: str = "tool") -> dict:
-    """Merge a document's ``[section]`` with ``[section.<platform>]``.
-
-    Scalar keys from the common section are taken first; the platform-specific
-    sub-table wins on any key it repeats. Nested tables other than the platform
-    one are dropped (callers that need override tables handle them explicitly).
-    """
-    table = dict(doc.get(section, {}))
-    merged = {k: v for k, v in table.items() if not isinstance(v, dict)}
-    plat_table = table.get(plat, {})
-    if isinstance(plat_table, dict):
-        merged.update({k: v for k, v in plat_table.items() if not isinstance(v, dict)})
-    return merged
-
-
-def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
-                 section: str = "tool", bool_keys: Iterable[str] = (), *,
-                 environment: Environment | None = None, files: Files | None = None) -> dict:
-    """Merge ``[section]`` from each path (low → high) then apply env overrides.
-
-    @param paths     Config files in ascending precedence (later wins).
-    @param plat      Platform key selecting the ``[section.<platform>]`` override.
-    @param env_map   ``field -> ENV_VAR``; a set env var overrides that field.
-    @param section   Top-level table name to read (default ``tool``).
-    @param bool_keys Fields to coerce from string ("1"/"true"/…) to bool.
-    @param environment The variables read for the overrides; the process environment when None.
-    @param files     The file system the files are read through; the disk when None.
-    @return          The merged ``field -> value`` mapping (unknown keys included;
-                     the caller filters to its dataclass fields).
-    """
-    env = ProcessEnvironment() if environment is None else environment
-    values: dict = {}
-    for path in paths:
-        doc = read_toml(path, files=files)
-        if doc:
-            values.update(merge_platform_table(doc, plat, section))
-    for field_name, env_var in env_map.items():
-        if env.has(env_var):
-            values[field_name] = env.get(env_var, "")
-    for key in bool_keys:
-        if isinstance(values.get(key), str):
-            values[key] = values[key].strip().lower() in ("1", "true", "yes", "on")
-    return values
 
 
 #: The value written into ``[workspace] version``, as a string so it can become "1.1".
@@ -209,145 +84,4 @@ def remove_module(root: Path, name: str) -> bool:
     document.setdefault("workspace", {"version": WORKSPACE_VERSION})
     target.parent.mkdir(parents=True, exist_ok=True)
     write_toml_document(target, document, WORKSPACE_HEADER)
-    return True
-
-
-#: Table in a module's ``config.local.toml`` naming the workspace it is linked to.
-LINK_SECTION = "link"
-
-#: File in a module's config directory that carries the link pointer.
-_LOCAL_CONFIG = "config.local.toml"
-
-#: A ``[link]`` header line, with optional inner spaces and a trailing comment.
-_LINK_HEADER_RE = re.compile(r"^\s*\[\s*" + LINK_SECTION + r"\s*\]\s*(#.*)?$")
-
-
-class LinkEditError(SushiCoreError, ValueError):
-    """Raised when the link pointer cannot be edited without corrupting the file."""
-
-
-def _link_block_span(lines: list[str]) -> tuple[int, int] | None:
-    """Return the ``[start, end)`` line span of the ``[link]`` table in *lines*, or None."""
-    for start, line in enumerate(lines):
-        if _LINK_HEADER_RE.match(line):
-            end = start + 1
-            while end < len(lines) and not lines[end].lstrip().startswith("["):
-                end += 1
-            # Blank and comment lines just above the next header belong to that table.
-            while end > start + 1 and lines[end - 1].strip()[:1] in ("", "#"):
-                end -= 1
-            return start, end
-    return None
-
-
-def _toml_string(value: str) -> str:
-    """Return *value* as a quoted TOML basic string."""
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
-def _splice_link(text: str, block: list[str]) -> str:
-    """Return *text* with its ``[link]`` block replaced by *block*, keeping its line endings.
-
-    An empty *block* removes the table; a missing table is appended.
-    """
-    newline = "\r\n" if "\r\n" in text else "\n"
-    lines = text.splitlines()
-    span = _link_block_span(lines)
-    if span is not None:
-        lines[span[0]:span[1]] = block
-    elif block:
-        if lines and lines[-1].strip():
-            lines.append("")
-        lines.extend(block)
-    body = newline.join(lines).strip("\r\n")
-    return body + newline if body.strip() else ""
-
-
-def _parse(path: Path, text: str) -> dict:
-    """Parse *text*, the content of *path*, as TOML.
-
-    @throws LinkEditError When *text* is not valid TOML.
-    """
-    try:
-        return tomllib.loads(text)
-    except tomllib.TOMLDecodeError as exc:
-        raise LinkEditError(f"{path}: cannot edit [{LINK_SECTION}] safely ({exc}); "
-                            "edit it by hand.") from exc
-
-
-def _verified_link(path: Path, before: str, after: str) -> object:
-    """Return the ``link`` value of *after* once every other key matches *before*.
-
-    @throws LinkEditError When either text is invalid or they differ outside ``link``.
-    """
-    old = _parse(path, before)
-    new = _parse(path, after)
-    link = new.pop(LINK_SECTION, None)
-    old.pop(LINK_SECTION, None)
-    if old != new:
-        raise LinkEditError(f"{path}: cannot edit [{LINK_SECTION}] without changing other "
-                            "settings; edit it by hand.")
-    return link
-
-
-def _read_local(path: Path) -> str:
-    """Return *path*'s text with its line endings intact, or "" when it does not exist."""
-    return path.read_bytes().decode("utf-8") if path.is_file() else ""
-
-
-def read_link(config_dir: Path, *, files: Files | None = None) -> Path | None:
-    """Return the workspace this module is linked to, or None when unlinked or stale.
-
-    @param files The file system read through; the disk when None. A path in memory is joined, not
-           resolved.
-    """
-    table = read_toml(config_dir / _LOCAL_CONFIG, files=files).get(LINK_SECTION) or {}
-    raw = table.get("workspace")
-    if not raw:
-        return None
-    target = config_dir / raw
-    if files is None:
-        target = target.resolve()
-    return target if has_marker(WORKSPACE_MARKER, files=files)(target) else None
-
-
-def write_link(config_dir: Path, workspace: Path) -> Path:
-    """Set the ``[link]`` table in *config_dir*'s local config, leaving other text untouched.
-
-    @pre *config_dir* exists.
-    @throws LinkEditError When the edit cannot be verified; the file is then left unchanged.
-    @return The file written.
-    """
-    path = config_dir / _LOCAL_CONFIG
-    value = workspace.resolve().as_posix()
-    block = [f"[{LINK_SECTION}]", f"workspace = {_toml_string(value)}"]
-    original = _read_local(path)
-    text = _splice_link(original, block)
-    link = _verified_link(path, original, text)
-    if not isinstance(link, dict) or link.get("workspace") != value:
-        raise LinkEditError(f"{path}: could not set [{LINK_SECTION}] workspace safely; "
-                            "edit it by hand.")
-    path.write_bytes(text.encode("utf-8"))
-    return path
-
-
-def clear_link(config_dir: Path) -> bool:
-    """Remove the ``[link]`` table from *config_dir*'s local config; report whether it existed.
-
-    The file is deleted when only blank lines remain.
-
-    @throws LinkEditError When the edit cannot be verified; the file is then left unchanged.
-    """
-    path = config_dir / _LOCAL_CONFIG
-    original = _read_local(path)
-    if LINK_SECTION not in _parse(path, original):
-        return False
-    text = _splice_link(original, [])
-    if _verified_link(path, original, text) is not None:
-        raise LinkEditError(f"{path}: could not remove [{LINK_SECTION}] safely; "
-                            "edit it by hand.")
-    if text:
-        path.write_bytes(text.encode("utf-8"))
-    else:
-        path.unlink()
     return True

@@ -11,7 +11,8 @@ from typing import Optional, Sequence
 from ..deps_fragment import read_present
 from . import module_plan
 from .checks import python_check
-from .doctor import Check, Doctor
+from .check import Check
+from .doctor import Doctor
 from .module_checks import ModuleState, doctor_checks
 from .module_provision import ModuleProvision
 from .outcome import Outcome, failed

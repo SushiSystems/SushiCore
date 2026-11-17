@@ -12,7 +12,7 @@ import typing
 from pathlib import Path
 
 from ..host import current_host
-from ..probe import K_NVCC_GLOBS_LINUX, first_glob_match
+from ..glob_search import K_NVCC_GLOBS_LINUX, first_glob_match
 from .cuda_hardware import NvidiaHardware, query_hardware
 from .cuda_redist import RedistError, RedistIndex
 from .cuda_release import Version, format_version, parse_version

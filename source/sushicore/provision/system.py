@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Operating-system helpers shared by the package managers and the GPU backends."""
+"""Operating-system facts and the bash call shared by the package managers and the GPU backends."""
 
 from __future__ import annotations
 
@@ -20,13 +20,6 @@ _log = logging.getLogger(__name__)
 
 #: The User-Agent header every installer download and release lookup sends.
 USER_AGENT = "sushicore-installer"
-
-#: Where the Intel oneAPI apt repo keyring and source list are written.
-_ONEAPI_KEYRING = Path("/usr/share/keyrings/oneapi-archive-keyring.gpg")
-_ONEAPI_LIST = Path("/etc/apt/sources.list.d/oneAPI.list")
-_ONEAPI_KEY_URL = (
-    "https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB"
-)
 
 
 def is_root() -> bool:
@@ -61,7 +54,7 @@ def os_release(read_text: Callable[[], str] | None = None) -> dict[str, str]:
     return data
 
 
-def _bash(cmd: str, runner: CommandRunner | None, console: Any) -> int:
+def run_bash(cmd: str, runner: CommandRunner | None, console: Any) -> int:
     """Run *cmd* through bash here, its output shown on *console*; return the exit code."""
     return (runner or provision_runner(console)).run(["bash", "-c", cmd], Path.cwd())
 
@@ -80,35 +73,4 @@ def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None, *,
         console.command(cmd)
         console.info("(dry-run) not executed")
         return True
-    return _bash(cmd, runner, console) == 0
-
-
-def ensure_intel_oneapi_repo(dry_run: bool, runner: CommandRunner | None = None, *,
-                             console: Any = None) -> bool:
-    """Configure the Intel oneAPI apt repository on Debian/Ubuntu, skipping a configured one.
-
-    Args:
-        runner: Runs bash for each step; the provision runner on *console* when ``None``.
-        console: The console the steps are shown through.
-    """
-    console = console_or_default(console, "ensure_intel_oneapi_repo")
-    if _ONEAPI_KEYRING.is_file() and _ONEAPI_LIST.is_file():
-        console.info("Intel oneAPI apt repository already configured.")
-        return True
-    sudo = "" if is_root() else "sudo "
-    key_cmd = f"curl -fsSL {_ONEAPI_KEY_URL} | {sudo}gpg --dearmor -o {_ONEAPI_KEYRING}"
-    list_cmd = (
-        f'echo "deb [signed-by={_ONEAPI_KEYRING}] '
-        f'https://apt.repos.intel.com/oneapi all main" | {sudo}tee {_ONEAPI_LIST}'
-    )
-    if dry_run:
-        console.command(key_cmd)
-        console.command(list_cmd)
-        console.info("(dry-run) not executed")
-        return True
-    for cmd in (key_cmd, list_cmd):
-        if _bash(cmd, runner, console) != 0:
-            console.error("Failed to configure the Intel oneAPI apt repository "
-                          "(need curl and gpg). Install oneAPI manually or skip it.")
-            return False
-    return True
+    return run_bash(cmd, runner, console) == 0

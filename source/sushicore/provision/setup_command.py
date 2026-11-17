@@ -19,7 +19,8 @@ from .licence_consent_step import LicenceConsentStep
 from .lock import LockTimeout, ProvisionLock
 from .module_provision import ModuleProvision
 from .outcome import K_EXIT_USAGE, Outcome, failed
-from .pipeline import InstallContext, InstallPipeline
+from .install_context import InstallContext
+from .pipeline import InstallPipeline
 from .sinks import ModuleSink
 
 #: Header written atop a module's ``config.local.toml``.

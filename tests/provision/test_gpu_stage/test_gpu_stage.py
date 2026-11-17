@@ -16,7 +16,8 @@ from sushicore.provision.gpu.adapter_builder_memory import InMemoryAdapterBuilde
 from sushicore.provision.gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from sushicore.provision.licence_consent_memory import granted_consent
 from sushicore.provision.packages import AptManager
-from sushicore.provision.pipeline import InstallContext, ToolchainSelection
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.toolchain_selection import ToolchainSelection
 from sushicore.provision.gpu_stage import provision_adapters_for_run
 from sushicore.provision.machine_actions import MachineActions
 

@@ -10,7 +10,8 @@ import pytest
 
 from sushicore.deps_fragment import read
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.pipeline import InstallContext, StepResult
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.step_result import StepResult
 from sushicore.provision.sushi_fetch import FetchSushiSourcesStep
 from sushicore.provision.sushi_sources import SourceKind, fetched_dir, resolve
 

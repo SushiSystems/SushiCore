@@ -10,17 +10,9 @@ from pathlib import Path
 from typing import Optional
 
 from ..errors import SushiCoreError
-from ..workspace import (
-    WORKSPACE_MARKER,
-    clear_link,
-    has_marker,
-    read_link,
-    remove_module,
-    resolve_env_path,
-    walk_up,
-    write_link,
-    write_module,
-)
+from ..layered_toml import has_marker, resolve_env_path, walk_up
+from ..link_pointer import clear_link, read_link, write_link
+from ..workspace import WORKSPACE_MARKER, remove_module, write_module
 from .module_provision import ModuleProvision
 from .outcome import K_EXIT_USAGE, Outcome, done, failed
 

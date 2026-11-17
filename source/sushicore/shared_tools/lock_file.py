@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..errors import ConfigError
-from ..workspace import read_toml
+from ..layered_toml import read_toml
 from .errors import NoLockError, SharedToolsError
 
 K_LOCK_PATH = "tools/shared_tools.lock"

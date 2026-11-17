@@ -14,7 +14,7 @@ from ..profile import ModuleProfile
 from .closure import Locate
 from .config import ProvisionConfig
 from .default_console import DEFAULT_CONSOLE
-from .doctor import Check
+from .check import Check
 from .git_client import GitClient, IGitClient
 from .machine_seams import MachineSeams
 

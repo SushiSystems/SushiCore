@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Protocol
 
 from ..config_base import write_toml_document, write_tool_section
-from ..workspace import WORKSPACE_HEADER, read_toml, workspace_file
+from ..layered_toml import read_toml
+from ..workspace import WORKSPACE_HEADER, workspace_file
 
 
 class ConfigSink(Protocol):

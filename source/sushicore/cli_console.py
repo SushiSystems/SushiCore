@@ -73,7 +73,7 @@ class LazyConsole:
     def get(self):
         """Return the console, building it once on first call."""
         if self._console is None:
-            from . import build_console
+            from .console_builder import build_console
 
             self._console = build_console(self.sources(), machine=self.machine)
         return self._console

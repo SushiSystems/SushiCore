@@ -19,7 +19,7 @@ from .files import Files
 from .icons import known_icon_sets
 from .terminal_background import K_AUTO, K_VALUES
 from .theme import known_themes
-from .workspace import read_toml
+from .layered_toml import read_toml
 
 _ENV_PREFIX = "SUSHI_CLI"
 

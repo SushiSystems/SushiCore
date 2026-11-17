@@ -17,7 +17,7 @@ from typing import Iterable, Type, TypeVar
 from .environment import Environment
 from .files import Files
 from .toml_writer import write_toml_document
-from .workspace import load_layered, read_toml
+from .layered_toml import load_layered, read_toml
 
 
 @dataclass

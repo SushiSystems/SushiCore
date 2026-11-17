@@ -94,7 +94,7 @@ def test_locate_sibling_is_none_without_a_checkout(tmp_path):
 
 def test_a_linked_workspace_tree_is_searched(provision_home, tmp_path):
     """Check that a linked workspace tree is searched."""
-    from sushicore.workspace import write_link
+    from sushicore.link_pointer import write_link
 
     workspace = tmp_path / "ws"
     (workspace / ".sushistack").mkdir(parents=True)

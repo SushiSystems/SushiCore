@@ -15,7 +15,8 @@ from sushicore.provision.toolchains.oneapi import K_ONEAPI_LICENCE
 from sushicore.provision.licence_consent_memory import granted_consent
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.install_location import ToolkitInstall
-from sushicore.provision.pipeline import InstallContext, ToolchainSelection
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.toolchain_selection import ToolchainSelection
 from sushicore.provision.toolchains import oneapi
 
 @pytest.fixture

@@ -13,7 +13,7 @@ from typing import final
 from ..dependency_presence import named_manager
 from ..package_lists import dedup
 from ..packages import tools_dir
-from ..pipeline import InstallContext
+from ..install_context import InstallContext
 from ..target import K_WINDOWS
 from ..uninstall_plan import UNINSTALL_PLANS, IUninstallPlan, UninstallServices
 

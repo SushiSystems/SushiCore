@@ -13,7 +13,7 @@ import pytest
 from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
 from sushicore.provision import checks
-from sushicore.provision.doctor import State
+from sushicore.provision.check_state import State
 from sushicore.provision.fragments import Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
 

@@ -19,7 +19,9 @@ from sushicore.provision.install_deps_step import InstallDepsStep
 from sushicore.provision.licence_consent import Licence
 from sushicore.provision.licence_consent_memory import granted_consent
 from sushicore.provision.packages.base_memory import InMemoryPackageManager
-from sushicore.provision.pipeline import InstallContext, StepResult, ToolchainSelection
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.step_result import StepResult
+from sushicore.provision.toolchain_selection import ToolchainSelection
 from sushicore.provision.machine_actions import MachineActions
 
 from ..test_gpu_stage.recorded_gpu_stage import RecordedGpuStage

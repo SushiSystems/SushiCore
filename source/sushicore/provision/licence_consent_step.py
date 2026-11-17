@@ -9,7 +9,9 @@ from __future__ import annotations
 import typing
 
 from .licence_consent import Licence, LicenceConsent
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+from .step import Step
+from .step_result import StepResult
 
 
 @typing.final

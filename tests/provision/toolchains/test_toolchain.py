@@ -14,7 +14,8 @@ from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.gpu_stage import GpuStage
 from sushicore.provision.install_deps_plan import InstallServices
 from sushicore.provision.machine_actions import MachineActions
-from sushicore.provision.pipeline import InstallContext, ToolchainSelection
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.toolchain_selection import ToolchainSelection
 from sushicore.provision.toolchain_install import install_toolchains
 from sushicore.provision.toolchains.registry import ToolchainRegistry
 from sushicore.provision.toolchains.toolchain import Toolchain, ToolchainEnv

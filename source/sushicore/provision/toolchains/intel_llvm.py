@@ -21,7 +21,7 @@ from ..download_verifier import pinned_download, verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
 from ..packages import downloader
-from ..pipeline import InstallContext
+from ..install_context import InstallContext
 from ..target import target_of
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)

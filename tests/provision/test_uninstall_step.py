@@ -11,7 +11,8 @@ import pytest
 from sushicore.console_memory import RecordingConsole
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments_memory import InMemoryDependencySource
-from sushicore.provision.pipeline import InstallContext, StepResult
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.step_result import StepResult
 from sushicore.provision.sinks_memory import InMemoryConfigSink
 from sushicore.provision.uninstall_step import UninstallStep
 

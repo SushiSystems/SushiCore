@@ -16,7 +16,7 @@ from ..default_console import console_or_default
 from ..download_verifier import verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence, LicenceConsent, is_accepted
-from ..pipeline import InstallContext
+from ..install_context import InstallContext
 from ..process_run import provision_runner
 from .toolchain import ToolchainEnv
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from sushicore.provision.pipeline import ToolchainSelection
+from sushicore.provision.toolchain_selection import ToolchainSelection
 from sushicore.provision.toolchains.adaptivecpp import AdaptiveCppToolchain
 from sushicore.provision.toolchains.intel_llvm import IntelLlvmToolchain
 from sushicore.provision.toolchains.oneapi import OneApiToolchain

@@ -12,7 +12,8 @@ from ..dependency_presence import available_linux_manager, dep_installed, named_
 from ..install_deps_plan import INSTALL_PLANS, IInstallPlan, InstallServices
 from ..licence_consent import Licence
 from ..package_lists import dedup
-from ..pipeline import InstallContext, StepResult
+from ..install_context import InstallContext
+from ..step_result import StepResult
 from ..target import K_LINUX
 from ..toolchain_install import install_toolchains
 

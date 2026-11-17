@@ -12,7 +12,7 @@ from typing import Any
 
 from .fragments import IDependencySource
 from .packages import IPackageManager
-from .pipeline import InstallContext
+from .install_context import InstallContext
 from .target_plans import TargetPlans
 
 

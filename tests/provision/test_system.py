@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for the system helpers: os-release, sudo and the oneAPI repository."""
+"""Tests for the system helpers: os-release and sudo."""
 
 from __future__ import annotations
 
@@ -60,13 +60,6 @@ def test_an_absent_os_release_is_not_a_warning(caplog):
 
 
 @pytest.mark.small
-def test_a_dry_run_of_the_oneapi_repository_succeeds_without_an_error(recording_console):
-    """Check that a dry run answers True and records no error line."""
-    assert system.ensure_intel_oneapi_repo(True, console=recording_console) is True
-    assert not [name for name, _ in recording_console.calls if name == "error"]
-
-
-@pytest.mark.small
 def test_sudo_bash_runs_the_command_through_bash_and_reports_its_exit(recording_console):
     """Check that sudo_bash hands the command to bash and answers whether it exited zero."""
     runner = RecordingRunner(RecordingConsole()).script(0).script(1)
@@ -75,13 +68,3 @@ def test_sudo_bash_runs_the_command_through_bash_and_reports_its_exit(recording_
     assert system.sudo_bash("apt update", dry_run=False, runner=runner,
                             console=recording_console) is False
     assert runner.commands[0].argv == ("bash", "-c", "apt update")
-
-
-@pytest.mark.small
-def test_a_failed_oneapi_repository_step_is_one_error(recording_console, tmp_path, monkeypatch):
-    """Check that a bash step that exits non-zero reports one error and answers False."""
-    monkeypatch.setattr(system, "_ONEAPI_KEYRING", tmp_path / "absent.gpg")
-    runner = RecordingRunner(RecordingConsole()).script(1)
-    assert system.ensure_intel_oneapi_repo(False, runner, console=recording_console) is False
-    assert [name for name, _ in recording_console.calls].count("error") == 1
-    assert len(runner.commands) == 1

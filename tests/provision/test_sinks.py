@@ -9,7 +9,8 @@ from __future__ import annotations
 import pytest
 
 from sushicore.provision.sinks import ModuleSink, WorkspaceSink, render_local_config
-from sushicore.workspace import read_toml, workspace_file, write_module
+from sushicore.layered_toml import read_toml
+from sushicore.workspace import workspace_file, write_module
 
 
 

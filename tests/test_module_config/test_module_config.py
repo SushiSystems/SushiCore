@@ -10,12 +10,8 @@ from sushicore.config_base import ToolConfig
 from sushicore.errors import ProjectRootNotFoundError
 from sushicore.module_config import ModuleConfig
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile
-from sushicore.workspace import (
-    LEGACY_SHARED_CONFIG,
-    WORKSPACE_MARKER,
-    workspace_file,
-    write_link,
-)
+from sushicore.link_pointer import write_link
+from sushicore.workspace import LEGACY_SHARED_CONFIG, WORKSPACE_MARKER, workspace_file
 
 
 pytestmark = pytest.mark.medium

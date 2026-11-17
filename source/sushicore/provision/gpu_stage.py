@@ -15,10 +15,10 @@ from .gpu.adapter_builder import AdapterBuilder, SubprocessBuildStepExecutor
 from .gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from .gpu.provisioning import provision_gpu_adapters
 from .gpu.registry import DEFAULT_REGISTRY
+from .gpu_machine import GpuMachine
 from .licence_consent import Licence, is_accepted
-from .machine_actions import MachineActions
 from .packages import LinuxPackageManager, install_gpu_stack
-from .pipeline import InstallContext
+from .install_context import InstallContext
 
 
 def _subprocess_builder(cfg: Any, console: Any) -> AdapterBuilder:
@@ -28,20 +28,19 @@ def _subprocess_builder(cfg: Any, console: Any) -> AdapterBuilder:
 
 def provision_adapters_for_run(
         ctx: InstallContext, *, console: Any = None,
-        actions: MachineActions | None = None,
+        actions: GpuMachine,
         make_builder: Callable[[Any, Any], Any] = _subprocess_builder,
         build_adapters: Callable[..., None] | None = None) -> None:
     """Build every located GPU backend's Unified Runtime adapter for this run.
 
     Args:
         console: The console the skip message is printed through.
-        actions: The machine calls; the real ones when omitted.
+        actions: The machine calls the run reads.
         make_builder: Builds the adapter builder from the probed configuration and the console.
         build_adapters: Builds the adapters of one toolchain; defaults to
             :func:`sushicore.provision.gpu.provisioning.provision_gpu_adapters`.
     """
     console = console_or_default(console, "provision_adapters_for_run")
-    actions = actions or MachineActions()
     build_adapters = build_adapters or provision_gpu_adapters
     actions.refresh_path()
     probed = actions.resolve_config(ctx.cfg, gpu=ctx.gpu)
@@ -72,7 +71,7 @@ class GpuStage:
 
     Args:
         console: The console the warnings are printed through.
-        actions: The machine calls; the real ones when omitted.
+        actions: The machine calls the stage reads.
         install_stack: Installs the compute SDK of a vendor; defaults to
             :func:`sushicore.provision.packages.install_gpu_stack`.
         provision_adapters: Builds the adapters for a run; defaults to
@@ -80,7 +79,7 @@ class GpuStage:
         toolkit_present: Answers whether the run's NVIDIA toolkit is already on the machine.
     """
 
-    def __init__(self, *, console: Any = None, actions: MachineActions | None = None,
+    def __init__(self, *, console: Any = None, actions: GpuMachine,
                  install_stack: Callable[..., bool] | None = None,
                  provision_adapters: Callable[[InstallContext], None] | None = None,
                  toolkit_present: Callable[[InstallContext], bool] | None = None,
@@ -89,7 +88,7 @@ class GpuStage:
         console = console_or_default(console, "GpuStage")
         self._console = console
         self._toolkit_present = toolkit_present or (lambda ctx: _nvidia_toolkit_present(ctx))
-        self._actions = actions or MachineActions()
+        self._actions = actions
         self._install_stack = install_stack or (
             lambda cfg, vendor, dry_run: install_gpu_stack(
                 cfg, vendor, dry_run, console=self._console))

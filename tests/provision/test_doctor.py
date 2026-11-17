@@ -9,7 +9,10 @@ from __future__ import annotations
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.provision.doctor import CheckResult, Doctor, FunctionCheck, State
+from sushicore.provision.check_result import CheckResult
+from sushicore.provision.check_state import State
+from sushicore.provision.doctor import Doctor
+from sushicore.provision.function_check import FunctionCheck
 
 
 def _check(name, group, required, state, fix=""):

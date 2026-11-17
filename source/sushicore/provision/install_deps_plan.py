@@ -15,7 +15,8 @@ from .gpu_stage import GpuStage
 from .licence_consent import Licence
 from .machine_actions import MachineActions
 from .packages import IPackageManager
-from .pipeline import InstallContext, StepResult
+from .install_context import InstallContext
+from .step_result import StepResult
 from .target_plans import TargetPlans
 
 

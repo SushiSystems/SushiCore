@@ -15,7 +15,9 @@ from sushicore.deps_fragment import SushiPin
 
 from .default_console import console_or_default
 from .git_client import IGitClient
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+from .step import Step
+from .step_result import StepResult
 from .sushi_sources import SourceKind, directory_variable, fetched_dir, resolve
 
 _log = logging.getLogger(__name__)

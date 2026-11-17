@@ -12,17 +12,11 @@ from typing import Callable, final
 
 from .. import home
 from ..config import ProvisionConfig
-from ..probe import (
-    K_ICX_GLOBS,
-    K_RC_GLOBS,
-    binary_works,
-    discover_installed_toolchains,
-    find_vcvars,
-    first_existing,
-    first_glob_match,
-)
+from ..glob_search import K_ICX_GLOBS, K_RC_GLOBS, first_existing, first_glob_match
+from ..probe import binary_works, discover_installed_toolchains
 from ..probe_plan import PROBE_PLANS, IProbePlan
 from ..target import K_WINDOWS
+from ..vs_locator import find_vcvars
 
 #: Visual Studio 2022 script locations tried before the vswhere and disk-scan fallbacks.
 K_VS_VCVARS_GLOBS = [

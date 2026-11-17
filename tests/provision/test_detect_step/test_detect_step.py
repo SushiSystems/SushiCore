@@ -12,7 +12,7 @@ from sushicore.console_memory import RecordingConsole
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.detect_step import DetectStep, removal_note
 from sushicore.provision.fragments_memory import InMemoryDependencySource
-from sushicore.provision.pipeline import InstallContext
+from sushicore.provision.install_context import InstallContext
 
 
 def _context(**overrides) -> InstallContext:

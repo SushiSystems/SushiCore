@@ -6,9 +6,7 @@
 
 import pytest
 
-from sushicore import build_console
 from sushicore.config import load_appearance
-from sushicore.theme import get_theme
 
 
 pytestmark = pytest.mark.medium
@@ -42,20 +40,6 @@ def test_the_environment_overrides_the_file(tmp_path, monkeypatch):
     monkeypatch.setenv("SUSHI_CLI_BACKGROUND", "light")
     path = _config(tmp_path, '[cli]\nbackground = "dark"\n')
     assert load_appearance([path]).background == "light"
-
-
-def test_build_console_takes_the_background_from_the_config(tmp_path):
-    path = _config(tmp_path, '[cli]\nbackground = "dark"\n')
-    assert build_console([path]).dark_background
-
-
-def test_build_console_falls_back_to_colorfgbg(monkeypatch):
-    monkeypatch.setenv("COLORFGBG", "15;0")
-    assert build_console([]).dark_background
-
-
-def test_build_console_without_a_setting_or_colorfgbg_is_not_dark():
-    assert not build_console([]).dark_background
 
 
 @pytest.fixture
@@ -98,15 +82,3 @@ def test_a_bad_value_from_the_environment_is_handled_the_same_way(monkeypatch, _
     spec = load_appearance([])
     assert spec.theme == "default"
     assert "Unknown CLI theme 'neon'" in spec.warnings[0]
-
-
-def test_a_console_built_from_a_bad_theme_says_so(tmp_path, _clean_appearance_environment, capsys):
-    build_console([_config(tmp_path, '[cli]\ntheme = "neon"\n')], machine=True)
-    out = capsys.readouterr().out
-    assert '"level":"warn"' in out
-    assert "Unknown CLI theme 'neon'" in out
-
-
-def test_a_console_built_from_a_bad_theme_takes_the_default_theme(tmp_path, _clean_appearance_environment):
-    console = build_console([_config(tmp_path, '[cli]\ntheme = "neon"\n')], machine=True)
-    assert console.theme == get_theme("default")

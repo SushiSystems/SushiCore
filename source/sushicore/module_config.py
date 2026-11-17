@@ -17,16 +17,10 @@ from .config_base import ToolConfig, load_tool_config
 from .environment import Environment
 from .errors import ProjectRootNotFoundError
 from .files import Files
+from .layered_toml import has_marker, resolve_env_path, walk_up
+from .link_pointer import read_link
 from .profile import ModuleProfile
-from .workspace import (
-    LEGACY_SHARED_CONFIG,
-    WORKSPACE_MARKER,
-    has_marker,
-    read_link,
-    resolve_env_path,
-    walk_up,
-    workspace_file,
-)
+from .workspace import LEGACY_SHARED_CONFIG, WORKSPACE_MARKER, workspace_file
 
 _C = TypeVar("_C", bound=ToolConfig)
 

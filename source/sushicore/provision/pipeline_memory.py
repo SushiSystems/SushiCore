@@ -6,7 +6,11 @@
 
 from __future__ import annotations
 
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+
+from .step import Step
+
+from .step_result import StepResult
 
 
 class ScriptedStep(Step):

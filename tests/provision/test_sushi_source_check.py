@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from sushicore.deps_fragment import SushiPin, read
-from sushicore.provision.doctor import State
+from sushicore.provision.check_state import State
 from sushicore.provision.sushi_source_check import (
     pin_conflict_check,
     sushi_source_check,

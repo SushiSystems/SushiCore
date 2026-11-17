@@ -2,104 +2,21 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Pipeline core: the ``Step`` contract, shared context, and the runner."""
+"""Runs an ordered list of installer steps against one shared context.
+
+``InstallContext``, ``Step``, ``StepResult`` and ``ToolchainSelection`` are re-exported for the
+module CLIs that import them from here.
+"""
 
 from __future__ import annotations
 
-import enum
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, fields
 from typing import Any
 
-
 from .default_console import console_or_default
-from .config import ProvisionConfig
-from .licence_consent import LicenceConsent
-
-
-class StepResult(enum.Enum):
-    """Outcome of a single pipeline step."""
-
-    OK = "ok"
-    SKIPPED = "skipped"
-    FAILED = "failed"
-
-
-@dataclass(frozen=True)
-class ToolchainSelection:
-    """Which of the four customizable toolchain components a run provisions."""
-
-    install_intel_llvm: bool = False
-    install_acpp: bool = False
-    oneapi: bool = False
-    gpu: bool = False
-
-    def as_dict(self) -> dict[str, bool]:
-        """Return the selection as field name -> value."""
-        return {f.name: bool(getattr(self, f.name)) for f in fields(self)}
-
-    def merged(self, overrides: dict[str, bool]) -> "ToolchainSelection":
-        """Return a copy with the known field names in *overrides* applied."""
-        values = self.as_dict()
-        values.update({k: bool(v) for k, v in overrides.items() if k in values})
-        return ToolchainSelection(**values)
-
-
-@dataclass
-class InstallContext:
-    """State shared across steps for one installer run."""
-
-    cfg: ProvisionConfig
-    selection: ToolchainSelection = field(default_factory=ToolchainSelection)
-    #: The module name recorded in the registry.
-    consumer: str = ""
-    #: The command line the user runs; it words the messages that name it.
-    program: str = ""
-    #: The command that re-runs provisioning; empty means ``<program> setup``.
-    rerun_command: str = ""
-    #: A sentence the consumer adds to the note on removing the install; empty adds none.
-    removal_hint: str = ""
-    #: A sentence the consumer adds when AdaptiveCpp alone was selected and did not install.
-    fallback_hint: str = ""
-    #: The command that replaces a stale intel/llvm bundle; empty names the refresh option only.
-    refresh_command: str = ""
-    dry_run: bool = False
-    #: The run's licence consent; installers that accept a licence read it, None means none given.
-    consent: LicenceConsent | None = None
-    everything: bool = False
-    #: The toolchain ConfigureStep pins as the default, or None to leave it.
-    active_toolchain: str | None = None
-    #: Whether to re-download a toolchain that is already present.
-    refresh_toolchains: bool = False
-    #: Whether the user has consented to the heavy Windows LLVM download.
-    assume_acpp_llvm: bool = False
-    #: The discrete-GPU vendor: nvidia, amd, intel, or none.
-    gpu_vendor: str = ""
-    #: Non-fatal problems surfaced by any step.
-    warnings: list[str] = field(default_factory=list)
-    #: Populated by DetectStep: tool/dependency name -> present?
-    detected: dict[str, bool] = field(default_factory=dict)
-    #: Populated by InstallDepsStep: package names actually installed this run.
-    installed: list[str] = field(default_factory=list)
-    #: Populated by ConfigureStep: config field name -> resolved absolute path.
-    resolved_paths: dict[str, str] = field(default_factory=dict)
-
-    @property
-    def gpu(self) -> bool:
-        """Report whether this run provisions the GPU toolkit."""
-        return self.selection.gpu
-
-
-class Step(ABC):
-    """One unit of installer work."""
-
-    #: Human-readable name, shown in the pipeline log.
-    name: str = "step"
-
-    @abstractmethod
-    def run(self, ctx: InstallContext) -> StepResult:  # pragma: no cover - abstract
-        """Execute this step against *ctx* and report its outcome."""
-        raise NotImplementedError
+from .install_context import InstallContext
+from .step import Step
+from .step_result import StepResult
+from .toolchain_selection import ToolchainSelection  # noqa: F401
 
 
 class InstallPipeline:

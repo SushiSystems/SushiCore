@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from ..system import ensure_intel_oneapi_repo
-from .base import IPackageManager, refresh_windows_path
+from ..intel_oneapi_repo import ensure_intel_oneapi_repo
+from .base import IPackageManager
 from .compat import (
     gh_latest_asset,
     gh_latest_asset_including_prerelease,
@@ -26,15 +26,14 @@ from .github_release import (
     gh_tagged_asset,
 )
 from .gpu_stack import install_gpu_stack
-from .linux import (
-    AptManager,
-    DnfManager,
-    LinuxPackageManager,
-    PacmanManager,
-    YumManager,
-    ZypperManager,
-)
+from .apt_manager import AptManager
+from .dnf_manager import DnfManager
+from .linux_manager import LinuxPackageManager
+from .pacman_manager import PacmanManager
+from .yum_manager import YumManager
+from .zypper_manager import ZypperManager
 from .vcpkg import VcpkgManager
+from .windows_path import refresh_windows_path
 from .winget import WingetManager
 
 __all__ = [

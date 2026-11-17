@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.host import PosixHost
 
 
@@ -46,3 +48,25 @@ def test_the_posix_host_replaces_a_link_in_place(tmp_path):
     PosixHost().replace_dir_link(link, second)
 
     assert link.resolve() == second.resolve()
+
+
+def _runner() -> RecordingRunner:
+    """Return a runner that records commands and starts no process."""
+    return RecordingRunner(RecordingConsole())
+
+
+@pytest.mark.small
+def test_a_missing_lspci_is_recorded(caplog):
+    """Check that an lspci that cannot start yields no adapters and one warning."""
+    with caplog.at_level("WARNING", logger="sushicore.provision"):
+        assert PosixHost().display_adapters(_runner().script_missing()) == ""
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "lspci" in warnings[0]
+
+
+@pytest.mark.small
+def test_lspci_display_lines_are_kept_in_lower_case():
+    """Check that only the display-controller lines of lspci come back, lower-cased."""
+    runner = _runner().script(0, ("00:02.0 VGA compatible controller: Intel", "00:1f.0 ISA bridge"))
+    assert PosixHost().display_adapters(runner) == "00:02.0 vga compatible controller: intel"

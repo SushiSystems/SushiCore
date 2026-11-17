@@ -151,7 +151,8 @@ class StackConfig(ProvisionSettings):
         ``SUSHISTACK_HOME`` wins; then the module's ``[link]`` pointer; otherwise
         a walk up from *root* for the ``.sushistack`` marker.
         """
-        from .workspace import has_marker, read_link, resolve_env_path, walk_up
+        from .layered_toml import has_marker, resolve_env_path, walk_up
+        from .link_pointer import read_link
 
         home = resolve_env_path("SUSHISTACK_HOME")
         if home:

@@ -26,7 +26,8 @@ from ..download_verifier import pinned_download, verify_download
 from ..probe import binary_works
 from ..process_run import provision_runner
 from ..system import USER_AGENT
-from .base import IPackageManager, refresh_windows_path
+from .base import IPackageManager
+from .windows_path import refresh_windows_path
 
 _log = logging.getLogger(__name__)
 

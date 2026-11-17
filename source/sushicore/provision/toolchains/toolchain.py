@@ -13,7 +13,7 @@ from typing import Any, Callable
 from ..install_location import ToolkitFinder
 from ..licence_consent import Licence
 from ..packages import IPackageManager, LinuxPackageManager
-from ..pipeline import InstallContext
+from ..install_context import InstallContext
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

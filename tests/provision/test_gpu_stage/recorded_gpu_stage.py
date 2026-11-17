@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.provision.pipeline import InstallContext
+from sushicore.provision.install_context import InstallContext
 from sushicore.provision.gpu_stage import GpuStage
 from sushicore.provision.machine_actions import MachineActions
 

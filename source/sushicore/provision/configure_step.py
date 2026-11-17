@@ -9,7 +9,11 @@ from __future__ import annotations
 from typing import Any
 
 from .default_console import console_or_default
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+
+from .step import Step
+
+from .step_result import StepResult
 from .sinks import ConfigSink, render_local_config
 from .machine_actions import MachineActions
 

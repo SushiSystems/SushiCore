@@ -19,7 +19,8 @@ from sushicore.provision.install_deps_plan import InstallServices
 from sushicore.provision.install_deps_plans.windows import WindowsInstallPlan
 from sushicore.provision.machine_actions import MachineActions
 from sushicore.provision.packages.base_memory import InMemoryPackageManager
-from sushicore.provision.pipeline import InstallContext, StepResult
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.step_result import StepResult
 
 
 def _services(managers, dependencies=()) -> InstallServices:

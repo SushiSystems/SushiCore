@@ -15,7 +15,7 @@ from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.llvm_plans import windows as llvm_windows
 from sushicore.provision.packages import winget as winget_module
-from sushicore.provision.packages.linux import AptManager
+from sushicore.provision.packages.apt_manager import AptManager
 from sushicore.provision.packages.winget import WingetManager
 from sushicore.provision.packages.base_memory import (
     InMemoryLinuxPackageManager,

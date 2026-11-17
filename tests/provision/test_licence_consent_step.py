@@ -12,7 +12,10 @@ from sushicore.console_memory import RecordingConsole
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.licence_consent import Licence, LicenceConsent
 from sushicore.provision.licence_consent_step import LicenceConsentStep
-from sushicore.provision.pipeline import InstallContext, InstallPipeline, Step, StepResult
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.pipeline import InstallPipeline
+from sushicore.provision.step import Step
+from sushicore.provision.step_result import StepResult
 
 pytestmark = pytest.mark.small
 

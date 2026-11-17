@@ -17,7 +17,8 @@ from .closure import Locate
 from .git_client import IGitClient
 from .lock import LockTimeout, ProvisionLock
 from .pin_chain import PinWalk, walk
-from .pipeline import InstallContext, InstallPipeline
+from .install_context import InstallContext
+from .pipeline import InstallPipeline
 from .sushi_fetch import FetchSushiSourcesStep
 from .sushi_sources import resolve
 

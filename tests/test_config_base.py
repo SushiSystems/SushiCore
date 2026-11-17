@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from sushicore.config_base import ToolConfig, load_tool_config, write_toml_document, write_tool_section
-from sushicore.workspace import read_toml
+from sushicore.layered_toml import read_toml
 
 
 pytestmark = pytest.mark.medium

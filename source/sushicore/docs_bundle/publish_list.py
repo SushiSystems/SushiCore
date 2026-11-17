@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..files import DiskFiles, Files
-from ..workspace import read_toml
+from ..layered_toml import read_toml
 from .errors import PublishListError
 
 K_FILE_NAME = "publish.toml"

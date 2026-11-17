@@ -17,7 +17,7 @@ from typing import Callable, Mapping, Protocol
 
 from .files import Files
 from .profile import ModuleProfile
-from .workspace import merge_platform_table, read_toml
+from .layered_toml import merge_platform_table, read_toml
 
 
 class ConfigModule(Protocol):

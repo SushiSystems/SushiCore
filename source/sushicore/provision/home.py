@@ -11,7 +11,8 @@ import re
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
-from ..workspace import WORKSPACE_MARKER, has_marker, walk_up
+from ..layered_toml import has_marker, walk_up
+from ..workspace import WORKSPACE_MARKER
 
 ENV_HOME = "SUSHISYSTEMS_HOME"
 DIR_NAME = ".sushisystems"

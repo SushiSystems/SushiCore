@@ -11,7 +11,7 @@ import pytest
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import SHARED_OWNER, Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
-from sushicore.provision.pipeline import InstallContext
+from sushicore.provision.install_context import InstallContext
 from sushicore.provision.detect_step import DetectStep
 
 

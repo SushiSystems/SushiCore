@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Mapping
 
-from ..workspace import read_toml
+from ..layered_toml import read_toml
 from .closure import DEFAULT_FRAGMENT
 
 K_MANIFEST = "sushi-module.toml"

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional
 
 from .config import ProvisionConfig
-from .doctor import Check
+from .check import Check
 
 if TYPE_CHECKING:
     from .packages import IPackageManager

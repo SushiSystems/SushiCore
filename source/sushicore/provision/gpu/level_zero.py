@@ -11,7 +11,8 @@ import functools
 import pathlib
 import typing
 
-from ..system import ensure_intel_oneapi_repo, is_root, sudo_bash
+from ..intel_oneapi_repo import ensure_intel_oneapi_repo
+from ..system import is_root, sudo_bash
 from .backend import GpuBackendSpec, PlatformLocator, ToolkitInstall
 
 if typing.TYPE_CHECKING:

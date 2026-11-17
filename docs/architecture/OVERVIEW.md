@@ -10,7 +10,9 @@ and has no application of its own.
 
 | Module | Owns |
 | --- | --- |
-| `workspace` | The walk up to a marker file, the `[tool]` table merged with its platform override, the workspace's `[modules]` table and a module's `[link]` pointer |
+| `layered_toml` | `read_toml`, `walk_up` and `has_marker`, `resolve_env_path`, and `load_layered`, which merges the `[tool]` table with its platform override and the environment variables |
+| `workspace` | The workspace marker and data file, and its `[modules]` table; it re-exports the `layered_toml` readers the module CLIs import from it |
+| `link_pointer` | A module's `[link]` pointer to its workspace: `read_link`, `write_link` and `clear_link` |
 | `files`, `files_memory` | `Files`, the port the backlog and design stores read and write their text files through; `DiskFiles`, its default on the real file system; `MemoryFiles`, which holds each file by path |
 | `environment`, `environment_memory` | `Environment`, the port a config loader reads variables through; `ProcessEnvironment`, its default over `os.environ`; `MemoryEnvironment`, which holds each variable by name |
 | `config_base` | `ToolConfig`, the tool-path fields every CLI shares, and the layered load and `[tool]` write around them |
@@ -40,8 +42,8 @@ and has no application of its own.
 | `typer_help` | `help_group`, which wires the help page into a Typer application |
 | `typer_theme` | `apply_typer_theme`, which recolours Typer's own help screen |
 
-`build_console` in `sushicore/__init__.py` wires the printing modules together from the config
-files a CLI hands it.
+`build_console` in `sushicore/console_builder.py` wires the printing modules together from the config
+files a CLI hands it; the package re-exports it.
 
 ### Building
 
@@ -463,7 +465,8 @@ of composing an abstraction.
 
 Every module CLI (`sr`, `se`, `hub`) resolves its config the same way: walk up for a marker
 file, merge a `[tool]` table with its `[tool.<platform>]` override, then let `PREFIX_*`
-environment variables win. That plumbing lives in `workspace`, so there is one seam.
+environment variables win. That plumbing lives in `layered_toml`, so there is one seam; `workspace` names the marker and
+keeps the `[modules]` table, and `link_pointer` edits a module's `[link]` table.
 
 The module knows nothing about SYCL, toolchains or any module's schema. It only locates
 directories and merges the TOML the caller hands it. Each CLI keeps its own `Config` dataclass

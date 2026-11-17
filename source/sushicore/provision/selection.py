@@ -11,7 +11,7 @@ from typing import Mapping, Sequence
 
 from ..errors import SushiCoreError
 from .fragments import SHARED_OWNER, IDependencySource
-from .pipeline import ToolchainSelection
+from .toolchain_selection import ToolchainSelection
 
 
 class UnknownToolchainError(SushiCoreError, ValueError):

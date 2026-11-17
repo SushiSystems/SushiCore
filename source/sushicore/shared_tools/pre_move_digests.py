@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ..errors import ConfigError
-from ..workspace import read_toml
+from ..layered_toml import read_toml
 from .errors import SharedToolsError
 
 K_DIGESTS_PATH = Path(__file__).with_name("pre_move_digests.toml")

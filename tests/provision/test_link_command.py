@@ -10,7 +10,8 @@ from sushicore.console_memory import RecordingConsole
 from sushicore.profile import ModuleProfile
 from sushicore.provision import link_command
 from sushicore.provision.module_provision import ModuleProvision
-from sushicore.workspace import read_link, registered_modules
+from sushicore.link_pointer import read_link
+from sushicore.workspace import registered_modules
 
 
 def _module(tmp_path, console, **overrides):

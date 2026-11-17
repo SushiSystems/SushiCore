@@ -18,13 +18,16 @@ from sushicore.profile import ModuleProfile
 from sushicore.provision import gpu_stage
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.doctor import CheckResult, FunctionCheck, State
+from sushicore.provision.check_result import CheckResult
+from sushicore.provision.check_state import State
+from sushicore.provision.function_check import FunctionCheck
 from sushicore.provision.git_client_memory import InMemoryGitClient
 from sushicore.provision.lock import ProvisionLock
 from sushicore.provision.machine_seams import MachineSeams
 from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
 from sushicore.provision.machine_actions import MachineActions
-from sushicore.workspace import read_link, registered_modules, write_module
+from sushicore.link_pointer import read_link
+from sushicore.workspace import registered_modules, write_module
 
 
 #: A commit every fixture fragment pins its Sushi libraries to.

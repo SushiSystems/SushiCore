@@ -11,7 +11,11 @@ from typing import Sequence
 
 from sushicore.deps_fragment import SushiPin
 
-from .doctor import CheckResult, FunctionCheck, State
+from .check_result import CheckResult
+
+from .check_state import State
+
+from .function_check import FunctionCheck
 from .git_client import IGitClient
 from .pin_chain import conflicts
 from .sushi_sources import SourceKind, resolve

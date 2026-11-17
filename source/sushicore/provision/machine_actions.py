@@ -13,9 +13,9 @@ from typing import Any, Callable
 
 from .default_console import console_or_default
 from ..proc import CommandRunner
-from . import probe
+from . import gpu_vendor, probe, vs_locator
 from .packages import refresh_windows_path
-from .pipeline import InstallContext
+from .install_context import InstallContext
 from .process_run import provision_runner
 from .toolchains import oneapi
 
@@ -54,10 +54,10 @@ class MachineActions:
 
     refresh_path: Callable[[], None] = lambda: refresh_windows_path()
     which: Callable[[str], str | None] = lambda name: shutil.which(name)
-    find_vcvars: Callable[[], Path | None] = lambda: probe.find_vcvars()
+    find_vcvars: Callable[[], Path | None] = lambda: vs_locator.find_vcvars()
     run_command: Callable[..., int] = lambda cmd, console: run_machine_command(cmd, console=console)
     resolve_config: Callable[..., dict[str, str]] = (
         lambda cfg, gpu=False: probe.resolve_local_config(cfg, gpu=gpu))
     install_oneapi: Callable[[InstallContext, Any], bool] = (
         lambda ctx, console: oneapi.install_oneapi(ctx, console=console))
-    detect_vendor: Callable[[], str] = lambda: probe.detect_gpu_vendor()
+    detect_vendor: Callable[[], str] = lambda: gpu_vendor.detect_gpu_vendor()

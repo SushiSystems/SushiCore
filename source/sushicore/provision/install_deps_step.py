@@ -16,7 +16,9 @@ from .install_deps_plan import INSTALL_PLANS, InstallServices
 from .licence_consent import Licence
 from .machine_actions import MachineActions
 from .packages import IPackageManager
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+from .step import Step
+from .step_result import StepResult
 from .target import target_of
 
 

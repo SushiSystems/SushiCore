@@ -7,7 +7,7 @@
 import pytest
 
 from sushicore.toml_writer import render_toml_document, write_toml_document
-from sushicore.workspace import read_toml
+from sushicore.layered_toml import read_toml
 
 
 @pytest.mark.small

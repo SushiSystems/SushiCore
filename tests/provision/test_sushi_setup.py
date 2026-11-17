@@ -12,7 +12,7 @@ from sushicore.deps_fragment import pins_at
 from sushicore.provision import sushi_setup
 from sushicore.provision.closure_memory import TableLocator
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.pipeline import InstallContext
+from sushicore.provision.install_context import InstallContext
 
 from sushicore.provision.git_client_memory import InMemoryGitClient
 

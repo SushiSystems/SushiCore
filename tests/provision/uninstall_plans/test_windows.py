@@ -13,7 +13,7 @@ from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.packages.base_memory import InMemoryPackageManager
-from sushicore.provision.pipeline import InstallContext
+from sushicore.provision.install_context import InstallContext
 from sushicore.provision.uninstall_plan import UninstallServices
 from sushicore.provision.uninstall_plans.windows import WindowsUninstallPlan
 

@@ -23,7 +23,7 @@ from .checks import (
 )
 from .config import ProvisionConfig
 from .dependency_presence import held_by_managers
-from .doctor import Check
+from .check import Check
 from .fragments import IDependencySource
 from .git_client import IGitClient
 from .packages import IPackageManager

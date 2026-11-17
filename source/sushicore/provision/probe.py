@@ -2,11 +2,13 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tool-path probing shared by every provisioning CLI."""
+"""Finds the SYCL and CUDA toolchains of this machine and checks that their binaries run.
+
+The GPU vendor and Visual Studio finders are re-exported for the module CLIs that import them here.
+"""
 
 from __future__ import annotations
 
-import glob
 import logging
 import os
 import shutil
@@ -16,117 +18,14 @@ from typing import Callable, Sequence
 from sushicore.proc import CommandRunner, did_not_run
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
-from sushicore.provision.host import IHost, current_host
-from sushicore.quiet_runner import quiet_runner
+from sushicore.provision.glob_search import K_ICX_GLOBS, K_ICX_GLOBS_LINUX, K_NVCC_GLOBS_LINUX, first_glob_match
+from sushicore.provision.gpu_vendor import classify_display_adapters, detect_gpu_vendor  # noqa: F401
 from sushicore.provision.probe_plan import PROBE_PLANS
 from sushicore.provision.target import target_of
+from sushicore.provision.vs_locator import find_vcvars  # noqa: F401
+from sushicore.quiet_runner import quiet_runner
 
 _log = logging.getLogger(__name__)
-
-_VS_EDITIONS = ("BuildTools", "Community", "Professional", "Enterprise")
-_VCVARS_REL = Path("VC") / "Auxiliary" / "Build" / "vcvars64.bat"
-K_ICX_GLOBS = [
-    r"C:/Program Files (x86)/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
-    r"C:/Program Files/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
-]
-K_RC_GLOBS = [
-    r"C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe",
-    r"C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe",
-]
-# Neither the apt CUDA toolkit nor oneAPI add themselves to PATH, so these well-known install locations are checked directly.
-K_NVCC_GLOBS_LINUX = [
-    "/usr/local/cuda/bin/nvcc",
-    "/usr/local/cuda-*/bin/nvcc",
-]
-K_ICX_GLOBS_LINUX = [
-    "/opt/intel/oneapi/compiler/*/bin/icpx",
-    "/opt/intel/oneapi/compiler/*/bin/icx",
-]
-
-
-def first_glob_match(patterns: list[str]) -> str:
-    """Return the last (highest-sorting) match among *patterns*, or ''."""
-    for pat in patterns:
-        hits = sorted(glob.glob(pat))
-        if hits:
-            return hits[-1]  # latest version when sorted
-    return ""
-
-
-def first_existing(paths: list[str]) -> str:
-    """Return the first path in *paths* that exists, or ''."""
-    for p in paths:
-        if Path(p).exists():
-            return p
-    return ""
-
-
-def _vcvars_from_vswhere(program_files: str | None = None,
-                         runner: CommandRunner | None = None) -> Path | None:
-    """Return the vcvars64.bat of the latest VS install vswhere reports, or None.
-
-    Args:
-        program_files: The folder holding ``Microsoft Visual Studio``; the environment's when ``None``.
-        runner: Runs vswhere; the quiet runner when ``None``.
-    """
-    program_files = program_files or os.environ.get("ProgramFiles(x86)") or os.environ.get(
-        "ProgramFiles", r"C:\Program Files")
-    vswhere = Path(program_files) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
-    if not vswhere.is_file():
-        return None
-    cmd = [str(vswhere), "-latest", "-prerelease", "-products", "*",
-           "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-           "-property", "installationPath"]
-    code, out, err = (runner or quiet_runner()).capture(cmd, timeout=30)
-    if did_not_run(cmd[0], code, err):
-        _log.warning("vswhere did not run (%s); no Visual Studio install is reported", err)
-        return None
-    if code != 0:
-        _log.warning("vswhere exited with status %d; no Visual Studio install is reported", code)
-        return None
-    for line in out.splitlines():
-        candidate = Path(line.strip()) / _VCVARS_REL
-        if line.strip() and candidate.is_file():
-            return candidate
-    return None
-
-
-def _vcvars_from_disk_scan(program_files: Sequence[Path] | None = None) -> Path | None:
-    """Return the first vcvars64.bat under the Program Files VS roots, newest year first.
-
-    Args:
-        program_files: The folders holding ``Microsoft Visual Studio``; the environment's when ``None``.
-    """
-    if program_files is None:
-        program_files = [Path(os.environ[var]) for var in ("ProgramFiles", "ProgramFiles(x86)")
-                         if os.environ.get(var)]
-    roots = [folder / "Microsoft Visual Studio" for folder in program_files]
-    for root in roots:
-        if not root.is_dir():
-            continue
-        years = sorted((d for d in root.iterdir() if d.is_dir()),
-                       key=lambda d: d.name, reverse=True)
-        for year in years:
-            for edition in _VS_EDITIONS:
-                candidate = year / edition / _VCVARS_REL
-                if candidate.is_file():
-                    return candidate
-    return None
-
-
-def find_vcvars(host: IHost | None = None,
-                vswhere: Callable[[], Path | None] | None = None,
-                program_files: Sequence[Path] | None = None) -> Path | None:
-    """Return the vcvars64.bat of an installed Visual Studio, or None off Windows.
-
-    Args:
-        host: The host to judge; the running one when ``None``.
-        vswhere: Gives the install vswhere reports; asks vswhere when ``None``.
-        program_files: The folders the disk scan reads; the environment's when ``None``.
-    """
-    if not (host or current_host()).hosts_visual_studio:
-        return None
-    return (vswhere or _vcvars_from_vswhere)() or _vcvars_from_disk_scan(program_files)
 
 
 def _toolchains_dir() -> Path:
@@ -214,80 +113,6 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
                   else "NVIDIA CUDA toolkit (nvcc)")
         rows.append(("cuda", nvcc_ok, detail))
     return rows
-
-
-def detect_gpu_vendor() -> str:
-    """Best-effort discrete-GPU vendor detection: nvidia | amd | intel | none.
-
-    Vendor management tools answer first when present. Otherwise the display
-    adapters this operating system reports are classified, so a fresh machine
-    with no vendor stack installed is still recognised. Returns ``none`` when
-    nothing recognisable is found; the caller then provisions only the CPU
-    (SPIR/OpenCL) path.
-    """
-    if shutil.which("nvidia-smi"):
-        return "nvidia"
-    if shutil.which("rocminfo") or shutil.which("rocm-smi"):
-        return "amd"
-    return classify_display_adapters(current_host().display_adapters(quiet_runner()))
-
-
-#: Name fragments, without spaces or hyphens, that mark an AMD or Intel adapter as integrated.
-_INTEGRATED_MARKERS = (
-    "radeon(tm)graphics", "radeongraphics", "radeonvega", "vegaseries", "vegamobile",
-    "610m", "660m", "680m", "740m", "760m", "780m", "880m", "890m",
-    "raven", "picasso", "renoir", "lucienne", "cezanne", "barcelo", "rembrandt",
-    "mendocino", "phoenix", "hawkpoint", "raphael", "graniteridge", "strix",
-    "uhdgraphics", "hdgraphics", "iris", "alderlake", "raptorlake", "meteorlake",
-    "lunarlake", "arrowlake", "tigerlake", "cometlake", "coffeelake", "arc(tm)graphics",
-)
-#: Name fragments, without spaces or hyphens, that mark an adapter as discrete over any integrated marker.
-_DISCRETE_MARKERS = (
-    "nvidia", "radeonrx", "rxvega", "radeonpro", "firepro", "instinct", "navi",
-    "arc(tm)a", "arc(tm)b", "[arca", "[arcb", "dg1", "dg2", "battlemage", "irisxemax",
-)
-
-#: Vendor keys in preference order, each with the name fragments that identify it.
-_VENDOR_MARKERS = (
-    ("nvidia", ("nvidia",)),
-    ("amd", ("advancedmicrodevices", "amd/ati", "radeon")),
-    ("intel", ("intel",)),
-)
-
-
-def _normalise_adapter(line: str) -> str:
-    """Return a display-adapter line lower-cased with its spaces and hyphens removed."""
-    return line.lower().replace(" ", "").replace("-", "")
-
-
-def is_integrated_adapter(line: str) -> bool:
-    """Return True when one display-adapter line names an integrated GPU."""
-    name = _normalise_adapter(line)
-    if any(marker in name for marker in _DISCRETE_MARKERS):
-        return False
-    return any(marker in name for marker in _INTEGRATED_MARKERS)
-
-
-def _adapter_vendor(line: str) -> str | None:
-    """Return the vendor key one display-adapter line names, or None."""
-    name = _normalise_adapter(line)
-    for vendor, markers in _VENDOR_MARKERS:
-        if any(marker in name for marker in markers):
-            return vendor
-    return None
-
-
-def classify_display_adapters(adapters: str) -> str:
-    """Return the vendor to provision for display-adapter text, or ``none`` when no vendor is known.
-
-    A discrete adapter is preferred over an integrated one; within each group the
-    order is NVIDIA, AMD, Intel.
-    """
-    ranked = [(is_integrated_adapter(line), rank, vendor)
-              for line in adapters.splitlines()
-              for rank, (vendor, _markers) in enumerate(_VENDOR_MARKERS)
-              if _adapter_vendor(line) == vendor]
-    return min(ranked)[2] if ranked else "none"
 
 
 def binary_works(cmd: str, runner: CommandRunner | None = None) -> bool:

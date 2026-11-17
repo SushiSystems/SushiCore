@@ -10,7 +10,7 @@ import pytest
 
 from sushicore.provision.fragments import Dependency
 from sushicore.provision.fragments_memory import InMemoryDependencySource
-from sushicore.provision.pipeline import ToolchainSelection
+from sushicore.provision.toolchain_selection import ToolchainSelection
 from sushicore.provision.selection import derive, enabled_keys, toolchain_keys
 
 

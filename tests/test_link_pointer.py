@@ -1,4 +1,4 @@
-# test_link.py
+# test_link_pointer.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
@@ -10,14 +10,9 @@ import pytest
 
 from sushicore.errors import ConfigError
 
-from sushicore.workspace import (
-    WORKSPACE_MARKER,
-    LinkEditError,
-    clear_link,
-    read_link,
-    read_toml,
-    write_link,
-)
+from sushicore.layered_toml import read_toml
+from sushicore.link_pointer import LinkEditError, clear_link, read_link, write_link
+from sushicore.workspace import WORKSPACE_MARKER
 
 
 pytestmark = pytest.mark.medium

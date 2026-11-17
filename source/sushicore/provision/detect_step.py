@@ -18,8 +18,11 @@ from ..proc import CommandRunner
 from ..quiet_runner import quiet_runner
 from .dependency_presence import check_cmd_ok, dep_installed, dep_manager, vcpkg_manager
 from .fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
+from .gpu_vendor import detect_gpu_vendor
 from .packages import IPackageManager, refresh_windows_path
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+from .step import Step
+from .step_result import StepResult
 from .target import target_of
 
 
@@ -77,7 +80,7 @@ class DetectStep(Step):
                  managers: list[IPackageManager] | None = None,
                  after_inventory: Callable[[InstallContext, list[Dependency]], None] | None = None,
                  *, toolchain_status=probe.toolchain_status,
-                 gpu_vendor=probe.detect_gpu_vendor, console: Any = None,
+                 gpu_vendor=detect_gpu_vendor, console: Any = None,
                  runner: CommandRunner | None = None) -> None:
         """Wire the dependency source, the package managers and the machine probes.
 

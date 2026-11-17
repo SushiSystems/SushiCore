@@ -17,7 +17,8 @@ from sushicore.provision.install_deps_plan import InstallServices
 from sushicore.provision.install_deps_plans.linux import K_LINUX_TOOLCHAIN_APT, LinuxInstallPlan
 from sushicore.provision.machine_actions import MachineActions
 from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
-from sushicore.provision.pipeline import InstallContext, StepResult
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.step_result import StepResult
 
 
 def _services(managers, dependencies=()) -> InstallServices:

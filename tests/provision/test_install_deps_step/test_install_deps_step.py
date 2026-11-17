@@ -21,7 +21,9 @@ from sushicore.provision.fragments_memory import InMemoryDependencySource
 from sushicore.provision.install_deps_step import InstallDepsStep
 from sushicore.provision.packages import IPackageManager
 from sushicore.provision.packages.base_memory import InMemoryPackageManager
-from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepResult
+from sushicore.provision.install_context import InstallContext
+from sushicore.provision.pipeline import InstallPipeline
+from sushicore.provision.step_result import StepResult
 from sushicore.provision.sinks_memory import InMemoryConfigSink
 from sushicore.provision.machine_actions import MachineActions
 

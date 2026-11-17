@@ -15,7 +15,8 @@ from ..llvm_plans.windows import llvm_missing
 from ..package_lists import dedup
 from ..packages import WINGET_ID_TO_CMD, IPackageManager
 from ..packages.winget_licence import IWingetLicences
-from ..pipeline import InstallContext, StepResult
+from ..install_context import InstallContext
+from ..step_result import StepResult
 from ..target import K_WINDOWS
 from ..toolchain_install import install_toolchains, toolchain_licences
 

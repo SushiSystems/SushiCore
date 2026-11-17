@@ -14,7 +14,9 @@ from .default_console import console_or_default
 from . import home
 from .fragments import IDependencySource
 from .packages import IPackageManager
-from .pipeline import InstallContext, Step, StepResult
+from .install_context import InstallContext
+from .step import Step
+from .step_result import StepResult
 from .sinks import ConfigSink
 from .target import target_of
 from .uninstall_plan import UNINSTALL_PLANS, UninstallServices

@@ -17,13 +17,13 @@ from typing import Any, Callable, MutableMapping, Sequence
 
 from ..default_console import console_or_default
 from .. import home
-from ..probe import K_RC_GLOBS
+from ..glob_search import K_RC_GLOBS
 from ..dependency_presence import named_manager
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
 from ..process_run import run
 from ..llvm_plan import LLVM_PLANS, LlvmRequest
-from ..pipeline import InstallContext
+from ..install_context import InstallContext
 from ..target import target_of
 from ._process import _run_quiet
 from .adaptivecpp_compat import confirm_timeout as _confirm_timeout  # noqa: F401  (deprecated)

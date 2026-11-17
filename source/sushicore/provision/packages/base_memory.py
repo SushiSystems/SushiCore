@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Callable, Iterable, final
 
 from .base import IPackageManager
-from .linux import LinuxPackageManager
+from .linux_manager import LinuxPackageManager
 
 
 class InMemoryPackageManager(IPackageManager):

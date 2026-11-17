@@ -16,7 +16,10 @@ from typing import Callable, Mapping, Sequence
 from sushicore.proc import CommandRunner, did_not_run
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionConfig
-from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
+from sushicore.provision.check import Check
+from sushicore.provision.check_result import CheckResult
+from sushicore.provision.check_state import State
+from sushicore.provision.function_check import FunctionCheck
 from sushicore.provision.download_verifier import unpinned_downloads
 from sushicore.provision.fragments import Dependency, IDependencySource
 from sushicore.quiet_runner import quiet_runner
