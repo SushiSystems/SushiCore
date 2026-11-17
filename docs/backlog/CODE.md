@@ -5,8 +5,6 @@
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-29 | P2 | open | Keep Rich behind the `Renderer` seam | `Console.console`, `diag.py`, `discovery.py` and the call sites in `provision` reach Rich only through `Renderer` (Code C10, Cli C6) |  |  | 2026-10-19 |
-| RW-32 | P2 | open | Bring docstrings to the source comment rule | no public symbol lacks a docstring and none exceeds eight lines; 33 and 37 on 2026-10-19 (Code C13, Code C14, Code C21) |  |  | 2026-10-19 |
-| RW-35 | P2 | open | Stop tests reaching into private names | no test imports or calls a name with a leading underscore (Code C19) |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Remove hidden module state and apply the class-shape rules | no module keeps state outside an object, and classes outside `ui` and `help` follow the class-shape rules (Code C20, Code C22) |  |  | 2026-10-19 |
 | RW-91 | P3 | open | Split register_backlog_commands into one function per command | commands.py registers each backlog command through its own function and no function there exceeds 60 lines |  | `source/sushicore/backlog/commands.py` | 2026-11-17 |
 | RW-94 | P2 | open | Shape the provision contracts as one kind, Protocol or ABC | IDependencySource, IPackageManager, Step, Check, ConfigSink, ProvisionConfig and ToolkitLocator are all Protocols or all ABCs |  | `source/sushicore/provision/pipeline.py` | 2026-11-17 |

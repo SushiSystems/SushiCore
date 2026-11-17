@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-17 — tests: Reached code only through public names, making the direct-download installers and build_gate's read_state public (RW-35, `03bb347`).
+- 2026-11-17 — docs: Gave every public symbol a docstring of at most eight lines (RW-32, `db0088a`).
 - 2026-11-17 — code: Moved the dependency home, the download verifier and the theme and icon presets into objects, deprecating their binders, and marked leaf classes final (RW-36, `e5b724e`).
 - 2026-11-17 — code: Split probe, workspace, pipeline, doctor, packages.linux, system and the console builder into one-job modules, keeping the moved names importable with a warning (RW-33, `74a616d`).
 - 2026-11-17 — code: Typed the build-side seams the audit named with narrow console and config protocols (RW-34, `fcb14fd`).
