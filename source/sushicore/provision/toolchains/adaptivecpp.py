@@ -18,6 +18,7 @@ from sushicore.errors import DigestMismatchError
 from sushicore.proc import CommandRunner
 
 from .. import home
+from ..probe import K_RC_GLOBS
 from .._output import console
 from ..download_verifier import verify_download
 from ..packages import download, gh_tagged_asset
@@ -45,10 +46,7 @@ def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> 
     Args:
         glob: Expands a glob pattern into the matching paths; ``glob.glob`` when omitted.
     """
-    for pat in [
-        r"C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe",
-        r"C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe",
-    ]:
+    for pat in K_RC_GLOBS:
         hits = sorted((glob or _glob.glob)(pat))
         if hits:
             return str(Path(hits[-1]).parent)

@@ -36,12 +36,12 @@ _ICX_GLOBS = [
     r"C:/Program Files (x86)/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
     r"C:/Program Files/Intel/oneAPI/compiler/*/bin/icx-cl.exe",
 ]
-_RC_GLOBS = [
+K_RC_GLOBS = [
     r"C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe",
     r"C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe",
 ]
 # Neither the apt CUDA toolkit nor oneAPI add themselves to PATH, so these well-known install locations are checked directly.
-_NVCC_GLOBS_LINUX = [
+K_NVCC_GLOBS_LINUX = [
     "/usr/local/cuda/bin/nvcc",
     "/usr/local/cuda-*/bin/nvcc",
 ]
@@ -51,7 +51,7 @@ _ICX_GLOBS_LINUX = [
 ]
 
 
-def _first_glob(patterns: list[str]) -> str:
+def first_glob_match(patterns: list[str]) -> str:
     """Return the last (highest-sorting) match among *patterns*, or ''."""
     for pat in patterns:
         hits = sorted(glob.glob(pat))
@@ -202,9 +202,9 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
 
     # oneAPI is system-wide; reuse the active-compiler probe. See source/sushicore/provision/README.md.
     active, _ = find_sycl_compiler(cfg)
-    oneapi_bin = (_first_glob(_ICX_GLOBS) or shutil.which("icx-cl")
+    oneapi_bin = (first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl")
                   or shutil.which("icpx") or shutil.which("icx")
-                  or (_first_glob(_ICX_GLOBS_LINUX) if not win else ""))
+                  or (first_glob_match(_ICX_GLOBS_LINUX) if not win else ""))
     oneapi_ok = (active in ("icx-cl", "icpx")
                  or (bool(oneapi_bin) and binary_works(oneapi_bin)))
 
@@ -222,7 +222,7 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
                         if cuda_path else "")
         nvcc_bin = ((in_cuda_path if in_cuda_path and os.path.isfile(in_cuda_path) else "")
                     or shutil.which("nvcc")
-                    or (_first_glob(_NVCC_GLOBS_LINUX) if not win else ""))
+                    or (first_glob_match(K_NVCC_GLOBS_LINUX) if not win else ""))
         nvcc_ok = bool(nvcc_bin) and binary_works(nvcc_bin)
         detail = (f"NVIDIA CUDA toolkit (nvcc) -> {_rich_escape(nvcc_bin)}" if nvcc_ok
                   else "NVIDIA CUDA toolkit (nvcc)")
@@ -369,7 +369,7 @@ def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
         icx = cfg.expand(cfg.icx_compiler) if cfg.icx_compiler else ""
         if icx and Path(icx).is_file() and binary_works(icx):
             return ("icx-cl", icx)
-        hit = _first_glob(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
+        hit = first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
         if hit and binary_works(hit):
             return ("icx-cl", hit)
         return (None, "")
@@ -433,7 +433,7 @@ def _resolve_windows(cfg: ProvisionConfig,
     """
     values: dict[str, str] = {}
 
-    glob_of = first_glob or _first_glob
+    glob_of = first_glob or first_glob_match
     vcvars = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
     if not (vcvars and Path(vcvars).is_file()):
         vcvars = glob_of(_VS_VCVARS_GLOBS) or str((vcvars_finder or find_vcvars)() or "")
@@ -446,12 +446,12 @@ def _resolve_windows(cfg: ProvisionConfig,
     if oneapi:
         values["oneapi_root"] = oneapi
 
-    icx = _first_glob(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
+    icx = first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
     if icx:
         values["icx_compiler"] = icx
 
     # clang++ runs GNU-like, not clang-cl, so vcvars is never sourced for rc.exe.
-    rc = shutil.which("rc") or _first_glob(_RC_GLOBS)
+    rc = shutil.which("rc") or first_glob_match(K_RC_GLOBS)
     if rc:
         values["rc_exe"] = rc
 

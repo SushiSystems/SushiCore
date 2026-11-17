@@ -7,7 +7,6 @@ whose nvcc builds for every card, from NVIDIA's redistributable archives."""
 
 from __future__ import annotations
 
-import glob
 import os
 import platform as host_platform
 import shutil
@@ -15,6 +14,7 @@ import typing
 from pathlib import Path
 
 from .._output import console
+from ..probe import K_NVCC_GLOBS_LINUX, first_glob_match
 from .cuda_hardware import NvidiaHardware, query_hardware
 from .cuda_redist import RedistError, RedistIndex
 from .cuda_release import Version, format_version, parse_version
@@ -24,13 +24,6 @@ from .cuda_toolkit_installer import (
     ToolkitInstallError,
     nvcc_in,
 )
-
-# Neither the apt CUDA toolkit nor a manual install adds itself to PATH.
-K_NVCC_GLOBS_LINUX = (
-    "/usr/local/cuda/bin/nvcc",
-    "/usr/local/cuda-*/bin/nvcc",
-)
-
 
 @typing.final
 class CudaVendor:
@@ -122,7 +115,7 @@ class CudaVendor:
 
     def find_system_toolkit(self) -> Path | None:
         """Return the root of an nvcc on PATH, or under a well-known Linux prefix."""
-        nvcc = shutil.which("nvcc") or ("" if os.name == "nt" else _glob_nvcc())
+        nvcc = shutil.which("nvcc") or ("" if os.name == "nt" else first_glob_match(K_NVCC_GLOBS_LINUX))
         return Path(nvcc).resolve().parent.parent if nvcc else None
 
     def _architectures(self, version: Version) -> frozenset[str]:
@@ -135,12 +128,3 @@ class CudaVendor:
         except (RedistError, ToolkitInstallError) as error:
             console.warn(f"CUDA {format_version(version)} skipped: {error}")
             return frozenset()
-
-
-def _glob_nvcc() -> str:
-    """Return the newest nvcc found under the well-known Linux install globs."""
-    for pattern in K_NVCC_GLOBS_LINUX:
-        hits = sorted(glob.glob(pattern))
-        if hits:
-            return hits[-1]
-    return ""
