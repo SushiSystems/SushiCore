@@ -6,7 +6,6 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RW-24 | P2 | open | Dispatch on platform and package manager through the contracts | no code switches on a platform or manager name where a contract exists (Code C2) |  |  | 2026-10-19 |
 | RW-26 | P2 | open | Give the package one base error | failures raise one base error instead of a `bool`, `None` or a bare built-in, and `find_project_root` raises it in place of `SystemExit` (Code C7, Cli C8) |  |  | 2026-10-19 |
-| RW-28 | P2 | open | Merge the duplicated probe tables and helpers in `provision` | each probe table and helper exists once (Code C9) |  |  | 2026-10-19 |
 | RW-29 | P2 | open | Keep Rich behind the `Renderer` seam | `Console.console`, `diag.py`, `discovery.py` and the call sites in `provision` reach Rich only through `Renderer` (Code C10, Cli C6) |  |  | 2026-10-19 |
 | RW-30 | P2 | open | Replace the global console and carry the level through `Renderer.line` | `provision/_output.py` holds no module console and a `line` event's level comes from the call, not the icon (Code C11, Cli C3) |  |  | 2026-10-19 |
 | RW-31 | P2 | open | Shape the toolchain installers like the GPU backends | the toolchain installers share the GPU backends' contract (Code C12) |  |  | 2026-10-19 |
