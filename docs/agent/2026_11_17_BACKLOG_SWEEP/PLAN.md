@@ -1,6 +1,6 @@
 # Backlog sweep: plan
 
-**Status:** Open — waves A and D are committed on 2026-11-17; waves B and C wait for the next session
+**Status:** Open — waves A, D and E and jobs B1 to B8a and C2 are committed on 2026-11-17; B8b and B9 finish this session; C1's second half (RW-45) and C3 move to a later session by the owner's call
 
 Closes the open work entries the owner handed over on 2026-11-17, in hierarchy order. Wave A holds
 the jobs whose file sets do not meet. Wave B reshapes `provision` and the console, one seam at a
@@ -73,7 +73,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B9 | RW-35, RW-32: tests off private names, docstrings | B8 | todo |
 | C1 | RW-44 (RW-105 holds the two unpinned), RW-45: a version and digest for every download, pinned keys and commits | B1 | running |
 | C2 | RW-18: a Sushi library pinned only by a fetched library | A10 | done |
-| C3 | RW-10, RW-11: the build caches and configuration rewritten, toolchains by version | C2 | todo |
+| C3 | RW-10, RW-11: the build caches and configuration rewritten, toolchains by version | C2 | deferred |
 | D1 | RW-59: design topic BACKLOG, the stamp in `check_all`, the unverified mark | A1 | done |
 | D2 | KI-33: the frozen digests of the pre-move copies and their use in sync | A3 | done |
 | D3 | RW-89: `modified_time` on `Files`; `filtered_run` on one port | A4 | done |
