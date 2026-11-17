@@ -78,6 +78,11 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sushi_packages/` | Builds each Sushi library once through its own CLI and keeps the result under `<home>/packages`: the key, the source hash, the store, the locks, the builder and the resolver. See "Sushi libraries as packages" below |
 | `package_install.py`, `package_command.py` | `PackageInstaller` and `register_package_command`: the shared `package` command, which installs a built tree to a prefix and runs CPack |
 | `captured_run.py` | The deprecated `CapturedRun`, `capture_command` and `run_command` that `package_install` still re-exports; use `proc.CommandRunner` |
+| `deprecated_name.py` | `warn_deprecated`: the `DeprecationWarning` every restored name raises, naming its replacement and pointing at the caller |
+| `steps.py` | The deprecated module that re-exports `DetectStep`, `InstallDepsStep`, `ConfigureStep`, `UninstallStep`, `GpuStage`, `MachineActions` and `refresh_windows_path`; import each from the module named after it |
+| `packages/compat.py` | The deprecated `gh_latest_asset`, `gh_latest_asset_including_prerelease`, `gh_latest_release_asset`, `prime_sudo` and `run` that `packages` still exports; use `gh_tagged_asset` or a pinned fragment download, and `process_run.run` |
+| `gpu/adapter_builder_compat.py` | The deprecated `CommandRunner` and `SubprocessCommandRunner` of `gpu/adapter_builder.py`; use `BuildStepExecutor` and `SubprocessBuildStepExecutor` |
+| `toolchains/adaptivecpp_compat.py` | The deprecated `_confirm_timeout` and `_find_windows_llvm` of `toolchains/adaptivecpp.py`; use the licence consent step and `llvm_plans.windows.find_windows_llvm` |
 
 ## What it depends on
 

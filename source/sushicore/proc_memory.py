@@ -9,7 +9,7 @@ from __future__ import annotations
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import IO, Mapping
 
 from .proc import (K_QUIET_TAIL_LINES, K_TIMEOUT_EXIT_CODE, ConsoleLike, emit_output_line,
                    not_found_message, timed_out_message)
@@ -28,6 +28,7 @@ class RecordedCommand:
         timeout: The timeout a capture was given, or ``None``.
         quiet: Whether the command ran through ``run_quiet``.
         input_text: The text a capture wrote to the command's stdin, or ``None``.
+        stdin_given: Whether a run was given a file to read as its stdin.
     """
 
     argv: tuple[str, ...]
@@ -38,6 +39,7 @@ class RecordedCommand:
     timeout: float | None = None
     quiet: bool = False
     input_text: str | None = None
+    stdin_given: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,12 +105,14 @@ class RecordingRunner:
         return name
 
     def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
-            *, timeout: float | None = None) -> int:
+            *, timeout: float | None = None, stdin: IO[str] | None = None) -> int:
         """Record *cmd* and return the next scripted exit code; in machine mode it runs drained.
 
         A scripted timeout answers `K_TIMEOUT_EXIT_CODE`, as a run that outlives *timeout* does.
+        The record says whether a *stdin* was given; the file is not read.
         """
-        return self._answer(cmd, cwd, env, drained=self._console.is_machine(), timeout=timeout)
+        return self._answer(cmd, cwd, env, drained=self._console.is_machine(), timeout=timeout,
+                            stdin_given=stdin is not None)
 
     def run_drained(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
                     *, dry_run: bool = False, check: bool = False) -> int:
@@ -159,9 +163,10 @@ class RecordingRunner:
         return code, stdout.encode(), stderr.encode()
 
     def _answer(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
-                *, drained: bool, timeout: float | None = None) -> int:
+                *, drained: bool, timeout: float | None = None, stdin_given: bool = False) -> int:
         """Record one command, then play the script queued for it."""
-        scripted = self._play(cmd, cwd, env, drained=drained, quiet=False, timeout=timeout)
+        scripted = self._play(cmd, cwd, env, drained=drained, quiet=False, timeout=timeout,
+                              stdin_given=stdin_given)
         if scripted.missing:
             return self._missing_exit_code
         if scripted.timed_out:
@@ -172,11 +177,12 @@ class RecordingRunner:
         return scripted.exit_code
 
     def _play(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
-              *, drained: bool, quiet: bool, timeout: float | None = None) -> ScriptedRun:
+              *, drained: bool, quiet: bool, timeout: float | None = None,
+              stdin_given: bool = False) -> ScriptedRun:
         """Record *cmd*, echo it, report a scripted missing executable and return the script."""
         self._commands.append(RecordedCommand(
             tuple(cmd), cwd, dict(env) if env is not None else None, drained, quiet=quiet,
-            timeout=timeout))
+            timeout=timeout, stdin_given=stdin_given))
         self._console.command(shlex.join(cmd))
         scripted = self._scripts.pop(0) if self._scripts else ScriptedRun()
         if scripted.missing:

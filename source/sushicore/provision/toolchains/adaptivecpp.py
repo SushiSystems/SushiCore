@@ -25,6 +25,8 @@ from ..llvm_plan import LLVM_PLANS, LlvmRequest
 from ..pipeline import InstallContext
 from ..target import target_of
 from ._process import _run_quiet
+from .adaptivecpp_compat import confirm_timeout as _confirm_timeout  # noqa: F401  (deprecated)
+from .adaptivecpp_compat import find_windows_llvm as _find_windows_llvm  # noqa: F401  (deprecated)
 from .stamp import toolchains_dir
 from .toolchain import ToolchainEnv
 

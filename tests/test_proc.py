@@ -464,6 +464,27 @@ def test_a_capture_writes_its_input_text_to_the_stdin_of_the_command():
 
 
 @pytest.mark.medium
+@pytest.mark.parametrize("machine", [False, True])
+def test_a_run_gives_the_stdin_it_is_given_to_the_command(tmp_path, machine):
+    answer = tmp_path / "answer"
+    answer.write_text("four", encoding="utf-8")
+    code = "import sys; sys.exit(len(sys.stdin.read()))"
+    runner = Runner(RecordingConsole(machine=machine), "st")
+    with answer.open(encoding="utf-8") as handle:
+        assert runner.run([sys.executable, "-c", code], None, stdin=handle) == 4
+
+
+@pytest.mark.medium
+def test_a_timed_run_gives_the_stdin_it_is_given_to_the_command(tmp_path):
+    answer = tmp_path / "answer"
+    answer.write_text("four", encoding="utf-8")
+    code = "import sys; sys.exit(len(sys.stdin.read()))"
+    with answer.open(encoding="utf-8") as handle:
+        assert Runner(RecordingConsole(), "st").run(
+            [sys.executable, "-c", code], None, timeout=30, stdin=handle) == 4
+
+
+@pytest.mark.medium
 def test_a_capture_of_a_command_line_string_keeps_the_quotes_inside_it():
     line = f'"{sys.executable}" -c "print(6 * 7)"'
     status, stdout, _ = Runner(RecordingConsole(), "st").capture(line)

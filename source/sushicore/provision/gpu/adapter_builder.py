@@ -19,6 +19,7 @@ from .. import home
 from ..process_run import provision_runner
 from ..target import ITarget, target_of
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
+from .adapter_builder_compat import renamed_attribute
 
 if typing.TYPE_CHECKING:
     from .backend import GpuBackendSpec, ToolkitInstall
@@ -64,6 +65,11 @@ class SubprocessBuildStepExecutor:
              env: dict[str, str] | None) -> int:
         """Run *argv*, handing each output line to the console, and return the exit code."""
         return provision_runner(self._console).run_drained(argv, cwd, env)
+
+
+def __getattr__(name: str) -> object:
+    """Return a removed runner name as the name that replaced it, with a deprecation warning."""
+    return renamed_attribute(globals(), name)
 
 
 def _default_work_root() -> Path:

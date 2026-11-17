@@ -14,7 +14,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import IO, Mapping, Protocol
 
 K_TIMEOUT_EXIT_CODE = 124
 """The exit code a capture returns when its command outlives its timeout, as GNU `timeout` returns."""
@@ -66,11 +66,12 @@ class CommandRunner(Protocol):
         ...
 
     def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
-            *, timeout: float | None = None) -> int:
+            *, timeout: float | None = None, stdin: IO[str] | None = None) -> int:
         """Run *cmd* in *cwd* and return its exit code; in machine mode its output is re-emitted.
 
         A command still running after *timeout* seconds is stopped and the run returns
-        `K_TIMEOUT_EXIT_CODE`.
+        `K_TIMEOUT_EXIT_CODE`. The command reads *stdin*, an open file, when it is given and this
+        process's own input when it is not.
         """
         ...
 
@@ -178,22 +179,22 @@ class Runner:
         return 130
 
     def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
-            *, timeout: float | None = None) -> int:
+            *, timeout: float | None = None, stdin: IO[str] | None = None) -> int:
         """Run *cmd*, letting the child inherit this process's stdout.
 
         In machine mode the child must not reach stdout, so its output is drained and
         re-emitted. A command still running after *timeout* seconds is stopped and the run
-        returns `K_TIMEOUT_EXIT_CODE`.
+        returns `K_TIMEOUT_EXIT_CODE`. The child reads *stdin*, an open file, when it is given.
         """
         if timeout is not None:
-            return self._run_timed(cmd, cwd, env, timeout)
+            return self._run_timed(cmd, cwd, env, timeout, stdin)
         if self._console.is_machine():
-            return self.run_drained(cmd, cwd, env)
+            return self._drained(cmd, cwd, env, dry_run=False, check=False, stdin=stdin)
         resolved = list(cmd)
         resolved[0] = self.resolve_exe(cmd[0], env)
         self._console.command(subprocess.list2cmdline(resolved))
         try:
-            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env).returncode
+            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env, stdin=stdin).returncode
         except FileNotFoundError:
             self._not_found(cmd[0])
             return self._missing_exit_code
@@ -203,7 +204,7 @@ class Runner:
             return self._interrupted()
 
     def _run_timed(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
-                   timeout: float) -> int:
+                   timeout: float, stdin: IO[str] | None) -> int:
         """Run *cmd* under *timeout*; in machine mode its output is piped and re-emitted."""
         resolved = list(cmd)
         resolved[0] = self.resolve_exe(cmd[0], env)
@@ -212,13 +213,14 @@ class Runner:
         try:
             if machine:
                 done = subprocess.run(
-                    resolved, cwd=_cwd_text(cwd), env=env, timeout=timeout,
+                    resolved, cwd=_cwd_text(cwd), env=env, timeout=timeout, stdin=stdin,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     text=True, encoding="utf-8", errors="replace")
                 for line in (done.stdout or "").splitlines():
                     emit_output_line(self._console, line)
                 return done.returncode
-            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env, timeout=timeout).returncode
+            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env, timeout=timeout,
+                                  stdin=stdin).returncode
         except subprocess.TimeoutExpired:
             return K_TIMEOUT_EXIT_CODE
         except FileNotFoundError:
@@ -238,12 +240,17 @@ class Runner:
         drained pipe, the discovery child intermittently stalls and registers
         nothing, surfacing as "No tests were found".
         """
+        return self._drained(cmd, cwd, env, dry_run=dry_run, check=check, stdin=None)
+
+    def _drained(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
+                 *, dry_run: bool, check: bool, stdin: IO[str] | None) -> int:
+        """Run *cmd* as `run_drained` does, its child reading *stdin* when it is given."""
         resolved = self._begin(cmd, env, dry_run)
         if resolved is None:
             return 0
         try:
             process = subprocess.Popen(
-                resolved, cwd=_cwd_text(cwd), env=env,
+                resolved, cwd=_cwd_text(cwd), env=env, stdin=stdin,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace", bufsize=1)
         except FileNotFoundError:

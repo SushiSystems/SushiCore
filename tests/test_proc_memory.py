@@ -112,3 +112,10 @@ def test_a_timed_run_records_its_timeout_and_a_scripted_timeout_answers_the_time
     runner.script_timeout()
     assert runner.run(["tool"], Path("."), timeout=2.0) == K_TIMEOUT_EXIT_CODE
     assert runner.commands[0].timeout == 2.0
+
+
+def test_a_run_records_whether_it_was_given_a_stdin(runner, tmp_path):
+    with (tmp_path / "answer").open("w+") as handle:
+        runner.run(["sudo", "-v"], None, stdin=handle)
+    runner.run(["sudo", "-v"], None)
+    assert [command.stdin_given for command in runner.commands] == [True, False]
