@@ -13,6 +13,7 @@ from typing import Callable, Protocol
 from ..cmake_cache import cached_value
 from ..proc import CommandRunner
 from . import home
+from .captured_run import CapturedRun, capture_command, run_command  # noqa: F401  (deprecated re-exports)
 
 #: The file that marks a prefix as one this command staged, so a later run may empty it.
 K_STAGE_MARKER = ".sushi_package_stage"

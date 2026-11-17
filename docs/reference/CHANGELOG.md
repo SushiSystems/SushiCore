@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — provision: Restored CapturedRun, capture_command and run_command in package_install as deprecated helpers over proc.Runner; they go in 0.17.0 (RW-117, `captured_run.py`).
 - 2026-11-17 — errors: Derived every package error from SushiCoreError, raised named errors for bare built-ins and failure returns, and made find_project_root raise ProjectRootNotFoundError (RW-26, `20e3898`, `acb27b9`).
 - 2026-11-17 — provision: Carried the console from ModuleProvision; bind_console is deprecated for ModuleProvision(console=...), and _output and bound_memory_console are removed (RW-30, `dacda98`).
 - 2026-11-17 — provision: Put intel-llvm, AdaptiveCpp and oneAPI behind one Toolchain contract and registry that shares ToolkitFinder with the GPU backends (RW-31, `af87062`).

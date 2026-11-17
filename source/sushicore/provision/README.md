@@ -77,6 +77,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `outcome.py` | `Outcome`, the way a command ended, and `finish`, which sends its one `result` event |
 | `sushi_packages/` | Builds each Sushi library once through its own CLI and keeps the result under `<home>/packages`: the key, the source hash, the store, the locks, the builder and the resolver. See "Sushi libraries as packages" below |
 | `package_install.py`, `package_command.py` | `PackageInstaller` and `register_package_command`: the shared `package` command, which installs a built tree to a prefix and runs CPack |
+| `captured_run.py` | The deprecated `CapturedRun`, `capture_command` and `run_command` that `package_install` still re-exports; use `proc.CommandRunner` |
 
 ## What it depends on
 
