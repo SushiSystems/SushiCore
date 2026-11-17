@@ -9,16 +9,17 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from sushicore.proc import CommandRunner, did_not_run
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
 from sushicore.provision.download_verifier import unpinned_downloads
 from sushicore.provision.fragments import Dependency, IDependencySource
+from sushicore.provision.process_run import provision_runner
 from sushicore.provision.selection import required_groups
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
@@ -26,14 +27,13 @@ from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 _VERSION_TIMEOUT = 15
 
 
-def _first_version_line(exe: str) -> str:
+def _first_version_line(exe: str, runner: CommandRunner | None = None) -> str:
     """Return the first line ``<exe> --version`` prints, or '' when it cannot run."""
-    try:
-        result = subprocess.run([exe, "--version"], capture_output=True, text=True,
-                                 timeout=_VERSION_TIMEOUT)
-    except (OSError, ValueError, subprocess.SubprocessError):
+    code, out, err = (runner or provision_runner()).capture([exe, "--version"],
+                                                            timeout=_VERSION_TIMEOUT)
+    if did_not_run(exe, code, err):
         return ""
-    lines = (result.stdout or result.stderr).strip().splitlines()
+    lines = (out or err).strip().splitlines()
     return lines[0].strip() if lines else ""
 
 
@@ -57,21 +57,29 @@ def python_check(minimum: tuple[int, int] = (3, 10), version: tuple[int, int] | 
 
 
 def tool_check(name: str, exe: str, group: str = "build", required: bool = True,
-               fix: str = "", works: Callable[[str], bool] | None = None) -> FunctionCheck:
+               fix: str = "", works: Callable[[str], bool] | None = None,
+               runner: CommandRunner | None = None) -> FunctionCheck:
     """Return a check passing when ``exe`` runs, its detail from ``<exe> --version``.
 
     Args:
-        works: Asked whether *exe* runs; ``probe.binary_works`` when ``None``.
+        works: Asked whether *exe* runs; ``probe.binary_works`` through *runner* when ``None``.
+        runner: Runs the version probe; the provision runner when ``None``.
     """
     def fn() -> CheckResult:
-        if not (works or probe.binary_works)(exe):
+        runs = works or (lambda name: probe.binary_works(name, runner))
+        if not runs(exe):
             return CheckResult(State.FAIL, f"'{exe}' not found on PATH", fix)
-        return CheckResult(State.OK, _first_version_line(exe) or exe)
+        return CheckResult(State.OK, _first_version_line(exe, runner) or exe)
     return FunctionCheck(name, group, required, fn)
 
 
-def compiler_check(cfg: ProvisionConfig, fix: str = "") -> FunctionCheck:
-    """Return a check reporting every C++ compiler found, MSVC/Clang/GCC each in turn."""
+def compiler_check(cfg: ProvisionConfig, fix: str = "",
+                   runner: CommandRunner | None = None) -> FunctionCheck:
+    """Return a check reporting every C++ compiler found, MSVC/Clang/GCC each in turn.
+
+    Args:
+        runner: Runs the version probes; the provision runner when ``None``.
+    """
     def fn() -> CheckResult:
         compilers: list[tuple[str, str]] = []
         if cfg.platform == "windows":
@@ -82,7 +90,7 @@ def compiler_check(cfg: ProvisionConfig, fix: str = "") -> FunctionCheck:
             if found:
                 compilers.append(("MSVC", info))
         for label, exe in (("Clang", "clang++"), ("GCC", "g++")):
-            line = _first_version_line(exe)
+            line = _first_version_line(exe, runner)
             if line:
                 compilers.append((label, line))
         if compilers:
@@ -126,33 +134,25 @@ def path_check(name: str, path: Path, group: str, required: bool, fix: str,
     return FunctionCheck(name, group, required, fn)
 
 
-def _command_succeeds(command: Sequence[str]) -> bool:
-    """Return whether *command* exits zero within the version timeout."""
-    return subprocess.run(command, capture_output=True,
-                          timeout=_VERSION_TIMEOUT).returncode == 0
-
-
 def fragment_check(source: IDependencySource, platform: str, gpu: bool, fix: str,
                    installed: Callable[[Dependency], bool] | None = None,
-                   succeeds: Callable[[Sequence[str]], bool] | None = None) -> FunctionCheck:
+                   runner: CommandRunner | None = None) -> FunctionCheck:
     """Return a check reporting every selected dependency whose ``check_cmd`` fails.
 
     Args:
         installed: Asked about a dependency whose ``check_cmd`` failed; a true
             answer passes it, as the install inventory does.
-        succeeds: Asked to run a ``check_cmd``; true when it exits zero. It may raise what
-            ``subprocess.run`` raises. ``_command_succeeds`` when ``None``.
+        runner: Runs each ``check_cmd``, which passes when it exits zero within the version
+            timeout; the provision runner when ``None``.
     """
     def fn() -> CheckResult:
+        run = runner or provision_runner()
         failing: list[str] = []
         required_failed = False
         for dep in source.selected(platform, gpu):
             if not dep.check_cmd:
                 continue
-            try:
-                ok = (succeeds or _command_succeeds)(dep.check_cmd)
-            except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
-                ok = False
+            ok = run.capture(list(dep.check_cmd), timeout=_VERSION_TIMEOUT)[0] == 0
             if not ok and installed is not None:
                 ok = installed(dep)
             if not ok:
@@ -248,16 +248,24 @@ def digest_check(source: IDependencySource, platform: str) -> FunctionCheck:
     return FunctionCheck("download digests", "build", False, fn)
 
 
-def standard_checks(cfg: ProvisionConfig, fix: str) -> list[Check]:
-    """Return the checks every module CLI registers: python, cmake, ctest, ninja, compiler, git."""
+def standard_checks(cfg: ProvisionConfig, fix: str,
+                    runner: CommandRunner | None = None) -> list[Check]:
+    """Return the checks every module CLI registers: python, cmake, ctest, ninja, compiler, git.
+
+    Args:
+        runner: Runs every version probe; the provision runner when ``None``.
+    """
     checks = [
         python_check(),
-        tool_check("cmake", cfg.cmake_exe or "cmake", group="build", required=True, fix=fix),
-        tool_check("ctest", cfg.ctest_exe or "ctest", group="test", required=True, fix=fix),
+        tool_check("cmake", cfg.cmake_exe or "cmake", group="build", required=True, fix=fix,
+                   runner=runner),
+        tool_check("ctest", cfg.ctest_exe or "ctest", group="test", required=True, fix=fix,
+                   runner=runner),
     ]
     if cfg.ninja_exe or shutil.which("ninja"):
         ninja_exe = cfg.ninja_exe or "ninja"
-        checks.append(tool_check("ninja", ninja_exe, group="build", required=True, fix=fix))
-    checks.append(compiler_check(cfg, fix=fix))
-    checks.append(tool_check("git", "git", group="build", required=False))
+        checks.append(tool_check("ninja", ninja_exe, group="build", required=True, fix=fix,
+                                runner=runner))
+    checks.append(compiler_check(cfg, fix=fix, runner=runner))
+    checks.append(tool_check("git", "git", group="build", required=False, runner=runner))
     return checks

@@ -10,10 +10,9 @@ is what the reader refuses and what it declines to guess.
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.deps_fragment import (
     Dependency,
     Status,
@@ -23,7 +22,7 @@ from sushicore.deps_fragment import (
     read,
     status,
 )
-
+from sushicore.proc_memory import RecordingRunner
 
 
 def _fragment(tmp_path, text: str):
@@ -114,31 +113,31 @@ def test_a_package_nobody_can_check_is_unknown():
     assert status(dep, "linux") is Status.UNKNOWN
 
 
-@pytest.mark.medium
+@pytest.mark.small
 def test_a_check_command_that_passes_settles_it():
     """A declared check is the one thing this module can decide by itself."""
-    dep = Dependency(name="python", check_cmd=[sys.executable, "--version"],
-                     linux_apt=["python3"])
+    dep = Dependency(name="python", check_cmd=["python", "--version"], linux_apt=["python3"])
+    runner = RecordingRunner(RecordingConsole()).script(0)
 
-    assert status(dep, "linux") is Status.SATISFIED
+    assert status(dep, "linux", runner) is Status.SATISFIED
+    assert [c.argv for c in runner.commands] == [("python", "--version")]
 
 
-@pytest.mark.medium
+@pytest.mark.small
 def test_a_check_command_that_fails_leaves_it_unknown():
     """A failed check says the check failed, not that the package is absent."""
-    dep = Dependency(name="nope", check_cmd=[sys.executable, "-c", "raise SystemExit(3)"],
-                     linux_apt=["nope"])
+    dep = Dependency(name="nope", check_cmd=["nope", "--check"], linux_apt=["nope"])
 
-    assert status(dep, "linux") is Status.UNKNOWN
+    assert status(dep, "linux", RecordingRunner(RecordingConsole()).script(3)) is Status.UNKNOWN
 
 
-@pytest.mark.medium
+@pytest.mark.small
 def test_a_check_command_that_cannot_run_leaves_it_unknown():
     """A missing checker is not evidence about the dependency."""
     dep = Dependency(name="nope", check_cmd=["definitely-not-a-program-3f1c"],
                      linux_apt=["nope"])
 
-    assert status(dep, "linux") is Status.UNKNOWN
+    assert status(dep, "linux", RecordingRunner(RecordingConsole()).script_missing()) is Status.UNKNOWN
 
 
 @pytest.mark.small

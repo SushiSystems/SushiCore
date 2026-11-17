@@ -14,11 +14,12 @@ from __future__ import annotations
 import datetime
 import posixpath
 import re
-import subprocess
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 from ..citations import K_EXTENSIONS, Rewrite, files_citing, repair_citations
+from ..proc import CommandRunner
+from ..quiet_runner import quiet_runner
 from .errors import BacklogError
 from .model import (
     K_EXTERNAL,
@@ -169,10 +170,11 @@ def area_key(section: str) -> str:
 class BacklogImporter:
     """Writes the store from the retired files of one repository and deletes them."""
 
-    def __init__(self, store: BacklogStore) -> None:
-        """Keeps the store the import writes."""
+    def __init__(self, store: BacklogStore, runner: CommandRunner | None = None) -> None:
+        """Keeps the store the import writes and the runner that asks git; the real one when None."""
         self.store = store
         self.root = store.root
+        self._runner = runner if runner is not None else quiet_runner()
 
     def run(self) -> ImportResult:
         """Imports both files, writes the store and the index, and rewrites their citations.
@@ -193,7 +195,7 @@ class BacklogImporter:
             if not path.is_file():
                 continue
             counter, legacy, next_ids = read_legacy(path)
-            dates = _blame_dates(path)
+            dates = _blame_dates(path, self._runner)
             pins += next_ids
             numbers = set()
             for item in legacy:
@@ -226,8 +228,9 @@ class BacklogImporter:
             K_LEGACY_ISSUES.as_posix(): index,
             K_LEGACY_ISSUES.relative_to("docs").as_posix(): index.removeprefix("docs/"),
         }
-        rewrites = repair_citations(self.root, {}, moves, apply=True, suffixes=K_PAGE_SUFFIXES)
-        left = files_citing(self.root, list(moves), K_EXTENSIONS - K_PAGE_SUFFIXES)
+        rewrites = repair_citations(self.root, {}, moves, apply=True, suffixes=K_PAGE_SUFFIXES,
+                                    runner=self._runner)
+        left = files_citing(self.root, list(moves), K_EXTENSIONS - K_PAGE_SUFFIXES, self._runner)
         return ImportResult(
             counts[K_WORK_PREFIX], counts[K_ISSUE_PREFIX], details, kept_pins, names,
             tuple(rewrite for rewrite in rewrites if rewrite.old in moves), tuple(left),
@@ -315,10 +318,12 @@ def entry_path(store: BacklogStore, item: LegacyEntry) -> Path:
 class BacklogRenumberer:
     """Gives each entry that shares an ID with a different entry the next free number."""
 
-    def __init__(self, store: BacklogStore, target: str = "main") -> None:
-        """Keeps the store and the branch whose entries keep their IDs."""
+    def __init__(self, store: BacklogStore, target: str = "main",
+                 runner: CommandRunner | None = None) -> None:
+        """Keeps the store, the branch whose entries keep their IDs and the runner that asks git."""
         self.store = store
         self.target = target
+        self._runner = runner if runner is not None else quiet_runner()
 
     def run(self) -> RenumberResult:
         """Reads every area file across merge conflicts, renumbers, and writes the store back.
@@ -366,7 +371,7 @@ class BacklogRenumberer:
         found: dict[str, list[str]] = {}
         for name in self.store.config().areas:
             relative = self.store.relative(self.store.area_path(name))
-            text = _git_show(self.store.root, f"{self.target}:{relative}")
+            text = _git_show(self.store.root, f"{self.target}:{relative}", self._runner)
             if text:
                 parsed, _ = parse_area(self.store.area_path(name), text, tolerate_conflicts=True)
                 found.update({entry.ident: entry.cells() for entry in parsed.entries()})
@@ -433,21 +438,21 @@ def _rebased_links(line: str, origin: str) -> str:
     return K_LINK.sub(rebase, line)
 
 
-def _blame_dates(path: Path) -> dict[int, datetime.date]:
+def _blame_dates(path: Path, runner: CommandRunner) -> dict[int, datetime.date]:
     """Returns the date each line of a file was written, from git; empty outside a repository."""
     try:
-        completed = subprocess.run(
+        code, stdout, _ = runner.capture(
             ["git", "-C", str(path.parent), "blame", "--line-porcelain", "--", path.name],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            encoding="utf-8",
         )
     except OSError:
         return {}
-    if completed.returncode != 0:
+    if code != 0:
         return {}
     dates: dict[int, datetime.date] = {}
     line = 0
     stamp = 0
-    for text in completed.stdout.splitlines():
+    for text in stdout.splitlines():
         parts = text.split(" ")
         if len(parts) >= 3 and len(parts[0]) == 40 and parts[1].isdigit():
             line = int(parts[2])
@@ -458,13 +463,10 @@ def _blame_dates(path: Path) -> dict[int, datetime.date]:
     return dates
 
 
-def _git_show(root: Path, spec: str) -> str:
+def _git_show(root: Path, spec: str, runner: CommandRunner) -> str:
     """Returns a file of another revision, or an empty string when git cannot show it."""
     try:
-        completed = subprocess.run(
-            ["git", "-C", str(root), "show", spec],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-        )
+        code, stdout, _ = runner.capture(["git", "-C", str(root), "show", spec], encoding="utf-8")
     except OSError:
         return ""
-    return completed.stdout if completed.returncode == 0 else ""
+    return stdout if code == 0 else ""

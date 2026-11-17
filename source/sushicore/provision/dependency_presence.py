@@ -6,25 +6,24 @@
 
 from __future__ import annotations
 
-import subprocess
 from typing import Callable
 
+from ..proc import CommandRunner
 from .fragments import Dependency
 from .packages import IPackageManager
+from .process_run import provision_runner
 
 
-def check_cmd_ok(cmd: list[str]) -> bool:
-    """Return True if *cmd* runs and exits 0."""
-    try:
-        return subprocess.run(cmd, capture_output=True).returncode == 0
-    except (OSError, FileNotFoundError):
-        return False
+def check_cmd_ok(cmd: list[str], runner: CommandRunner | None = None) -> bool:
+    """Return True if *cmd* runs through *runner* (the provision runner when ``None``) and exits 0."""
+    return (runner or provision_runner()).capture(cmd)[0] == 0
 
 
 def dep_installed(dep: Dependency, mgr: IPackageManager | None, platform: str,
-                  vcpkg: IPackageManager | None = None) -> bool:
-    """Return whether *dep* is already installed on this platform."""
-    if dep.check_cmd and check_cmd_ok(dep.check_cmd):
+                  vcpkg: IPackageManager | None = None,
+                  runner: CommandRunner | None = None) -> bool:
+    """Return whether *dep* is already installed on this platform; *runner* runs its check."""
+    if dep.check_cmd and check_cmd_ok(dep.check_cmd, runner):
         return True
     return manager_holds(dep, mgr, platform, vcpkg)
 

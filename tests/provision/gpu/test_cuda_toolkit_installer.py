@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import io
-import subprocess
 import tarfile
-import types
 import zipfile
 from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.gpu.cuda_release import RedistArchive, RedistRelease
 from sushicore.provision.gpu.cuda_toolkit_installer import (
     RedistToolkitInstaller,
@@ -179,19 +179,19 @@ def test_probe_unpacks_only_the_compiler_and_cleans_up(tmp_path, recording_conso
 @pytest.mark.small
 def test_list_gpu_architectures_reads_the_compute_lines():
     """Check that ``compute_89`` becomes ``89`` and other lines are ignored."""
-    def run(*args, **kwargs):
-        """Answer the output of ``nvcc --list-gpu-arch``."""
-        return types.SimpleNamespace(stdout="compute_75\ncompute_89\nwarning: x\n")
+    runner = RecordingRunner(RecordingConsole()).script(
+        0, ("compute_75", "compute_89", "warning: x"))
 
-    assert list_gpu_architectures(Path("nvcc"), run=run) == frozenset({"75", "89"})
+    assert list_gpu_architectures(Path("nvcc"), runner=runner) == frozenset({"75", "89"})
+    assert runner.commands[0].argv == ("nvcc", "--list-gpu-arch")
 
 
 @pytest.mark.small
-def test_list_gpu_architectures_of_a_broken_compiler_raises():
-    """Check that an nvcc that does not run is a ToolkitInstallError."""
-    def run(*args, **kwargs):
-        """Fail as a missing binary does."""
-        raise subprocess.CalledProcessError(1, "nvcc")
-
+@pytest.mark.parametrize("runner", [
+    RecordingRunner(RecordingConsole()).script_missing(),
+    RecordingRunner(RecordingConsole()).script(1),
+], ids=["missing", "exit-one"])
+def test_list_gpu_architectures_of_a_broken_compiler_raises(runner):
+    """Check that an nvcc that does not start, or exits non-zero, is a ToolkitInstallError."""
     with pytest.raises(ToolkitInstallError):
-        list_gpu_architectures(Path("nvcc"), run=run)
+        list_gpu_architectures(Path("nvcc"), runner=runner)

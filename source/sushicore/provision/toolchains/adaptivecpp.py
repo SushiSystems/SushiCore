@@ -9,19 +9,19 @@ from __future__ import annotations
 import glob as _glob
 import os
 import shutil
-import subprocess
 import tempfile
 import typing
 from pathlib import Path
 from typing import Callable, MutableMapping, Sequence
 
 from sushicore.errors import DigestMismatchError
+from sushicore.proc import CommandRunner
 
 from .. import home
 from .._output import console
 from ..download_verifier import verify_download
 from ..packages import download, gh_tagged_asset
-from ..process_run import run
+from ..process_run import provision_runner, run
 from ._process import _run_quiet
 from .stamp import toolchains_dir
 
@@ -79,16 +79,19 @@ def _find_windows_llvm(bases: Sequence[Path] | None = None) -> tuple[str, str] |
     return None
 
 
+class _LlvmInstallerError(RuntimeError):
+    """The elevated LLVM installer ended with a non-zero exit code."""
+
+
 def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None = None,
                          fetch: Callable[[str, Path], None] | None = None,
-                         launch: Callable[..., subprocess.CompletedProcess] | None = None,
-                         ) -> tuple[str, str] | None:
+                         runner: CommandRunner | None = None) -> tuple[str, str] | None:
     """Download the official clang+llvm Windows tarball into the tools tree.
 
     Args:
         resolve_asset: Maps a repository, a tag and an asset name to the asset URL.
         fetch: Downloads a URL into a file; the download transport.
-        launch: Runs the installer command; takes the command and a ``check`` keyword.
+        runner: Runs the installer command; the provision runner when ``None``.
 
     Returns:
         ``(LLVM_DIR, clang_prefix)`` for the vendored install, or None on failure.
@@ -117,7 +120,10 @@ def _vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None
                 f"Start-Process -FilePath '{archive}' "
                 f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
             )
-            (launch or subprocess.run)(["powershell", "-NoProfile", "-Command", ps_cmd], check=True)
+            code = (runner or provision_runner()).run_drained(
+                ["powershell", "-NoProfile", "-Command", ps_cmd], None)
+            if code != 0:
+                raise _LlvmInstallerError(f"the LLVM installer exited with {code}")
         except DigestMismatchError:
             raise
         except Exception as exc:

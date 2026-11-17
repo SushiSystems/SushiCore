@@ -85,3 +85,30 @@ def test_the_runner_records_the_timeout_a_capture_was_given(runner):
 def test_a_scripted_timeout_answers_even_a_capture_given_no_timeout(runner):
     runner.script_timeout()
     assert runner.capture(["git", "fetch"])[0] == K_TIMEOUT_EXIT_CODE
+
+
+def test_a_capture_records_the_input_text_it_was_given(runner):
+    runner.capture(["git", "check-ignore"], input_text="a\0")
+    assert runner.commands[0].input_text == "a\0"
+
+
+def test_a_capture_of_a_command_line_string_records_it_as_one_word(runner):
+    runner.capture('cmd /c call "x.bat" && set')
+    assert runner.commands[0].argv == ('cmd /c call "x.bat" && set',)
+
+
+def test_a_capture_of_a_missing_command_line_string_names_its_first_word(runner):
+    runner.script_missing()
+    _, _, stderr = runner.capture('cmd /c call "x.bat"')
+    assert "'cmd'" in stderr
+
+
+def test_a_byte_capture_returns_the_scripted_lines_as_bytes(runner):
+    runner.script(0, ("one", "two"))
+    assert runner.capture_bytes(["git", "ls-files"]) == (0, b"one\ntwo\n", b"")
+
+
+def test_a_timed_run_records_its_timeout_and_a_scripted_timeout_answers_the_timeout_exit_code(runner):
+    runner.script_timeout()
+    assert runner.run(["tool"], Path("."), timeout=2.0) == K_TIMEOUT_EXIT_CODE
+    assert runner.commands[0].timeout == 2.0

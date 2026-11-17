@@ -10,13 +10,14 @@ import glob
 import logging
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Sequence
 
+from sushicore.proc import CommandRunner, did_not_run
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
+from sushicore.provision.process_run import provision_runner
 
 _log = logging.getLogger(__name__)
 
@@ -68,13 +69,12 @@ def _first_existing(paths: list[str]) -> str:
 
 
 def _vcvars_from_vswhere(program_files: str | None = None,
-                         run: Callable[..., subprocess.CompletedProcess] | None = None
-                         ) -> Path | None:
+                         runner: CommandRunner | None = None) -> Path | None:
     """Return the vcvars64.bat of the latest VS install vswhere reports, or None.
 
     Args:
         program_files: The folder holding ``Microsoft Visual Studio``; the environment's when ``None``.
-        run: Runs vswhere as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+        runner: Runs vswhere; the provision runner when ``None``.
     """
     program_files = program_files or os.environ.get("ProgramFiles(x86)") or os.environ.get(
         "ProgramFiles", r"C:\Program Files")
@@ -84,23 +84,14 @@ def _vcvars_from_vswhere(program_files: str | None = None,
     cmd = [str(vswhere), "-latest", "-prerelease", "-products", "*",
            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
            "-property", "installationPath"]
-    try:
-        result = (run or subprocess.run)(cmd, capture_output=True, text=True, errors="replace",
-                                         timeout=30)
-    except (OSError, subprocess.SubprocessError) as error:
-        _log.warning(
-            "vswhere did not run (%s: %s); no Visual Studio install is reported",
-            type(error).__name__,
-            error,
-        )
+    code, out, err = (runner or provision_runner()).capture(cmd, timeout=30)
+    if did_not_run(cmd[0], code, err):
+        _log.warning("vswhere did not run (%s); no Visual Studio install is reported", err)
         return None
-    if result.returncode != 0:
-        _log.warning(
-            "vswhere exited with status %d; no Visual Studio install is reported",
-            result.returncode,
-        )
+    if code != 0:
+        _log.warning("vswhere exited with status %d; no Visual Studio install is reported", code)
         return None
-    for line in result.stdout.splitlines():
+    for line in out.splitlines():
         candidate = Path(line.strip()) / _VCVARS_REL
         if line.strip() and candidate.is_file():
             return candidate
@@ -314,71 +305,58 @@ def classify_display_adapters(adapters: str) -> str:
     return min(ranked)[2] if ranked else "none"
 
 
-def _linux_display_adapters(run: Callable[..., subprocess.CompletedProcess] | None = None) -> str:
+def _linux_display_adapters(runner: CommandRunner | None = None) -> str:
     """Return the lower-case display-controller lines ``lspci`` reports, or ''.
 
     Args:
-        run: Runs ``lspci`` as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+        runner: Runs ``lspci``; the provision runner when ``None``.
     """
-    try:
-        out = (run or subprocess.run)(["lspci"], capture_output=True, text=True,
-                                      timeout=10).stdout.lower()
-    except (OSError, subprocess.SubprocessError) as error:
-        _log.warning(
-            "lspci did not run (%s: %s); no display adapter is reported",
-            type(error).__name__,
-            error,
-        )
+    code, out, err = (runner or provision_runner()).capture(["lspci"], timeout=10)
+    if did_not_run("lspci", code, err):
+        _log.warning("lspci did not run (%s); no display adapter is reported", err)
         return ""
     return "\n".join(
-        ln for ln in out.splitlines()
+        ln for ln in out.lower().splitlines()
         if "vga compatible controller" in ln or "3d controller" in ln
         or "display controller" in ln
     )
 
 
-def _windows_display_adapters(run: Callable[..., subprocess.CompletedProcess] | None = None) -> str:
+def _windows_display_adapters(runner: CommandRunner | None = None) -> str:
     """Return the lower-case names of the video controllers Windows reports, or ''.
 
     Args:
-        run: Runs PowerShell as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+        runner: Runs PowerShell; the provision runner when ``None``.
     """
     cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
            "Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name }"]
-    try:
-        return (run or subprocess.run)(cmd, capture_output=True, text=True,
-                                       timeout=30).stdout.lower()
-    except (OSError, subprocess.SubprocessError) as error:
+    code, out, err = (runner or provision_runner()).capture(cmd, timeout=30)
+    if did_not_run(cmd[0], code, err):
         _log.warning(
-            "the Win32_VideoController query did not run (%s: %s); no display adapter is reported",
-            type(error).__name__,
-            error,
-        )
+            "the Win32_VideoController query did not run (%s); no display adapter is reported",
+            err)
         return ""
+    return out.lower()
 
 
-def binary_works(cmd: str, run: Callable[..., subprocess.CompletedProcess] | None = None) -> bool:
+def binary_works(cmd: str, runner: CommandRunner | None = None) -> bool:
     """Return True only if *cmd* is on PATH (or an absolute path) and runs cleanly.
 
     Tries --version first; falls back to -version for tools that use that flag.
     A missing binary, a crash, or a non-zero exit all return False.
 
     Args:
-        run: Runs the command as ``subprocess.run`` does; ``subprocess.run`` when ``None``.
+        runner: Runs the command; the provision runner when ``None``.
     """
-    start = run or subprocess.run
-    try:
-        if start([cmd, "--version"], capture_output=True, timeout=15).returncode == 0:
+    run = runner or provision_runner()
+    for flag in ("--version", "-version"):
+        code, _out, err = run.capture([cmd, flag], timeout=15)
+        if did_not_run(cmd, code, err):
+            _log.debug("%s did not run (%s); it is reported as not working", cmd, err)
+            return False
+        if code == 0:
             return True
-        return start([cmd, "-version"], capture_output=True, timeout=15).returncode == 0
-    except (OSError, subprocess.SubprocessError) as error:
-        _log.debug(
-            "%s did not run (%s: %s); it is reported as not working",
-            cmd,
-            type(error).__name__,
-            error,
-        )
-        return False
+    return False
 
 
 def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:

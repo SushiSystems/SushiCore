@@ -6,10 +6,8 @@
 
 import json
 import os
-import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -19,6 +17,7 @@ from sushicore.build_env import (CALLER_TEMP_VARS, RUNTIME_DEVICE_VARS, StackBui
                                  without_device_selection, write_cache)
 from sushicore.config_base import ToolConfig
 from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.profile import ModuleProfile
 
 
@@ -32,16 +31,9 @@ class _SiblingConfig(ToolConfig):
 K_CONFIG = _SiblingConfig(platform="windows", vs_vcvars="C:/VS/vcvars64.bat", core_dir="D:/core")
 
 
-def _fake_run(monkeypatch, code, stdout):
-    """Replace ``subprocess.run`` with a function that records the script and answers *code*."""
-    seen = []
-
-    def _run(script, **kw):
-        seen.append(script)
-        return SimpleNamespace(returncode=code, stdout=stdout)
-
-    monkeypatch.setattr(subprocess, "run", _run)
-    return seen
+def _runner(code, stdout):
+    """Return a runner that answers the snapshot command with *code* and the lines of *stdout*."""
+    return RecordingRunner(RecordingConsole()).script(code, tuple(stdout.splitlines()))
 
 
 @pytest.mark.small
@@ -112,32 +104,31 @@ def test_a_callers_device_choice_survives_the_merge_with_a_cached_snapshot():
 
 
 @pytest.mark.small
-def test_snapshot_vcvars_names_the_path_and_drops_device_selection(monkeypatch):
-    seen = _fake_run(monkeypatch, 0, "PATH=C:/msvc\nCUDA_VISIBLE_DEVICES=0\n")
+def test_snapshot_vcvars_names_the_path_and_drops_device_selection():
+    runner = _runner(0, "PATH=C:/msvc\nCUDA_VISIBLE_DEVICES=0\n")
     console = RecordingConsole()
     vcvars = Path("C:/VS/vcvars64.bat")
-    assert snapshot_vcvars(vcvars, console) == {"PATH": "C:/msvc"}
-    assert seen == [f'cmd /c call "{vcvars}" >nul && set']
+    assert snapshot_vcvars(vcvars, console, runner) == {"PATH": "C:/msvc"}
+    assert [c.argv for c in runner.commands] == [(f'cmd /c call "{vcvars}" >nul && set',)]
     assert console.texts("info") == [f"Loading Visual Studio environment from {vcvars}"]
 
 
 @pytest.mark.small
-def test_snapshot_vcvars_warns_and_returns_none_on_failure(monkeypatch):
-    _fake_run(monkeypatch, 1, "")
+def test_snapshot_vcvars_warns_and_returns_none_on_failure():
     console = RecordingConsole()
-    assert snapshot_vcvars(Path("C:/VS/vcvars64.bat"), console) is None
+    assert snapshot_vcvars(Path("C:/VS/vcvars64.bat"), console, _runner(1, "")) is None
     assert console.texts("warn") == ["vcvars64.bat returned non-zero; using the current env."]
 
 
 @pytest.mark.medium
-def test_snapshot_windows_keeps_its_own_command_and_messages(monkeypatch, tmp_path):
+def test_snapshot_windows_keeps_its_own_command_and_messages(tmp_path):
     vcvars = tmp_path / "vcvars64.bat"
     vcvars.write_text("")
-    seen = _fake_run(monkeypatch, 0, "PATH=C:/msvc\n")
+    runner = _runner(0, "PATH=C:/msvc\n")
     console = RecordingConsole()
     cfg = ToolConfig(vs_vcvars=str(vcvars))
-    assert snapshot_windows(cfg, console) == {"PATH": "C:/msvc"}
-    assert seen == ['cmd /c call "' + str(vcvars) + '" && set']
+    assert snapshot_windows(cfg, console, runner) == {"PATH": "C:/msvc"}
+    assert [c.argv for c in runner.commands] == [('cmd /c call "' + str(vcvars) + '" && set',)]
     assert console.texts("info") == ["Loading Visual Studio environment (vcvars64)..."]
 
 

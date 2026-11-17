@@ -6,10 +6,13 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 import pytest
 
+from sushicore.provision import bind_console
 from sushicore.provision.sushi_packages.build_tree import BuildTree
 from sushicore.provision.sushi_packages.compiler_check import CompilerCheck
 from sushicore.provision.sushi_packages.lines_memory import RecordedLines
@@ -17,6 +20,7 @@ from sushicore.provision.sushi_packages.package_builder import (
     BuildRequest,
     CliPackageBuilder,
     MemoryRun,
+    run_process,
 )
 from sushicore.provision.sushi_packages.package_environment import K_COMPILER, PackageEnvironment
 from sushicore.provision.sushi_packages.package_error import PackageError
@@ -119,3 +123,9 @@ def test_the_compiler_is_checked_before_the_install(tmp_path):
     with pytest.raises(PackageError, match="identity"):
         _builder(run).build(_request(tmp_path))
     assert [call[0][1] for call in run.calls] == ["build"]
+
+
+def test_run_process_runs_a_command_with_no_provision_console_bound(tmp_path):
+    """Check that the default runner of run_process needs no console bound to provision."""
+    bind_console(None)
+    assert run_process([sys.executable, "-c", "pass"], tmp_path, os.environ) == 0

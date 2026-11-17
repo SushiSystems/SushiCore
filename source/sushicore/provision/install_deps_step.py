@@ -298,7 +298,7 @@ class InstallDepsStep(Step):
             "(C++ workloads) — this may take 10–20 minutes.",
             spinner="bouncingBar",
         ):
-            rc = self._actions.run_command(vs_cmd).returncode
+            rc = self._actions.run_command(vs_cmd)
         if rc != 0:
             self._console.warn("Visual Studio Build Tools install failed or was cancelled.")
             return False

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 import urllib.request
 import zipfile
@@ -17,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, MutableMapping
 
 from sushicore.errors import ConfigError, DigestMismatchError
+from sushicore.proc import CommandRunner
 
 from .. import home
 from .._output import console
@@ -24,6 +24,7 @@ from sushicore.deps_fragment import Download
 
 from ..download_verifier import pinned_download, verify_download
 from ..probe import binary_works
+from ..process_run import provision_runner
 from ..system import USER_AGENT
 from .base import IPackageManager, refresh_windows_path
 
@@ -248,14 +249,14 @@ def _install_doxygen_direct(*, pin: Callable[[str], Download] | None = None,
 
 def _install_git_direct(*, pin: Callable[[str], Download] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
-                        launch: Callable[..., subprocess.CompletedProcess] | None = None,
-                        ) -> bool:
+                        runner: CommandRunner | None = None) -> bool:
     """Download and silently run the Git for Windows installer.
 
     Args:
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
-        launch: Runs the installer command; takes the command and a ``timeout`` keyword.
+        runner: Runs the installer command, stopped after 300 seconds; the provision runner
+            when ``None``.
     """
     try:
         pinned = (pin or pinned_download)("git")
@@ -264,12 +265,12 @@ def _install_git_direct(*, pin: Callable[[str], Download] | None = None,
         (fetch or download)(pinned.url, dest)
         verify_download("git", dest)
         console.info("Installing Git silently ...")
-        rc = (launch or subprocess.run)(
+        rc, _stdout, _stderr = (runner or provision_runner()).capture(
             [str(dest), "/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-",
              "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS",
              "/COMPONENTS=icons,ext\\reg\\shellhere,assoc,assoc_sh"],
             timeout=300,
-        ).returncode
+        )
         dest.unlink(missing_ok=True)
         return rc == 0
     except (DigestMismatchError, ConfigError):
@@ -301,6 +302,10 @@ class DirectDownloadWindowsManager(IPackageManager):
 
     name = "direct-download"
 
+    def __init__(self, runner: CommandRunner | None = None) -> None:
+        """Bind the runner that probes whether a tool runs; the provision runner when ``None``."""
+        self._runner = runner if runner is not None else provision_runner()
+
     def available(self) -> bool:
         """Report that this manager is always usable."""
         return True
@@ -309,7 +314,7 @@ class DirectDownloadWindowsManager(IPackageManager):
         """Report whether *pkg*'s command already runs from PATH."""
         cmd = WINGET_ID_TO_CMD.get(pkg)
         path = shutil.which(cmd) if cmd else None
-        return binary_works(path) if path else False
+        return binary_works(path, self._runner) if path else False
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
         """Download and install each winget ID in *pkgs* that is not already on PATH."""
@@ -317,7 +322,7 @@ class DirectDownloadWindowsManager(IPackageManager):
         ok = True
         for pkg in pkgs:
             cmd = WINGET_ID_TO_CMD.get(pkg)
-            if cmd and (w := shutil.which(cmd)) and binary_works(w):
+            if cmd and (w := shutil.which(cmd)) and binary_works(w, self._runner):
                 console.info(f"{cmd}: already on PATH, skipping.")
                 continue
             recipe = _DIRECT_RECIPES.get(pkg)

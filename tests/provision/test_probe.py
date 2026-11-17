@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision import probe
 from sushicore.provision.config import ProvisionSettings
 
@@ -131,12 +132,9 @@ def test_discovery_records_a_legacy_bundle(provision_home, tmp_path, monkeypatch
     assert values["llvm_root"] == str((legacy / "toolchains" / "llvm-sycl").resolve())
 
 
-def _failing_run(error: Exception):
-    """Return a run that raises *error* in place of running a process."""
-    def run(*_args, **_kwargs):
-        """Raise the configured error in place of running a process."""
-        raise error
-    return run
+def _runner() -> RecordingRunner:
+    """Return a runner that records commands and starts no process."""
+    return RecordingRunner(RecordingConsole())
 
 
 def _probe_records(caplog, level: str) -> list[str]:
@@ -149,38 +147,61 @@ def _probe_records(caplog, level: str) -> list[str]:
 def test_a_missing_lspci_is_recorded(caplog):
     """Check that an lspci that cannot start yields no adapters and one warning."""
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        assert probe._linux_display_adapters(run=_failing_run(FileNotFoundError("lspci"))) == ""
+        assert probe._linux_display_adapters(_runner().script_missing()) == ""
     assert len(_probe_records(caplog, "WARNING")) == 1
     assert "lspci" in _probe_records(caplog, "WARNING")[0]
 
 
 @pytest.mark.small
+def test_lspci_display_lines_are_kept_in_lower_case():
+    """Check that only the display-controller lines of lspci come back, lower-cased."""
+    runner = _runner().script(0, ("00:02.0 VGA compatible controller: Intel", "00:1f.0 ISA bridge"))
+    assert probe._linux_display_adapters(runner) == "00:02.0 vga compatible controller: intel"
+
+
+@pytest.mark.small
 def test_a_video_controller_query_that_times_out_is_recorded(caplog):
     """Check that a PowerShell query that times out yields no adapters and one warning."""
-    run = _failing_run(subprocess.TimeoutExpired("powershell", 30))
     with caplog.at_level("WARNING", logger="sushicore.provision"):
-        assert probe._windows_display_adapters(run=run) == ""
+        assert probe._windows_display_adapters(_runner().script_timeout()) == ""
     assert len(_probe_records(caplog, "WARNING")) == 1
     assert "timed out" in _probe_records(caplog, "WARNING")[0]
 
 
 @pytest.mark.small
-@pytest.mark.parametrize("reader", [
-    probe._linux_display_adapters, probe._windows_display_adapters, probe.binary_works],
-    ids=["linux adapters", "windows adapters", "binary_works"])
-def test_a_defect_in_a_process_query_is_not_reported_as_a_missing_one(reader):
-    """Check that an error no process raises escapes the readers that run a process."""
-    argument = ("cmake",) if reader is probe.binary_works else ()
-    with pytest.raises(TypeError):
-        reader(*argument, run=_failing_run(TypeError("defect")))
+def test_the_video_controller_names_come_back_in_lower_case():
+    """Check that the PowerShell output is lower-cased."""
+    assert probe._windows_display_adapters(_runner().script(0, ("NVIDIA GeForce",))) == (
+        "nvidia geforce\n")
+
+
+@pytest.mark.small
+def test_binary_works_is_true_when_version_exits_zero():
+    """Check that --version exiting zero is enough, with no second probe."""
+    runner = _runner().script(0)
+    assert probe.binary_works("cmake", runner) is True
+    assert [c.argv for c in runner.commands] == [("cmake", "--version")]
+
+
+@pytest.mark.small
+def test_binary_works_falls_back_to_the_single_dash_flag():
+    """Check that a tool that rejects --version is tried with -version."""
+    runner = _runner().script(2).script(0)
+    assert probe.binary_works("ninja", runner) is True
+    assert [c.argv for c in runner.commands] == [("ninja", "--version"), ("ninja", "-version")]
+
+
+@pytest.mark.small
+def test_binary_works_is_false_when_both_flags_exit_non_zero():
+    """Check that a tool that rejects both flags does not work."""
+    assert probe.binary_works("tool", _runner().script(2).script(2)) is False
 
 
 @pytest.mark.small
 def test_binary_works_records_why_a_command_did_not_run(caplog):
-    """Check that binary_works logs the error behind a False answer."""
-    run = _failing_run(PermissionError(13, "Access is denied"))
+    """Check that binary_works logs the reason behind a False answer."""
     with caplog.at_level("DEBUG", logger="sushicore.provision"):
-        assert probe.binary_works("cmake", run=run) is False
+        assert probe.binary_works("cmake", _runner().script_missing()) is False
     assert len(_probe_records(caplog, "DEBUG")) == 1
     assert "cmake" in _probe_records(caplog, "DEBUG")[0]
 
@@ -193,27 +214,17 @@ def _fake_vswhere(tmp_path):
     return tmp_path
 
 
-def _refuse(*arguments, **keywords):
-    """Refuse to start vswhere, as a locked-down machine does."""
-    raise OSError("access denied")
-
-
-def _exit_three(*arguments, **keywords):
-    """Answer as a vswhere that exits with status 3."""
-    return subprocess.CompletedProcess([], 3, stdout="", stderr="")
-
-
 @pytest.mark.medium
-@pytest.mark.parametrize(("run", "logged"), [
-    (_refuse, "vswhere did not run (OSError: access denied)"),
-    (_exit_three, "vswhere exited with status 3"),
+@pytest.mark.parametrize(("runner", "logged"), [
+    (RecordingRunner(RecordingConsole()).script_missing(), "vswhere did not run (Executable not found"),
+    (RecordingRunner(RecordingConsole()).script(3), "vswhere exited with status 3"),
 ], ids=["did not run", "exited non-zero"])
-def test_find_vcvars_logs_a_vswhere_that_failed(tmp_path, caplog, run, logged):
+def test_find_vcvars_logs_a_vswhere_that_failed(tmp_path, caplog, runner, logged):
     """Check that a vswhere that cannot start or exits non-zero is recorded and finds nothing."""
     program_files = str(_fake_vswhere(tmp_path))
     with caplog.at_level("WARNING", logger=probe.__name__):
         found = probe.find_vcvars(
-            platform="win32", vswhere=lambda: probe._vcvars_from_vswhere(program_files, run),
+            platform="win32", vswhere=lambda: probe._vcvars_from_vswhere(program_files, runner),
             program_files=[])
     assert found is None
     assert logged in caplog.text

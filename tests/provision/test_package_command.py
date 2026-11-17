@@ -11,11 +11,11 @@ import typer
 from typer.testing import CliRunner
 
 from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.profile import ModuleProfile
 from sushicore.provision.commands import ModuleProvision
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.package_command import register_package_command
-from sushicore.provision.package_install import CapturedRun
 
 
 def _app(root, runner, console):
@@ -31,8 +31,7 @@ def _app(root, runner, console):
     register_package_command(app, ModuleProvision(
         profile=profile, project_root=lambda: root,
         load_config=lambda: ProvisionSettings(platform="linux", cmake_exe="/c/cmake"),
-        console=lambda: console), run=runner,
-        capture=lambda command, cwd, env=None: CapturedRun(runner(command, cwd, env), ""))
+        console=lambda: console), runner=runner)
     return app
 
 
@@ -45,15 +44,10 @@ def _built(root, tree="build/default-debug"):
 
 def _install_command(root, *arguments):
     """Run ``package --no-archive`` with *arguments* over *root*; return the exit code and the first command."""
-    calls = []
-
-    def runner(command, cwd, env=None):
-        """Record the command and succeed."""
-        calls.append(command)
-        return 0
-
-    result = CliRunner().invoke(_app(root, runner, RecordingConsole()),
-                                ["package", "--no-archive", *arguments])
+    console = RecordingConsole()
+    runner = RecordingRunner(console)
+    result = CliRunner().invoke(_app(root, runner, console), ["package", "--no-archive", *arguments])
+    calls = [list(command.argv) for command in runner.commands]
     return result.exit_code, calls[0] if calls else []
 
 
@@ -91,5 +85,5 @@ def test_the_command_exits_non_zero_for_a_tree_that_is_not_built(tmp_path):
     """Check the exit code of a package run with no build."""
     root = tmp_path / "lib"
     root.mkdir()
-    result = CliRunner().invoke(_app(root, lambda *_a, **_k: 0, RecordingConsole()), ["package"])
+    result = CliRunner().invoke(_app(root, RecordingRunner(RecordingConsole()), RecordingConsole()), ["package"])
     assert result.exit_code == 1

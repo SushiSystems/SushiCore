@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.sushi_packages.package_error import PackageError
 from sushicore.provision.sushi_packages.source_state import (
     GitSourceInspector,
@@ -142,3 +144,19 @@ def test_git_raises_for_a_folder_that_is_not_a_repository(tmp_path):
     """Check that a plain folder is refused as a checkout."""
     with pytest.raises(PackageError, match="not a git checkout"):
         GitSourceInspector().files(tmp_path)
+
+
+@pytest.mark.small
+def test_git_raises_when_the_runner_cannot_start_git(tmp_path):
+    """Check that a git that cannot start is reported as such, not as a missing checkout."""
+    runner = RecordingRunner(RecordingConsole()).script_missing()
+    with pytest.raises(PackageError, match="git cannot run"):
+        GitSourceInspector(runner).files(tmp_path)
+
+
+@pytest.mark.small
+def test_git_raises_for_a_nonzero_exit_of_the_runner(tmp_path):
+    """Check that a failing git ls-files is reported as a folder that is no checkout."""
+    runner = RecordingRunner(RecordingConsole()).script(128, stderr="fatal: not a git repository")
+    with pytest.raises(PackageError, match="not a git checkout"):
+        GitSourceInspector(runner).files(tmp_path)

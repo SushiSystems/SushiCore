@@ -10,9 +10,10 @@ from __future__ import annotations
 import dataclasses
 import logging
 import re
-import shutil
-import subprocess
 import typing
+
+from ...proc import CommandRunner
+from ..process_run import provision_runner
 
 _log = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ K_DRIVER_CUDA = re.compile(r"CUDA Version:\s*(\d+)\.(\d+)")
 
 #: One ``compute_cap`` row, such as ``8.9``.
 K_COMPUTE_CAP = re.compile(r"^(\d+)\.(\d+)$")
+
+#: Seconds each ``nvidia-smi`` query may take.
+K_QUERY_TIMEOUT = 60
 
 
 @typing.final
@@ -66,28 +70,24 @@ def parse_hardware(compute_caps: str, banner: str) -> NvidiaHardware | None:
     return NvidiaHardware(tuple(architectures), (int(driver.group(1)), int(driver.group(2))))
 
 
-def query_hardware(run: typing.Callable[[list[str]], str] | None = None) -> NvidiaHardware | None:
+def query_hardware(runner: CommandRunner | None = None) -> NvidiaHardware | None:
     """Ask ``nvidia-smi`` about this machine; None when there is no driver to ask.
 
     Args:
-        run: Runs a command and returns its standard output; raises ``OSError`` or
-            ``subprocess.SubprocessError`` on failure. Defaults to a real subprocess.
+        runner: Runs ``nvidia-smi``; the provision runner when ``None``.
     """
-    runner = run or _run
-    try:
-        caps = runner(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"])
-        banner = runner(["nvidia-smi"])
-    except (OSError, subprocess.SubprocessError) as error:
-        _log.info("nvidia-smi did not answer (%s: %s)", type(error).__name__, error)
+    run = runner or provision_runner()
+    caps = _ask(run, ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"])
+    banner = _ask(run, ["nvidia-smi"]) if caps is not None else None
+    if caps is None or banner is None:
         return None
     return parse_hardware(caps, banner)
 
 
-def _run(command: list[str]) -> str:
-    """Run *command* and return its standard output."""
-    exe = shutil.which(command[0])
-    if exe is None:
-        raise FileNotFoundError(command[0])
-    done = subprocess.run([exe, *command[1:]], capture_output=True, text=True, check=True,
-                          timeout=60)
-    return done.stdout
+def _ask(runner: CommandRunner, command: list[str]) -> str | None:
+    """Return the standard output of *command*, or None when it did not exit zero in time."""
+    code, out, err = runner.capture(command, timeout=K_QUERY_TIMEOUT)
+    if code != 0:
+        _log.info("nvidia-smi did not answer (exit %d: %s)", code, err.strip())
+        return None
+    return out

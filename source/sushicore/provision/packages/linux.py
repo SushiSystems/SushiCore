@@ -7,10 +7,11 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
+
+from sushicore.proc import CommandRunner
 
 from .._output import console
-from ..process_run import run
+from ..process_run import provision_runner
 from ..system import is_root
 from .base import IPackageManager
 
@@ -54,7 +55,19 @@ def _translate(apt_pkgs: list[str], table: dict[str, list[str]]) -> list[str]:
 
 
 class LinuxPackageManager(IPackageManager):
-    """Speaks apt-format package names as its lingua franca."""
+    """Speaks apt-format package names as its lingua franca.
+
+    Args:
+        runner: Runs the package commands; the provision runner when ``None``.
+    """
+
+    def __init__(self, runner: CommandRunner | None = None) -> None:
+        """Keep the runner every package command goes through."""
+        self._runner = runner or provision_runner()
+
+    def _drain(self, command: list[str], dry_run: bool, *, check: bool = False) -> int:
+        """Run *command*, streaming its output through the console; return its exit code."""
+        return self._runner.run_drained(command, None, dry_run=dry_run, check=check)
 
     def translate_apt(self, apt_pkgs: list[str]) -> list[str]:
         """Convert apt-format package names to this manager's native names."""
@@ -73,22 +86,20 @@ class AptManager(LinuxPackageManager):
     def is_installed(self, pkg: str) -> bool:
         """Report whether dpkg lists *pkg* as installed."""
         try:
-            result = subprocess.run(
-                ["dpkg-query", "-W", "-f=${Status}", pkg],
-                capture_output=True, text=True,
-            )
+            code, output, _error = self._runner.capture(
+                ["dpkg-query", "-W", "-f=${Status}", pkg])
         except OSError:
             return False
-        return result.returncode == 0 and "install ok installed" in result.stdout
+        return code == 0 and "install ok installed" in output
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
         """Update the apt cache, then install *pkgs*."""
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        if run([*sudo, "apt-get", "update"], dry_run) != 0 and not dry_run:
+        if self._drain([*sudo, "apt-get", "update"], dry_run) != 0 and not dry_run:
             console.warn("apt-get update failed; continuing anyway.")
-        rc = run([*sudo, "apt-get", "install", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "apt-get", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -96,7 +107,7 @@ class AptManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "apt-get", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "apt-get", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -112,10 +123,8 @@ class DnfManager(LinuxPackageManager):
     def is_installed(self, pkg: str) -> bool:
         """Report whether rpm lists *pkg* as installed."""
         try:
-            result = subprocess.run(
-                ["rpm", "-q", pkg], capture_output=True, text=True,
-            )
-            return result.returncode == 0
+            code = self._runner.capture(["rpm", "-q", pkg])[0]
+            return code == 0
         except OSError:
             return False
 
@@ -128,7 +137,7 @@ class DnfManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "dnf", "install", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "dnf", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -136,7 +145,7 @@ class DnfManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "dnf", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "dnf", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -152,10 +161,8 @@ class YumManager(LinuxPackageManager):
     def is_installed(self, pkg: str) -> bool:
         """Report whether rpm lists *pkg* as installed."""
         try:
-            result = subprocess.run(
-                ["rpm", "-q", pkg], capture_output=True, text=True,
-            )
-            return result.returncode == 0
+            code = self._runner.capture(["rpm", "-q", pkg])[0]
+            return code == 0
         except OSError:
             return False
 
@@ -168,7 +175,7 @@ class YumManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "yum", "install", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "yum", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -176,7 +183,7 @@ class YumManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "yum", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "yum", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -192,10 +199,8 @@ class PacmanManager(LinuxPackageManager):
     def is_installed(self, pkg: str) -> bool:
         """Report whether pacman lists *pkg* as installed."""
         try:
-            result = subprocess.run(
-                ["pacman", "-Q", pkg], capture_output=True, text=True,
-            )
-            return result.returncode == 0
+            code = self._runner.capture(["pacman", "-Q", pkg])[0]
+            return code == 0
         except OSError:
             return False
 
@@ -208,7 +213,7 @@ class PacmanManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "pacman", "-Sy", "--noconfirm", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "pacman", "-Sy", "--noconfirm", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -216,7 +221,7 @@ class PacmanManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "pacman", "-R", "--noconfirm", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "pacman", "-R", "--noconfirm", *pkgs], dry_run, check=True)
         return rc == 0
 
 
@@ -232,10 +237,8 @@ class ZypperManager(LinuxPackageManager):
     def is_installed(self, pkg: str) -> bool:
         """Report whether rpm lists *pkg* as installed."""
         try:
-            result = subprocess.run(
-                ["rpm", "-q", pkg], capture_output=True, text=True,
-            )
-            return result.returncode == 0
+            code = self._runner.capture(["rpm", "-q", pkg])[0]
+            return code == 0
         except OSError:
             return False
 
@@ -248,7 +251,7 @@ class ZypperManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "zypper", "install", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "zypper", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -256,5 +259,5 @@ class ZypperManager(LinuxPackageManager):
         if not pkgs:
             return True
         sudo = [] if is_root() else ["sudo"]
-        rc = run([*sudo, "zypper", "remove", "-y", *pkgs], dry_run, check=True)
+        rc = self._drain([*sudo, "zypper", "remove", "-y", *pkgs], dry_run, check=True)
         return rc == 0

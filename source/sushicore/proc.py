@@ -65,8 +65,13 @@ class CommandRunner(Protocol):
         """Return the executable *name* resolved against *env*'s PATH, or *name* itself."""
         ...
 
-    def run(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Run *cmd* in *cwd* and return its exit code; in machine mode it runs as `run_drained`."""
+    def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
+            *, timeout: float | None = None) -> int:
+        """Run *cmd* in *cwd* and return its exit code; in machine mode its output is re-emitted.
+
+        A command still running after *timeout* seconds is stopped and the run returns
+        `K_TIMEOUT_EXIT_CODE`.
+        """
         ...
 
     def run_drained(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
@@ -87,14 +92,24 @@ class CommandRunner(Protocol):
         """
         ...
 
-    def capture(self, cmd: list[str], cwd: Path | None = None,
-                env: dict[str, str] | None = None,
-                timeout: float | None = None) -> tuple[int, str, str]:
+    def capture(self, cmd: list[str] | str, cwd: Path | None = None,
+                env: dict[str, str] | None = None, timeout: float | None = None,
+                *, input_text: str | None = None,
+                encoding: str | None = None) -> tuple[int, str, str]:
         """Run *cmd* quietly and return its exit code, stdout and stderr.
 
-        A command still running after *timeout* seconds is stopped, and the capture returns
-        `K_TIMEOUT_EXIT_CODE` with a stderr that says it timed out.
+        A string *cmd* reaches the operating system as one command line, so quotes inside it
+        survive. *input_text* is written to the command's stdin, and *encoding* decodes its
+        output; None means the locale's. A command still running after *timeout* seconds is
+        stopped, and the capture returns `K_TIMEOUT_EXIT_CODE` with a stderr that says it
+        timed out.
         """
+        ...
+
+    def capture_bytes(self, cmd: list[str], cwd: Path | None = None,
+                      env: dict[str, str] | None = None,
+                      timeout: float | None = None) -> tuple[int, bytes, bytes]:
+        """Run *cmd* quietly and return its exit code, stdout and stderr as undecoded bytes."""
         ...
 
 
@@ -162,19 +177,50 @@ class Runner:
         self._console.warn("Interrupted.")
         return 130
 
-    def run(self, cmd: list[str], cwd: Path,
-            env: dict[str, str] | None = None) -> int:
+    def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
+            *, timeout: float | None = None) -> int:
         """Run *cmd*, letting the child inherit this process's stdout.
 
-        In machine mode the child must not reach stdout, so the run is `run_drained`.
+        In machine mode the child must not reach stdout, so its output is drained and
+        re-emitted. A command still running after *timeout* seconds is stopped and the run
+        returns `K_TIMEOUT_EXIT_CODE`.
         """
+        if timeout is not None:
+            return self._run_timed(cmd, cwd, env, timeout)
         if self._console.is_machine():
             return self.run_drained(cmd, cwd, env)
         resolved = list(cmd)
         resolved[0] = self.resolve_exe(cmd[0], env)
         self._console.command(subprocess.list2cmdline(resolved))
         try:
-            return subprocess.run(resolved, cwd=str(cwd), env=env).returncode
+            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env).returncode
+        except FileNotFoundError:
+            self._not_found(cmd[0])
+            return self._missing_exit_code
+        except KeyboardInterrupt:
+            if not self._catch_interrupt:
+                raise
+            return self._interrupted()
+
+    def _run_timed(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
+                   timeout: float) -> int:
+        """Run *cmd* under *timeout*; in machine mode its output is piped and re-emitted."""
+        resolved = list(cmd)
+        resolved[0] = self.resolve_exe(cmd[0], env)
+        self._console.command(subprocess.list2cmdline(resolved))
+        machine = self._console.is_machine()
+        try:
+            if machine:
+                done = subprocess.run(
+                    resolved, cwd=_cwd_text(cwd), env=env, timeout=timeout,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, encoding="utf-8", errors="replace")
+                for line in (done.stdout or "").splitlines():
+                    emit_output_line(self._console, line)
+                return done.returncode
+            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env, timeout=timeout).returncode
+        except subprocess.TimeoutExpired:
+            return K_TIMEOUT_EXIT_CODE
         except FileNotFoundError:
             self._not_found(cmd[0])
             return self._missing_exit_code
@@ -245,30 +291,68 @@ class Runner:
                 emit_output_line(self._console, line)
         return done.returncode == 0
 
-    def capture(self, cmd: list[str], cwd: Path | None = None,
-                env: dict[str, str] | None = None,
-                timeout: float | None = None) -> tuple[int, str, str]:
+    def capture(self, cmd: list[str] | str, cwd: Path | None = None,
+                env: dict[str, str] | None = None, timeout: float | None = None,
+                *, input_text: str | None = None,
+                encoding: str | None = None) -> tuple[int, str, str]:
         """Run *cmd* quietly and return its exit code, stdout and stderr.
 
-        A command still running after *timeout* seconds is stopped, and the capture returns
+        A string *cmd* reaches the operating system as one command line. A command still
+        running after *timeout* seconds is stopped, and the capture returns
         `K_TIMEOUT_EXIT_CODE`, the output read until then, and a stderr that says it timed out.
         """
-        resolved = list(cmd)
-        resolved[0] = self.resolve_exe(cmd[0], env)
+        program = _program_of(cmd)
         try:
-            result = subprocess.run(resolved, cwd=str(cwd) if cwd else None, env=env,
-                                    capture_output=True, text=True, errors="replace",
-                                    timeout=timeout)
+            result = subprocess.run(
+                self._resolved(cmd, env), cwd=_cwd_text(cwd), env=env, capture_output=True,
+                text=True, encoding=encoding, errors="replace", input=input_text, timeout=timeout)
         except subprocess.TimeoutExpired as expired:
             stdout = expired.stdout if isinstance(expired.stdout, str) else ""
-            return K_TIMEOUT_EXIT_CODE, stdout, timed_out_message(cmd[0], timeout)
+            return K_TIMEOUT_EXIT_CODE, stdout, timed_out_message(program, timeout)
         except FileNotFoundError:
-            return self._missing_exit_code, "", f"Executable not found: '{cmd[0]}'"
+            return self._missing_exit_code, "", not_found_message(program)
         except KeyboardInterrupt:
             if not self._catch_interrupt:
                 raise
             return self._interrupted(), "", ""
         return result.returncode, result.stdout, result.stderr
+
+    def capture_bytes(self, cmd: list[str], cwd: Path | None = None,
+                      env: dict[str, str] | None = None,
+                      timeout: float | None = None) -> tuple[int, bytes, bytes]:
+        """Run *cmd* quietly and return its exit code, stdout and stderr as undecoded bytes.
+
+        A timeout and a missing executable answer as `capture` does, with their message as bytes.
+        """
+        try:
+            result = subprocess.run(self._resolved(cmd, env), cwd=_cwd_text(cwd), env=env,
+                                    capture_output=True, timeout=timeout)
+        except subprocess.TimeoutExpired as expired:
+            stdout = expired.stdout if isinstance(expired.stdout, bytes) else b""
+            return K_TIMEOUT_EXIT_CODE, stdout, timed_out_message(cmd[0], timeout).encode()
+        except FileNotFoundError:
+            return self._missing_exit_code, b"", not_found_message(cmd[0]).encode()
+        except KeyboardInterrupt:
+            if not self._catch_interrupt:
+                raise
+            return self._interrupted(), b"", b""
+        return result.returncode, result.stdout, result.stderr
+
+    def _resolved(self, cmd: list[str] | str, env: Mapping[str, str] | None) -> list[str] | str:
+        """Return *cmd* with its executable resolved; a command line string is left as given."""
+        if isinstance(cmd, str):
+            return cmd
+        resolved = list(cmd)
+        resolved[0] = self.resolve_exe(cmd[0], env)
+        return resolved
+
+
+def _program_of(cmd: list[str] | str) -> str:
+    """Return the program a command names: its first word when it is a command line string."""
+    if isinstance(cmd, str):
+        words = cmd.split(maxsplit=1)
+        return words[0] if words else cmd
+    return cmd[0]
 
 
 def _cwd_text(cwd: Path | None) -> str | None:
@@ -281,3 +365,16 @@ def timed_out_message(program: str, timeout: float | None) -> str:
     if timeout is None:
         return f"'{program}' timed out"
     return f"'{program}' timed out after {timeout:g} s"
+
+
+def not_found_message(program: str) -> str:
+    """Return the stderr a capture gives for a *program* that is not on the path."""
+    return f"Executable not found: '{program}'"
+
+
+def did_not_run(program: str, exit_code: int, stderr: str) -> bool:
+    """Return whether a capture of *program* never ran it to the end.
+
+    A capture says so in two ways: the command outlived its timeout, or it could not start.
+    """
+    return exit_code == K_TIMEOUT_EXIT_CODE or stderr == not_found_message(program)

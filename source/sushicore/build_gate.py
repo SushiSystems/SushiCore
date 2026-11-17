@@ -17,27 +17,31 @@ import json
 import os
 import re
 import struct
-import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import TYPE_CHECKING, Callable, Mapping
+
+if TYPE_CHECKING:
+    from .proc import CommandRunner
 
 
-def _load_memory_reading():
-    """Returns the `memory_reading.py` that sits beside this file, loaded by its path.
+def _load_sibling(name: str):
+    """Returns the module `name`.py that sits beside this file, loaded by its path.
 
     The gate runs as `python -I`, which leaves its own folder off the import path, and importing the
     package would cost more than most host compiles.
     """
-    path = Path(__file__).resolve().with_name("memory_reading.py")
-    spec = importlib.util.spec_from_file_location("memory_reading", path)
+    path = Path(__file__).resolve().with_name(f"{name}.py")
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-_memory = _load_memory_reading()
+_memory = _load_sibling("memory_reading")
+_proc = _load_sibling("proc")
+_quiet_console = _load_sibling("quiet_console")
 K_RESERVE_MB = _memory.K_RESERVE_MB
 free_memory_mb = _memory.free_memory_mb
 
@@ -409,11 +413,12 @@ def cached(
 
 def run(
     state: Path, command: list[str], cache: str = "", *, requested: set[str] | None = None,
+    runner: CommandRunner | None = None,
 ) -> int:
     """Runs *command* once the gate admits it, records its peak and returns its exit code.
 
     *requested* holds the unit keys whose compiles are time-traced; None reads them from the
-    state folder's `time_trace.txt`.
+    state folder's `time_trace.txt`. *runner* spawns the command; the real one when None.
     """
     state.mkdir(parents=True, exist_ok=True)
     kind, key = edge_of(command)
@@ -443,7 +448,7 @@ def run(
         command, cache = [*command, "-ftime-trace"], ""
     command, env = cached(command, kind, cache, state)
     try:
-        code = subprocess.call(command, env=env)
+        code = (runner if runner is not None else _proc.Runner(_quiet_console.QuietConsole(), "build_gate")).run(command, None, env)
         obj = object_of(command) if code == 0 and kind == "host_compile" else None
         if obj is not None and (submission := kernel_submission_in(obj)):
             print(f"build_gate: {key} is compiled without a device pass but instantiates a "

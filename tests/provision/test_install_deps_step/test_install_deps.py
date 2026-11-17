@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -98,10 +97,10 @@ K_VS_LICENCE = Licence("Microsoft.VisualStudio.2022.BuildTools",
 K_GIT_LICENCE = Licence("Git.Git", "https://licences.example/Git.Git")
 
 
-def _ran(ran: list, command: list[str]) -> subprocess.CompletedProcess:
-    """Record *command* and answer a finished process that succeeded."""
+def _ran(ran: list, command: list[str]) -> int:
+    """Record *command* and answer the exit code 0 of a command that succeeded."""
     ran.append(command)
-    return subprocess.CompletedProcess(command, 0)
+    return 0
 
 
 def _vs_missing_step(ran: list, gpu: GpuStage | None = None) -> InstallDepsStep:

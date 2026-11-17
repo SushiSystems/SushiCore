@@ -12,6 +12,8 @@ import pytest
 
 from sushicore.citations import (Rewrite, citing_files, repair_citations, repair_text,
                                  rewrite_id_citations, rewrite_ids)
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 
 
 def _write_files(root: Path, relatives: tuple[str, ...]) -> None:
@@ -71,8 +73,27 @@ def test_citing_files_skip_the_archive_and_the_shared_tools(tmp_path: Path):
     """Fixtures in the shared tools and the archive are never rewritten."""
     archived = "/".join(("docs", "archive", "b.md"))
     _write_files(tmp_path, ("docs/a.md", archived, "tools/documentation/c.py", "src/d.cpp", "e.bin"))
-    found = sorted(path.relative_to(tmp_path).as_posix() for path in citing_files(tmp_path))
+    runner = RecordingRunner(RecordingConsole())
+    found = sorted(path.relative_to(tmp_path).as_posix() for path in citing_files(tmp_path, runner))
     assert found == ["docs/a.md", "src/d.cpp"]
+
+
+@pytest.mark.medium
+def test_citing_files_drop_the_files_git_reports_ignored(tmp_path: Path):
+    """A file git names on stdout is not a citing file."""
+    _write_files(tmp_path, ("docs/a.md", "docs/b.md"))
+    ignored = str((tmp_path / "docs" / "b.md").resolve())
+    runner = RecordingRunner(RecordingConsole()).script(0, (ignored + "\0",))
+    found = [path.name for path in citing_files(tmp_path, runner)]
+    assert found == ["a.md"]
+
+
+@pytest.mark.medium
+def test_citing_files_keep_every_file_when_git_cannot_run(tmp_path: Path):
+    """Outside a repository, or with no git, nothing is dropped."""
+    _write_files(tmp_path, ("docs/a.md", "docs/b.md"))
+    runner = RecordingRunner(RecordingConsole()).script_missing()
+    assert sorted(path.name for path in citing_files(tmp_path, runner)) == ["a.md", "b.md"]
 
 
 @pytest.mark.medium

@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.proc import K_QUIET_TAIL_LINES, K_TIMEOUT_EXIT_CODE, CommandRunner, Runner
+from sushicore.proc import (K_QUIET_TAIL_LINES, K_TIMEOUT_EXIT_CODE, CommandRunner, Runner,
+                            did_not_run, not_found_message)
 from sushicore.proc_memory import RecordingRunner
 
 K_LINES = ["note: see [[nodiscard]] here", "second line"]
@@ -225,6 +226,27 @@ def test_capture_propagates_interrupt_by_default(user_interrupts):
         Runner(RecordingConsole(), "sb").capture(["x"])
 
 
+@pytest.mark.small
+def test_did_not_run_is_true_for_a_missing_executable(child_is_missing):
+    code, _out, err = Runner(RecordingConsole(), "st").capture(["no-such-binary-anywhere"])
+    assert did_not_run("no-such-binary-anywhere", code, err) is True
+
+
+@pytest.mark.small
+def test_did_not_run_is_true_for_a_timeout():
+    assert did_not_run("tool", K_TIMEOUT_EXIT_CODE, "'tool' timed out") is True
+
+
+@pytest.mark.small
+def test_did_not_run_is_false_for_a_command_that_exited_nonzero():
+    assert did_not_run("tool", 3, "usage: tool") is False
+
+
+@pytest.mark.small
+def test_not_found_message_names_the_program():
+    assert not_found_message("git") == "Executable not found: 'git'"
+
+
 @dataclass
 class RunnerWorld:
     """A runner under test, its console, and the commands that make it answer in a known way."""
@@ -363,6 +385,33 @@ class CommandRunnerContract:
         code, stdout, _ = world.runner.capture(world.exiting(0, K_LINES), Path("."), timeout=30)
         assert (code, stdout.splitlines()) == (0, K_LINES)
 
+    def test_a_run_that_outlives_its_timeout_returns_the_timeout_exit_code(self, world):
+        assert world.runner.run(world.hanging(), None, timeout=0.5) == K_TIMEOUT_EXIT_CODE
+
+    def test_a_run_within_its_timeout_returns_the_exit_code_of_the_command(self, world):
+        assert world.runner.run(world.exiting(3, []), None, timeout=30) == 3
+
+    def test_in_machine_mode_a_timed_run_gives_the_output_to_the_console_as_events(
+            self, machine_world, capfd):
+        argv = machine_world.exiting(0, K_LINES)
+        machine_world.runner.run(argv, Path("."), timeout=30)
+        assert (machine_world.console.texts("info"), machine_world.console.console.printed,
+                capfd.readouterr().out) == (K_LINES, [], "")
+
+    @pytest.mark.parametrize("exit_code", [0, 3])
+    def test_a_byte_capture_returns_the_exit_code_and_each_output_line(self, world, exit_code):
+        argv = world.exiting(exit_code, K_LINES)
+        code, stdout, _ = world.runner.capture_bytes(argv, Path("."))
+        assert (code, stdout.decode().splitlines()) == (exit_code, K_LINES)
+
+    def test_a_byte_capture_of_a_missing_executable_returns_the_missing_exit_code(self, world):
+        code, stdout, stderr = world.runner.capture_bytes(world.missing(), Path("."))
+        assert (code, stdout, b"no-such-binary-anywhere" in stderr) == (K_MISSING_EXIT_CODE, b"", True)
+
+    def test_a_byte_capture_that_outlives_its_timeout_returns_the_timeout_exit_code(self, world):
+        code, _, stderr = world.runner.capture_bytes(world.hanging(), Path("."), timeout=0.5)
+        assert (code, b"timed out" in stderr) == (K_TIMEOUT_EXIT_CODE, True)
+
 
 @pytest.mark.small
 class TestRecordingRunnerKeepsTheRunnerContract(CommandRunnerContract):
@@ -404,3 +453,26 @@ class TestRunnerKeepsTheRunnerContract(CommandRunnerContract):
             return [sys.executable, "-c", "import time; time.sleep(30)"]
 
         return RunnerWorld(runner, console, exiting, missing, hanging)
+
+
+@pytest.mark.medium
+def test_a_capture_writes_its_input_text_to_the_stdin_of_the_command():
+    code = "import sys; sys.stdout.write(sys.stdin.read().upper())"
+    status, stdout, _ = Runner(RecordingConsole(), "st").capture(
+        [sys.executable, "-c", code], input_text="quiet", encoding="utf-8")
+    assert (status, stdout) == (0, "QUIET")
+
+
+@pytest.mark.medium
+def test_a_capture_of_a_command_line_string_keeps_the_quotes_inside_it():
+    line = f'"{sys.executable}" -c "print(6 * 7)"'
+    status, stdout, _ = Runner(RecordingConsole(), "st").capture(line)
+    assert (status, stdout.strip()) == (0, "42")
+
+
+@pytest.mark.medium
+def test_a_capture_decodes_the_output_with_the_encoding_it_is_given():
+    code = "import sys; sys.stdout.buffer.write('caf\\u00e9'.encode('utf-8'))"
+    _, stdout, _ = Runner(RecordingConsole(), "st").capture(
+        [sys.executable, "-c", code], encoding="utf-8")
+    assert stdout == "caf\u00e9"

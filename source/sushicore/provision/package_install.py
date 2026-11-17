@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Protocol
 
 from ..cmake_cache import cached_value
+from ..proc import CommandRunner
 from . import home
 
 #: The file that marks a prefix as one this command staged, so a later run may empty it.
@@ -41,33 +40,6 @@ class _Console(Protocol):
         """Print an information line."""
 
 
-@dataclass(frozen=True, slots=True)
-class CapturedRun:
-    """The exit code and the combined output of a command run with its output held back."""
-
-    code: int
-    output: str
-
-
-def run_command(command: list[str], cwd: Path, env: Mapping[str, str] | None = None) -> int:
-    """Run *command* in *cwd*; return its exit code, or 127 when it cannot start."""
-    try:
-        return subprocess.run(command, cwd=cwd).returncode
-    except OSError:
-        return 127
-
-
-def capture_command(command: list[str], cwd: Path,
-                    env: Mapping[str, str] | None = None) -> CapturedRun:
-    """Run *command* in *cwd* with stdout and stderr held together; 127 when it cannot start."""
-    try:
-        done = subprocess.run(command, cwd=cwd, env=env, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, text=True, errors="replace")
-    except OSError as error:
-        return CapturedRun(127, str(error))
-    return CapturedRun(done.returncode, done.stdout or "")
-
-
 def install_summary(output: str, prefix: Path,
                     is_file: Callable[[Path], bool] | None = None) -> str:
     """Return one line counting the files a ``cmake --install`` *output* copied and kept.
@@ -92,22 +64,17 @@ def install_summary(output: str, prefix: Path,
 class PackageInstaller:
     """Runs ``cmake --install`` of a built tree into a prefix, then CPack when asked."""
 
-    def __init__(self, console: _Console, cmake: str = "cmake",
-                 run: Callable[..., int] = run_command,
-                 capture: Callable[..., CapturedRun] = capture_command) -> None:
-        """Bind the installer to its console and the commands it runs.
+    def __init__(self, console: _Console, cmake: str, runner: CommandRunner) -> None:
+        """Bind the installer to its console and the runner of its commands.
 
         Args:
             console: Receives the error, command and summary lines.
             cmake: The cmake executable; CPack is looked for beside it.
-            run: Runs a command in a folder with its output shown; runs CPack; replaced in tests.
-            capture: Runs a command in a folder with its output held back; runs the install;
-                replaced in tests.
+            runner: Runs CPack with its output shown and the install with its output held back.
         """
         self._console = console
         self._cmake = cmake
-        self._run = run
-        self._capture = capture
+        self._runner = runner
 
     def install(self, root: Path, build_dir: Path, prefix: Path, *, archive: bool,
                 force: bool) -> int:
@@ -165,18 +132,17 @@ class PackageInstaller:
         target.mkdir(parents=True, exist_ok=True)
 
     def _step(self, command: list[str], cwd: Path) -> int:
-        """Print and run one command; return its exit code."""
-        self._console.command(" ".join(command))
-        return self._run(command, cwd)
+        """Run one command, which the runner prints; return its exit code."""
+        return self._runner.run(command, cwd)
 
     def _install_step(self, command: list[str], cwd: Path, target: Path) -> int:
         """Print and run the install; print one summary line, or all of cmake's output on failure."""
         self._console.command(" ".join(command))
-        result = self._capture(command, cwd)
-        if result.code != 0:
-            self._console.error(f"cmake --install exited {result.code}:\n{result.output.rstrip()}")
-            return result.code
-        self._console.info(install_summary(result.output, target))
+        code, out, err = self._runner.capture(command, cwd)
+        if code != 0:
+            self._console.error(f"cmake --install exited {code}:\n{(out + err).rstrip()}")
+            return code
+        self._console.info(install_summary(out, target))
         return 0
 
     def _cpack(self) -> str:

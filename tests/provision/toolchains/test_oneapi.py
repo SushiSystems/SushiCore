@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.toolchains.oneapi import K_ONEAPI_LICENCE
 from sushicore.provision.licence_consent_memory import granted_consent
 from sushicore.provision.config import ProvisionSettings
@@ -27,24 +27,44 @@ def consented():
 K_ELEVATION_REQUIRED = 740
 
 
-class _Launcher:
+class _Launcher(RecordingRunner):
     """Answers each launch with the next scripted outcome and records the command it was given.
 
-    An outcome that is an exception is raised; an integer is the exit code of the completed process.
+    An outcome that is an exception is raised; an integer is the exit code of the command.
     """
 
-    def __init__(self, *outcomes: int | Exception) -> None:
+    def __init__(self, console, *outcomes: int | Exception) -> None:
         """Script the outcomes, in call order."""
+        super().__init__(console)
         self._outcomes = list(outcomes)
-        self.commands: list[list[str]] = []
 
-    def __call__(self, cmd: list[str], **_options: object) -> subprocess.CompletedProcess:
+    @property
+    def argvs(self) -> list[list[str]]:
+        """Return the commands launched so far, in order."""
+        return [list(command.argv) for command in self.commands]
+
+    def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None) -> int:
         """Record *cmd* and play the next outcome."""
-        self.commands.append(cmd)
-        outcome = self._outcomes.pop(0)
+        outcome = self._arm()
+        code = super().run(cmd, cwd, env)
         if isinstance(outcome, Exception):
             raise outcome
-        return subprocess.CompletedProcess(cmd, outcome)
+        return code
+
+    def capture(self, cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None,
+                timeout: float | None = None) -> tuple[int, str, str]:
+        """Record *cmd* and play the next outcome."""
+        outcome = self._arm()
+        result = super().capture(cmd, cwd, env, timeout)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return result
+
+    def _arm(self) -> int | Exception:
+        """Script the answer of the next command and return its outcome."""
+        outcome = self._outcomes.pop(0)
+        self.script(outcome if isinstance(outcome, int) else 0)
+        return outcome
 
 
 def _needs_elevation() -> OSError:
@@ -125,30 +145,30 @@ def test_download_oneapi_installer_reuses_an_existing_file(tmp_path, recording_c
     """Check that an installer already on disk is returned without a download."""
     existing = tmp_path / "intel-oneapi-toolkit-offline.exe"
     existing.touch()
-    launcher = _Launcher()
+    launcher = _Launcher(recording_console)
 
-    result = oneapi.download_oneapi_installer(directory=tmp_path, launch=launcher)
+    result = oneapi.download_oneapi_installer(directory=tmp_path, runner=launcher)
 
     assert result == existing
-    assert launcher.commands == []
+    assert launcher.argvs == []
 
 
 @pytest.mark.medium
 def test_download_oneapi_installer_downloads_with_curl(tmp_path, recording_console):
     """Check that a missing installer is fetched with curl into the directory."""
-    launcher = _Launcher(0)
+    launcher = _Launcher(recording_console, 0)
 
-    result = oneapi.download_oneapi_installer(directory=tmp_path, launch=launcher)
+    result = oneapi.download_oneapi_installer(directory=tmp_path, runner=launcher)
 
     assert result == tmp_path / "intel-oneapi-toolkit-offline.exe"
-    assert launcher.commands[0][0] == "curl"
-    assert str(result) in launcher.commands[0]
+    assert launcher.argvs[0][0] == "curl"
+    assert str(result) in launcher.argvs[0]
 
 
 @pytest.mark.medium
 def test_download_oneapi_installer_returns_none_on_curl_failure(tmp_path, recording_console):
     """Check that a curl failure returns None and reports an error."""
-    result = oneapi.download_oneapi_installer(directory=tmp_path, launch=_Launcher(1))
+    result = oneapi.download_oneapi_installer(directory=tmp_path, runner=_Launcher(recording_console, 1))
 
     assert result is None
     assert recording_console.texts("error") == ["Failed to download Intel oneAPI installer."]
@@ -157,37 +177,37 @@ def test_download_oneapi_installer_returns_none_on_curl_failure(tmp_path, record
 @pytest.mark.small
 def test_run_oneapi_installer_reports_success(recording_console, consented):
     """Check that a zero exit code reports success."""
-    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=_Launcher(0)) is True
+    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, runner=_Launcher(recording_console, 0)) is True
     assert recording_console.texts("success") == ["Intel oneAPI Toolkit installed."]
 
 
 @pytest.mark.small
 def test_run_oneapi_installer_reports_failure(recording_console, consented):
     """Check that a non-zero exit code reports failure."""
-    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=_Launcher(1)) is False
+    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, runner=_Launcher(recording_console, 1)) is False
     assert recording_console.texts("warn") == ["Intel oneAPI Toolkit installation failed."]
 
 
 @pytest.mark.small
 def test_run_oneapi_installer_elevates_on_uac_required(recording_console, consented):
     """Check that a launch that needs elevation is retried through PowerShell."""
-    launcher = _Launcher(_needs_elevation(), 0)
+    launcher = _Launcher(recording_console, _needs_elevation(), 0)
 
-    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
+    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, runner=launcher)
 
     assert result is True
-    assert [cmd[0] for cmd in launcher.commands] == ["installer.exe", "powershell"]
+    assert [cmd[0] for cmd in launcher.argvs] == ["installer.exe", "powershell"]
 
 
 @pytest.mark.small
 def test_run_oneapi_installer_reports_a_non_elevation_launch_failure(recording_console, consented):
     """Check that a launch error other than elevation fails with a warning and no retry."""
-    launcher = _Launcher(OSError("no such file"))
+    launcher = _Launcher(recording_console, OSError("no such file"))
 
-    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
+    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, runner=launcher)
 
     assert result is False
-    assert len(launcher.commands) == 1
+    assert len(launcher.argvs) == 1
     assert recording_console.texts("warn") == [
         "Intel oneAPI installer failed to launch: no such file"]
 
@@ -195,9 +215,9 @@ def test_run_oneapi_installer_reports_a_non_elevation_launch_failure(recording_c
 @pytest.mark.small
 def test_run_oneapi_installer_reports_an_elevated_launch_exception(recording_console, consented):
     """Check that a failure of the elevated launch fails with an error."""
-    launcher = _Launcher(_needs_elevation(), RuntimeError("powershell missing"))
+    launcher = _Launcher(recording_console, _needs_elevation(), RuntimeError("powershell missing"))
 
-    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
+    result = oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, runner=launcher)
 
     assert result is False
     assert recording_console.texts("error") == [
@@ -207,18 +227,18 @@ def test_run_oneapi_installer_reports_an_elevated_launch_exception(recording_con
 @pytest.mark.small
 def test_run_oneapi_installer_accepts_the_eula_after_consent(recording_console, consented):
     """Check that a consented run hands the installer its EULA acceptance."""
-    launcher = _Launcher(0)
-    oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, launch=launcher)
-    command = launcher.commands[0]
+    launcher = _Launcher(recording_console, 0)
+    oneapi.run_oneapi_installer(Path("installer.exe"), consent=consented, runner=launcher)
+    command = launcher.argvs[0]
     assert command[command.index("--eula") + 1] == "accept"
 
 
 @pytest.mark.small
 def test_run_oneapi_installer_without_consent_launches_nothing(recording_console):
     """Check that a run no consent covers starts no installer and fails."""
-    launcher = _Launcher(0)
-    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=None, launch=launcher) is False
-    assert launcher.commands == []
+    launcher = _Launcher(recording_console, 0)
+    assert oneapi.run_oneapi_installer(Path("installer.exe"), consent=None, runner=launcher) is False
+    assert launcher.argvs == []
 
 
 @pytest.mark.small

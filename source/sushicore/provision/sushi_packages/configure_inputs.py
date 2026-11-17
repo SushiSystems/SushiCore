@@ -9,10 +9,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from pathlib import Path
 from typing import Callable
 
+from sushicore.proc import K_TIMEOUT_EXIT_CODE, CommandRunner
+
+from ...quiet_runner import quiet_runner
 from .package_error import PackageError
 
 #: The files, relative to the checkout, whose content is a configure input.
@@ -49,30 +51,41 @@ class MemoryVcpkgHead:
         return self._head
 
 
-def probe_cmake_version(cmake: str = "cmake") -> str:
+def probe_cmake_version(cmake: str = "cmake", runner: CommandRunner | None = None) -> str:
     """Return the version of *cmake* from ``cmake --version``.
+
+    Args:
+        cmake: The CMake executable.
+        runner: Runs the command, stopped after 30 seconds; the quiet runner when ``None``.
 
     Raises:
         PackageError: CMake does not run or prints no version.
     """
     try:
-        result = subprocess.run([cmake, "--version"], capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError) as exc:
+        code, output, error = (runner or quiet_runner()).capture([cmake, "--version"], timeout=30)
+    except OSError as exc:
         raise PackageError(f"cannot run {cmake} --version: {exc}") from exc
-    found = re.search(r"(\d+\.\d+(?:\.\d+)?)", result.stdout)
-    if result.returncode != 0 or not found:
+    if code == K_TIMEOUT_EXIT_CODE:
+        raise PackageError(f"cannot run {cmake} --version: {error}")
+    found = re.search(r"(\d+\.\d+(?:\.\d+)?)", output)
+    if code != 0 or not found:
         raise PackageError(f"{cmake} --version printed no version.")
     return found.group(1)
 
 
-def probe_vcpkg_head(vcpkg_root: Path) -> str:
-    """Return the HEAD commit of the vcpkg tree at *vcpkg_root*, or '' when git cannot say."""
+def probe_vcpkg_head(vcpkg_root: Path, runner: CommandRunner | None = None) -> str:
+    """Return the HEAD commit of the vcpkg tree at *vcpkg_root*, or '' when git cannot say.
+
+    Args:
+        vcpkg_root: The vcpkg tree.
+        runner: Runs git; the quiet runner when ``None``.
+    """
     try:
-        result = subprocess.run(["git", "-C", str(vcpkg_root), "rev-parse", "HEAD"],
-                                capture_output=True, text=True)
+        code, output, _error = (runner or quiet_runner()).capture(
+            ["git", "-C", str(vcpkg_root), "rev-parse", "HEAD"])
     except OSError:
         return ""
-    return result.stdout.strip() if result.returncode == 0 else ""
+    return output.strip() if code == 0 else ""
 
 
 class ConfigureInputs:

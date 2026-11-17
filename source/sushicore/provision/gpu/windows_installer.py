@@ -13,14 +13,15 @@ import dataclasses
 import hashlib
 import http.client
 import os
-import subprocess
 import typing
 import urllib.request
 import warnings
 from pathlib import Path
 
+from ...proc import CommandRunner, did_not_run
 from .. import home
 from .._output import console
+from ..process_run import provision_runner
 from ..system import USER_AGENT
 
 warnings.warn(
@@ -173,13 +174,12 @@ def _ps_quote(text: str) -> str:
 class PowerShellElevatedRunner:
     """Starts a process through ``Start-Process -Verb RunAs``, showing one UAC prompt.
 
-    :param run: Runs a command line and returns an object with ``returncode`` and ``stderr``, as
-        :func:`subprocess.run` does. Defaults to :func:`subprocess.run`.
+    :param runner: Runs the PowerShell command line. Defaults to the provision runner.
     """
 
-    def __init__(self, run: typing.Callable[..., typing.Any] | None = None) -> None:
-        """Store the function that runs the command."""
-        self._run = run or subprocess.run
+    def __init__(self, runner: CommandRunner | None = None) -> None:
+        """Store the runner of the command."""
+        self._runner = runner or provision_runner()
 
     def command(self, exe: Path, args: typing.Sequence[str]) -> list[str]:
         """Return the PowerShell command line that runs *exe* elevated and exits with its code."""
@@ -196,11 +196,11 @@ class PowerShellElevatedRunner:
 
     def run(self, exe: Path, args: typing.Sequence[str]) -> ElevatedResult:
         """Run the elevated command and return its exit code and any launch error."""
-        try:
-            done = self._run(self.command(exe, args), stderr=subprocess.PIPE, text=True)
-        except OSError as exc:
-            return ElevatedResult(LAUNCH_FAILED, str(exc))
-        return ElevatedResult(done.returncode, (done.stderr or "").strip())
+        command = self.command(exe, args)
+        code, _out, err = self._runner.capture(command)
+        if did_not_run(command[0], code, err):
+            return ElevatedResult(LAUNCH_FAILED, err)
+        return ElevatedResult(code, err.strip())
 
 
 def _query_machine_registry(name: str) -> object:

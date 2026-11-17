@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import hashlib
-import subprocess
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from sushicore.proc import K_TIMEOUT_EXIT_CODE, CommandRunner
+
+from ...quiet_runner import quiet_runner
 from ..toolchains.stamp import read_toolchain_stamp
 from .package_error import PackageError
 
@@ -18,17 +20,23 @@ from .package_error import PackageError
 Probe = Callable[[list[str]], tuple[int, str]]
 
 
-def run_probe(command: list[str]) -> tuple[int, str]:
+def run_probe(command: list[str], runner: CommandRunner | None = None) -> tuple[int, str]:
     """Run *command*; return its exit code and its standard output.
+
+    Args:
+        command: The command words.
+        runner: Runs the command, stopped after 30 seconds; the quiet runner when ``None``.
 
     Raises:
         PackageError: The command cannot start or times out.
     """
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError) as exc:
+        code, output, error = (runner or quiet_runner()).capture(command, timeout=30)
+    except OSError as exc:
         raise PackageError(f"cannot run {command[0]}: {exc}") from exc
-    return result.returncode, result.stdout
+    if code == K_TIMEOUT_EXIT_CODE:
+        raise PackageError(f"cannot run {command[0]}: {error}")
+    return code, output
 
 
 #: Reads the toolchain stamp of an install folder; an install with none reads as empty.

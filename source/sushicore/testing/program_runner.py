@@ -7,27 +7,24 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Callable
 
 from ..files import DiskFiles, Files
-from ..proc import K_TIMEOUT_EXIT_CODE
+from ..proc import CommandRunner
+from ..quiet_runner import quiet_runner
 from .shards import program_executable
 
 
-def run_with_timeout(command: list[str], cwd: Path, env: dict[str, str] | None, timeout: float) -> int:
+def run_with_timeout(command: list[str], cwd: Path, env: dict[str, str] | None, timeout: float,
+                     runner: CommandRunner | None = None) -> int:
     """Run *command* in *cwd* under *env*, stopping it after *timeout* seconds, and return its exit code.
 
     A command that is stopped returns ``K_TIMEOUT_EXIT_CODE``; one that cannot start returns 1.
+    *runner* spawns it; the real one when None.
     """
-    try:
-        return subprocess.run(command, cwd=str(cwd), env=env, timeout=timeout).returncode
-    except subprocess.TimeoutExpired:
-        return K_TIMEOUT_EXIT_CODE
-    except FileNotFoundError:
-        return 1
+    return (runner if runner is not None else quiet_runner()).run(command, cwd, env, timeout=timeout)
 
 
 class ProgramRunner:
@@ -43,17 +40,21 @@ class ProgramRunner:
         env: The environment the program runs under; None for the caller's own.
         files: The file system the tree's test files are read from; the disk when None.
         run_timed: Runs a command in a folder under an environment and stops it after a number of
-            seconds; ``run_with_timeout`` when None. Only a call that names a timeout uses it.
+            seconds; ``run_with_timeout`` through *runner* when None. Only a call that names a
+            timeout uses it.
+        runner: Spawns a program that has a timeout when *run_timed* is None; the real one when None.
     """
 
     def __init__(self, tree: Path, run: Callable[..., int], env: dict[str, str] | None = None,
                  files: Files | None = None,
-                 run_timed: Callable[..., int] | None = None) -> None:
+                 run_timed: Callable[..., int] | None = None,
+                 runner: CommandRunner | None = None) -> None:
         self._tree = tree
         self._run = run
         self._env = env
         self._files = files if files is not None else DiskFiles()
-        self._run_timed = run_timed if run_timed is not None else run_with_timeout
+        self._runner = runner if runner is not None else quiet_runner()
+        self._run_timed = run_timed if run_timed is not None else self._run_with_timeout
 
     def __call__(self, program: str, arguments: Sequence[str], *, env: Mapping[str, str] | None = None,
                  timeout: float | None = None) -> int:
@@ -75,3 +76,8 @@ class ProgramRunner:
         if timeout is None:
             return self._run(command, self._tree, environment)
         return self._run_timed(command, self._tree, environment, timeout)
+
+    def _run_with_timeout(self, command: list[str], cwd: Path, env: dict[str, str] | None,
+                          timeout: float) -> int:
+        """Run *command* through the runner, stopped after *timeout* seconds."""
+        return run_with_timeout(command, cwd, env, timeout, self._runner)

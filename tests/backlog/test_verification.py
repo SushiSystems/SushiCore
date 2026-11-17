@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.backlog.verification import GitVerification
+from sushicore.backlog.verification import GitVerification, run_git
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 
 pytestmark = pytest.mark.medium
 
@@ -61,3 +63,18 @@ def test_an_id_named_after_the_stamp_is_marked_and_one_before_it_is_not(repo):
     _stamp_head(repo)
     _commit(repo, "b", "feat: b\n\nBacklog: RW-2")
     assert GitVerification().unverified(repo) == {"RW-2"}
+
+
+def test_run_git_returns_the_output_of_a_git_that_exits_zero(tmp_path: Path):
+    """Git is asked in the given folder, through the runner."""
+    runner = RecordingRunner(RecordingConsole()).script(0, ("abc",))
+    assert run_git(tmp_path, "rev-parse", "HEAD", runner=runner) == "abc\n"
+    assert [c.argv for c in runner.commands] == [("git", "-C", str(tmp_path), "rev-parse", "HEAD")]
+
+
+@pytest.mark.parametrize("answer", ["failed", "missing"])
+def test_run_git_returns_none_when_git_fails_or_is_missing(tmp_path: Path, answer: str):
+    """A non-zero exit and an absent git both mean there is nothing to read."""
+    runner = RecordingRunner(RecordingConsole())
+    runner.script(128) if answer == "failed" else runner.script_missing()
+    assert run_git(tmp_path, "log", runner=runner) is None

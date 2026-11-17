@@ -2,51 +2,20 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""The package-manager contract and the sudo and PATH helpers its implementations share."""
+"""The package-manager contract and the PATH helper its implementations share."""
 
 from __future__ import annotations
 
 import logging
 import os
-import shutil
-import subprocess
-import sys
 from abc import ABC, abstractmethod
 from typing import Callable, MutableMapping
 
 from .._output import console
-from ..system import is_root
 
 _log = logging.getLogger(__name__)
 
 K_WINDOWS_PATH_SEPARATOR = ";"
-
-
-def prime_sudo() -> None:
-    """Prompt for the sudo password once, before any progress display starts."""
-    if os.name == "nt" or is_root() or shutil.which("sudo") is None:
-        return
-
-    tty = None
-    if not (sys.stdin and sys.stdin.isatty()):
-        try:
-            tty = open("/dev/tty", "r")
-        except OSError:
-            console.warn(
-                "No terminal available for a sudo password prompt. If dependency "
-                "installation fails, run the install command directly in a terminal, "
-                "or pre-authorize with `sudo -v`."
-            )
-            return
-
-    console.warn("Administrator (sudo) access needed — enter your password below.")
-    try:
-        subprocess.run(["sudo", "-p", "[sudo] password for %p: ", "-v"], stdin=tty)
-    except OSError as exc:
-        console.warn(f"Could not prime sudo credentials: {exc}")
-    finally:
-        if tty is not None:
-            tty.close()
 
 
 def _registry_paths() -> list[str]:

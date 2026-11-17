@@ -7,39 +7,24 @@
 from __future__ import annotations
 
 import os
-import subprocess
 
 import pytest
 
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision import packages
-from sushicore.provision.packages import base, linux
+from sushicore.provision.packages import linux
 from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
 
 
-class _Process:
-    """Stands in for the process Popen starts: no output, a scripted exit code."""
-
-    def __init__(self, returncode: int = 0) -> None:
-        """Store the exit code the process ends with."""
-        self.stdout = None
-        self.returncode = returncode
-
-    def wait(self) -> int:
-        """Return the exit code at once, since nothing runs."""
-        return self.returncode
+@pytest.fixture
+def runner(recording_console) -> RecordingRunner:
+    """Build the runner that records the commands of a manager and starts none."""
+    return RecordingRunner(recording_console)
 
 
-def _started(monkeypatch, returncode: int = 0) -> list[list[str]]:
-    """Replace the process start at the boundary; return the commands it was asked to start."""
-    commands: list[list[str]] = []
-
-    def popen(command, **_options):
-        """Record the command and answer a finished process."""
-        commands.append(list(command))
-        return _Process(returncode)
-
-    monkeypatch.setattr(base.subprocess, "Popen", popen)
-    return commands
+def _argv(runner: RecordingRunner) -> list[list[str]]:
+    """Return the commands *runner* was asked to run, as lists."""
+    return [list(command.argv) for command in runner.commands]
 
 
 @pytest.mark.small
@@ -93,28 +78,25 @@ def test_apt_keeps_its_own_names():
 
 
 @pytest.mark.small
-def test_apt_is_installed_reads_the_dpkg_status(monkeypatch):
+def test_apt_is_installed_reads_the_dpkg_status(runner):
     """Check that a dpkg status of installed reads as installed."""
-    status = subprocess.CompletedProcess([], 0, "install ok installed", "")
-    monkeypatch.setattr(linux.subprocess, "run", lambda *args, **kwargs: status)
-    assert linux.AptManager().is_installed("cmake")
+    runner.script(0, ("install ok installed",))
+    assert linux.AptManager(runner).is_installed("cmake")
 
 
 @pytest.mark.small
-def test_apt_install_updates_then_installs_without_sudo_as_root(monkeypatch, recording_console):
+def test_apt_install_updates_then_installs_without_sudo_as_root(monkeypatch, runner):
     """Check that as root apt updates its cache and then installs, with no sudo."""
     monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)
-    commands = _started(monkeypatch)
-    assert linux.AptManager().install(["cmake"], dry_run=False)
-    assert commands == [["apt-get", "update"], ["apt-get", "install", "-y", "cmake"]]
+    assert linux.AptManager(runner).install(["cmake"], dry_run=False)
+    assert _argv(runner) == [["apt-get", "update"], ["apt-get", "install", "-y", "cmake"]]
 
 
 @pytest.mark.small
-def test_apt_install_of_nothing_runs_nothing(monkeypatch, recording_console):
+def test_apt_install_of_nothing_runs_nothing(runner):
     """Check that an empty list starts no process and succeeds."""
-    commands = _started(monkeypatch)
-    assert linux.AptManager().install([], dry_run=False)
-    assert commands == []
+    assert linux.AptManager(runner).install([], dry_run=False)
+    assert _argv(runner) == []
 
 
 _MANAGERS = [

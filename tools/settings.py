@@ -28,6 +28,7 @@ K_CONSOLE_PATHS: tuple[str, ...] = (
     "source/sushicore/docs_bundle/__main__.py",
     "source/sushicore/shared_tools/__main__.py",
     "source/sushicore/entry.py",
+    "source/sushicore/quiet_console.py",
     "source/sushicore/renderer.py",
 )
 K_DESIGN_TOPICS = True

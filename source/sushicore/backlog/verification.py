@@ -9,10 +9,11 @@ The judgement of which IDs those commits leave unverified is `unverified.py`.
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
+from ..proc import CommandRunner
+from ..quiet_runner import quiet_runner
 from .unverified import unverified_ids
 
 K_STAMP_PATH = ("sushicore", "verified")
@@ -20,16 +21,17 @@ K_LOG_SEPARATOR = "%x00"
 K_SEPARATOR = "\x00"
 
 
-def run_git(root: Path, *arguments: str) -> str | None:
-    """Runs git in *root* and returns its output, or None when it fails or is not installed."""
+def run_git(root: Path, *arguments: str, runner: CommandRunner | None = None) -> str | None:
+    """Runs git in *root* and returns its output, or None when it fails or is not installed.
+
+    *runner* spawns git; the real one when None.
+    """
     try:
-        completed = subprocess.run(
-            ["git", "-C", str(root), *arguments],
-            capture_output=True, text=True, encoding="utf-8", check=False,
-        )
+        code, stdout, _ = (runner if runner is not None else quiet_runner()).capture(
+            ["git", "-C", str(root), *arguments], encoding="utf-8")
     except OSError:
         return None
-    return completed.stdout if completed.returncode == 0 else None
+    return stdout if code == 0 else None
 
 
 class GitVerification:

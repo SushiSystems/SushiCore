@@ -13,9 +13,11 @@ import hashlib
 import json
 import logging
 import os
-import subprocess
 from pathlib import Path
 from typing import Mapping, Sequence
+
+from .proc import CommandRunner
+from .quiet_runner import quiet_runner
 
 _log = logging.getLogger(__name__)
 
@@ -92,7 +94,7 @@ def parse_windows_set(output: str) -> dict[str, str]:
     return env
 
 
-def snapshot_windows(cfg, console) -> dict[str, str] | None:
+def snapshot_windows(cfg, console, runner: CommandRunner | None = None) -> dict[str, str] | None:
     """Run vcvars64 in a child shell and return the environment it produced.
 
     None when no vcvars is configured or it fails, which callers treat as "use
@@ -102,29 +104,30 @@ def snapshot_windows(cfg, console) -> dict[str, str] | None:
     vcvars = cfg.expand(cfg.vs_vcvars)
     if not (vcvars and Path(vcvars).is_file()):
         return None
-    return _snapshot(vcvars, console, redirect="",
+    return _snapshot(vcvars, console, runner, redirect="",
                      loading="Loading Visual Studio environment (vcvars64)...",
                      failed="vcvars64 returned non-zero; using current env.")
 
 
-def snapshot_vcvars(vcvars: Path, console) -> dict[str, str] | None:
+def snapshot_vcvars(vcvars: Path, console,
+                    runner: CommandRunner | None = None) -> dict[str, str] | None:
     """Run *vcvars* in a child shell and return the environment it produced, or None."""
-    return _snapshot(str(vcvars), console, redirect=" >nul",
+    return _snapshot(str(vcvars), console, runner, redirect=" >nul",
                      loading=f"Loading Visual Studio environment from {vcvars}",
                      failed="vcvars64.bat returned non-zero; using the current env.")
 
 
-def _snapshot(vcvars: str, console, *, redirect: str, loading: str,
+def _snapshot(vcvars: str, console, runner: CommandRunner | None, *, redirect: str, loading: str,
               failed: str) -> dict[str, str] | None:
     """Run `call "<vcvars>"<redirect> && set` in cmd and return the parsed environment, or None."""
     console.info(loading)
     # One string, not a list, keeps the quotes around the vcvars path intact.
     script = 'cmd /c call "' + vcvars + '"' + redirect + ' && set'
-    result = subprocess.run(script, capture_output=True, text=True)
-    if result.returncode != 0:
+    code, stdout, _ = (runner if runner is not None else quiet_runner()).capture(script)
+    if code != 0:
         console.warn(failed)
         return None
-    return without_caller_choices(parse_windows_set(result.stdout))
+    return without_caller_choices(parse_windows_set(stdout))
 
 
 def read_cache(cache_file: Path, key: str) -> dict[str, str] | None:

@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision import checks
 from sushicore.provision.doctor import State
 from sushicore.provision.fragments import Dependency
@@ -31,14 +32,9 @@ def _sycl(name: str) -> Dependency:
     return Dependency(name=name, provides="sycl-toolchain", owner="sushiruntime")
 
 
-def _timing_out(command):
-    """Raise as a command that outlives its timeout does."""
-    raise subprocess.TimeoutExpired(command, 0.1)
-
-
-def _malformed(command):
-    """Raise as a command of the wrong type does."""
-    raise TypeError(command)
+def _runner() -> RecordingRunner:
+    """Return a runner that records commands and starts no process."""
+    return RecordingRunner(RecordingConsole())
 
 
 @pytest.mark.small
@@ -128,7 +124,7 @@ def test_stamp_check_warns_when_the_toolchains_folder_cannot_be_read():
 def test_fragment_check_passes_a_dependency_whose_check_cmd_succeeds():
     """Check that fragment check passes when every check cmd exits zero."""
     source = InMemoryDependencySource([_packaged("python", check_cmd=["python", "-V"])])
-    result = checks.fragment_check(source, "linux", False, "", succeeds=lambda cmd: True).run()
+    result = checks.fragment_check(source, "linux", False, "", runner=_runner().script(0)).run()
     assert result.state is State.OK
 
 
@@ -136,7 +132,7 @@ def test_fragment_check_passes_a_dependency_whose_check_cmd_succeeds():
 def test_fragment_check_fails_a_dependency_whose_check_cmd_exits_non_zero():
     """Check that fragment check fails a required dependency whose check cmd exits non-zero."""
     source = InMemoryDependencySource([_packaged("python", check_cmd=["python", "-V"])])
-    result = checks.fragment_check(source, "linux", False, "", succeeds=lambda cmd: False).run()
+    result = checks.fragment_check(source, "linux", False, "", runner=_runner().script(1)).run()
     assert result.state is State.FAIL
 
 
@@ -144,16 +140,17 @@ def test_fragment_check_fails_a_dependency_whose_check_cmd_exits_non_zero():
 def test_fragment_check_fails_a_dependency_whose_check_cmd_hangs():
     """Check that fragment check fails a dependency whose check cmd outlives its timeout."""
     source = InMemoryDependencySource([_packaged("slow", check_cmd=["sleep", "5"])])
-    result = checks.fragment_check(source, "linux", False, "", succeeds=_timing_out).run()
+    result = checks.fragment_check(source, "linux", False, "", runner=_runner().script_timeout()).run()
     assert result.state is State.FAIL
     assert "slow" in result.detail
 
 
 @pytest.mark.small
-def test_fragment_check_fails_a_malformed_check_cmd():
-    """Check that fragment check fails a dependency whose check cmd is not a command."""
+def test_fragment_check_fails_a_dependency_whose_check_cmd_is_missing():
+    """Check that fragment check fails a dependency whose check cmd names no executable."""
     source = InMemoryDependencySource([_packaged("broken", check_cmd=["x"])])
-    result = checks.fragment_check(source, "linux", False, "", succeeds=_malformed).run()
+    result = checks.fragment_check(source, "linux", False, "",
+                                   runner=_runner().script_missing()).run()
     assert result.state is State.FAIL
     assert "broken" in result.detail
 
@@ -228,7 +225,7 @@ def test_fragment_check_passes_a_dependency_the_package_manager_reports():
     """Check that a failing check cmd is overruled by a package manager holding the package."""
     source = InMemoryDependencySource([_packaged("hwloc", check_cmd=["no-such-tool"])])
     result = checks.fragment_check(source, "linux", False, "", installed=lambda dep: True,
-                                   succeeds=lambda cmd: False).run()
+                                   runner=_runner().script(1)).run()
     assert result.state is State.OK
 
 
@@ -237,7 +234,7 @@ def test_fragment_check_fails_a_dependency_no_package_manager_reports():
     """Check that a failing check cmd stands when no package manager holds the package."""
     source = InMemoryDependencySource([_packaged("hwloc", check_cmd=["no-such-tool"])])
     result = checks.fragment_check(source, "linux", False, "", installed=lambda dep: False,
-                                   succeeds=lambda cmd: False).run()
+                                   runner=_runner().script(1)).run()
     assert result.state is State.FAIL
     assert "hwloc" in result.detail
 
@@ -289,3 +286,19 @@ def test_digest_check_passes_where_nothing_is_downloaded():
     source = InMemoryDependencySource([Dependency(name="hwloc")])
 
     assert checks.digest_check(source, "linux").run().state is State.OK
+
+
+@pytest.mark.small
+def test_tool_check_reports_the_first_version_line_the_tool_prints():
+    """Check that tool check puts the first line of ``--version`` in its detail."""
+    runner = _runner().script(0, ("cmake version 3.30", "second"))
+    result = checks.tool_check("cmake", "cmake", works=lambda exe: True, runner=runner).run()
+    assert (result.state, result.detail) == (State.OK, "cmake version 3.30")
+
+
+@pytest.mark.small
+def test_tool_check_names_the_tool_when_its_version_probe_does_not_run():
+    """Check that tool check falls back to the executable name when ``--version`` is missing."""
+    runner = _runner().script_missing()
+    result = checks.tool_check("cmake", "cmake", works=lambda exe: True, runner=runner).run()
+    assert (result.state, result.detail) == (State.OK, "cmake")

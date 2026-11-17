@@ -10,7 +10,6 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `deps_fragment`.
 from __future__ import annotations
 
 import re
-import subprocess
 import warnings
 from pathlib import Path
 
@@ -22,6 +21,8 @@ from .fragment_types import (  # noqa: F401  re-exported: callers import these f
     Status,
     SushiPin,
 )
+from .proc import CommandRunner
+from .quiet_runner import quiet_runner
 
 try:
     import tomllib
@@ -280,7 +281,7 @@ def _require_whole_download(path: Path, dep: Dependency, table: dict) -> None:
             f"sha256 for {', '.join(sorted(dep.sha256))}; each platform needs both.")
 
 
-def status(dep: Dependency, platform: str) -> Status:
+def status(dep: Dependency, platform: str, runner: CommandRunner | None = None) -> Status:
     """Report what is known about *dep* on this machine.
 
     A ``check_cmd`` that exits 0 settles it. Without one, an entry naming no
@@ -290,13 +291,14 @@ def status(dep: Dependency, platform: str) -> Status:
     Args:
         dep: The dependency to ask about.
         platform: ``"windows"`` or anything else, which means the apt column.
+        runner: Runs the check command; the real one when None.
     """
     if dep.check_cmd:
         try:
-            probe = subprocess.run(dep.check_cmd, capture_output=True)
+            code, _, _ = (runner if runner is not None else quiet_runner()).capture(dep.check_cmd)
         except OSError:
             return Status.UNKNOWN
-        return Status.SATISFIED if probe.returncode == 0 else Status.UNKNOWN
+        return Status.SATISFIED if code == 0 else Status.UNKNOWN
     if not dep.packages_for(platform):
         return Status.NOT_APPLICABLE
     return Status.UNKNOWN

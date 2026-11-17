@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from .proc import CommandRunner, did_not_run
+from .quiet_runner import quiet_runner
 
 K_EXTENSIONS = frozenset({
     ".md", ".cpp", ".hpp", ".h", ".py", ".ts", ".tsx", ".glsl", ".comp", ".toml", ".json",
@@ -52,10 +54,11 @@ class Rewrite:
     new: str | None
 
 
-def citing_files(root: Path) -> list[Path]:
+def citing_files(root: Path, runner: CommandRunner | None = None) -> list[Path]:
     """Returns each file below *root* that may cite a document: not ignored, vendored or archived.
 
     The shared checkers and their tests write citations as fixtures, so they are left out.
+    *runner* asks git which files are ignored; the real one when None.
     """
     found: list[Path] = []
     for folder, names, files in os.walk(root):
@@ -63,7 +66,7 @@ def citing_files(root: Path) -> list[Path]:
         found += [Path(folder) / name for name in files if Path(name).suffix in K_EXTENSIONS]
     skipped = [(root / tree).resolve() for tree in K_SKIPPED_TREES]
     kept = [path for path in found if not any(tree in path.resolve().parents for tree in skipped)]
-    return _drop_ignored(root, kept)
+    return _drop_ignored(root, kept, runner if runner is not None else quiet_runner())
 
 
 def rewrite_ids(text: str, renames: dict[str, str], foreign: frozenset[str]) -> tuple[str, int]:
@@ -88,7 +91,7 @@ def rewrite_ids(text: str, renames: dict[str, str], foreign: frozenset[str]) -> 
 
 
 def rewrite_id_citations(
-    root: Path, renames: dict[str, str], *, apply: bool,
+    root: Path, renames: dict[str, str], *, apply: bool, runner: CommandRunner | None = None,
 ) -> list[Rewrite]:
     """Rewrites, or with *apply* False only lists, every citation of a renamed ID below *root*."""
     if not renames:
@@ -96,7 +99,7 @@ def rewrite_id_citations(
     foreign = frozenset(folder.name for folder in root.resolve().parent.iterdir() if folder.is_dir())
     foreign -= {root.resolve().name}
     found: list[Rewrite] = []
-    for path in citing_files(root):
+    for path in citing_files(root, runner):
         text = _read(path)
         if text is None:
             continue
@@ -198,6 +201,7 @@ def repair_citations(
     *,
     apply: bool,
     suffixes: frozenset[str] | None = None,
+    runner: CommandRunner | None = None,
 ) -> list[Rewrite]:
     """Repairs, or with *apply* False only lists, every moved citation below *root*.
 
@@ -206,7 +210,7 @@ def repair_citations(
     """
     design = (root / "docs" / "design").resolve()
     found: list[Rewrite] = []
-    for path in citing_files(root):
+    for path in citing_files(root, runner):
         if suffixes is not None and path.suffix not in suffixes:
             continue
         text = _read(path)
@@ -222,10 +226,11 @@ def repair_citations(
     return found
 
 
-def files_citing(root: Path, cited: list[str], suffixes: frozenset[str]) -> list[Path]:
+def files_citing(root: Path, cited: list[str], suffixes: frozenset[str],
+                 runner: CommandRunner | None = None) -> list[Path]:
     """Returns each file of the given suffixes below *root* whose text names one of *cited*."""
     found: list[Path] = []
-    for path in citing_files(root):
+    for path in citing_files(root, runner):
         if path.suffix not in suffixes:
             continue
         text = _read(path)
@@ -291,19 +296,19 @@ def _read(path: Path) -> str | None:
         return None
 
 
-def _drop_ignored(root: Path, paths: list[Path]) -> list[Path]:
+def _drop_ignored(root: Path, paths: list[Path], runner: CommandRunner) -> list[Path]:
     """Returns the paths git does not ignore below *root*; all of them outside a repository."""
     if not paths:
         return paths
     try:
-        completed = subprocess.run(
+        code, stdout, stderr = runner.capture(
             ["git", "-C", str(root), "check-ignore", "-z", "--stdin"],
-            input="\0".join(str(path.resolve()) for path in paths) + "\0",
-            capture_output=True, text=True, encoding="utf-8",
+            input_text="\0".join(str(path.resolve()) for path in paths) + "\0",
+            encoding="utf-8",
         )
     except OSError:
         return paths
-    if completed.returncode not in (K_EXIT_SOME_IGNORED, K_EXIT_NONE_IGNORED):
+    if did_not_run("git", code, stderr) or code not in (K_EXIT_SOME_IGNORED, K_EXIT_NONE_IGNORED):
         return paths
-    ignored = {Path(entry).resolve() for entry in completed.stdout.split("\0") if entry}
+    ignored = {Path(entry).resolve() for entry in stdout.split("\0") if entry}
     return [path for path in paths if path.resolve() not in ignored]

@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Mapping, Protocol, Sequence
 
+from sushicore.proc import CommandRunner
+
+from ...quiet_runner import quiet_runner
 from .build_tree import BuildTree
 from .compiler_check import CompilerCheck
 from .package_environment import PackageEnvironment
@@ -28,14 +30,24 @@ class Run(Protocol):
         """Run *command*; return its exit code."""
 
 
-def run_process(command: list[str], cwd: Path, env: Mapping[str, str]) -> int:
+def run_process(command: list[str], cwd: Path, env: Mapping[str, str],
+                runner: CommandRunner | None = None) -> int:
     """Run *command* in *cwd* with *env*; return its exit code.
+
+    A command whose executable is not found is reported on the console and returns the
+    runner's missing-executable code.
+
+    Args:
+        command: The command words.
+        cwd: The folder the command runs in.
+        env: The environment of the command.
+        runner: Runs the command; the quiet runner when ``None``.
 
     Raises:
         PackageError: The command cannot start.
     """
     try:
-        return subprocess.run(command, cwd=cwd, env=dict(env)).returncode
+        return (runner or quiet_runner()).run(command, cwd, dict(env))
     except OSError as exc:
         raise PackageError(f"cannot run {command[0]}: {exc}") from exc
 

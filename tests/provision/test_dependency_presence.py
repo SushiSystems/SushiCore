@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.dependency_presence import (
     available_linux_manager,
+    check_cmd_ok,
     dep_installed,
     dep_manager,
     held_by_managers,
@@ -130,3 +133,13 @@ def test_held_by_managers_tells_whether_the_wired_managers_hold_a_dependency():
     held = held_by_managers([InMemoryPackageManager("apt", installed=["zlib1g-dev"])], "linux")
 
     assert (held(_apt_dep()), held(Dependency(name="curl", linux_apt=["libcurl4-openssl-dev"]))) == (True, False)
+
+
+def test_check_cmd_ok_is_true_when_the_runner_exits_zero():
+    runner = RecordingRunner(RecordingConsole()).script(0)
+    assert check_cmd_ok(["cmake", "--version"], runner) is True
+    assert runner.commands[0].argv == ("cmake", "--version")
+
+
+def test_check_cmd_ok_is_false_for_a_missing_executable():
+    assert check_cmd_ok(["no-such"], RecordingRunner(RecordingConsole()).script_missing()) is False

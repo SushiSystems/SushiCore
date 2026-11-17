@@ -7,19 +7,21 @@
 from __future__ import annotations
 
 import io
-import subprocess
 import tarfile
 from pathlib import Path
 
+from ..proc import CommandRunner
+from ..quiet_runner import quiet_runner
 from .errors import SharedToolsError, TagNotFoundError
 
 
 class GitReader:
     """Reads one git checkout; every read names the revision it wants."""
 
-    def __init__(self, checkout: Path) -> None:
-        """Stores the checkout to read."""
+    def __init__(self, checkout: Path, runner: CommandRunner | None = None) -> None:
+        """Stores the checkout to read and the runner that asks git; the real one when None."""
         self._checkout = checkout
+        self._runner = runner if runner is not None else quiet_runner()
 
     def commit(self, tag: str) -> str:
         """Returns the commit the tag names; raises TagNotFoundError when the checkout has no such tag."""
@@ -55,35 +57,33 @@ class GitReader:
 
     def extract(self, tag: str, folder: str, destination: Path) -> None:
         """Unpacks a folder of the tag into a directory, as the tag holds it."""
-        done = subprocess.run(
-            ["git", "-C", str(self._checkout), "archive", "--format=tar", tag, folder],
-            capture_output=True,
-        )
-        if done.returncode != 0:
+        code, packed, _ = self._runner.capture_bytes(
+            ["git", "-C", str(self._checkout), "archive", "--format=tar", tag, folder])
+        if code != 0:
             raise SharedToolsError(f"git archive {tag} {folder} failed in {self._checkout}")
-        with tarfile.open(fileobj=io.BytesIO(done.stdout)) as archive:
+        with tarfile.open(fileobj=io.BytesIO(packed)) as archive:
             archive.extractall(destination, filter="data")
 
     def _run(self, *arguments: str) -> str | None:
         """Returns the text a git command printed, or None when git could not run it or it failed."""
         try:
-            done = subprocess.run(
-                ["git", "-C", str(self._checkout), "-c", "core.quotepath=off", *arguments],
-                capture_output=True,
-            )
+            code, stdout, _ = self._runner.capture_bytes(
+                ["git", "-C", str(self._checkout), "-c", "core.quotepath=off", *arguments])
         except OSError:
             return None
-        return done.stdout.decode("utf-8") if done.returncode == 0 else None
+        return stdout.decode("utf-8") if code == 0 else None
 
 
-def tracked_files(root: Path, *paths: str) -> list[str]:
-    """Returns the files git tracks in a repository under the given paths, or none when it is not one."""
+def tracked_files(root: Path, *paths: str, runner: CommandRunner | None = None) -> list[str]:
+    """Returns the files git tracks in a repository under the given paths, or none when it is not one.
+
+    *runner* spawns git; the real one when None.
+    """
     try:
-        done = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "--", *paths], capture_output=True,
-        )
+        code, stdout, _ = (runner if runner is not None else quiet_runner()).capture_bytes(
+            ["git", "-C", str(root), "ls-files", "--", *paths])
     except OSError:
         return []
-    if done.returncode != 0:
+    if code != 0:
         return []
-    return [line for line in done.stdout.decode("utf-8").splitlines() if line]
+    return [line for line in stdout.decode("utf-8").splitlines() if line]

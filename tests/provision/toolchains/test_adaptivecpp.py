@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.packages import base
 from sushicore.provision.packages import winget as winget_module
 from sushicore.provision.packages.winget import WingetManager
 from sushicore.provision.packages.base_memory import (
@@ -204,9 +204,8 @@ def test_install_adaptivecpp_skips_on_windows_when_no_llvm_is_installed(
 def test_adaptivecpp_installs_no_llvm_through_winget_without_consent(
         provision_home, recording_console, monkeypatch):
     """Check that a run whose user accepted no winget agreements installs no LLVM through winget."""
-    commands = []
-    monkeypatch.setattr(base.subprocess, "Popen", lambda command, **_: commands.append(command))
-    winget = WingetManager(show=lambda command: "")
+    runner = RecordingRunner(recording_console)
+    winget = WingetManager(show=lambda command: "", runner=runner)
     monkeypatch.setattr(adaptivecpp, "_vendor_llvm_windows", lambda: None)
     monkeypatch.setattr(winget_module.shutil, "which", lambda name: "C:/winget.exe")
 
@@ -214,7 +213,7 @@ def test_adaptivecpp_installs_no_llvm_through_winget_without_consent(
         _windows_cfg(), None, None, dry_run=False, assume_yes=True, winget=winget,
         which=_on_path, llvm_bases=[], run_command=_Commands())
 
-    assert (result, commands) == (None, [])
+    assert (result, runner.commands) == (None, [])
 
 
 @pytest.mark.medium

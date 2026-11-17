@@ -7,22 +7,15 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 from collections.abc import Callable
+
+from sushicore.proc import CommandRunner
 
 from .._output import console
 from ..licence_consent import Licence, LicenceConsent, is_accepted
-from ..process_run import run
+from ..process_run import provision_runner
 from .base import IPackageManager
 from .winget_licence import read_licence
-
-
-def _show_output(command: list[str]) -> str:
-    """Runs *command* and returns what it printed; an empty text when it cannot start."""
-    try:
-        return subprocess.run(command, capture_output=True, text=True).stdout
-    except OSError:
-        return ""
 
 
 class WingetManager(IPackageManager):
@@ -31,14 +24,29 @@ class WingetManager(IPackageManager):
     name = "winget"
 
     def __init__(self, consent: LicenceConsent | None = None, *,
-                 show: Callable[[list[str]], str] = _show_output) -> None:
-        """Store the run's consent and the command runner the licence links are read through.
+                 show: Callable[[list[str]], str] | None = None,
+                 runner: CommandRunner | None = None) -> None:
+        """Store the run's consent, the runner of the winget commands and the licence reader.
 
         Without consent no install runs.
+
+        Args:
+            consent: The run's licence consent.
+            show: Returns what a ``winget show`` command prints; reads it through *runner* when
+                ``None``.
+            runner: Runs the winget commands; the provision runner when ``None``.
         """
         self._consent = consent
-        self._show = show
+        self._runner = runner or provision_runner()
+        self._show = show or self._read_output
         self._licences: dict[str, Licence] = {}
+
+    def _read_output(self, command: list[str]) -> str:
+        """Run *command* and return what it printed; an empty text when it cannot start."""
+        try:
+            return self._runner.capture(command)[1]
+        except OSError:
+            return ""
 
     def licence_of(self, pkg: str) -> Licence:
         """Returns the licence of *pkg*, named by its id and linked to its own licence page."""
@@ -53,14 +61,11 @@ class WingetManager(IPackageManager):
     def is_installed(self, pkg: str) -> bool:
         """Report whether winget lists *pkg* as installed."""
         try:
-            result = subprocess.run(
-                ["winget", "list", "--id", pkg, "-e"],
-                capture_output=True, text=True,
-            )
+            code, output, _error = self._runner.capture(["winget", "list", "--id", pkg, "-e"])
         except OSError:
             return False
-        listed = {word.lower() for word in result.stdout.split()}
-        return result.returncode == 0 and pkg.lower() in listed
+        listed = {word.lower() for word in output.split()}
+        return code == 0 and pkg.lower() in listed
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
         """Install each of *pkgs* through ``winget install`` once the user accepted its agreements.
@@ -77,11 +82,11 @@ class WingetManager(IPackageManager):
             return False
         ok = True
         for pkg in pkgs:
-            rc = run(
+            rc = self._runner.run_drained(
                 ["winget", "install", "--id", pkg, "-e",
                  "--accept-package-agreements", "--accept-source-agreements",
                  "--silent"],
-                dry_run, check=True,
+                None, dry_run=dry_run, check=True,
             )
             ok = ok and rc == 0
         return ok
@@ -90,9 +95,9 @@ class WingetManager(IPackageManager):
         """Uninstall each of *pkgs* through ``winget uninstall``."""
         ok = True
         for pkg in pkgs:
-            rc = run(
+            rc = self._runner.run_drained(
                 ["winget", "uninstall", "--id", pkg, "-e", "--silent"],
-                dry_run,
+                None, dry_run=dry_run,
             )
             ok = ok and rc == 0
         return ok

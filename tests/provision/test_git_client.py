@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.git_client import GitClient, IGitClient
 from sushicore.provision.git_client_memory import InMemoryGitClient
 
@@ -20,20 +22,36 @@ from sushicore.provision.git_client_memory import InMemoryGitClient
 @pytest.mark.small
 def test_clone_tag_runs_a_shallow_single_tag_clone():
     """Check that the clone asks git for the tag only, at depth one."""
-    seen = []
-    client = GitClient(runner=lambda command, dry_run, check: seen.append(command) or 0)
+    runner = RecordingRunner(RecordingConsole())
 
-    client.clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
+    GitClient(runner=runner).clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
 
-    assert seen == [["git", "clone", "--depth", "1", "--branch", "v1.0.0", "--single-branch",
-                     "https://x/y.git", "y"]]
+    assert [command.argv for command in runner.commands] == [
+        ("git", "clone", "--depth", "1", "--branch", "v1.0.0", "--single-branch",
+         "https://x/y.git", "y")]
 
 
 @pytest.mark.small
 def test_clone_tag_reports_a_failed_clone():
     """Check that a nonzero exit is a failed clone."""
-    client = GitClient(runner=lambda command, dry_run, check: 128)
+    client = GitClient(runner=RecordingRunner(RecordingConsole()).script(128))
     assert not client.clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
+
+
+@pytest.mark.small
+def test_head_reads_the_commit_git_prints_in_lower_case():
+    """Check that head asks git for HEAD in the checkout and lower-cases the answer."""
+    runner = RecordingRunner(RecordingConsole()).script(0, ("ABCDEF",))
+
+    assert GitClient(runner=runner).head(Path("repo")) == "abcdef"
+    assert runner.commands[0].argv == ("git", "-C", "repo", "rev-parse", "HEAD")
+
+
+@pytest.mark.small
+def test_head_is_empty_when_git_exits_nonzero():
+    """Check that a failed rev-parse gives ''."""
+    client = GitClient(runner=RecordingRunner(RecordingConsole()).script(128, stderr="fatal"))
+    assert client.head(Path("repo")) == ""
 
 
 K_TAG = "v1.0.0"

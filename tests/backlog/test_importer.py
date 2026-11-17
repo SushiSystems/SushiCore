@@ -21,6 +21,8 @@ from sushicore.backlog import (
     check_backlog,
 )
 from sushicore.backlog.importer import area_key
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 
 K_TODAY = datetime.date(2026, 10, 28)
 K_WORK = """# Remaining work
@@ -194,6 +196,16 @@ def test_import_runs_once(tmp_path: Path):
     BacklogImporter(BacklogStore(root, lambda: K_TODAY)).run()
     with pytest.raises(BacklogError):
         BacklogImporter(BacklogStore(root, lambda: K_TODAY)).run()
+
+
+@pytest.mark.medium
+def test_import_reads_each_legacy_file_s_dates_through_the_runner(tmp_path: Path):
+    """Both retired files are blamed through the injected runner, one git command each."""
+    root = _repository(tmp_path)
+    runner = RecordingRunner(RecordingConsole())
+    BacklogImporter(BacklogStore(root, lambda: K_TODAY), runner).run()
+    blames = [c.argv[3:5] for c in runner.commands if "blame" in c.argv]
+    assert blames == [("blame", "--line-porcelain")] * 2
 
 
 def _git(root: Path, *arguments: str, check: bool = True) -> str:

@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-import subprocess
 import typing
 from pathlib import Path
 from typing import Callable
 
+from sushicore.proc import CommandRunner
+
 from .._output import console
 from ..download_verifier import verify_download
 from ..licence_consent import Licence, LicenceConsent, is_accepted
+from ..process_run import provision_runner
 
 if typing.TYPE_CHECKING:
     from ..pipeline import InstallContext
@@ -38,7 +40,7 @@ _ONEAPI_URL = (
     "bae85ab1-cfcd-4251-8d42-a0c27949ea33/"
     "intel-oneapi-toolkit-2026.0.0.193_offline.exe"
 )
-#: WinError raised by ``subprocess.run`` when a launched process needs elevation.
+#: WinError raised when starting a process that needs elevation.
 _ELEVATION_REQUIRED = 740
 
 
@@ -81,13 +83,12 @@ def oneapi_licences(ctx: "InstallContext") -> list[Licence]:
 
 
 def download_oneapi_installer(*, directory: Path | None = None,
-                              launch: Callable[..., subprocess.CompletedProcess] | None = None,
-                              ) -> Path | None:
+                              runner: CommandRunner | None = None) -> Path | None:
     """Download the Intel oneAPI offline installer into the user's home directory.
 
     Args:
         directory: Where the installer is kept; the user's home directory when omitted.
-        launch: Runs the curl command; takes the command as its one argument.
+        runner: Runs the curl command; the provision runner when ``None``.
 
     Returns:
         The downloaded (or already-present) installer path, or None on failure.
@@ -99,8 +100,8 @@ def download_oneapi_installer(*, directory: Path | None = None,
     installer = (directory or Path.home()) / "intel-oneapi-toolkit-offline.exe"
     if not installer.is_file():
         console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
-        dl_rc = (launch or subprocess.run)(
-            ["curl", "-L", "-o", str(installer), _ONEAPI_URL]).returncode
+        dl_rc = (runner or provision_runner()).run(
+            ["curl", "-L", "-o", str(installer), _ONEAPI_URL], Path.cwd())
         if dl_rc != 0:
             console.error("Failed to download Intel oneAPI installer.")
             return None
@@ -109,16 +110,15 @@ def download_oneapi_installer(*, directory: Path | None = None,
 
 
 def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
-                         launch: Callable[..., subprocess.CompletedProcess] | None = None,
-                         ) -> bool:
+                         runner: CommandRunner | None = None) -> bool:
     """Run the Intel oneAPI installer silently, elevating on demand.
 
     Args:
         installer: Path of the downloaded offline installer executable.
         consent: The run's licence consent; the installer launches only when it covers
             :data:`K_ONEAPI_LICENCE`.
-        launch: Runs a command and returns its completed process; takes the command and,
-            for the elevated launch, a ``timeout`` keyword. ``subprocess.run`` when omitted.
+        runner: Runs the installer, and the elevated PowerShell launch stopped after 1200
+            seconds; the provision runner when ``None``.
 
     Returns:
         True when the installer reports success; False without consent to
@@ -128,6 +128,7 @@ def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
         console.error(f"Intel oneAPI needs consent to {K_ONEAPI_LICENCE.name}: "
                       f"{K_ONEAPI_LICENCE.link}")
         return False
+    runner = runner or provision_runner()
     oneapi_cmd = [
         str(installer), "-s", "-a", "--silent", "--eula", "accept",
         "-p=NEED_VS2022_INTEGRATION=1",
@@ -138,7 +139,7 @@ def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
         spinner="bouncingBar",
     ):
         try:
-            rc = (launch or subprocess.run)(oneapi_cmd).returncode
+            rc = runner.run(oneapi_cmd, Path.cwd())
         except OSError as exc:
             if getattr(exc, "winerror", None) != _ELEVATION_REQUIRED:
                 console.warn(f"Intel oneAPI installer failed to launch: {exc}")
@@ -154,9 +155,8 @@ def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
                     f",'-p=NEED_VS2022_INTEGRATION=1'"
                     f" -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
                 )
-                rc = (launch or subprocess.run)(
-                    ["powershell", "-Command", ps_cmd], timeout=1200,
-                ).returncode
+                rc, _stdout, _stderr = runner.capture(
+                    ["powershell", "-Command", ps_cmd], timeout=1200)
             except Exception as exc2:
                 console.error(f"Elevated oneAPI launch failed: {exc2}")
                 return False

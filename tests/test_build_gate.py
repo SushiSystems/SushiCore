@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 import struct
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
 from sushicore import build_gate, memory_reading
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 
 K_STATE = Path("tree") / "build_gate"
 
@@ -270,34 +271,20 @@ def test_only_a_compile_of_a_requested_unit_is_traced(kind, key, requested, expe
     assert build_gate.wants_time_trace(kind, key, requested) is expected
 
 
-class _CallRecorder:
-    """Records the commands handed to ``subprocess.call`` and answers 0."""
-
-    def __init__(self) -> None:
-        self.commands: list[list[str]] = []
-
-    def __call__(self, command, env=None) -> int:
-        """Record *command* and report success."""
-        self.commands.append(command)
-        return 0
-
-
 @pytest.mark.medium
-def test_a_requested_compile_runs_with_the_time_trace_flag_and_skips_the_cache(tmp_path, monkeypatch):
-    calls = _CallRecorder()
-    monkeypatch.setattr(subprocess, "call", calls)
+def test_a_requested_compile_runs_with_the_time_trace_flag_and_skips_the_cache(tmp_path):
+    runner = RecordingRunner(RecordingConsole())
     build_gate.run(tmp_path / "gate", ["clang++", "-O0", "-c", "a.cpp"], cache="ccache",
-                   requested={"a.cpp"})
-    assert calls.commands == [["clang++", "-O0", "-c", "a.cpp", "-ftime-trace"]]
+                   requested={"a.cpp"}, runner=runner)
+    assert [c.argv for c in runner.commands] == [("clang++", "-O0", "-c", "a.cpp", "-ftime-trace")]
 
 
 @pytest.mark.medium
-def test_a_compile_not_requested_runs_through_the_cache_without_the_time_trace_flag(tmp_path, monkeypatch):
-    calls = _CallRecorder()
-    monkeypatch.setattr(subprocess, "call", calls)
+def test_a_compile_not_requested_runs_through_the_cache_without_the_time_trace_flag(tmp_path):
+    runner = RecordingRunner(RecordingConsole())
     build_gate.run(tmp_path / "gate", ["clang++", "-O0", "-c", "b.cpp"], cache="ccache",
-                   requested={"a.cpp"})
-    assert calls.commands == [["ccache", "clang++", "-O0", "-c", "b.cpp"]]
+                   requested={"a.cpp"}, runner=runner)
+    assert [c.argv for c in runner.commands] == [("ccache", "clang++", "-O0", "-c", "b.cpp")]
 
 
 @pytest.mark.small

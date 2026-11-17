@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 import logging
-import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Optional
 
-from .process_run import run
+from ..proc import CommandRunner
+from .process_run import provision_runner
 
 _log = logging.getLogger(__name__)
 
@@ -34,31 +33,24 @@ class GitClient(IGitClient):
 
     Args:
         git: The git executable; ``git`` on PATH by default.
-        runner: Runs a clone command as ``(command, dry_run, check=True)`` and returns its exit code;
-            ``process_run.run`` when ``None``.
+        runner: Runs the clone drained and captures the HEAD read; the provision runner when ``None``.
     """
 
-    def __init__(self, git: str = "git",
-                 runner: Optional[Callable[..., int]] = None) -> None:
+    def __init__(self, git: str = "git", runner: CommandRunner | None = None) -> None:
         """Store the executable and the runner."""
         self._git = git
-        self._runner = runner
+        self._runner = runner or provision_runner()
 
     def clone_tag(self, url: str, tag: str, destination: Path, dry_run: bool) -> bool:
         """Run ``git clone --depth 1 --branch <tag> --single-branch``; report success."""
         command = [self._git, "clone", "--depth", "1", "--branch", tag, "--single-branch",
                    url, str(destination)]
-        return (self._runner or run)(command, dry_run, check=True) == 0
+        return self._runner.run_drained(command, None, dry_run=dry_run, check=True) == 0
 
     def head(self, checkout: Path) -> str:
         """Run ``git rev-parse HEAD`` in *checkout*; return '' when it fails."""
-        try:
-            result = subprocess.run([self._git, "-C", str(checkout), "rev-parse", "HEAD"],
-                                    capture_output=True, text=True)
-        except OSError as exc:
-            _log.warning("git could not run in %s: %s", checkout, exc)
+        code, out, err = self._runner.capture([self._git, "-C", str(checkout), "rev-parse", "HEAD"])
+        if code != 0:
+            _log.warning("git rev-parse HEAD failed in %s: %s", checkout, err.strip())
             return ""
-        if result.returncode != 0:
-            _log.warning("git rev-parse HEAD failed in %s: %s", checkout, result.stderr.strip())
-            return ""
-        return result.stdout.strip().lower()
+        return out.strip().lower()

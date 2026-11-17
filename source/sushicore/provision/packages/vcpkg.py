@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 import typing
 from pathlib import Path
 
+from sushicore.proc import CommandRunner
+
 from .. import home
 from .._output import console
-from ..process_run import run
+from ..process_run import provision_runner
 from .base import IPackageManager
 
 if typing.TYPE_CHECKING:
@@ -30,11 +31,21 @@ class VcpkgManager(IPackageManager):
 
     name = "vcpkg"
 
-    def __init__(self, cfg: "ProvisionConfig") -> None:
-        """Store *cfg* and resolve the triplet to install ports for."""
+    def __init__(self, cfg: "ProvisionConfig", runner: CommandRunner | None = None) -> None:
+        """Store *cfg*, the runner of the vcpkg commands, and resolve the triplet to install for.
+
+        Args:
+            cfg: The provision configuration.
+            runner: Runs the git, bootstrap and vcpkg commands; the provision runner when ``None``.
+        """
         self._cfg = cfg
+        self._runner = runner or provision_runner()
         self._triplet = cfg.vcpkg_triplet or (
             "x64-windows" if cfg.platform == "windows" else "x64-linux")
+
+    def _drain(self, command: list[str], dry_run: bool) -> int:
+        """Run *command*, streaming its output through the console; report a failure once."""
+        return self._runner.run_drained(command, None, dry_run=dry_run, check=True)
 
     def _root(self) -> Path:
         """Return the configured vcpkg root, else the tree a dependency root already holds."""
@@ -63,18 +74,18 @@ class VcpkgManager(IPackageManager):
                 console.info(f"Removing stale directory {root} before cloning ...")
                 if not dry_run:
                     shutil.rmtree(root)
-            rc = run(["git", "clone", "https://github.com/microsoft/vcpkg.git",
-                       str(root)], dry_run, check=True)
+            rc = self._drain(["git", "clone", "https://github.com/microsoft/vcpkg.git",
+                              str(root)], dry_run)
             if rc != 0 and not dry_run:
                 return False
         if self._cfg.platform == "windows":
             bootstrap = root / "bootstrap-vcpkg.bat"
-            rc = run(["cmd", "/c", str(bootstrap), "-disableMetrics"], dry_run, check=True)
+            rc = self._drain(["cmd", "/c", str(bootstrap), "-disableMetrics"], dry_run)
         else:
             bootstrap = root / "bootstrap-vcpkg.sh"
             if not dry_run:
                 bootstrap.chmod(bootstrap.stat().st_mode | 0o111)
-            rc = run([str(bootstrap), "-disableMetrics"], dry_run, check=True)
+            rc = self._drain([str(bootstrap), "-disableMetrics"], dry_run)
         return rc == 0 or dry_run
 
     def is_installed(self, pkg: str) -> bool:
@@ -83,13 +94,11 @@ class VcpkgManager(IPackageManager):
             return False
         exe = self._exe() if self._exe().is_file() else Path("vcpkg")
         try:
-            result = subprocess.run(
-                [str(exe), "list", "--triplet", self._triplet],
-                capture_output=True, text=True,
-            )
+            code, output, _error = self._runner.capture(
+                [str(exe), "list", "--triplet", self._triplet])
         except OSError:
             return False
-        return result.returncode == 0 and _port_name(pkg).lower() in result.stdout.lower()
+        return code == 0 and _port_name(pkg).lower() in output.lower()
 
     def install(self, pkgs: list[str], dry_run: bool) -> bool:
         """Bootstrap vcpkg if needed, then install *pkgs* for this triplet."""
@@ -100,7 +109,7 @@ class VcpkgManager(IPackageManager):
             return False
         exe = self._exe()
         ports = [f"{p}:{self._triplet}" for p in pkgs]
-        rc = run([str(exe), "install", *ports], dry_run, check=True)
+        rc = self._drain([str(exe), "install", *ports], dry_run)
         return rc == 0
 
     def remove(self, pkgs: list[str], dry_run: bool) -> bool:
@@ -112,5 +121,5 @@ class VcpkgManager(IPackageManager):
             console.warn("vcpkg not found; skipping port removal.")
             return True
         ports = [f"{p}:{self._triplet}" for p in pkgs]
-        rc = run([str(exe), "remove", *ports], dry_run, check=True)
+        rc = self._drain([str(exe), "remove", *ports], dry_run)
         return rc == 0

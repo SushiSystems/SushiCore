@@ -6,8 +6,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.shared_tools import GitReader, TagNotFoundError
 from sushicore.shared_tools.git_reader import tracked_files
 
@@ -42,3 +46,18 @@ def test_files_lists_the_tag_under_the_given_paths(upstream):
 def test_tracked_files_of_a_folder_that_is_no_repository_is_empty(tmp_path):
     """A folder outside git tracks nothing."""
     assert tracked_files(tmp_path, "tools") == []
+
+
+def test_tracked_files_lists_what_the_runner_reports_for_git():
+    """Each line git prints is one tracked file, asked for under the given paths."""
+    runner = RecordingRunner(RecordingConsole()).script(0, ("tools/a.py", "tools/b.py"))
+    assert tracked_files(Path("repo"), "tools", runner=runner) == ["tools/a.py", "tools/b.py"]
+    assert [c.argv for c in runner.commands] == [
+        ("git", "-C", "repo", "ls-files", "--", "tools")]
+
+
+def test_a_reader_whose_git_fails_finds_no_commit_for_the_tag():
+    """A git that exits non-zero is a missing tag, not a crash."""
+    reader = GitReader(Path("repo"), RecordingRunner(RecordingConsole()).script(128))
+    with pytest.raises(TagNotFoundError):
+        reader.commit(K_TAG)

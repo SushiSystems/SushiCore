@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import re
-import subprocess
-import typing
 from pathlib import Path
+
+from ...proc import CommandRunner, did_not_run
+from ..process_run import provision_runner
 
 #: Matches the clang version line that names the intel/llvm commit the compiler was built from.
 _COMMIT_PATTERN = re.compile(
@@ -17,23 +18,17 @@ _COMMIT_PATTERN = re.compile(
 )
 
 
-def read_intel_llvm_commit(
-    clang_path: Path,
-    run: typing.Callable[..., subprocess.CompletedProcess] = subprocess.run,
-) -> str | None:
+def read_intel_llvm_commit(clang_path: Path, runner: CommandRunner | None = None) -> str | None:
     """Return the intel/llvm commit *clang_path* was built from, or None.
 
     :param clang_path: Path to the compiler binary to query with ``--version``.
-    :param run: Injected in place of :func:`subprocess.run` for tests.
+    :param runner: Runs the compiler; the provision runner when ``None``.
     :return: The 40-character commit hash, or None on failure, timeout, or a
         version string that names no intel/llvm commit.
     """
-    try:
-        result = run(
-            [str(clang_path), "--version"],
-            capture_output=True, text=True, timeout=15,
-        )
-    except (OSError, subprocess.SubprocessError):
+    code, out, err = (runner or provision_runner()).capture(
+        [str(clang_path), "--version"], timeout=15)
+    if did_not_run(str(clang_path), code, err):
         return None
-    match = _COMMIT_PATTERN.search(result.stdout or "")
+    match = _COMMIT_PATTERN.search(out or "")
     return match.group(1) if match else None

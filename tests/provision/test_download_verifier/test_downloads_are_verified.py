@@ -17,6 +17,7 @@ import pytest
 
 from sushicore.deps_fragment import Download
 from sushicore.errors import DigestMismatchError
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.download_verifier import DownloadVerifier, bind_verifier
 from sushicore.provision.packages import direct_download as dd
@@ -71,30 +72,18 @@ class _Fetch:
         self.written.append(Path(dest))
 
 
-class _Launches:
-    """A process launcher that records each command and reports success."""
+class _CurlWritesPayload(RecordingRunner):
+    """A runner that records each command and, for curl, writes the payload where ``-o`` points."""
 
-    def __init__(self) -> None:
-        """Start with no launched command."""
-        self.commands: list[list[str]] = []
-
-    def __call__(self, command: list[str], **_kwargs: object) -> types.SimpleNamespace:
-        """Record *command* and report that it exited with 0."""
-        self.commands.append(command)
-        return types.SimpleNamespace(returncode=0)
-
-
-class _CurlWritesPayload:
-    """A launcher for curl that writes the payload where ``-o`` points."""
-
-    def __init__(self, payload: bytes) -> None:
+    def __init__(self, console, payload: bytes) -> None:
         """Serve *payload* for every download."""
+        super().__init__(console)
         self.payload = payload
 
-    def __call__(self, command: list[str]) -> types.SimpleNamespace:
-        """Write the payload to the path after ``-o`` and report success."""
-        Path(command[command.index("-o") + 1]).write_bytes(self.payload)
-        return types.SimpleNamespace(returncode=0)
+    def run(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None) -> int:
+        """Write the payload to the path after ``-o``, then record the command."""
+        Path(cmd[cmd.index("-o") + 1]).write_bytes(self.payload)
+        return super().run(cmd, cwd, env)
 
 
 def _resolve_tagged_asset(repo: str, tag: str, asset: str) -> str:
@@ -179,26 +168,26 @@ def test_a_tool_archive_with_no_digest_installs_and_is_named(
 
 def test_a_git_installer_with_the_wrong_digest_is_not_run(recording_console, pins):
     """Check that a mismatching Git installer stops the install before it is launched."""
-    launches = _Launches()
+    runner = RecordingRunner(recording_console)
     pins.digests["git"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
         dd._install_git_direct(pin=_pin,
-                               fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
+                               fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
 
-    assert launches.commands == []
+    assert runner.commands == []
 
 
 def test_a_git_installer_with_the_pinned_digest_is_run(recording_console, pins):
     """Check that a matching Git installer is launched once."""
-    launches = _Launches()
+    runner = RecordingRunner(recording_console)
     pins.digests["git"] = _digest(K_INSTALLER_BYTES)
 
     installed = dd._install_git_direct(pin=_pin,
-                                       fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
+                                       fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
 
     assert installed is True
-    assert len(launches.commands) == 1
+    assert len(runner.commands) == 1
     assert pins.verifier.unverified() == ()
 
 
@@ -232,27 +221,27 @@ def test_an_intel_llvm_bundle_with_the_pinned_digest_is_extracted(
 def test_an_llvm_installer_with_the_wrong_digest_is_not_run(
         provision_home, recording_console, pins):
     """Check that a mismatching LLVM installer stops the install before it is launched."""
-    launches = _Launches()
+    runner = RecordingRunner(recording_console)
     pins.digests["adaptivecpp"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
         adaptivecpp._vendor_llvm_windows(
             resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES),
-            launch=launches)
+            runner=runner)
 
-    assert launches.commands == []
+    assert runner.commands == []
 
 
 def test_an_llvm_installer_with_the_pinned_digest_is_run(
         provision_home, recording_console, pins):
     """Check that a matching LLVM installer is launched once."""
-    launches = _Launches()
+    runner = RecordingRunner(recording_console)
     pins.digests["adaptivecpp"] = _digest(K_INSTALLER_BYTES)
 
     adaptivecpp._vendor_llvm_windows(
-        resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
+        resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
 
-    assert len(launches.commands) == 1
+    assert len(runner.commands) == 1
     assert pins.verifier.unverified() == ()
 
 
@@ -263,7 +252,7 @@ def test_a_oneapi_installer_with_the_wrong_digest_is_not_returned(
 
     with pytest.raises(DigestMismatchError):
         oneapi.download_oneapi_installer(
-            directory=tmp_path, launch=_CurlWritesPayload(K_INSTALLER_BYTES))
+            directory=tmp_path, runner=_CurlWritesPayload(recording_console, K_INSTALLER_BYTES))
 
     assert not (tmp_path / K_ONEAPI_INSTALLER).exists()
 
@@ -277,7 +266,7 @@ def test_a_oneapi_installer_left_by_an_earlier_run_is_verified_too(
 
     with pytest.raises(DigestMismatchError):
         oneapi.download_oneapi_installer(
-            directory=tmp_path, launch=_CurlWritesPayload(K_INSTALLER_BYTES))
+            directory=tmp_path, runner=_CurlWritesPayload(recording_console, K_INSTALLER_BYTES))
 
     assert not installer.exists()
 
@@ -288,7 +277,7 @@ def test_a_oneapi_installer_with_the_pinned_digest_is_returned(
     pins.digests["oneapi"] = _digest(K_INSTALLER_BYTES)
 
     returned = oneapi.download_oneapi_installer(
-        directory=tmp_path, launch=_CurlWritesPayload(K_INSTALLER_BYTES))
+        directory=tmp_path, runner=_CurlWritesPayload(recording_console, K_INSTALLER_BYTES))
 
     assert returned == tmp_path / K_ONEAPI_INSTALLER
     assert pins.verifier.unverified() == ()

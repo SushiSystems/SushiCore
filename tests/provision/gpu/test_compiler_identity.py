@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.gpu.compiler_identity import read_intel_llvm_commit
 
 
@@ -39,20 +40,14 @@ _NON_INTEL_VERSION = (
 )
 
 
-def _run_returning(stdout: str):
-    """Return a run function that answers *stdout* as the output of ``clang++ --version``."""
-    def run(*args, **kwargs):
-        """Answer a result that holds *stdout*."""
-        return type("Result", (), {"stdout": stdout})()
-    return run
+def _runner() -> RecordingRunner:
+    """Return a runner that records commands and starts no process."""
+    return RecordingRunner(RecordingConsole())
 
 
-def _run_raising(error: Exception):
-    """Return a run function that raises *error*, as a compiler that cannot run does."""
-    def run(*args, **kwargs):
-        """Raise *error*."""
-        raise error
-    return run
+def _printing(version: str) -> RecordingRunner:
+    """Return a runner whose ``clang++ --version`` prints *version*."""
+    return _runner().script(0, tuple(version.splitlines()))
 
 
 @pytest.mark.parametrize(("version", "expected"), [
@@ -62,18 +57,18 @@ def _run_raising(error: Exception):
 ], ids=["dpcpp", "development-build", "dot-git-suffix"])
 def test_reads_the_commit_from_an_intel_llvm_version_line(version, expected):
     """Check that the commit after the intel/llvm URL is read from each version line shape."""
-    assert read_intel_llvm_commit(Path("clang++"), run=_run_returning(version)) == expected
+    assert read_intel_llvm_commit(Path("clang++"), _printing(version)) == expected
 
 
 def test_a_non_intel_clang_reports_no_commit():
     """Check that a version line naming no intel/llvm commit gives None."""
-    assert read_intel_llvm_commit(Path("clang++"), run=_run_returning(_NON_INTEL_VERSION)) is None
+    assert read_intel_llvm_commit(Path("clang++"), _printing(_NON_INTEL_VERSION)) is None
 
 
-@pytest.mark.parametrize("error", [
-    OSError("compiler not found"),
-    subprocess.TimeoutExpired(cmd="clang++", timeout=15),
-], ids=["raising", "timing-out"])
-def test_a_failing_run_reports_no_commit(error):
-    """Check that a run that raises or times out gives None."""
-    assert read_intel_llvm_commit(Path("clang++"), run=_run_raising(error)) is None
+@pytest.mark.parametrize("runner", [
+    _runner().script_missing(),
+    _runner().script_timeout(),
+], ids=["missing", "timing-out"])
+def test_a_failing_run_reports_no_commit(runner):
+    """Check that a compiler that cannot start or times out gives None."""
+    assert read_intel_llvm_commit(Path("clang++"), runner) is None

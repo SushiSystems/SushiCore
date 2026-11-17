@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.gpu import windows_installer
 from sushicore.provision.gpu.windows_installer import (
     ELEVATION_DECLINED,
@@ -87,14 +89,22 @@ def test_command_exits_with_the_declined_and_launch_failed_codes():
 
 @pytest.mark.small
 def test_run_reports_a_process_that_cannot_start_as_launch_failed():
-    """Check that an OSError from the process start becomes LAUNCH_FAILED with its text."""
-    def run(*args, **kwargs):
-        """Fail as a missing PowerShell does."""
-        raise OSError("powershell is missing")
+    """Check that a PowerShell that cannot start becomes LAUNCH_FAILED with the runner's text."""
+    runner = RecordingRunner(RecordingConsole()).script_missing()
 
-    result = PowerShellElevatedRunner(run=run).run(Path("setup.exe"), [])
+    result = PowerShellElevatedRunner(runner).run(Path("setup.exe"), [])
 
-    assert result == ElevatedResult(LAUNCH_FAILED, "powershell is missing")
+    assert result == ElevatedResult(LAUNCH_FAILED, "Executable not found: 'powershell'")
+
+
+@pytest.mark.small
+def test_run_returns_the_exit_code_and_the_trimmed_error_text():
+    """Check that a finished PowerShell gives its exit code and its stderr without padding."""
+    runner = RecordingRunner(RecordingConsole()).script(ELEVATION_DECLINED, stderr=" declined\n")
+
+    result = PowerShellElevatedRunner(runner).run(Path("setup.exe"), [])
+
+    assert result == ElevatedResult(ELEVATION_DECLINED, "declined")
 
 
 @pytest.mark.small

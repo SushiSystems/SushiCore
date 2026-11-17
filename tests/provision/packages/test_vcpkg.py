@@ -6,12 +6,10 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.packages import vcpkg as vcpkg_mod
 from sushicore.provision.packages.vcpkg import VcpkgManager
 
 
@@ -20,13 +18,11 @@ LISTED = "imgui:x64-windows                        1.92.8    Dear ImGui\n"
 
 
 @pytest.fixture
-def manager(tmp_path, monkeypatch):
+def manager(tmp_path, recording_console):
     """Return a Windows VcpkgManager with a vcpkg file under a folder of its own, listing imgui alone."""
     (tmp_path / "vcpkg.exe").write_text("")
-    monkeypatch.setattr(
-        vcpkg_mod.subprocess, "run",
-        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=LISTED))
-    return VcpkgManager(ProvisionSettings(platform="windows", vcpkg_root=str(tmp_path)))
+    runner = RecordingRunner(recording_console).script(0, (LISTED.rstrip(),))
+    return VcpkgManager(ProvisionSettings(platform="windows", vcpkg_root=str(tmp_path)), runner)
 
 
 @pytest.mark.medium

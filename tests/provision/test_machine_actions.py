@@ -10,7 +10,9 @@ import dataclasses
 
 import pytest
 
-from sushicore.provision.machine_actions import MachineActions
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
+from sushicore.provision.machine_actions import MachineActions, run_machine_command
 
 pytestmark = pytest.mark.small
 
@@ -38,3 +40,9 @@ def test_the_actions_name_the_seven_machine_calls():
         "refresh_path", "which", "find_vcvars", "run_command",
         "resolve_config", "install_oneapi", "detect_vendor",
     ]
+
+
+def test_a_machine_command_returns_the_exit_code_the_runner_gives():
+    runner = RecordingRunner(RecordingConsole()).script(3)
+    assert run_machine_command(["winget", "list"], runner) == 3
+    assert runner.commands[0].argv == ("winget", "list")

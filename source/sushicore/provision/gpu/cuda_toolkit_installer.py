@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 import tarfile
 import typing
 import urllib.request
@@ -21,11 +20,13 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from sushicore.errors import DigestMismatchError
+from sushicore.proc import CommandRunner
 
 from .. import home
 from .._output import console
 from ..integrity import verify_sha256
 from ..licence_consent import Licence
+from ..process_run import provision_runner
 from ..system import USER_AGENT
 from .cuda_release import RedistArchive, RedistRelease
 from .toolkit_vendor import ToolkitSourceError
@@ -62,23 +63,21 @@ def nvcc_in(root: Path) -> Path:
     return root / "bin" / K_NVCC
 
 
-def list_gpu_architectures(nvcc: Path, *, run: typing.Callable[..., typing.Any] = subprocess.run,
-                           ) -> frozenset[str]:
+def list_gpu_architectures(nvcc: Path, *, runner: CommandRunner | None = None) -> frozenset[str]:
     """Return the architectures *nvcc* builds for, without the ``compute_`` prefix.
 
     Args:
         nvcc: The compiler to ask.
-        run: Runs the command with the signature of :func:`subprocess.run`.
+        runner: Runs the command; the provision runner when ``None``.
 
     Raises:
-        ToolkitInstallError: nvcc did not run.
+        ToolkitInstallError: nvcc did not run or exited non-zero.
     """
-    try:
-        done = run([str(nvcc), "--list-gpu-arch"], capture_output=True, text=True,
-                              check=True, timeout=60)
-    except (OSError, subprocess.SubprocessError) as error:
-        raise ToolkitInstallError(f"{nvcc} --list-gpu-arch failed: {error}") from error
-    return frozenset(line.strip()[len("compute_"):] for line in done.stdout.splitlines()
+    code, out, err = (runner or provision_runner()).capture([str(nvcc), "--list-gpu-arch"],
+                                                            timeout=60)
+    if code != 0:
+        raise ToolkitInstallError(f"{nvcc} --list-gpu-arch failed (exit {code}): {err.strip()}")
+    return frozenset(line.strip()[len("compute_"):] for line in out.splitlines()
                      if line.strip().startswith("compute_"))
 
 

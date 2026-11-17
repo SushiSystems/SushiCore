@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
-import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Mapping, Protocol, Sequence
 
+from ...proc import CommandRunner, did_not_run
+from ...quiet_runner import quiet_runner
 from .package_error import PackageError
 
 #: The top-level folders whose content never enters the hash.
@@ -57,6 +58,10 @@ class MemoryInspector:
 class GitSourceInspector:
     """Asks the git on PATH."""
 
+    def __init__(self, runner: CommandRunner | None = None) -> None:
+        """Bind the runner that starts git; the quiet runner when ``None``."""
+        self._runner = runner if runner is not None else quiet_runner()
+
     def files(self, checkout: Path) -> list[Path]:
         """Run ``git ls-files --cached --others --exclude-standard -z``.
 
@@ -65,13 +70,13 @@ class GitSourceInspector:
         """
         command = ["git", "-C", str(checkout), "ls-files", "--cached", "--others",
                    "--exclude-standard", "-z"]
-        try:
-            result = subprocess.run(command, capture_output=True)
-        except OSError as exc:
-            raise PackageError(f"git cannot run in {checkout}: {exc}") from exc
-        if result.returncode != 0:
+        code, stdout, stderr = self._runner.capture_bytes(command)
+        reason = stderr.decode("utf-8", "replace")
+        if did_not_run("git", code, reason):
+            raise PackageError(f"git cannot run in {checkout}: {reason}")
+        if code != 0:
             raise PackageError(f"{checkout} is not a git checkout, so its source is unknown.")
-        names = result.stdout.decode("utf-8", "replace").split("\0")
+        names = stdout.decode("utf-8", "replace").split("\0")
         return sorted({Path(name) for name in names if name})
 
 

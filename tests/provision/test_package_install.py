@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.provision.package_install import (K_STAGE_MARKER, CapturedRun,
-                                                  PackageInstaller, install_summary)
+from sushicore.proc_memory import RecordingRunner
+from sushicore.provision.package_install import K_STAGE_MARKER, PackageInstaller, install_summary
 
 
 def _lines(console, kind):
@@ -20,29 +20,29 @@ def _lines(console, kind):
     return [args[0] for name, args in console.calls if name == kind]
 
 
-class _Runner:
+class _CmakeRunner(RecordingRunner):
     """Records commands and installs a file and a folder the way cmake --install would."""
 
-    def __init__(self, install_code: int = 0) -> None:
+    def __init__(self, console: RecordingConsole, install_code: int = 0) -> None:
         """Start with no calls; an install exits with *install_code*."""
-        self.calls: list[list[str]] = []
+        super().__init__(console)
         self.install_code = install_code
 
-    def __call__(self, command, cwd, env=None) -> int:
-        """Record *command*."""
-        self.calls.append(command)
-        return 0
+    @property
+    def calls(self) -> list[list[str]]:
+        """Return the commands recorded so far, as lists of words."""
+        return [list(command.argv) for command in self.commands]
 
-    def capture(self, command, cwd, env=None) -> CapturedRun:
-        """Record *command*; write a file and a folder into the prefix, as cmake prints them."""
-        self.calls.append(command)
+    def capture(self, cmd, cwd=None, env=None, timeout=None, **options):
+        """Record *cmd*; write a file and a folder into the prefix, as cmake prints them."""
         if self.install_code != 0:
-            return CapturedRun(self.install_code, "CMake Error: file cannot create directory")
-        prefix = Path(command[command.index("--prefix") + 1])
+            return self.install_code, "", "CMake Error: file cannot create directory"
+        prefix = Path(cmd[cmd.index("--prefix") + 1])
         (prefix / "include").mkdir(parents=True, exist_ok=True)
         (prefix / "installed.txt").write_text("x")
-        return CapturedRun(0, f"-- Installing: {prefix / 'include'}\n"
-                              f"-- Installing: {prefix / 'installed.txt'}\n")
+        self.script(0, (f"-- Installing: {prefix / 'include'}",
+                        f"-- Installing: {prefix / 'installed.txt'}"))
+        return super().capture(cmd, cwd, env, timeout, **options)
 
 
 @pytest.fixture
@@ -57,10 +57,11 @@ def checkout(tmp_path):
     return root
 
 
-def _install(checkout, prefix, runner=None, archive=False, force=False):
+def _install(checkout, prefix, install_code=0, archive=False, force=False):
     """Run the installer; return its exit code, console and runner."""
-    console, runner = RecordingConsole(), runner or _Runner()
-    code = PackageInstaller(console, "cmake", runner, runner.capture).install(
+    console = RecordingConsole()
+    runner = _CmakeRunner(console, install_code)
+    code = PackageInstaller(console, "cmake", runner).install(
         checkout, Path("build"), prefix, archive=archive, force=force)
     return code, console, runner
 
@@ -95,7 +96,7 @@ def test_an_install_prints_one_line_counting_files_not_folders(checkout):
 @pytest.mark.medium
 def test_a_failed_install_prints_all_of_cmakes_output(checkout):
     """Check that a failure shows what cmake said and prints no summary."""
-    code, console, _ = _install(checkout, checkout / "out", runner=_Runner(install_code=1))
+    code, console, _ = _install(checkout, checkout / "out", install_code=1)
     assert code == 1 and "CMake Error: file cannot create directory" in _lines(console, "error")[0]
     assert _lines(console, "info") == []
 
@@ -104,7 +105,7 @@ def test_a_failed_install_prints_all_of_cmakes_output(checkout):
 def test_a_failed_install_leaves_no_stage_marker(checkout):
     """Check that a failed install writes no stage marker."""
     prefix = checkout / "out"
-    _install(checkout, prefix, runner=_Runner(install_code=1))
+    _install(checkout, prefix, install_code=1)
     assert not (prefix / K_STAGE_MARKER).exists()
 
 

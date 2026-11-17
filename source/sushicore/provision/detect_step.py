@@ -13,11 +13,13 @@ from typing import Any, Callable
 from rich.markup import escape
 
 from . import home, probe, selection
+from ..proc import CommandRunner
 from ._output import console
 from .dependency_presence import check_cmd_ok, dep_installed, dep_manager, vcpkg_manager
 from .fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
 from .packages import IPackageManager, refresh_windows_path
 from .pipeline import InstallContext, Step, StepResult
+from .process_run import provision_runner
 
 
 #: The three statuses an inventory row can carry.
@@ -74,7 +76,8 @@ class DetectStep(Step):
                  managers: list[IPackageManager] | None = None,
                  after_inventory: Callable[[InstallContext, list[Dependency]], None] | None = None,
                  *, toolchain_status=probe.toolchain_status,
-                 gpu_vendor=probe.detect_gpu_vendor, console: Any = console) -> None:
+                 gpu_vendor=probe.detect_gpu_vendor, console: Any = console,
+                 runner: CommandRunner | None = None) -> None:
         """Wire the dependency source, the package managers and the machine probes.
 
         Args:
@@ -83,6 +86,7 @@ class DetectStep(Step):
             toolchain_status: Reads the SYCL toolchains off the machine.
             gpu_vendor: Reads the discrete-GPU vendor off the machine.
             console: The console the step prints through.
+            runner: Runs each dependency's check command; the provision runner when ``None``.
         """
         self._source = source
         self._managers = managers or []
@@ -90,6 +94,7 @@ class DetectStep(Step):
         self._toolchain_status = toolchain_status
         self._gpu_vendor = gpu_vendor
         self._console = console
+        self._runner = runner if runner is not None else provision_runner()
 
     def _dep_manager(self, plat: str) -> IPackageManager | None:
         """Return the manager that knows whether a manifest dep is installed."""
@@ -174,7 +179,7 @@ class DetectStep(Step):
             if dep_mgr is not None or vcpkg_mgr is not None:
                 present = dep_installed(dep, dep_mgr, plat, vcpkg_mgr)
             else:
-                present = bool(dep.check_cmd) and check_cmd_ok(dep.check_cmd)
+                present = bool(dep.check_cmd) and check_cmd_ok(dep.check_cmd, self._runner)
             ctx.detected[dep.name] = present
             pkgs = ", ".join(dep.packages_for(plat) or dep.vcpkg_fallback_ports(plat))
             rows.append((dep.name, _status(present), dep.owner,

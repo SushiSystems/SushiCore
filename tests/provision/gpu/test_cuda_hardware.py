@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-import subprocess
-
 import pytest
 
+from sushicore.console_memory import RecordingConsole
+from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.gpu.cuda_hardware import NvidiaHardware, parse_hardware, query_hardware
 
 
@@ -34,32 +34,27 @@ def test_parse_hardware_with_a_missing_part_is_none(capability, banner):
     assert parse_hardware(capability, banner) is None
 
 
-def _failing_with(error: Exception):
-    """Return a run function that raises *error*, as a missing or broken nvidia-smi does."""
-    def run(command):
-        """Raise *error*."""
-        raise error
-    return run
+def _runner() -> RecordingRunner:
+    """Return a runner that records commands and starts no process."""
+    return RecordingRunner(RecordingConsole())
 
 
-@pytest.mark.parametrize("error", [
-    FileNotFoundError("nvidia-smi"),
-    subprocess.CalledProcessError(9, ["nvidia-smi"]),
+@pytest.mark.parametrize("runner", [
+    _runner().script_missing(),
+    _runner().script(9),
 ], ids=["no-driver", "failing-driver"])
-def test_query_hardware_with_a_driver_that_cannot_answer_is_none(error):
+def test_query_hardware_with_a_driver_that_cannot_answer_is_none(runner):
     """Check that a missing nvidia-smi, or one exiting non-zero, is reported as no hardware."""
-    assert query_hardware(_failing_with(error)) is None
+    assert query_hardware(runner) is None
 
 
 def test_query_hardware_reads_both_commands():
     """Check that the capability query and the banner are combined."""
-    outputs = {"--query-gpu=compute_cap": "8.9\n", "": K_BANNER}
+    runner = _runner().script(0, ("8.9",)).script(0, (K_BANNER,))
 
-    def run(command):
-        """Answer by the command's first argument."""
-        return outputs[command[1] if len(command) > 1 else ""]
-
-    assert query_hardware(run) == NvidiaHardware(("89",), (13, 1))
+    assert query_hardware(runner) == NvidiaHardware(("89",), (13, 1))
+    assert [c.argv for c in runner.commands] == [
+        ("nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"), ("nvidia-smi",)]
 
 
 def test_fingerprint_changes_with_the_driver_ceiling():

@@ -6,31 +6,34 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import final
 
+from ..proc import CommandRunner, did_not_run
+from ..quiet_runner import quiet_runner
 from .errors import ReleaseError
 
 
-def read_head_commit(repository_root: Path) -> str:
+def read_head_commit(repository_root: Path, runner: CommandRunner | None = None) -> str:
     """Returns the full hash of the commit checked out in *repository_root*.
+
+    *runner* spawns git; the real one when None.
 
     Raises:
         ReleaseError: git cannot be run, or the folder is not a checkout.
     """
     try:
-        done = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repository_root, capture_output=True, text=True, check=False,
-        )
+        code, stdout, stderr = (runner if runner is not None else quiet_runner()).capture(
+            ["git", "rev-parse", "HEAD"], repository_root)
     except OSError as error:
         raise ReleaseError(
             "git could not be run, and a bundle records the commit it was built from."
         ) from error
-    if done.returncode != 0:
-        raise ReleaseError(f"{repository_root} is not a git checkout: {done.stderr.strip()}")
-    return done.stdout.strip()
+    if did_not_run("git", code, stderr):
+        raise ReleaseError("git could not be run, and a bundle records the commit it was built from.")
+    if code != 0:
+        raise ReleaseError(f"{repository_root} is not a git checkout: {stderr.strip()}")
+    return stdout.strip()
 
 
 @final

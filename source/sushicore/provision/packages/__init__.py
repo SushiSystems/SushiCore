@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from ..system import ensure_intel_oneapi_repo
-from .base import IPackageManager, prime_sudo, refresh_windows_path
+from .base import IPackageManager, refresh_windows_path
 from .direct_download import (
     WINGET_ID_TO_CMD,
     DirectDownloadWindowsManager,
@@ -43,7 +43,6 @@ __all__ = [
     "WINGET_ID_TO_CMD",
     "ensure_intel_oneapi_repo",
     "install_gpu_stack",
-    "prime_sudo",
     "refresh_windows_path",
     "download",
     "gh_tagged_asset",
