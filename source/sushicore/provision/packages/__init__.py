@@ -15,9 +15,6 @@ from .direct_download import (
     tools_dir,
 )
 from .github_release import (
-    gh_latest_asset,
-    gh_latest_asset_including_prerelease,
-    gh_latest_release_asset,
     gh_tagged_asset,
 )
 from .gpu_stack import install_gpu_stack
@@ -49,9 +46,6 @@ __all__ = [
     "prime_sudo",
     "refresh_windows_path",
     "download",
-    "gh_latest_asset",
-    "gh_latest_asset_including_prerelease",
-    "gh_latest_release_asset",
     "gh_tagged_asset",
     "tools_dir",
 ]

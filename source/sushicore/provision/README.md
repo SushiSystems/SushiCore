@@ -231,8 +231,10 @@ discovered counts as installed.
 
 ## Verifying downloads
 
-A fragment entry pins the SHA-256 of the file an installer downloads for it, per platform, in
-its `sha256` key. The key, and the table of which entry pins which file, are in
+A fragment entry pins a download with `version`, `url` and `sha256`, the three together. The
+installer of a pinned entry (`cmake`, `git`) reads its address from the entry through
+`download_verifier.pinned_download(name)` and resolves nothing. The keys, and the table of which
+entry pins which file, are in
 [`docs/reference/DEPENDENCY_FRAGMENT.md`](../../docs/reference/DEPENDENCY_FRAGMENT.md).
 
 `integrity.verify_sha256(path, expected)` is the comparison. It raises
@@ -258,7 +260,7 @@ third-party software".
 
 The call
 goes to the `DownloadVerifier` bound for the run. `InstallDepsStep.run` binds one built from
-`IDependencySource.digests(platform)` and unbinds it when the step ends, so `hub install` and a
+`IDependencySource.digests(platform)` and `downloads(platform)` and unbinds it when the step ends, so `hub install` and a
 module's `setup` verify against the fragments they read without passing anything down. An
 installer called outside that step meets a verifier that pins nothing.
 
@@ -269,14 +271,13 @@ functions, and none of those carries the run's fragments.
 A file whose digest differs is deleted, and nothing between the installer and
 `InstallPipeline.run` catches the error, so the install stops there. `sushicore.entry.run`
 prints the message and exits 1. The installers catch `Exception` around their downloads and
-re-raise this one error first.
+re-raise this one error first, and `ConfigError`, which a missing pin raises.
 
 A download whose entry pins no digest for the platform is used as before. The verifier logs one
 warning per entry on the `sushicore.provision.download_verifier` logger and keeps the names in `unverified()`.
 `doctor` has a `download digests` row from `checks.digest_check`: it warns and lists the entries
-a run on this platform would download with no pin. `K_TOOL_DOWNLOADS` holds the entries Windows
-fetches whatever the fragments say, and `K_DECLARED_DOWNLOADS` those fetched only when a
-fragment declares them.
+a run on this platform would download with no pin. `K_DOWNLOADS` holds the
+entries each platform downloads; one is listed when a fragment declares it and pins no digest.
 
 `gpu/windows_installer.py` compares an installer with the MD5 its publisher lists. No
 backend calls it since CUDA moved to the redistributable archives. It is deprecated:

@@ -25,6 +25,7 @@
 | RW-100 | P3 | open | Move the clock contracts into one shared test module | test_system_*_clock.py import their contract from a contract module, not from a sibling test file |  | `tests/provision/sushi_packages/test_wall_clock.py` | 2026-11-17 |
 | RW-102 | P2 | open | Replace the module globals of download_verifier and home with injected seams | download_verifier.py and home.py hold no global statement |  | `source/sushicore/provision/home.py` | 2026-11-17 |
 | RW-103 | P3 | open | Give IPackageManager a licence method so install_deps_step needs no isinstance check | install_deps_step.py holds no isinstance check against IWingetLicences |  | `source/sushicore/provision/install_deps_step.py` | 2026-11-17 |
+| RW-107 | P3 | open | Move status and install_command out of deps_fragment and fold digests into download_for | deps_fragment.py only reads fragments and the verifier reads digests through download_for |  | `source/sushicore/deps_fragment.py` | 2026-11-17 |
 
 ## Known issues
 

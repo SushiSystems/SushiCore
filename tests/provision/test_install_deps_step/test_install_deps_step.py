@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.deps_fragment import Download
 from sushicore.console_memory import RecordingConsole
 from sushicore.errors import DigestMismatchError
 from sushicore.provision import download_verifier
@@ -68,6 +69,28 @@ def test_install_deps_binds_the_manifest_digests_for_the_length_of_the_run(tmp_p
     assert result is StepResult.OK
     assert len(mismatches) == 1
     download_verifier.verify_download("cmake", archive)
+
+
+@pytest.mark.medium
+def test_install_deps_binds_the_pinned_downloads_of_the_run():
+    """Check that an installer inside the run reads the download its fragment pins."""
+    pinned = Download("cmake", "v1", "https://example.invalid/c.zip", "3f" * 32)
+    seen = []
+    manager = InMemoryPackageManager(
+        name="direct-download",
+        on_install=lambda pkgs, dry_run: seen.append(download_verifier.pinned_download("cmake")))
+    source = InMemoryDependencySource([
+        Dependency(name="cmake", version="v1", url={"windows": pinned.url},
+                   sha256={"windows": pinned.sha256})])
+    actions = _actions(which=lambda name: "/bin/git" if name == "git" else None,
+                       find_vcvars=lambda: Path("vcvars64.bat"),
+                       install_oneapi=lambda run: True)
+    step = InstallDepsStep(source, managers=[manager], console=RecordingConsole(),
+                           actions=actions)
+
+    step.run(InstallContext(cfg=ProvisionSettings(platform="windows")))
+
+    assert seen == [pinned]
 
 
 @pytest.mark.medium

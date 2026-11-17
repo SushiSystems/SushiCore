@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.deps_fragment import Download
 from sushicore.errors import DigestMismatchError
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.download_verifier import DownloadVerifier, bind_verifier
@@ -96,22 +97,15 @@ class _CurlWritesPayload:
         return types.SimpleNamespace(returncode=0)
 
 
-def _resolve_asset(repo: str, pattern: str) -> str:
-    """Return a fixed URL for any GitHub asset lookup."""
-    del repo, pattern
-    return K_URL
-
-
 def _resolve_tagged_asset(repo: str, tag: str, asset: str) -> str:
     """Return a fixed URL for any tagged GitHub asset lookup."""
     del repo, tag, asset
     return K_URL
 
 
-def _resolve_release(repo: str, asset: str) -> tuple[str, str]:
-    """Return a fixed release tag and URL for any release lookup."""
-    del repo, asset
-    return "nightly-2", K_URL
+def _pin(name: str) -> Download:
+    """Return a pinned download for the entry *name* with a fixed URL."""
+    return Download(name, "v1", K_URL, "0" * 64)
 
 
 def _no_cmake_on_system() -> str:
@@ -126,10 +120,10 @@ def _ignore_path(directory: str) -> None:
 
 K_ZIP_INSTALLS = [
     (dd._install_cmake_direct, "cmake", _zip_bytes("cmake-1.0/bin/cmake.exe"),
-     ("cmake", "bin", "cmake.exe"), {"cmake_on_system": _no_cmake_on_system}),
-    (dd._install_ninja_direct, "ninja", _zip_bytes("ninja.exe"), ("ninja.exe",), {}),
+     ("cmake", "bin", "cmake.exe"), {"cmake_on_system": _no_cmake_on_system, "pin": _pin}),
+    (dd._install_ninja_direct, "ninja", _zip_bytes("ninja.exe"), ("ninja.exe",), {"pin": _pin}),
     (dd._install_doxygen_direct, "doxygen", _zip_bytes("doxygen-1.0/doxygen.exe"),
-     ("doxygen", "doxygen.exe"), {}),
+     ("doxygen", "doxygen.exe"), {"pin": _pin}),
 ]
 
 
@@ -151,7 +145,7 @@ def test_a_tool_archive_with_the_wrong_digest_is_not_extracted(
     pins.digests[name] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        installer(resolve_asset=_resolve_asset, fetch=fetch, on_path=_ignore_path, **extra)
+        installer(fetch=fetch, on_path=_ignore_path, **extra)
 
     assert not dd.tools_dir().joinpath(*installed).exists()
     assert not fetch.written[0].exists()
@@ -163,8 +157,8 @@ def test_a_tool_archive_with_the_pinned_digest_installs(
     """Check that a matching archive installs and is not reported as unverified."""
     pins.digests[name] = _digest(payload)
 
-    done = installer(resolve_asset=_resolve_asset, fetch=_Fetch(payload),
-                     on_path=_ignore_path, **extra)
+    done = installer(fetch=_Fetch(payload), on_path=_ignore_path,
+                     **extra)
 
     assert done is True
     assert dd.tools_dir().joinpath(*installed).exists()
@@ -175,8 +169,8 @@ def test_a_tool_archive_with_the_pinned_digest_installs(
 def test_a_tool_archive_with_no_digest_installs_and_is_named(
         installer, name, payload, installed, extra, provision_home, recording_console, pins):
     """Check that an unpinned archive installs as before and is recorded by name."""
-    done = installer(resolve_asset=_resolve_asset, fetch=_Fetch(payload),
-                     on_path=_ignore_path, **extra)
+    done = installer(fetch=_Fetch(payload), on_path=_ignore_path,
+                     **extra)
 
     assert done is True
     assert dd.tools_dir().joinpath(*installed).exists()
@@ -189,7 +183,7 @@ def test_a_git_installer_with_the_wrong_digest_is_not_run(recording_console, pin
     pins.digests["git"] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        dd._install_git_direct(resolve_asset=_resolve_asset,
+        dd._install_git_direct(pin=_pin,
                                fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
 
     assert launches.commands == []
@@ -200,7 +194,7 @@ def test_a_git_installer_with_the_pinned_digest_is_run(recording_console, pins):
     launches = _Launches()
     pins.digests["git"] = _digest(K_INSTALLER_BYTES)
 
-    installed = dd._install_git_direct(resolve_asset=_resolve_asset,
+    installed = dd._install_git_direct(pin=_pin,
                                        fetch=_Fetch(K_INSTALLER_BYTES), launch=launches)
 
     assert installed is True
@@ -216,7 +210,7 @@ def test_an_intel_llvm_bundle_with_the_wrong_digest_is_not_extracted(
     with pytest.raises(DigestMismatchError):
         intel_llvm.install_intel_llvm(
             ProvisionSettings(platform="linux"), dry_run=False,
-            resolve_release=_resolve_release, fetch=_Fetch(_bundle_bytes()))
+            pin=_pin, fetch=_Fetch(_bundle_bytes()))
 
     assert not (toolchains_dir() / "llvm-sycl" / "bin" / "clang++").exists()
 
@@ -229,7 +223,7 @@ def test_an_intel_llvm_bundle_with_the_pinned_digest_is_extracted(
 
     root = intel_llvm.install_intel_llvm(
         ProvisionSettings(platform="linux"), dry_run=False,
-        resolve_release=_resolve_release, fetch=_Fetch(bundle))
+        pin=_pin, fetch=_Fetch(bundle))
 
     assert (Path(root) / "bin" / "clang++").is_file()
     assert pins.verifier.unverified() == ()

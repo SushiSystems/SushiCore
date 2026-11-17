@@ -10,10 +10,12 @@ import hashlib
 
 import pytest
 
-from sushicore.errors import DigestMismatchError
+from sushicore.deps_fragment import Download
+from sushicore.errors import ConfigError, DigestMismatchError
 from sushicore.provision.download_verifier import (
     DownloadVerifier,
     bind_verifier,
+    pinned_download,
     unpinned_downloads,
     verify_download,
 )
@@ -116,9 +118,10 @@ def test_unbinding_leaves_a_verifier_that_pins_nothing(tmp_path, caplog):
 
 
 @pytest.mark.small
-def test_unpinned_downloads_lists_the_tools_windows_always_fetches():
-    """Check that the Windows tools are listed whether or not a fragment declares them."""
-    assert unpinned_downloads(set(), {}, "windows") == K_WINDOWS_TOOLS
+def test_unpinned_downloads_lists_the_declared_tools_with_no_digest():
+    """Check that the Windows tools a fragment declares are listed, and none it leaves out."""
+    assert unpinned_downloads(set(K_WINDOWS_TOOLS), {}, "windows") == K_WINDOWS_TOOLS
+    assert unpinned_downloads(set(), {}, "windows") == []
 
 
 @pytest.mark.small
@@ -135,9 +138,9 @@ def test_unpinned_downloads_leaves_out_what_is_pinned():
     """Check that a pinned download is not listed."""
     digests = {"cmake": K_DIGEST, "intel-llvm": K_DIGEST}
 
-    listed = unpinned_downloads({"intel-llvm"}, digests, "windows")
+    listed = unpinned_downloads({"cmake", "ninja", "intel-llvm"}, digests, "windows")
 
-    assert listed == ["ninja", "doxygen", "git"]
+    assert listed == ["ninja"]
 
 
 @pytest.mark.small
@@ -146,3 +149,29 @@ def test_unpinned_downloads_on_linux_names_only_the_declared_bundle():
     assert unpinned_downloads(set(), {}, "linux") == []
     assert unpinned_downloads({"intel-llvm", "oneapi", "cuda"}, {}, "linux") == ["intel-llvm"]
 
+
+
+@pytest.mark.small
+def test_pinned_returns_the_download_an_entry_pins():
+    """Check that the verifier answers the pinned download of the entry it is asked for."""
+    pinned = Download("cmake", "v1", "https://example.invalid/c.zip", K_DIGEST)
+    assert DownloadVerifier({}, {"cmake": pinned}).pinned("cmake") == pinned
+
+
+@pytest.mark.small
+def test_pinned_names_the_entry_when_no_fragment_pins_it():
+    """Check that an entry no fragment pins is refused, with its name in the message."""
+    with pytest.raises(ConfigError) as refused:
+        DownloadVerifier({}).pinned("cmake")
+    assert "'cmake'" in str(refused.value)
+
+
+@pytest.mark.small
+def test_pinned_download_reads_the_bound_verifier():
+    """Check that the module function answers from the verifier bound for the run."""
+    pinned = Download("git", "v2", "https://example.invalid/g.exe", K_DIGEST)
+    bind_verifier(DownloadVerifier({}, {"git": pinned}))
+    try:
+        assert pinned_download("git") == pinned
+    finally:
+        bind_verifier(None)

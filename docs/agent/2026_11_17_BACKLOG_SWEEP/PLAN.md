@@ -41,6 +41,10 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
   installer and oneAPI move from the installers into `base.deps.toml`, and the installers read
   them. No installer resolves "latest"; renewing a pin is an edit of the fragment with its digest
   from the vendor's published checksum.
+- RW-44, digests: where a vendor publishes no checksum file, the sha256 GitHub's release API lists
+  for the asset is the digest. It comes from the release the asset is downloaded from and names
+  the uploaded bytes. An asset without one, LLVM 17.0.6 and oneAPI today, stays unpinned and is
+  listed in the backlog.
 - RW-4: the 141 untracked review files are read, what still holds goes into a tracked report
   under `docs/agent/`, and `.superpowers/` is left for the owner to delete.
 

@@ -38,8 +38,6 @@ def sent_agents(monkeypatch):
 
 @pytest.mark.small
 @pytest.mark.parametrize("call", [
-    lambda tmp: github_release.gh_latest_asset("o/r", "*"),
-    lambda tmp: github_release.gh_latest_release_asset("o/r", "*"),
     lambda tmp: github_release.gh_tagged_asset("o/r", "v1", "*"),
     lambda tmp: direct_download.download("https://example.invalid/x", tmp / "x"),
 ])

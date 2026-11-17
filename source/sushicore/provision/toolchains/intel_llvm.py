@@ -13,11 +13,12 @@ import typing
 from pathlib import Path
 from typing import Callable
 
-from sushicore.errors import DigestMismatchError
+from sushicore.deps_fragment import Download
+from sushicore.errors import ConfigError, DigestMismatchError
 
 from .._output import console
-from ..download_verifier import verify_download
-from ..packages import download, gh_latest_release_asset
+from ..download_verifier import pinned_download, verify_download
+from ..packages import download
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
 
@@ -29,7 +30,7 @@ __all__ = ["install_intel_llvm"]
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        refresh: bool = False, refresh_command: str = "", *,
-                       resolve_release: Callable[..., tuple[str, str]] | None = None,
+                       pin: Callable[[str], Download] | None = None,
                        fetch: Callable[[str, Path], None] | None = None) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
 
@@ -38,7 +39,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         dry_run: Report the action without touching the filesystem.
         refresh: Re-download over an existing install.
         refresh_command: The command the consumer offers for a refresh; named in the note about a stale bundle.
-        resolve_release: Maps a repository and an asset name to the release tag and the asset URL.
+        pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
 
     Returns:
@@ -46,6 +47,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
 
     Raises:
         DigestMismatchError: The bundle's SHA-256 is not the one its manifest entry pins.
+        ConfigError: No fragment pins the ``intel-llvm`` download for this platform.
     """
     root = toolchains_dir() / "llvm-sycl"
     clang = root / "bin" / ("clang++.exe" if cfg.is_windows else "clang++")
@@ -69,12 +71,8 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         console.info(f"(dry-run) {verb} intel/llvm '{asset}' at {root}")
         return str(root)
 
-    try:
-        # intel/llvm ships every SYCL build as a GitHub pre-release (nightly-*).
-        tag, url = (resolve_release or gh_latest_release_asset)("intel/llvm", asset)
-    except Exception as exc:
-        console.error(f"Could not resolve intel/llvm release asset: {exc}")
-        return None
+    pinned = (pin or pinned_download)("intel-llvm")
+    tag, url = pinned.version, pinned.url
 
     if refresh and clang.is_file():
         current = read_toolchain_stamp(root).get("tag")
@@ -90,7 +88,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
             (fetch or download)(url, archive)
             verify_download("intel-llvm", archive)
             _extract_tar_gz(archive, root)
-        except DigestMismatchError:
+        except (DigestMismatchError, ConfigError):
             raise
         except Exception as exc:
             console.error(f"intel/llvm bundle install failed: {exc}")

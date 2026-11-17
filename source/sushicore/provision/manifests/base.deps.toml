@@ -14,6 +14,8 @@
 #   linux_apt      apt package names; empty list = not needed on Linux.
 #   windows_vcpkg  vcpkg port names; empty list = not needed on Windows.
 #   check_cmd      Optional command; exit 0 means "already installed".
+#   version        The release a download belongs to; with url and sha256 or none of them.
+#   url            Table of platform to the exact address of the file downloaded there.
 #   sha256         Optional table of platform to the SHA-256 of the file downloaded for
 #                  this entry there: { windows = "<64 hex digits>", linux = "..." }.
 #                  docs/reference/DEPENDENCY_FRAGMENT.md lists which entry pins which file.
@@ -32,6 +34,11 @@ required      = true
 linux_apt     = ["cmake"]
 windows_vcpkg = []
 check_cmd     = ["cmake", "--version"]
+# The portable zip direct-download installs when winget is absent. The digest is the line for
+# this file in https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-SHA-256.txt.
+version       = "v4.5.0"
+url           = { windows = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-windows-x86_64.zip" }
+sha256        = { windows = "301b1728317ccd84e984b02e366a8293735bc5ac618757d3d8f58b578f062411" }
 
 [ninja]
 # Windows: installed via winget (Ninja-build.Ninja).
@@ -40,6 +47,47 @@ required      = true
 linux_apt     = ["ninja-build"]
 windows_vcpkg = []
 check_cmd     = ["ninja", "--version"]
+# The zip direct-download installs when winget is absent. The digest is the sha256 GitHub's
+# release API lists for the asset: ninja publishes no checksum file.
+version       = "v1.13.2"
+url           = { windows = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip" }
+sha256        = { windows = "07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65" }
+
+[doxygen]
+# The portable zip direct-download installs. The digest is the sha256 GitHub's release API
+# lists for the asset: doxygen publishes no checksum file.
+description   = "Doxygen, which builds the API reference."
+required      = false
+linux_apt     = []
+windows_vcpkg = []
+version       = "Release_1_18_0"
+url           = { windows = "https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.windows.x64.bin.zip" }
+sha256        = { windows = "e84f54cfd49ef06b0b16536056dbec0c496323de28abcce53a4269463de35eaf" }
+
+[intel-llvm]
+# The nightly SYCL bundle the toolchain installer extracts. A module that builds SYCL declares
+# the entry itself and the two merge; this one holds the pin. The digests are the sha256 GitHub's
+# release API lists for each asset: intel/llvm publishes no checksum file.
+description   = "intel/llvm nightly SYCL bundle (clang++ -fsycl)."
+required      = false
+gpu_only      = true
+linux_apt     = []
+windows_vcpkg = []
+version       = "nightly-2026-11-17"
+url           = { windows = "https://github.com/intel/llvm/releases/download/nightly-2026-11-17/sycl_windows.tar.gz", linux = "https://github.com/intel/llvm/releases/download/nightly-2026-11-17/sycl_linux.tar.gz" }
+sha256        = { windows = "95e885e96e95b2d2e4d3485beaed54648334bb20b8e10729e42a5bc8a75f4070", linux = "2b022d8c7db88becd91e0c98bec3678ba415863b61825c9c453ae803fcaaf768" }
+
+[git]
+# Windows: installed via winget (Git.Git), or by the installer direct-download runs when winget
+# is absent. The digest is the line for this file in the release notes of
+# https://github.com/git-for-windows/git/releases/tag/v2.56.1.windows.1.
+description   = "Git, which fetches the pinned Sushi libraries."
+required      = false
+linux_apt     = []
+windows_vcpkg = []
+version       = "v2.56.1.windows.1"
+url           = { windows = "https://github.com/git-for-windows/git/releases/download/v2.56.1.windows.1/Git-2.56.1-64-bit.exe" }
+sha256        = { windows = "c330c72e10b408cc39994bfefdb63542b0d93d21699325c3e0bd874af8a5a559" }
 
 [gtest]
 description   = "GoogleTest (unit / integration test framework). Shared: every module tests with it."
@@ -61,7 +109,6 @@ linux_apt     = ["pkg-config"]
 windows_vcpkg = ["pkgconf"]
 check_cmd     = ["pkg-config", "--version"]
 
-# Note: the SYCL toolchains (intel-llvm, AdaptiveCpp, oneAPI) and CUDA are NOT
-# here — they are SushiRuntime's dependencies, declared in
-# sushiruntime/cli/sushistack.deps.toml. This fragment has no SYCL or compute
-# dependency of its own.
+# Note: the SYCL toolchains (intel-llvm, AdaptiveCpp, oneAPI) and CUDA are
+# SushiRuntime's dependencies, declared in sushiruntime/cli/sushistack.deps.toml.
+# This fragment holds only the pin of the intel-llvm download.

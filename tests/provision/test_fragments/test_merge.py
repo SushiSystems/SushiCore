@@ -84,9 +84,16 @@ def test_the_aggregation_keeps_the_feature_across_two_fragments(tmp_path):
     assert (merged.windows_vcpkg, merged.required, merged.owner) == (["sdl2[vulkan]"], True, "sushidsp")
 
 
+def _download(platform: str, digest: str, version: str = "v1") -> str:
+    """Return the keys of a whole download for *platform*, pinned to *digest*."""
+    return (f'version = "{version}"\n'
+            f'url = {{ {platform} = "https://example.invalid/{platform}.zip" }}\n'
+            f'sha256 = {{ {platform} = "{digest}" }}\n')
+
+
 def test_a_digest_declared_by_one_module_survives(tmp_path):
     """A module that pins nothing does not unpin what another module pinned."""
-    merged = _merged(tmp_path, ("a", ""), ("b", f'sha256 = {{ windows = "{K_DIGEST}" }}\n'))
+    merged = _merged(tmp_path, ("a", ""), ("b", _download("windows", K_DIGEST)))
     assert merged.sha256 == {"windows": K_DIGEST}
 
 
@@ -94,8 +101,8 @@ def test_digests_for_different_platforms_are_both_kept(tmp_path):
     """Two modules pinning one platform each leave both platforms pinned."""
     merged = _merged(
         tmp_path,
-        ("a", f'sha256 = {{ windows = "{K_DIGEST}" }}\n'),
-        ("b", f'sha256 = {{ linux = "{K_OTHER_DIGEST}" }}\n'),
+        ("a", _download("windows", K_DIGEST)),
+        ("b", _download("linux", K_OTHER_DIGEST)),
     )
     assert merged.sha256 == {"windows": K_DIGEST, "linux": K_OTHER_DIGEST}
 
@@ -104,9 +111,27 @@ def test_two_different_digests_for_one_platform_are_reported(tmp_path, recording
     """Two pins for one file cannot both hold, so the first is kept and the clash is named."""
     merged = _merged(
         tmp_path,
-        ("a", f'sha256 = {{ windows = "{K_DIGEST}" }}\n'),
-        ("b", f'sha256 = {{ windows = "{K_OTHER_DIGEST}" }}\n'),
+        ("a", _download("windows", K_DIGEST)),
+        ("b", _download("windows", K_OTHER_DIGEST)),
     )
     (warning,) = recording_console.texts("warn")
     assert merged.sha256 == {"windows": K_DIGEST}
     assert ("sha256" in warning, "a" in warning, "b" in warning) == (True, True, True)
+
+
+def test_a_url_and_a_version_declared_by_one_module_survive(tmp_path):
+    """A module that pins nothing does not unpin the download another module pinned."""
+    merged = _merged(tmp_path, ("a", ""), ("b", _download("windows", K_DIGEST, "v2")))
+    assert (merged.version, merged.url) == ("v2", {"windows": "https://example.invalid/windows.zip"})
+
+
+def test_two_versions_of_one_download_are_reported(tmp_path, recording_console):
+    """Two pins of different versions cannot both hold, so the first is kept and the clash named."""
+    merged = _merged(
+        tmp_path,
+        ("a", _download("windows", K_DIGEST, "v1")),
+        ("b", _download("windows", K_DIGEST, "v2")),
+    )
+    (warning,) = recording_console.texts("warn")
+    assert merged.version == "v1"
+    assert "version" in warning

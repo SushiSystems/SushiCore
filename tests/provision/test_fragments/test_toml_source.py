@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from sushicore.deps_fragment import Download
 from sushicore.provision.fragments import SHARED_OWNER, TomlDependencySource
 
 
@@ -45,9 +46,23 @@ def test_digests_returns_the_pins_for_one_platform(tmp_path):
     """Check that digests names each pinned dependency of a platform and leaves out the rest."""
     digest = "3f" * 32
     mine = _write(tmp_path / "mine.deps.toml",
-                  f'[cmake]\nsha256 = {{ windows = "{digest}" }}\n'
+                  f'[cmake]\nversion = "v1"\nurl = {{ windows = "https://example.invalid/c.zip" }}\n'
+                  f'sha256 = {{ windows = "{digest}" }}\n'
                   '[ninja]\ndescription = "unpinned"\n')
     source = TomlDependencySource([(mine, SHARED_OWNER)])
 
     assert source.digests("windows") == {"cmake": digest}
     assert source.digests("linux") == {}
+
+
+def test_downloads_returns_the_whole_pin_for_one_platform(tmp_path):
+    """Check that downloads names each pinned entry's version, url and digest for a platform."""
+    digest = "3f" * 32
+    mine = _write(tmp_path / "mine.deps.toml",
+                  '[cmake]\nversion = "v1"\nurl = { windows = "https://example.invalid/c.zip" }\n'
+                  f'sha256 = {{ windows = "{digest}" }}\n[ninja]\ndescription = "unpinned"\n')
+    source = TomlDependencySource([(mine, SHARED_OWNER)])
+
+    assert source.downloads("windows") == {
+        "cmake": Download("cmake", "v1", "https://example.invalid/c.zip", digest)}
+    assert source.downloads("linux") == {}

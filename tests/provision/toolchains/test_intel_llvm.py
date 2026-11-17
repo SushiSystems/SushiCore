@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.deps_fragment import Download
+from sushicore.errors import ConfigError
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.toolchains import intel_llvm
 from sushicore.provision.toolchains.stamp import (
@@ -22,8 +24,8 @@ pytestmark = pytest.mark.medium
 _URL = "http://example.invalid/a"
 
 
-class _Resolver:
-    """Answers a release lookup with a fixed tag and counts the lookups."""
+class _Pinner:
+    """Answers a pin lookup with a fixed tag and counts the lookups."""
 
     def __init__(self, tag: str = "nightly-2", error: Exception | None = None) -> None:
         """Answer *tag*, or raise *error* when one is given."""
@@ -31,12 +33,12 @@ class _Resolver:
         self._error = error
         self.lookups = 0
 
-    def __call__(self, repo: str, asset: str) -> tuple[str, str]:
-        """Count the lookup and answer the tag and the asset URL."""
+    def __call__(self, name: str) -> Download:
+        """Count the lookup and answer the pinned download."""
         self.lookups += 1
         if self._error is not None:
             raise self._error
-        return self._tag, _URL
+        return Download(name, self._tag, _URL, "0" * 64)
 
 
 class _Fetcher:
@@ -75,13 +77,13 @@ def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, recording_
     """Check that an installed bundle is returned with a warning and no release lookup."""
     root = toolchains_dir() / "llvm-sycl"
     _install_clang(root)
-    resolver = _Resolver()
+    pinner = _Pinner()
 
     result = intel_llvm.install_intel_llvm(
-        _linux_cfg(), dry_run=False, resolve_release=resolver)
+        _linux_cfg(), dry_run=False, pin=pinner)
 
     assert result == str(root)
-    assert resolver.lookups == 0
+    assert pinner.lookups == 0
     assert recording_console.has_call("warn")  # no sanitizer runtime in the tree
 
 
@@ -107,7 +109,7 @@ def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, rec
 
     result = intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False, refresh=True,
-        resolve_release=_Resolver("nightly-1"), fetch=fetcher)
+        pin=_Pinner("nightly-1"), fetch=fetcher)
 
     assert result == str(root)
     assert fetcher.downloads == 0
@@ -120,22 +122,19 @@ def test_install_intel_llvm_downloads_and_extracts_on_first_install(
 
     result = intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        resolve_release=_Resolver("nightly-2"), fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
+        pin=_Pinner("nightly-2"), fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
 
     assert result == str(root)
     assert (root / "bin" / "clang++").is_file()
     assert read_toolchain_stamp(root)["tag"] == "nightly-2"
 
 
-def test_install_intel_llvm_returns_none_when_asset_resolution_fails(
+def test_install_intel_llvm_stops_when_no_fragment_pins_the_bundle(
         provision_home, recording_console):
-    """Check that a failed release lookup returns None with an error."""
-    result = intel_llvm.install_intel_llvm(
-        _linux_cfg(), dry_run=False,
-        resolve_release=_Resolver(error=RuntimeError("no asset")))
-
-    assert result is None
-    assert recording_console.has_call("error")
+    """Check that a missing pin reaches the caller as the error that names the entry."""
+    with pytest.raises(ConfigError):
+        intel_llvm.install_intel_llvm(
+            _linux_cfg(), dry_run=False, pin=_Pinner(error=ConfigError("no pin 'intel-llvm'")))
 
 
 def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
@@ -147,7 +146,7 @@ def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
 
     result = intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        resolve_release=_Resolver(), fetch=_Fetcher(error=OSError("network down")))
+        pin=_Pinner(), fetch=_Fetcher(error=OSError("network down")))
 
     assert result is None
     assert not root.exists()
@@ -160,7 +159,7 @@ def test_install_intel_llvm_collapses_a_single_top_level_wrapper_dir(
 
     intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        resolve_release=_Resolver(), fetch=_Fetcher(("wrap/bin/clang++",)))
+        pin=_Pinner(), fetch=_Fetcher(("wrap/bin/clang++",)))
 
     assert (root / "bin" / "clang++").is_file()
     assert not (root / "wrap").exists()
@@ -172,7 +171,7 @@ def test_install_intel_llvm_leaves_an_unwrapped_layout_alone(provision_home, rec
 
     intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        resolve_release=_Resolver(),
+        pin=_Pinner(),
         fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
 
     assert (root / "bin" / "clang++").is_file()

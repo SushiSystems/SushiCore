@@ -90,19 +90,25 @@ each pin that resolves and is not in `packaged`. The CLI adds these and
 `PackageSet.definitions()` to the CMake configure, and CMake never downloads. The packages are in
 [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
 
-## `sha256`
+## `version`, `url` and `sha256`
 
-`sha256` pins the file an installer downloads for the entry. It is a table with one key per
-platform, `windows` or `linux`, and each value is the SHA-256 of that platform's file as 64 hex
-digits in either case.
+An entry that pins a download carries three keys together. `version` is the release the file
+belongs to, as the vendor names it. `url` is a table with one key per platform, `windows` or
+`linux`, holding the exact `https` address of that platform's file. `sha256` is a table with the
+same keys, each value the SHA-256 of that file as 64 hex digits in either case, taken from the
+vendor's own published checksum.
 
 ```toml
-[intel-llvm]
-sha256 = { windows = "<64 hex digits>", linux = "<64 hex digits>" }
+[cmake]
+version = "v4.5.0"
+url     = { windows = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-windows-x86_64.zip" }
+sha256  = { windows = "<64 hex digits>" }
 ```
 
-The reader raises `ValueError`, naming the file and the entry, when `sha256` is not a table,
-names another platform, or holds a value that is not 64 hex digits.
+The reader raises `ValueError`, naming the file and the entry, when an entry declares one or two
+of the three keys, when `url` and `sha256` name different platforms, when a key is not the shape
+above, or when a digest is not 64 hex digits. An entry that declares none of the three pins
+nothing.
 
 When an installer has downloaded a file it calls `verify_download` in
 `sushicore/provision/download_verifier.py` before it extracts or runs it.
@@ -115,32 +121,38 @@ When an installer has downloaded a file it calls `verify_download` in
   on, and the run logs one warning per entry on the `sushicore.provision.download_verifier` logger. `doctor`
   lists the same entries in its `download digests` row.
 
-These are the downloads the verifier sees, and the entry each one is pinned under.
+An installer of a pinned entry takes its address from `pinned_download(name)`; when no fragment
+pins the entry it stops with `sushicore.errors.ConfigError` naming it.
 
-| Entry | Platform | File | Which version |
-| --- | --- | --- | --- |
-| `cmake` | `windows` | `*windows-x86_64.zip` from Kitware/CMake | The newest release on the day of the install |
-| `ninja` | `windows` | `ninja-win.zip` from ninja-build/ninja | The newest release |
-| `doxygen` | `windows` | `doxygen-*.windows.x64.bin.zip` from doxygen/doxygen | The newest release |
-| `git` | `windows` | `*64-bit.exe` from git-for-windows/git | The newest release |
-| `intel-llvm` | `windows` | `sycl_windows.tar.gz` from intel/llvm | The newest nightly |
-| `intel-llvm` | `linux` | `sycl_linux.tar.gz` from intel/llvm | The newest nightly |
-| `adaptivecpp` | `windows` | `LLVM-17.0.6-win64.exe` from llvm/llvm-project | Fixed in `toolchains/adaptivecpp.py` |
-| `oneapi` | `windows` | `intel-oneapi-toolkit-2026.0.0.193_offline.exe` from Intel | Fixed in `toolchains/oneapi.py` |
+These are the downloads the verifier sees. Every one but the last two is pinned in the base
+fragment. The digest of `cmake` and `git` is the vendor's checksum file or release notes; for
+`ninja`, `doxygen` and `intel-llvm`, whose projects publish none, it is the `digest` GitHub's
+release API lists for the asset, which names the uploaded bytes.
 
-A fragment has no key for the version of a download. Six of the eight rows resolve the newest
-release, so a digest pinned for one of them stops matching on the day upstream publishes, and
-the install stops there until the pin is renewed.
-[Known issues](../backlog/README.md) carries this.
+| Entry | Platform | File | Version | Pinned |
+| --- | --- | --- | --- | --- |
+| `cmake` | `windows` | `cmake-4.5.0-windows-x86_64.zip` from Kitware/CMake | `v4.5.0` | Yes, from Kitware's `cmake-4.5.0-SHA-256.txt` |
+| `git` | `windows` | `Git-2.56.1-64-bit.exe` from git-for-windows/git | `v2.56.1.windows.1` | Yes, from the release notes' hash table |
+| `ninja` | `windows` | `ninja-win.zip` from ninja-build/ninja | `v1.13.2` | Yes, from the GitHub release API |
+| `doxygen` | `windows` | `doxygen-1.18.0.windows.x64.bin.zip` from doxygen/doxygen | `Release_1_18_0` | Yes, from the GitHub release API |
+| `intel-llvm` | `windows` | `sycl_windows.tar.gz` from intel/llvm | `nightly-2026-11-17` | Yes, from the GitHub release API |
+| `intel-llvm` | `linux` | `sycl_linux.tar.gz` from intel/llvm | `nightly-2026-11-17` | Yes, from the GitHub release API |
+| `adaptivecpp` | `windows` | `LLVM-17.0.6-win64.exe` from llvm/llvm-project | Fixed in `toolchains/adaptivecpp.py` | No: the release lists no digest |
+| `oneapi` | `windows` | `intel-oneapi-toolkit-2026.0.0.193_offline.exe` from Intel | Fixed in `toolchains/oneapi.py` | No: no checksum found on Intel's download page |
 
-When two fragments declare one entry, their `sha256` tables are joined. Where both pin the same
-platform with different digests the first fragment read wins, and the merge prints a warning
-naming both owners.
+Renewing a pin is an edit of the entry: the new version, the new address and the digest from the
+same source as before.
+
+When two fragments declare one entry, their `url` and `sha256` tables are joined. Where both
+pin the same platform differently, or name different versions, the first fragment read wins, and
+the merge prints a warning naming both owners.
 
 ## Format version
 
 A fragment carries no `format_version`. `sha256` was added on 2026-10-05 as an optional key; a
-fragment without it reads as before, and a `sushicore` older than the key ignores it.
+fragment without it reads as before, and a `sushicore` older than the key ignores it. `version`
+and `url` were added with it as a rule: an entry with a `sha256` and no `version` or `url` is now
+refused, where it was read before.
 `cli` and `package_exclude` are optional keys of `[module]` that a reader without them ignores.
 The pin tables are `[sushisystems.<name>]` from 0.9.3, and `[sushi.<name>]` from 0.9.1 to 0.9.2.
 A reader from 0.9.3 still reads `[sushi.<name>]`, with a `DeprecationWarning`. A reader older than

@@ -16,15 +16,16 @@ import zipfile
 from pathlib import Path
 from typing import Any, Callable, MutableMapping
 
-from sushicore.errors import DigestMismatchError
+from sushicore.errors import ConfigError, DigestMismatchError
 
 from .. import home
 from .._output import console
-from ..download_verifier import verify_download
+from sushicore.deps_fragment import Download
+
+from ..download_verifier import pinned_download, verify_download
 from ..probe import binary_works
 from ..system import USER_AGENT
 from .base import IPackageManager, refresh_windows_path
-from .github_release import gh_latest_asset
 
 _log = logging.getLogger(__name__)
 
@@ -140,14 +141,14 @@ def _replace_folder_with_archive(archive: Path, target: Path) -> bool:
     return True
 
 
-def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+def _install_cmake_direct(*, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           cmake_on_system: Callable[[], str] | None = None,
                           on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the portable CMake zip into the tools dir and add it to PATH.
 
     Args:
-        resolve_asset: Maps a repository and an asset glob to the asset URL.
+        pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         cmake_on_system: Finds a cmake already installed, or returns an empty string.
         on_path: Puts a directory on the user's PATH.
@@ -156,10 +157,10 @@ def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] | None = N
         console.info("cmake: already present, skipping.")
         return True
     try:
-        url = (resolve_asset or gh_latest_asset)("Kitware/CMake", "*windows-x86_64.zip")
+        pinned = (pin or pinned_download)("cmake")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
-        (fetch or download)(url, zip_dest)
+        (fetch or download)(pinned.url, zip_dest)
         verify_download("cmake", zip_dest)
         target = tools_dir() / "cmake"
         console.info(f"Extracting CMake to {target} ...")
@@ -171,28 +172,28 @@ def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] | None = N
             return True
         console.error("CMake not found after extracting the portable archive.")
         return False
-    except DigestMismatchError:
+    except (DigestMismatchError, ConfigError):
         raise
     except Exception as exc:
         console.error(f"CMake direct install failed: {exc}")
         return False
 
 
-def _install_ninja_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+def _install_ninja_direct(*, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the ninja.exe archive into the tools dir and add it to PATH.
 
     Args:
-        resolve_asset: Maps a repository and an asset glob to the asset URL.
+        pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         on_path: Puts a directory on the user's PATH.
     """
     try:
-        url = (resolve_asset or gh_latest_asset)("ninja-build/ninja", "ninja-win.zip")
+        pinned = (pin or pinned_download)("ninja")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             dest = Path(f.name)
-        (fetch or download)(url, dest)
+        (fetch or download)(pinned.url, dest)
         verify_download("ninja", dest)
         tools = tools_dir()
         tools.mkdir(parents=True, exist_ok=True)
@@ -201,20 +202,20 @@ def _install_ninja_direct(*, resolve_asset: Callable[[str, str], str] | None = N
         dest.unlink(missing_ok=True)
         (on_path or _put_on_user_path)(str(tools))
         return (tools / "ninja.exe").is_file()
-    except DigestMismatchError:
+    except (DigestMismatchError, ConfigError):
         raise
     except Exception as exc:
         console.error(f"Ninja direct install failed: {exc}")
         return False
 
 
-def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+def _install_doxygen_direct(*, pin: Callable[[str], Download] | None = None,
                             fetch: Callable[[str, Path], None] | None = None,
                             on_path: Callable[[str], None] | None = None) -> bool:
     """Extract the portable Doxygen zip into the tools dir and add it to PATH.
 
     Args:
-        resolve_asset: Maps a repository and an asset glob to the asset URL.
+        pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         on_path: Puts a directory on the user's PATH.
     """
@@ -224,10 +225,10 @@ def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] | None =
         console.info("doxygen: already present in deps/tools, skipping.")
         return True
     try:
-        url = (resolve_asset or gh_latest_asset)("doxygen/doxygen", "doxygen-*.windows.x64.bin.zip")
+        pinned = (pin or pinned_download)("doxygen")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
-        (fetch or download)(url, zip_dest)
+        (fetch or download)(pinned.url, zip_dest)
         verify_download("doxygen", zip_dest)
         console.info(f"Extracting Doxygen to {target} ...")
         if not _replace_folder_with_archive(zip_dest, target):
@@ -238,29 +239,29 @@ def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] | None =
             return True
         console.error("doxygen.exe not found after extracting the portable archive.")
         return False
-    except DigestMismatchError:
+    except (DigestMismatchError, ConfigError):
         raise
     except Exception as exc:
         console.error(f"Doxygen direct install failed: {exc}")
         return False
 
 
-def _install_git_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
+def _install_git_direct(*, pin: Callable[[str], Download] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
                         launch: Callable[..., subprocess.CompletedProcess] | None = None,
                         ) -> bool:
     """Download and silently run the Git for Windows installer.
 
     Args:
-        resolve_asset: Maps a repository and an asset glob to the asset URL.
+        pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         launch: Runs the installer command; takes the command and a ``timeout`` keyword.
     """
     try:
-        url = (resolve_asset or gh_latest_asset)("git-for-windows/git", "*64-bit.exe")
+        pinned = (pin or pinned_download)("git")
         with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
             dest = Path(f.name)
-        (fetch or download)(url, dest)
+        (fetch or download)(pinned.url, dest)
         verify_download("git", dest)
         console.info("Installing Git silently ...")
         rc = (launch or subprocess.run)(
@@ -271,7 +272,7 @@ def _install_git_direct(*, resolve_asset: Callable[[str, str], str] | None = Non
         ).returncode
         dest.unlink(missing_ok=True)
         return rc == 0
-    except DigestMismatchError:
+    except (DigestMismatchError, ConfigError):
         raise
     except Exception as exc:
         console.error(f"Git direct install failed: {exc}")

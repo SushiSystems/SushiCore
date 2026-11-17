@@ -85,7 +85,9 @@ class InstallDepsStep(Step):
         Raises:
             DigestMismatchError: A download's SHA-256 is not the one its entry pins.
         """
-        bind_verifier(DownloadVerifier(self._source.digests(ctx.cfg.platform)))
+        platform = ctx.cfg.platform
+        bind_verifier(DownloadVerifier(self._source.digests(platform),
+                                       self._source.downloads(platform)))
         try:
             if ctx.cfg.platform == "windows":
                 return self._run_windows(ctx)

@@ -22,7 +22,8 @@ K_OWNER = "sushidsp"
 
 #: Declared in this order; the platform columns say who needs a package from each.
 K_DEPENDENCIES = (
-    Dependency(name="cmake", linux_apt=["cmake"], sha256={"windows": K_DIGEST}, owner=K_OWNER),
+    Dependency(name="cmake", linux_apt=["cmake"], sha256={"windows": K_DIGEST},
+               version="v1", url={"windows": "https://example.invalid/c.zip"}, owner=K_OWNER),
     Dependency(name="gtest", linux_apt=["libgtest-dev"], windows_vcpkg=["gtest"], owner=K_OWNER),
     Dependency(name="cuda-lib", gpu_only=True, linux_apt=["nvcc"], owner=K_OWNER),
     Dependency(name="docs-only", owner=K_OWNER),
@@ -38,7 +39,9 @@ def _fragment_text(dependencies: tuple[Dependency, ...], depends_on: list[str]) 
                  f"linux_apt = {json.dumps(dep.linux_apt)}\n"
                  f"windows_vcpkg = {json.dumps(dep.windows_vcpkg)}\n")
         if dep.sha256:
-            text += f"sha256 = {{ windows = {json.dumps(dep.sha256['windows'])} }}\n"
+            text += (f"sha256 = {{ windows = {json.dumps(dep.sha256['windows'])} }}\n"
+                     f"version = {json.dumps(dep.version)}\n"
+                     f"url = {{ windows = {json.dumps(dep.url['windows'])} }}\n")
     return text
 
 

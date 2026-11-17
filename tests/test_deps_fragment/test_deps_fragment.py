@@ -187,6 +187,8 @@ def test_sha256_pins_one_digest_per_platform(tmp_path):
     """The table is keyed by platform, because each platform downloads its own file."""
     (dep,) = read(_fragment(tmp_path, f"""
 [intel-llvm]
+version = "nightly-1"
+url = {{ windows = "https://example.invalid/w.tar.gz", linux = "https://example.invalid/l.tar.gz" }}
 sha256 = {{ windows = "{K_DIGEST}", linux = "{K_DIGEST.upper()}" }}
 """)).dependencies
 
@@ -200,10 +202,13 @@ def test_a_platform_the_table_leaves_out_has_no_digest(tmp_path):
     """A digest for one platform says nothing about the file another one downloads."""
     (dep,) = read(_fragment(tmp_path, f"""
 [cmake]
+version = "v1"
+url = {{ windows = "https://example.invalid/c.zip" }}
 sha256 = {{ windows = "{K_DIGEST}" }}
 """)).dependencies
 
     assert dep.digest_for("linux") == ""
+    assert dep.download_for("linux") is None
 
 
 @pytest.mark.parametrize("value", [
@@ -225,6 +230,62 @@ sha256 = {value}
         read(path)
 
     assert "cmake" in str(refused.value) and "sha256" in str(refused.value)
+
+
+@pytest.mark.medium
+def test_a_whole_download_is_read_for_each_platform(tmp_path):
+    """version, url and sha256 together pin one file per platform, named by the entry."""
+    (dep,) = read(_fragment(tmp_path, f"""
+[cmake]
+version = "v4.5.0"
+url = {{ windows = "https://example.invalid/c.zip" }}
+sha256 = {{ windows = "{K_DIGEST}" }}
+""")).dependencies
+
+    download = dep.download_for("windows")
+    assert (download.name, download.version, download.url, download.sha256) == (
+        "cmake", "v4.5.0", "https://example.invalid/c.zip", K_DIGEST)
+
+
+K_PARTIAL_DOWNLOADS = [
+    f'url = {{ windows = "https://example.invalid/c.zip" }}\nsha256 = {{ windows = "{K_DIGEST}" }}',
+    f'version = "v1"\nsha256 = {{ windows = "{K_DIGEST}" }}',
+    'version = "v1"\nurl = { windows = "https://example.invalid/c.zip" }',
+    f'sha256 = {{ windows = "{K_DIGEST}" }}',
+    f'version = ""\nurl = {{ windows = "https://example.invalid/c.zip" }}\n'
+    f'sha256 = {{ windows = "{K_DIGEST}" }}',
+    f'version = "v1"\nurl = {{ linux = "https://example.invalid/c.zip" }}\n'
+    f'sha256 = {{ windows = "{K_DIGEST}" }}',
+]
+
+
+@pytest.mark.parametrize("keys", K_PARTIAL_DOWNLOADS)
+@pytest.mark.medium
+def test_a_download_missing_one_of_its_three_keys_is_refused_by_name(tmp_path, keys):
+    """A half-pinned download is named, because the installer would fetch it unchecked."""
+    path = _fragment(tmp_path, f"[cmake]\n{keys}\n")
+
+    with pytest.raises(ValueError) as refused:
+        read(path)
+
+    assert "'cmake'" in str(refused.value)
+
+
+@pytest.mark.parametrize("value", [
+    '"https://example.invalid/c.zip"',
+    '{ windows = 7 }',
+    '{ windows = "http://example.invalid/c.zip" }',
+    '{ macos = "https://example.invalid/c.zip" }',
+])
+@pytest.mark.medium
+def test_a_url_that_cannot_address_a_file_is_refused(tmp_path, value):
+    """A url that is not a table of platform to https address is refused, naming the entry."""
+    path = _fragment(tmp_path, f"[cmake]\nurl = {value}\n")
+
+    with pytest.raises(ValueError) as refused:
+        read(path)
+
+    assert "cmake" in str(refused.value) and "url" in str(refused.value)
 
 
 @pytest.mark.medium

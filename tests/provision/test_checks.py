@@ -245,8 +245,9 @@ def test_fragment_check_fails_a_dependency_no_package_manager_reports():
 @pytest.mark.small
 @pytest.mark.parametrize("name", ["cmake", "ninja", "doxygen", "git", "intel-llvm"])
 def test_digest_check_warns_and_names_each_unpinned_download(name):
-    """Check that doctor names each download this platform would fetch unverified."""
-    source = InMemoryDependencySource([Dependency(name="intel-llvm")])
+    """Check that doctor names each declared download this platform would fetch unverified."""
+    names = ("cmake", "ninja", "doxygen", "git", "intel-llvm")
+    source = InMemoryDependencySource([Dependency(name=n) for n in names])
     result = checks.digest_check(source, "windows").run()
     assert result.state is State.WARN and name in result.detail
 

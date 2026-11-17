@@ -14,20 +14,16 @@ import typing
 from pathlib import Path
 from typing import Collection, Mapping
 
-from sushicore.errors import DigestMismatchError
+from sushicore.deps_fragment import Download
+from sushicore.errors import ConfigError, DigestMismatchError
 
 from .integrity import verify_sha256
 
 _log = logging.getLogger(__name__)
 
-#: The downloads each platform fetches whatever the fragments declare, by manifest entry.
-K_TOOL_DOWNLOADS: dict[str, tuple[str, ...]] = {
-    "windows": ("cmake", "ninja", "doxygen", "git"),
-}
-
-#: The downloads each platform fetches only for a dependency a fragment declares.
-K_DECLARED_DOWNLOADS: dict[str, tuple[str, ...]] = {
-    "windows": ("intel-llvm", "adaptivecpp", "oneapi"),
+#: The downloads each platform fetches for an entry a fragment declares, by manifest entry.
+K_DOWNLOADS: dict[str, tuple[str, ...]] = {
+    "windows": ("cmake", "ninja", "doxygen", "git", "intel-llvm", "adaptivecpp", "oneapi"),
     "linux": ("intel-llvm",),
 }
 
@@ -36,13 +32,16 @@ K_DECLARED_DOWNLOADS: dict[str, tuple[str, ...]] = {
 class DownloadVerifier:
     """Verifies the downloads of one run and records the ones no manifest entry pins."""
 
-    def __init__(self, digests: Mapping[str, str]) -> None:
-        """Hold the pinned digests of this run's platform.
+    def __init__(self, digests: Mapping[str, str],
+                 downloads: Mapping[str, Download] | None = None) -> None:
+        """Hold the pinned digests and downloads of this run's platform.
 
         Args:
             digests: Manifest entry name to hex SHA-256; read on every :meth:`verify`.
+            downloads: Manifest entry name to the download it pins; read on every :meth:`pinned`.
         """
         self._digests = digests
+        self._downloads = downloads if downloads is not None else {}
         self._unverified: list[str] = []
 
     def verify(self, name: str, path: Path) -> None:
@@ -61,6 +60,19 @@ class DownloadVerifier:
         except DigestMismatchError:
             path.unlink(missing_ok=True)
             raise
+
+    def pinned(self, name: str) -> Download:
+        """Return the download the manifest entry *name* pins for this run's platform.
+
+        Raises:
+            ConfigError: No fragment of the run pins a download under *name*.
+        """
+        found = self._downloads.get(name)
+        if found is None:
+            raise ConfigError(
+                f"No dependency fragment pins a download named '{name}' for this platform; "
+                f"declare version, url and sha256 under [{name}] in a fragment.")
+        return found
 
     def unverified(self) -> tuple[str, ...]:
         """Return the entries downloaded with no pinned digest, in the order first met."""
@@ -97,6 +109,15 @@ def verify_download(name: str, path: Path) -> None:
     _bound.verify(name, path)
 
 
+def pinned_download(name: str) -> Download:
+    """Return the download the manifest entry *name* pins, through the bound verifier.
+
+    Raises:
+        ConfigError: No fragment of the run pins a download under *name*.
+    """
+    return _bound.pinned(name)
+
+
 def unpinned_downloads(declared: Collection[str], digests: Mapping[str, str],
                        platform: str) -> list[str]:
     """Return the downloads a run on *platform* would fetch with no pinned digest.
@@ -105,6 +126,5 @@ def unpinned_downloads(declared: Collection[str], digests: Mapping[str, str],
         declared: The names of the dependencies the fragments declare.
         digests: Manifest entry name to the digest pinned for *platform*.
     """
-    fetched = [*K_TOOL_DOWNLOADS.get(platform, ()),
-               *(name for name in K_DECLARED_DOWNLOADS.get(platform, ()) if name in declared)]
+    fetched = [name for name in K_DOWNLOADS.get(platform, ()) if name in declared]
     return [name for name in fetched if not digests.get(name)]

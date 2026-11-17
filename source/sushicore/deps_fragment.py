@@ -12,9 +12,16 @@ from __future__ import annotations
 import re
 import subprocess
 import warnings
-from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
+
+from .fragment_types import (  # noqa: F401  re-exported: callers import these from here
+    WINDOWS,
+    Dependency,
+    Download,
+    Fragment,
+    Status,
+    SushiPin,
+)
 
 try:
     import tomllib
@@ -34,73 +41,11 @@ K_DEPRECATED_SUSHI_TABLE = "sushi"
 #: The shape of a full git commit hash.
 K_COMMIT_HEX = re.compile(r"[0-9a-f]{40}")
 
-#: The platform string that selects the vcpkg column; anything else selects apt.
-WINDOWS = "windows"
-
 #: The platforms a ``sha256`` table may pin a download for.
 K_DIGEST_PLATFORMS = (WINDOWS, "linux")
 
 #: The shape of a SHA-256 written as hex.
 K_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
-
-
-class Status(str, Enum):
-    """What is known about one dependency on this machine."""
-
-    #: Its ``check_cmd`` ran and exited 0.
-    SATISFIED = "satisfied"
-    #: It names no package for this platform, so there is nothing to install.
-    NOT_APPLICABLE = "not applicable"
-    #: It names a package and nothing here can say whether it is installed.
-    UNKNOWN = "unknown"
-
-
-@dataclass(frozen=True)
-class Dependency:
-    """One entry of a fragment, as the file declares it."""
-
-    name: str
-    description: str = ""
-    required: bool = True
-    gpu_only: bool = False
-    linux_apt: list[str] = field(default_factory=list)
-    windows_vcpkg: list[str] = field(default_factory=list)
-    check_cmd: list[str] = field(default_factory=list)
-    provides: str = ""
-    #: Platform to the lower-case hex SHA-256 of the file downloaded for it there.
-    sha256: dict[str, str] = field(default_factory=dict)
-
-    def packages_for(self, platform: str) -> list[str]:
-        """Package names for *platform*: the vcpkg ports on Windows, apt elsewhere."""
-        return self.windows_vcpkg if platform == WINDOWS else self.linux_apt
-
-    def digest_for(self, platform: str) -> str:
-        """Return the SHA-256 pinned for the *platform* download, or '' when none is."""
-        return self.sha256.get(platform, "")
-
-
-@dataclass(frozen=True)
-class SushiPin:
-    """One Sushi library a module links, pinned to a release tag and its commit."""
-
-    name: str
-    #: The release tag, such as ``v0.3.0``.
-    version: str
-    #: The full 40-hex hash the tag points at.
-    commit: str
-
-
-@dataclass(frozen=True)
-class Fragment:
-    """What one fragment file declares."""
-
-    dependencies: list[Dependency]
-    depends_on: list[str]
-    pins: list[SushiPin] = field(default_factory=list)
-    #: The command of the module's own CLI, such as ``sr``; empty when the module names none.
-    cli: str = ""
-    #: Git pathspecs the source hash of a package build leaves out, besides the built-in ones.
-    package_exclude: list[str] = field(default_factory=list)
 
 
 def read(path: Path) -> Fragment:
@@ -117,7 +62,10 @@ def read(path: Path) -> Fragment:
         ValueError: A top-level key holds something other than a table. An array
             of ``[[dependency]]`` tables reads as a list here, and skipping it is
             how a fragment goes unread; the shape is named rather than ignored.
-            Or an entry's ``sha256`` is not a table of platform to hex digest.
+            Or an entry's ``sha256`` is not a table of platform to hex digest, its ``url`` is
+            not a table of platform to address, or its ``version`` is not a string. Or an entry
+            declares one of ``version``, ``url`` and ``sha256`` without the other two, or its
+            ``url`` and ``sha256`` name different platforms.
             Or a ``[sushisystems.<name>]`` pin is malformed or names a module
             ``depends_on`` does not, or the file holds the pins under both table names. Or ``[module] cli`` is not a
             string, or ``[module] package_exclude`` is not a list of strings. A module in ``depends_on`` may go unpinned; it is then never
@@ -163,7 +111,10 @@ def read(path: Path) -> Fragment:
             check_cmd=[str(part) for part in table.get("check_cmd", [])],
             provides=str(table.get("provides", "")),
             sha256=_read_digests(path, name, table.get("sha256", {})),
+            version=_read_version(path, name, table.get("version", "")),
+            url=_read_urls(path, name, table.get("url", {})),
         ))
+        _require_whole_download(path, dependencies[-1], table)
     _match_pins(path, depends_on, pins)
     return Fragment(dependencies, depends_on, pins, cli, package_exclude)
 
@@ -270,6 +221,63 @@ def _read_digests(path: Path, name: str, value: object) -> dict[str, str]:
                 f"and a SHA-256 is 64 hex digits.")
         digests[platform] = digest.lower()
     return digests
+
+
+def _read_version(path: Path, name: str, value: object) -> str:
+    """Return the ``version`` of the entry *name*.
+
+    Raises:
+        ValueError: *value* is not a string.
+    """
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{path}: version of '{name}' is a {type(value).__name__}, and it is a string.")
+    return value
+
+
+def _read_urls(path: Path, name: str, value: object) -> dict[str, str]:
+    """Return the ``url`` table of the entry *name*.
+
+    Raises:
+        ValueError: *value* is not a table, names a platform outside
+            :data:`K_DIGEST_PLATFORMS`, or holds something other than a non-empty string.
+    """
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"{path}: url of '{name}' is a {type(value).__name__}, and it is a table "
+            f"of platform to address, such as {{ windows = \"https://...\" }}.")
+    for platform, address in value.items():
+        if platform not in K_DIGEST_PLATFORMS:
+            raise ValueError(
+                f"{path}: url of '{name}' names the platform '{platform}'; "
+                f"the platforms are {', '.join(K_DIGEST_PLATFORMS)}.")
+        if not isinstance(address, str) or not address.startswith("https://"):
+            raise ValueError(
+                f"{path}: url of '{name}' for {platform} is {address!r}, "
+                f"and it is an https address.")
+    return dict(value)
+
+
+def _require_whole_download(path: Path, dep: Dependency, table: dict) -> None:
+    """Check that an entry declaring part of a download declares all of it.
+
+    Raises:
+        ValueError: *dep* declares some of ``version``, ``url`` and ``sha256`` and not the
+            rest, or its ``url`` and ``sha256`` name different platforms.
+    """
+    declared = [key for key in ("version", "url", "sha256") if key in table]
+    if not declared:
+        return
+    missing = [key for key in ("version", "url", "sha256") if key not in table]
+    if missing or not dep.version or not dep.url or not dep.sha256:
+        absent = missing or [key for key in declared if not getattr(dep, key)]
+        raise ValueError(
+            f"{path}: download '{dep.name}' lacks {' and '.join(absent)}; a download "
+            f"declares version, url and sha256 together.")
+    if set(dep.url) != set(dep.sha256):
+        raise ValueError(
+            f"{path}: download '{dep.name}' has url for {', '.join(sorted(dep.url))} but "
+            f"sha256 for {', '.join(sorted(dep.sha256))}; each platform needs both.")
 
 
 def status(dep: Dependency, platform: str) -> Status:

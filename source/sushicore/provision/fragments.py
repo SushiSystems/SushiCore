@@ -14,6 +14,7 @@ from typing import Iterable
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import Dependency as FragmentDependency
+from sushicore.deps_fragment import Download
 from sushicore.provision._output import console
 
 #: Owner label for dependencies contributed by no single module.
@@ -60,13 +61,16 @@ def _merge(existing: Dependency, incoming: Dependency) -> tuple[Dependency, str]
         merged and one had to be chosen; empty when nothing was lost.
     """
     lost = []
-    for field in ("check_cmd", "provides"):
+    for field in ("check_cmd", "provides", "version"):
         one, two = getattr(existing, field), getattr(incoming, field)
         if one and two and one != two:
             lost.append(field)
     if any(existing.sha256.get(platform, digest) != digest
            for platform, digest in incoming.sha256.items()):
         lost.append("sha256")
+    if any(existing.url.get(platform, address) != address
+           for platform, address in incoming.url.items()):
+        lost.append("url")
     owner = existing.owner
     if incoming.required and not existing.required:
         owner = incoming.owner
@@ -80,6 +84,8 @@ def _merge(existing: Dependency, incoming: Dependency) -> tuple[Dependency, str]
         windows_vcpkg=_merge_ports(existing.windows_vcpkg, incoming.windows_vcpkg),
         check_cmd=existing.check_cmd or incoming.check_cmd,
         provides=existing.provides or incoming.provides,
+        version=existing.version or incoming.version,
+        url={**incoming.url, **existing.url},
         sha256={**incoming.sha256, **existing.sha256},
     )
     if not lost:
@@ -105,6 +111,11 @@ class IDependencySource(ABC):
         """Return each dependency's name mapped to the SHA-256 it pins for *platform*."""
         return {dep.name: dep.digest_for(platform) for dep in self.all()
                 if dep.digest_for(platform)}
+
+    def downloads(self, platform: str) -> dict[str, Download]:
+        """Return each dependency's name mapped to the download it pins for *platform*."""
+        pinned = ((dep, dep.download_for(platform)) for dep in self.all())
+        return {dep.name: download for dep, download in pinned if download is not None}
 
     def selected(self, platform: str, gpu: bool) -> list[Dependency]:
         """Return the dependencies relevant to this platform/GPU choice with packages."""

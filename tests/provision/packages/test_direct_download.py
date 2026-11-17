@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.deps_fragment import Download
+from sushicore.errors import ConfigError
 from sushicore.provision.packages import direct_download as dd
 
 
@@ -30,13 +32,22 @@ def _fetch_archive(member: str):
     return fetch
 
 
-def _asked_for(asked: list[tuple[str, str]]):
-    """Return an asset resolver that records the repository and glob it is asked for."""
-    def resolve(repo: str, glob: str) -> str:
-        """Record the request and answer a fixed URL."""
-        asked.append((repo, glob))
-        return "https://example.invalid/a.zip"
-    return resolve
+def _pinned(asked: list[str]):
+    """Return a pin lookup that records the entry it is asked for and answers a fixed download."""
+    def pin(name: str) -> Download:
+        """Record the request and answer a pinned download."""
+        asked.append(name)
+        return Download(name, "v1", "https://example.invalid/pinned.zip", "0" * 64)
+    return pin
+
+
+def _sources(installer: str, asked: list | None = None) -> dict:
+    """Return the keywords that hand *installer* its pin, and a missing cmake for cmake's."""
+    log = asked if asked is not None else []
+    options: dict = {"pin": _pinned(log)}
+    if installer == "_install_cmake_direct":
+        options["cmake_on_system"] = lambda: ""
+    return options
 
 
 @pytest.mark.medium
@@ -50,11 +61,8 @@ def test_a_direct_install_replaces_the_previous_folder(
     target = dd.tools_dir() / folder
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
-    options = {"cmake_on_system": lambda: ""} if folder == "cmake" else {}
-
     installed = getattr(dd, installer)(
-        resolve_asset=_asked_for([]), fetch=_fetch_archive(member), on_path=lambda _dir: None,
-        **options)
+        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer))
 
     assert installed is True
     assert not (target / "stale.txt").exists()
@@ -65,31 +73,61 @@ def test_a_direct_install_replaces_the_previous_folder(
 def test_ninja_direct_install_puts_ninja_in_the_tools_folder(provision_home, recording_console):
     """Check that the ninja archive's executable lands in the tools folder."""
     installed = dd._install_ninja_direct(
-        resolve_asset=_asked_for([]), fetch=_fetch_archive("ninja.exe"),
-        on_path=lambda _dir: None)
+        pin=_pinned([]), fetch=_fetch_archive("ninja.exe"), on_path=lambda _dir: None)
     assert installed is True
     assert (dd.tools_dir() / "ninja.exe").is_file()
 
 
-K_ASSETS = [
-    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "Kitware/CMake", "*windows-x86_64.zip"),
-    ("_install_ninja_direct", "ninja.exe", "ninja-build/ninja", "ninja-win.zip"),
-    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen/doxygen",
-     "doxygen-*.windows.x64.bin.zip"),
+K_ENTRIES = [
+    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake"),
+    ("_install_ninja_direct", "ninja.exe", "ninja"),
+    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen"),
 ]
 
 
 @pytest.mark.medium
-@pytest.mark.parametrize(("installer", "member", "repo", "glob"), K_ASSETS)
-def test_a_direct_install_asks_for_its_own_github_asset(
-        installer, member, repo, glob, provision_home, recording_console):
-    """Check that each installer asks the release resolver for its repository and asset glob."""
-    asked: list[tuple[str, str]] = []
-    options = {"cmake_on_system": lambda: ""} if installer == "_install_cmake_direct" else {}
+@pytest.mark.parametrize(("installer", "member", "entry"), K_ENTRIES)
+def test_a_direct_install_reads_the_entry_of_its_own_tool(
+        installer, member, entry, provision_home, recording_console):
+    """Check that each installer asks the fragment's pin for the entry named after its tool."""
+    asked: list[str] = []
     getattr(dd, installer)(
-        resolve_asset=_asked_for(asked), fetch=_fetch_archive(member),
-        on_path=lambda _dir: None, **options)
-    assert asked == [(repo, glob)]
+        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer, asked))
+    assert asked == [entry]
+
+
+@pytest.mark.medium
+@pytest.mark.parametrize("installer", [name for name, _member, _entry in K_ENTRIES]
+                         + ["_install_git_direct"])
+def test_a_direct_install_lets_a_missing_pin_through(
+        installer, provision_home, recording_console):
+    """Check that an entry no fragment pins stops the run as ConfigError, not as a False."""
+    def no_pin(name: str) -> Download:
+        """Refuse the entry the way the bound verifier does."""
+        raise ConfigError(f"no pin '{name}'")
+
+    with pytest.raises(ConfigError):
+        getattr(dd, installer)(pin=no_pin, **({"cmake_on_system": lambda: ""}
+                                              if installer == "_install_cmake_direct" else {}))
+
+
+@pytest.mark.medium
+def test_the_cmake_install_downloads_the_address_its_entry_pins(
+        provision_home, recording_console):
+    """Check that the cmake installer fetches the pinned url and asks for the entry 'cmake'."""
+    asked: list[str] = []
+    fetched: list[str] = []
+
+    def fetch(url: str, dest: Path) -> None:
+        """Record the address and write the archive the download would have fetched."""
+        fetched.append(url)
+        _write_zip(dest, "cmake-1.0/bin/cmake.exe")
+
+    dd._install_cmake_direct(
+        pin=_pinned(asked), fetch=fetch, cmake_on_system=lambda: "", on_path=lambda _dir: None)
+
+    assert asked == ["cmake"]
+    assert fetched == ["https://example.invalid/pinned.zip"]
 
 
 def _winreg(open_key):
@@ -178,12 +216,11 @@ K_DIRECT_INSTALLS = [
 
 def _run_direct_install(installer: str, member: str, path_written: bool) -> bool:
     """Run *installer* against a one-member archive; the user PATH write answers *path_written*."""
-    options = {"cmake_on_system": lambda: ""} if installer == "_install_cmake_direct" else {}
     return getattr(dd, installer)(
-        resolve_asset=_asked_for([]), fetch=_fetch_archive(member),
+        fetch=_fetch_archive(member),
         on_path=lambda directory: dd._put_on_user_path(
             directory, add_to_path=lambda _directory: path_written),
-        **options)
+        **_sources(installer))
 
 
 @pytest.mark.medium
@@ -214,11 +251,8 @@ def test_a_direct_install_removes_its_folder_only_when_the_root_is_safe(
     target = dd.tools_dir() / folder
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
-    options = {"cmake_on_system": lambda: ""} if folder == "cmake" else {}
-
     installed = getattr(dd, installer)(
-        resolve_asset=_asked_for([]), fetch=_fetch_archive(member), on_path=lambda _dir: None,
-        **options)
+        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer))
 
     assert installed is safe
     assert (target / "stale.txt").exists() is not safe

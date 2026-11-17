@@ -59,7 +59,7 @@ def test_no_exported_name_is_private():
 @pytest.mark.small
 @pytest.mark.parametrize("name", [
     "IPackageManager", "AptManager", "DnfManager", "YumManager", "PacmanManager", "ZypperManager",
-    "WingetManager", "DirectDownloadWindowsManager", "VcpkgManager", "download", "gh_latest_asset",
+    "WingetManager", "DirectDownloadWindowsManager", "VcpkgManager", "download", "gh_tagged_asset",
     "tools_dir"])
 def test_an_exported_name_resolves(name):
     """Check that a name the package lists is a name it holds."""
@@ -68,8 +68,7 @@ def test_an_exported_name_resolves(name):
 
 @pytest.mark.small
 @pytest.mark.parametrize("name", [
-    "download", "gh_latest_asset", "gh_latest_asset_including_prerelease",
-    "gh_latest_release_asset", "gh_tagged_asset", "tools_dir"])
+    "download", "gh_tagged_asset", "tools_dir"])
 def test_the_shared_helpers_are_exported_under_public_names(name):
     """Check that a helper the hub uses is exported."""
     assert name in packages.__all__
