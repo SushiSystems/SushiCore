@@ -67,7 +67,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B3 | RW-28: the probe tables and helpers of `provision` merged | B2 | done |
 | B4 | RW-24: dispatch on platform and manager through the contracts | B3 | todo |
 | B5 | RW-31: the toolchain installers on the GPU backends' contract | B4 | todo |
-| B6 | RW-29, RW-30: Rich behind `Renderer`, no module console | B2 | todo |
+| B6 | RW-29, RW-30: Rich behind `Renderer`, no module console | B2 (ad72f9c: line level, diag and discovery; the module console and ui/help Rich imports remain) | running |
 | B7 | RW-26: one base error for the package | B5, B6 | todo |
 | B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 | todo |
 | B9 | RW-35, RW-32: tests off private names, docstrings | B8 | todo |
@@ -83,3 +83,10 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | D7 | RW-46: licence consent in setup | D4 | done |
 | D8 | RW-4: the provisioning reviews into a tracked report | | done |
 | E2 | RW-92: guard the portable cmake and doxygen removal | | done |
+
+- RW-30: the provision console is carried by `ModuleProvision` and passed to each step and free
+  function as a parameter; `bind_console` stays one release as a deprecated shim that sets the
+  default. It runs after B5, since B4 and B5 edit the same provision signatures.
+- RW-29: `ui/`, `help/`, `markup.py` and `plain_text.py` are the renderer layer itself and may
+  import Rich; outside them only `renderer.py` does. `Console.console` goes once status and
+  literal text have their own `Renderer` operations and events.
