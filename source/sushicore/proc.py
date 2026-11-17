@@ -194,7 +194,8 @@ class Runner:
         resolved[0] = self.resolve_exe(cmd[0], env)
         self._console.command(subprocess.list2cmdline(resolved))
         try:
-            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env, stdin=stdin).returncode
+            extra = {} if stdin is None else {"stdin": stdin}
+            return subprocess.run(resolved, cwd=_cwd_text(cwd), env=env, **extra).returncode
         except FileNotFoundError:
             self._not_found(cmd[0])
             return self._missing_exit_code

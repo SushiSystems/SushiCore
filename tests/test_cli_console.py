@@ -56,6 +56,16 @@ def test_lazy_console_still_reads_extra_files_outside_a_checkout():
     assert LazyConsole(outside).sources() == []
 
 
+@pytest.mark.small
+def test_lazy_console_still_treats_a_system_exit_as_outside_a_checkout_and_warns():
+    """Check that the deprecated SystemExit signal still means no checkout, with a warning."""
+    def outside():
+        raise SystemExit(0)
+
+    with pytest.warns(DeprecationWarning, match="ProjectRootNotFoundError"):
+        assert LazyConsole(outside).sources() == []
+
+
 @pytest.mark.medium
 def test_lazy_console_takes_a_theme_from_a_file_it_was_given(tmp_path):
     workspace = tmp_path / "workspace.toml"

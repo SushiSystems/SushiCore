@@ -9,6 +9,7 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `cli_console`.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -61,6 +62,11 @@ class LazyConsole:
         try:
             cfg_dir = self._config_dir()
         except ProjectRootNotFoundError:
+            return extra
+        except SystemExit:
+            warnings.warn("a config_dir that raises SystemExit is deprecated; raise "
+                          "sushicore.errors.ProjectRootNotFoundError", DeprecationWarning,
+                          stacklevel=2)
             return extra
         return [*extra, cfg_dir / "config.toml", cfg_dir / "config.local.toml"]
 

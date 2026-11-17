@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — console: Kept a config_dir that raises SystemExit meaning "outside a checkout" for one release, with a deprecation warning (RW-119, `cli_console.py`).
 - 2026-11-17 — provision: Restored provision.steps, prime_sudo, packages.run, the gh_latest helpers and the adapter runner names as deprecated shims for one release (RW-118, RW-119, `83edf89`).
 - 2026-11-17 — provision: Restored CapturedRun, capture_command and run_command in package_install as deprecated helpers over proc.Runner; they go in 0.17.0 (RW-117, `captured_run.py`).
 - 2026-11-17 — errors: Derived every package error from SushiCoreError, raised named errors for bare built-ins and failure returns, and made find_project_root raise ProjectRootNotFoundError (RW-26, `20e3898`, `acb27b9`).
