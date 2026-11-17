@@ -63,7 +63,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 | todo |
 | B9 | RW-35, RW-32: tests off private names, docstrings | B8 | todo |
 | C1 | RW-44, RW-45: a version and digest for every download, pinned keys and commits | A10 | todo |
-| C2 | RW-18: a Sushi library pinned only by a fetched library | A10 | todo |
+| C2 | RW-18: a Sushi library pinned only by a fetched library | A10 | running |
 | C3 | RW-10, RW-11: the build caches and configuration rewritten, toolchains by version | C2 | todo |
 | D1 | RW-59: design topic BACKLOG, the stamp in `check_all`, the unverified mark | A1 | done |
 | D2 | KI-33: the frozen digests of the pre-move copies and their use in sync | A3 | done |
@@ -73,3 +73,4 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | D6 | RW-7: deprecate the Windows GPU installer | A10 | done |
 | D7 | RW-46: licence consent in setup | D4 | done |
 | D8 | RW-4: the provisioning reviews into a tracked report | | done |
+| E2 | RW-92: guard the portable cmake and doxygen removal | | done |
