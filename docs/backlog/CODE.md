@@ -4,7 +4,6 @@
 
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RW-26 | P2 | open | Give the package one base error | failures raise one base error instead of a `bool`, `None` or a bare built-in, and `find_project_root` raises it in place of `SystemExit` (Code C7, Cli C8) |  |  | 2026-10-19 |
 | RW-29 | P2 | open | Keep Rich behind the `Renderer` seam | `Console.console`, `diag.py`, `discovery.py` and the call sites in `provision` reach Rich only through `Renderer` (Code C10, Cli C6) |  |  | 2026-10-19 |
 | RW-32 | P2 | open | Bring docstrings to the source comment rule | no public symbol lacks a docstring and none exceeds eight lines; 33 and 37 on 2026-10-19 (Code C13, Code C14, Code C21) |  |  | 2026-10-19 |
 | RW-33 | P2 | open | Split the units that hold more than one responsibility | each unit outside `steps.py` that the audit named has one responsibility (Code C15) |  |  | 2026-10-19 |
