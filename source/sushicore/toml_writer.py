@@ -9,6 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+from .errors import SushiCoreError
+
+
+class TomlShapeError(SushiCoreError, TypeError):
+    """Reports a value the writer cannot preserve: not a table, or not a string."""
+
 
 def _emit_table(name: str, table: dict) -> list[str]:
     """Render one top-level table of string values as TOML lines.
@@ -21,13 +27,13 @@ def _emit_table(name: str, table: dict) -> list[str]:
         silently dropping it is how a caller loses data it thought was saved.
     """
     if not isinstance(table, dict):
-        raise TypeError(
+        raise TomlShapeError(
             f"[{name}]: only tables are preserved, got {type(table).__name__}")
     lines = ["", f"[{name}]"]
     for key in sorted(table):
         value = table[key]
         if not isinstance(value, str):
-            raise TypeError(
+            raise TomlShapeError(
                 f"[{name}] {key}: only string values are preserved, got {type(value).__name__}")
         lines.append(f'{key} = "{value.replace(chr(92), "/")}"')
     return lines

@@ -10,7 +10,12 @@ import fnmatch
 import json
 import urllib.request
 
+from ...errors import SushiCoreError
 from ..system import USER_AGENT
+
+
+class AssetNotFoundError(SushiCoreError, RuntimeError):
+    """Reports a GitHub release with no asset matching the requested pattern."""
 
 
 def gh_tagged_asset(repo: str, tag: str, asset_glob: str) -> str:
@@ -22,4 +27,4 @@ def gh_tagged_asset(repo: str, tag: str, asset_glob: str) -> str:
     for asset in data.get("assets", []):
         if fnmatch.fnmatch(asset["name"], asset_glob):
             return asset["browser_download_url"]
-    raise RuntimeError(f"No asset matching '{asset_glob}' in {repo} {tag}.")
+    raise AssetNotFoundError(f"No asset matching '{asset_glob}' in {repo} {tag}.")

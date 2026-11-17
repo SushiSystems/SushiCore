@@ -88,7 +88,7 @@ def test_a_tree_of_another_source_folder_needs_a_configure(side):
 def test_a_cleaned_tree_is_gone(side):
     build_dir = side.root / "build"
     side.add_tree(build_dir, _cache(side))
-    assert side.driver.clean_tree(build_dir)
+    side.driver.clean_tree(build_dir)
     assert not side.driver.tree_exists(build_dir)
 
 

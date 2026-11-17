@@ -15,6 +15,7 @@ from typing import TypeVar
 
 from .config_base import ToolConfig, load_tool_config
 from .environment import Environment
+from .errors import ProjectRootNotFoundError
 from .files import Files
 from .profile import ModuleProfile
 from .workspace import (
@@ -64,14 +65,14 @@ class ModuleConfig:
         @param files The file system the markers are looked up in; the disk when None. A start
                path in memory is walked as given, not resolved.
 
-        @raise SystemExit when run outside a checkout. Callers that can work
-               without a project -- the console, ``--help`` -- catch it; that is
-               deliberate, and why it is SystemExit rather than a return of None.
+        @raise ProjectRootNotFoundError when run outside a checkout. The entry point
+               prints it as one line and exits 1; callers that can work without a
+               project, such as the console and ``--help``, catch it.
         """
         root = walk_up(start or Path.cwd(), has_marker(*self._profile.markers(), files=files),
                        resolve=files is None)
         if root is None:
-            raise SystemExit(self._profile.not_a_project_message())
+            raise ProjectRootNotFoundError(self._profile.not_a_project_message())
         return root
 
     def presence(self, root: Path | None = None) -> str:
@@ -100,7 +101,7 @@ class ModuleConfig:
             return home
         try:
             start = root or self.find_project_root(files=files)
-        except SystemExit:
+        except ProjectRootNotFoundError:
             return None
         linked = read_link(self.config_dir(start), files=files)
         if linked is not None:

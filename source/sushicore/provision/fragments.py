@@ -14,7 +14,7 @@ from typing import Any, Iterable
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import Dependency as FragmentDependency
-from sushicore.deps_fragment import Download
+from sushicore.deps_fragment import Download, ModuleCycleError
 from sushicore.provision.target import target_for_platform
 
 #: Owner label for dependencies contributed by no single module.
@@ -213,7 +213,7 @@ def owner_order(source: IDependencySource, owners: Iterable[str]) -> list[str]:
             None,
         )
         if ready is None:
-            raise ValueError(
+            raise ModuleCycleError(
                 "Modules depend on one another in a cycle: " + ", ".join(pending))
         pending.remove(ready)
         placed.add(ready)

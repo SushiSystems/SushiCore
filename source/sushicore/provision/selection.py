@@ -9,8 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
+from ..errors import SushiCoreError
 from .fragments import SHARED_OWNER, IDependencySource
 from .pipeline import ToolchainSelection
+
+
+class UnknownToolchainError(SushiCoreError, ValueError):
+    """Reports a requested toolchain key that no component carries."""
 
 
 @dataclass(frozen=True)
@@ -75,11 +80,11 @@ def derive(source: IDependencySource, present: Mapping[str, bool], *,
             when some declared dependency is ``gpu_only``.
 
     Raises:
-        ValueError: *requested* holds a key no component carries.
+        UnknownToolchainError: *requested* holds a key no component carries.
     """
     unknown = [key for key in requested if key not in toolchain_keys()]
     if unknown:
-        raise ValueError(
+        raise UnknownToolchainError(
             f"Unknown toolchain '{unknown[0]}'; choose one of: {', '.join(toolchain_keys())}.")
     chosen = {members[0] for members in required_groups(source).values()
               if not any(present.get(member) for member in members)}

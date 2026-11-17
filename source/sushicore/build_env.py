@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from .errors import ProjectRootNotFoundError
 from .proc import CommandRunner
 from .quiet_runner import quiet_runner
 
@@ -205,7 +206,7 @@ class StackBuildEnv:
         """
         try:
             root = self._find_root()
-        except SystemExit:
+        except ProjectRootNotFoundError:
             return
         bundle = cfg.bundled_llvm_root(root)
         if bundle is not None:

@@ -9,6 +9,12 @@ from __future__ import annotations
 import warnings
 from typing import Callable
 
+from ..errors import SushiCoreError
+
+
+class ConsoleNotBoundError(SushiCoreError, RuntimeError):
+    """Reports a default console that nothing has bound."""
+
 
 class DefaultConsole:
     """Holds the provider that ``bind_console`` set and returns the console it builds."""
@@ -25,10 +31,10 @@ class DefaultConsole:
         """Return the bound console.
 
         Raises:
-            RuntimeError: Nothing is bound.
+            ConsoleNotBoundError: Nothing is bound.
         """
         if self._provider is None:
-            raise RuntimeError(
+            raise ConsoleNotBoundError(
                 "sushicore.provision has no console; pass `console=` to ModuleProvision.")
         return self._provider()
 

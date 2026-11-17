@@ -6,10 +6,15 @@
 
 from __future__ import annotations
 
+from ...errors import SushiCoreError
 from .adaptivecpp import ADAPTIVECPP
 from .intel_llvm import INTEL_LLVM
 from .oneapi import ONEAPI
 from .toolchain import Toolchain
+
+
+class DuplicateToolchainError(SushiCoreError, ValueError):
+    """Reports two toolchains that share a key or a selection field."""
 
 
 class ToolchainRegistry:
@@ -19,7 +24,7 @@ class ToolchainRegistry:
         toolchains: The toolchains to register, in install order.
 
     Raises:
-        ValueError: When two toolchains share a key or a selection field.
+        DuplicateToolchainError: When two toolchains share a key or a selection field.
     """
 
     def __init__(self, toolchains: tuple[Toolchain, ...]) -> None:
@@ -28,9 +33,9 @@ class ToolchainRegistry:
         fields: set[str] = set()
         for toolchain in toolchains:
             if toolchain.key in by_key:
-                raise ValueError(f"Duplicate toolchain key: '{toolchain.key}'")
+                raise DuplicateToolchainError(f"Duplicate toolchain key: '{toolchain.key}'")
             if toolchain.selection_field in fields:
-                raise ValueError(f"Duplicate toolchain selection field: '{toolchain.selection_field}'")
+                raise DuplicateToolchainError(f"Duplicate toolchain selection field: '{toolchain.selection_field}'")
             by_key[toolchain.key] = toolchain
             fields.add(toolchain.selection_field)
         self._toolchains = tuple(toolchains)

@@ -10,7 +10,12 @@ from typing import Protocol, runtime_checkable
 
 from rich.console import RenderableType
 
+from ..errors import SushiCoreError
 from ..theme import Theme
+
+
+class ComponentError(SushiCoreError, ValueError):
+    """Reports a component built with values it cannot draw."""
 
 
 @runtime_checkable

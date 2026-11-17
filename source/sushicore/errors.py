@@ -21,6 +21,10 @@ class ConfigError(SushiCoreError, ValueError):
     """Reports a configuration file or value that cannot be used."""
 
 
+class ProjectRootNotFoundError(SushiCoreError):
+    """Reports a working directory that lies outside any checkout or unpacked release."""
+
+
 class DigestMismatchError(SushiCoreError):
     """Reports a downloaded file whose SHA-256 is not the one its manifest entry pins."""
 

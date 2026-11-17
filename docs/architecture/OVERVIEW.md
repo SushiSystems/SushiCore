@@ -18,7 +18,7 @@ and has no application of its own.
 | `stack_config` | `StackConfig`: the compiler and vcpkg of a module that consumes a dependency root, and `locate_sibling` |
 | `profile` | `ModuleProfile`: what one CLI says about itself, such as its name, command, environment prefix and root marker |
 | `deps_fragment` | The one reader of a `sushistack.deps.toml` fragment |
-| `errors` | `SushiCoreError`, the one base every exception class the package defines derives from, so a caller catches one type; `ConfigError` and `DigestMismatchError`, the failures an entry point prints as one line. Where a class also derived from a built-in, it keeps that built-in as a second base |
+| `errors` | `SushiCoreError`, the one base every exception class the package defines derives from, so a caller catches one type; `ConfigError`, `DigestMismatchError` and `ProjectRootNotFoundError`, the failures an entry point prints as one line. Where a class also derived from a built-in, it keeps that built-in as a second base |
 
 ### Printing
 
@@ -353,6 +353,10 @@ that `hub install` writes (the older `config.local.toml` in the hub checkout is 
 That is the same procedure five times over. It differs only in the marker, the project's name
 in the error message and the prefix on the environment overrides, and a `ModuleProfile` already
 states all three.
+
+Outside a checkout the walk raises `ProjectRootNotFoundError`, a `SushiCoreError`. `entry.run` prints it as
+one line and exits 1; a caller that can work without a project,
+such as the console or `--help`, catches it.
 
 ### `profile`
 

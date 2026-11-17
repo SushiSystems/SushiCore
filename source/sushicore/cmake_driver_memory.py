@@ -141,14 +141,13 @@ class MemoryCMakeDriver:
                             gtest_filter=gtest_filter,
                             resource_spec_file=resource_spec_file)
 
-    def clean_tree(self, build_dir: Path) -> bool:
-        """Drops the tree at *build_dir*, says so, and returns True."""
+    def clean_tree(self, build_dir: Path) -> None:
+        """Drops the tree at *build_dir* and says so."""
         if self._trees.pop(Path(build_dir), None) is None:
             self._console.info(f"{build_dir} does not exist, nothing to clean.")
-            return True
+            return
         self._console.info(f"Removing {build_dir}...")
         self._console.success(f"{build_dir} removed.")
-        return True
 
     def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *, install_hint: str = "") -> int:
         """Records the Doxygen run and returns the scripted code, or 1 when *doxyfile* is absent."""

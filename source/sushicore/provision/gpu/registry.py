@@ -6,10 +6,15 @@
 
 from __future__ import annotations
 
+from ...errors import SushiCoreError
 from .backend import GpuBackendSpec
 from .cuda import CUDA
 from .level_zero import LEVEL_ZERO
 from .rocm import ROCM
+
+
+class DuplicateBackendError(SushiCoreError, ValueError):
+    """Reports two GPU backend specs that share a vendor or a probe key."""
 
 
 class Registry:
@@ -19,7 +24,7 @@ class Registry:
         specs: The backends to register, in report order.
 
     Raises:
-        ValueError: When two specs share a vendor name or a probe key.
+        DuplicateBackendError: When two specs share a vendor name or a probe key.
     """
 
     def __init__(self, specs: tuple[GpuBackendSpec, ...]) -> None:
@@ -28,9 +33,9 @@ class Registry:
         by_probe: dict[str, GpuBackendSpec] = {}
         for spec in specs:
             if spec.vendor in by_vendor:
-                raise ValueError(f"Duplicate GPU backend vendor: '{spec.vendor}'")
+                raise DuplicateBackendError(f"Duplicate GPU backend vendor: '{spec.vendor}'")
             if spec.probe_vendor in by_probe:
-                raise ValueError(f"Duplicate GPU backend probe vendor: '{spec.probe_vendor}'")
+                raise DuplicateBackendError(f"Duplicate GPU backend probe vendor: '{spec.probe_vendor}'")
             by_vendor[spec.vendor] = spec
             by_probe[spec.probe_vendor] = spec
         self._specs = tuple(specs)

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 
 from sushicore import deps_fragment
+from sushicore.deps_fragment import ModuleCycleError
 
 #: Path of a module's fragment, relative to its checkout.
 DEFAULT_FRAGMENT = "cli/sushistack.deps.toml"
@@ -43,7 +44,7 @@ def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRA
         read: Asked to read one fragment; ``deps_fragment.read`` when ``None``.
 
     Raises:
-        ValueError: The modules depend on one another in a cycle.
+        ModuleCycleError: The modules depend on one another in a cycle.
     """
     exists = is_file or Path.is_file
     read_fragment = read or deps_fragment.read
@@ -54,7 +55,7 @@ def resolve(key: str, root: Path, locate: Locate, *, fragment: str = DEFAULT_FRA
     def visit(name: str, checkout: Path, relative: str, trail: tuple[str, ...]) -> None:
         """Append *name*'s dependencies, then *name*, to the closure."""
         if name in trail:
-            raise ValueError(
+            raise ModuleCycleError(
                 "Modules depend on one another in a cycle: " + " -> ".join((*trail, name)))
         if name in done:
             return

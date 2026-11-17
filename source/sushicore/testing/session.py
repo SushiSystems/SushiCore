@@ -13,7 +13,6 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from ..errors import SushiCoreError
 from ..memory_reading import free_memory_mb
 from ..files import DiskFiles, Files
 from .accelerator_slots import write_resource_spec
@@ -34,8 +33,8 @@ K_SEED_MIN = 1
 K_SEED_MAX = 99999
 
 
-class _Stop(SushiCoreError):
-    """Ends a run before CTest starts, with the exit code to return."""
+class _Stop(Exception):
+    """Signals the end of a run before CTest starts, with the exit code to return; not a failure."""
 
     def __init__(self, code: int) -> None:
         super().__init__(code)

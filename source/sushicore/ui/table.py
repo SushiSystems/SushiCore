@@ -24,6 +24,7 @@ from rich.text import Text
 
 from ..markup import escape_unknown_tags
 from ..theme import Theme
+from .component import ComponentError
 
 K_INDENT = 2
 K_COLUMN_GAP = 2
@@ -101,11 +102,11 @@ class Table:
         """Reject a grouping column that is not one of the table's own columns.
 
         Raises:
-            ValueError: When ``group_by`` names no column.
+            ComponentError: When ``group_by`` names no column.
         """
         if self.group_by is not None and self.group_by not in self.columns:
             names = ", ".join(self.columns)
-            raise ValueError(f"group_by '{self.group_by}' names no column; the columns are {names}")
+            raise ComponentError(f"group_by '{self.group_by}' names no column; the columns are {names}")
 
     def render(self, theme: Theme) -> RenderableType:
         """Return the flat table, or the grouped one when ``group_by`` names a column."""

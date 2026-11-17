@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.cli_console import LazyConsole
+from sushicore.errors import ProjectRootNotFoundError
 
 K_CHECKOUT = Path("checkout")
 
@@ -48,7 +49,7 @@ def test_lazy_console_layers_extra_files_below_the_directory_files():
 @pytest.mark.small
 def test_lazy_console_still_reads_extra_files_outside_a_checkout():
     def outside():
-        raise SystemExit(1)
+        raise ProjectRootNotFoundError("outside a checkout")
 
     workspace = K_CHECKOUT / "workspace.toml"
     assert LazyConsole(outside, lambda: [workspace]).sources() == [workspace]

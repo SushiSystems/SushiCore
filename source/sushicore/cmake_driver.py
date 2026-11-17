@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_stale
+from .errors import SushiCoreError
 from .proc import CommandRunner
 
 
@@ -59,6 +60,11 @@ def with_scratch(env: Mapping[str, str] | None, scratch: Path) -> dict[str, str]
               if k.upper() not in ("TMP", "TEMP")}
     merged["TMP"] = merged["TEMP"] = str(scratch)
     return merged
+
+
+class CleanTreeError(SushiCoreError):
+    """Reports a build tree that could not be removed completely."""
+
 
 class CMakeDriver:
     """The cmake and ctest half of what five project.py copies shared, over real build trees.
@@ -247,24 +253,23 @@ class CMakeDriver:
             env = {**(os.environ if env is None else env), **handed_on}
         return self._runner.run_drained(cmd, build_dir, env)
 
-    def clean_tree(self, build_dir: Path) -> bool:
-        """Remove *build_dir*, say what happened either way, and return whether it is gone.
+    def clean_tree(self, build_dir: Path) -> None:
+        """Remove *build_dir* and say what happened.
 
-        A tree that is still there after the removal, such as one holding a file another program has
-        open, is reported as a failure and not as removed.
+        Raises:
+            CleanTreeError: The tree is still there after the removal, such as one holding a file
+                another program has open.
         """
         if not build_dir.is_dir():
             self._console.info(f"{build_dir} does not exist, nothing to clean.")
-            return True
+            return
         self._console.info(f"Removing {build_dir}...")
         shutil.rmtree(build_dir, ignore_errors=True)
         if build_dir.exists():
-            self._console.error(
+            raise CleanTreeError(
                 f"{build_dir} could not be removed completely; close any program that holds a file "
                 "in it and clean again.")
-            return False
         self._console.success(f"{build_dir} removed.")
-        return True
 
     def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *,
                 install_hint: str = _DEFAULT_DOXYGEN_HINT) -> int:

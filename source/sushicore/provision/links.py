@@ -9,7 +9,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from ..errors import SushiCoreError
 from .host import current_host
+
+
+class NotADirectoryLinkError(SushiCoreError, ValueError):
+    """Reports a path that is not a directory link."""
 
 #: The prefix Windows puts before the target a junction stores.
 _EXTENDED_PREFIX = "\\\\?\\"
@@ -45,10 +50,10 @@ def remove_dir_link(path: Path) -> None:
     """Remove the link at *path* without touching the directory it points to.
 
     Raises:
-        ValueError: *path* is not a directory link.
+        NotADirectoryLinkError: *path* is not a directory link.
     """
     if not is_dir_link(path):
-        raise ValueError(f"{path} is not a directory link")
+        raise NotADirectoryLinkError(f"{path} is not a directory link")
     current_host().remove_dir_link(path)
 
 

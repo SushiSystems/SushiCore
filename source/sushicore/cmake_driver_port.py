@@ -51,8 +51,8 @@ class CMakeDriverPort(Protocol):
                   resource_spec_file: Path | None = None) -> int:
         """Runs the tests of *build_dir* and returns ctest's exit code."""
 
-    def clean_tree(self, build_dir: Path) -> bool:
-        """Removes *build_dir* and returns whether it is gone."""
+    def clean_tree(self, build_dir: Path) -> None:
+        """Removes *build_dir*, or raises ``CleanTreeError`` when it is still there."""
 
     def doxygen(self, cfg, doxyfile: Path, cwd: Path, env, *, install_hint: str = ...) -> int:
         """Runs Doxygen over *doxyfile* and returns its exit code, or 1 when it cannot run."""

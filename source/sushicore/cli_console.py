@@ -12,6 +12,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Sequence
 
+from .errors import ProjectRootNotFoundError
+
 _ATTRS = frozenset({
     "console",
     "info", "success", "warn", "error",
@@ -25,8 +27,8 @@ class LazyConsole:
     """Builds a :class:`~sushicore.console.Console` on first attribute access.
 
     *config_dir* is the CLI's own resolver for its ``cli/`` directory. It is
-    called -- not read -- on first use, and is allowed to raise ``SystemExit``:
-    that is how every CLI's ``config_dir`` reports "not inside a checkout", and
+    called -- not read -- on first use, and is allowed to raise
+    :class:`~sushicore.errors.ProjectRootNotFoundError`: that is how every CLI's ``config_dir`` reports "not inside a checkout", and
     it degrades here to a console with no config sources rather than killing a
     command that never needed a project.
 
@@ -58,7 +60,7 @@ class LazyConsole:
         extra = list(self._extra_sources()) if self._extra_sources is not None else []
         try:
             cfg_dir = self._config_dir()
-        except SystemExit:
+        except ProjectRootNotFoundError:
             return extra
         return [*extra, cfg_dir / "config.toml", cfg_dir / "config.local.toml"]
 

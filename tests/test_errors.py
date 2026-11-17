@@ -13,7 +13,15 @@ from pathlib import Path
 import pytest
 
 import sushicore
-from sushicore.errors import ConfigError, DigestMismatchError, SushiCoreError
+from sushicore.deps_fragment import read
+from sushicore.events import UnknownEventKindError, event_line
+from sushicore.errors import (
+    ConfigError,
+    DigestMismatchError,
+    ProjectRootNotFoundError,
+    SushiCoreError,
+)
+from sushicore.provision.links import NotADirectoryLinkError, remove_dir_link
 
 pytestmark = pytest.mark.small
 
@@ -29,6 +37,33 @@ def test_a_digest_mismatch_names_the_file_and_both_digests():
     assert (error.path, error.expected, error.actual) == (Path("tool.zip"), "aa", "bb")
     assert "tool.zip" in str(error)
     assert "bb" in str(error) and "pins aa" in str(error)
+
+
+#: Exceptions that carry control flow, not a failure, so they are not package errors.
+K_CONTROL_FLOW_SIGNALS = frozenset({"sushicore.testing.session._Stop"})
+
+
+def test_a_missing_project_root_is_a_sushicore_error_and_not_a_system_exit():
+    assert issubclass(ProjectRootNotFoundError, SushiCoreError)
+    assert not issubclass(ProjectRootNotFoundError, SystemExit)
+
+
+def test_an_unknown_event_kind_is_a_sushicore_error_and_still_a_value_error():
+    with pytest.raises(UnknownEventKindError) as raised:
+        event_line("nonsense")
+    assert isinstance(raised.value, (SushiCoreError, ValueError))
+
+
+def test_a_malformed_fragment_raises_a_config_error(tmp_path):
+    fragment = tmp_path / "sushistack.deps.toml"
+    fragment.write_text("module = 3", encoding="utf-8")
+    with pytest.raises(ConfigError):
+        read(fragment)
+
+
+def test_removing_a_plain_folder_as_a_link_raises_a_package_error(tmp_path):
+    with pytest.raises(NotADirectoryLinkError):
+        remove_dir_link(tmp_path)
 
 
 def _package_modules() -> list[types.ModuleType]:
@@ -51,4 +86,5 @@ def test_every_exception_the_package_defines_derives_from_sushicore_error():
         and issubclass(value, BaseException)
         and not issubclass(value, SushiCoreError)
     ]
+    stray = [name for name in stray if name not in K_CONTROL_FLOW_SIGNALS]
     assert stray == []

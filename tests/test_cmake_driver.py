@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.cmake_driver import CMakeDriver
+from sushicore.cmake_driver import CleanTreeError, CMakeDriver
 from sushicore.config_base import ToolConfig
 from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
@@ -209,21 +209,22 @@ def test_clean_tree_reports_a_tree_that_is_still_there(tmp_path, monkeypatch):
     build.mkdir()
     monkeypatch.setattr("sushicore.cmake_driver.shutil.rmtree", lambda *arguments, **keywords: None)
     console = RecordingConsole()
-    assert CMakeDriver(console, _runner()).clean_tree(build) is False
-    assert any("could not be removed completely" in line for line in _lines(console))
+    with pytest.raises(CleanTreeError, match="could not be removed completely"):
+        CMakeDriver(console, _runner()).clean_tree(build)
     assert not any(line.endswith("removed.") for line in _lines(console))
 
 
 @pytest.mark.medium
-def test_clean_tree_returns_true_for_a_removed_tree(tmp_path):
+def test_clean_tree_removes_a_tree_without_raising(tmp_path):
     build = tmp_path / "build"
     build.mkdir()
-    assert CMakeDriver(RecordingConsole(), _runner()).clean_tree(build) is True
+    CMakeDriver(RecordingConsole(), _runner()).clean_tree(build)
+    assert not build.exists()
 
 
 @pytest.mark.medium
-def test_clean_tree_returns_true_for_an_absent_tree(tmp_path):
-    assert CMakeDriver(RecordingConsole(), _runner()).clean_tree(tmp_path / "absent") is True
+def test_clean_tree_accepts_an_absent_tree(tmp_path):
+    CMakeDriver(RecordingConsole(), _runner()).clean_tree(tmp_path / "absent")
 
 
 def _installed_doxygen(tmp_path: Path):

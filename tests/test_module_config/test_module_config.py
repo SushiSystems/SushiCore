@@ -7,6 +7,7 @@
 import pytest
 
 from sushicore.config_base import ToolConfig
+from sushicore.errors import ProjectRootNotFoundError
 from sushicore.module_config import ModuleConfig
 from sushicore.profile import RELEASE_MANIFEST, ModuleProfile
 from sushicore.workspace import (
@@ -50,7 +51,7 @@ def test_presence_falls_back_to_the_discovered_root(tmp_path, monkeypatch):
 
 
 def test_a_tree_with_neither_marker_names_both_markers(tmp_path):
-    with pytest.raises(SystemExit) as raised:
+    with pytest.raises(ProjectRootNotFoundError) as raised:
         ModuleConfig(PROFILE).find_project_root(tmp_path)
     message = str(raised.value)
     assert "CMakeLists.txt" in message

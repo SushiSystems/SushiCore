@@ -41,6 +41,10 @@ class _HelpPageError(SushiCoreError):
     """Reports that a help page cannot be drawn."""
 
 
+class _ClickHelpMissingError(_HelpPageError, TypeError):
+    """Reports a command whose bases hold no Click ``format_help`` to fall back on."""
+
+
 class HelpGroup(TyperGroup):
     """Draws its own help, and its children's, as a HelpPage."""
 
@@ -142,7 +146,7 @@ def _click_format_help(command: Any) -> Callable[[Any, "click.Context", "click.H
     for klass in type(command).__mro__:
         if klass.__module__.endswith("click.core") and "format_help" in vars(klass):
             return vars(klass)["format_help"]
-    raise TypeError(f"{type(command).__name__} has no Click format_help in its bases")
+    raise _ClickHelpMissingError(f"{type(command).__name__} has no Click format_help in its bases")
 
 
 def _print_page(
