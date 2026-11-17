@@ -36,3 +36,31 @@ class DigestMismatchError(SushiCoreError):
         self.path = path
         self.expected = expected
         self.actual = actual
+
+
+class CommitMismatchError(SushiCoreError):
+    """Reports a git checkout or compiler whose commit is not the one its manifest entry pins."""
+
+    def __init__(self, subject: str, expected: str, actual: str) -> None:
+        """Store what was read and both commits, and name all three in the message."""
+        found = actual or "no readable commit"
+        super().__init__(
+            f"{subject} is at {found}, and the dependency manifest pins {expected}. "
+            f"The source was not built or run, and the step stopped.")
+        self.subject = subject
+        self.expected = expected
+        self.actual = actual
+
+
+class KeyFingerprintMismatchError(SushiCoreError):
+    """Reports a downloaded signing key that does not carry the fingerprint its entry pins."""
+
+    def __init__(self, path: Path, expected: str, found: list[str]) -> None:
+        """Store the key file, the pinned fingerprint and the ones the file holds."""
+        listed = ", ".join(found) if found else "no fingerprint"
+        super().__init__(
+            f"{path} holds {listed}, and the dependency manifest pins {expected}. "
+            f"The key was not installed, and the repository was not configured.")
+        self.path = path
+        self.expected = expected
+        self.found = found

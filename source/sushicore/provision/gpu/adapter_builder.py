@@ -14,10 +14,16 @@ import shutil
 import typing
 from pathlib import Path
 
+from sushicore.errors import CommitMismatchError
+from sushicore.fragment_types import GitPin
+
 from ..default_console import console_or_default
 from .. import home as home_paths
 from ..dependency_home import DEFAULT_HOME, DependencyHome
+from ..git_client import GitClient, IGitClient
+from ..pinned_checkout import verify_checkout
 from ..process_run import provision_runner
+from ..source_pins import base_git_pin
 from ..target import ITarget, target_of
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
 from .adapter_builder_compat import renamed_attribute
@@ -36,6 +42,9 @@ _RECOVERABLE_ERRORS = (OSError, ValueError, TypeError, UnicodeError, json.JSONDe
 
 _UR_REPO_URL = "https://github.com/intel/llvm.git"
 _UR_SPARSE_PATH = "/unified-runtime/"
+
+#: The entry of the base fragment that pins the intel/llvm commit the adapters are built from.
+K_UR_PIN = "unified-runtime"
 
 #: Hex characters of the patch digest kept in a toolchain stamp key.
 _PATCH_DIGEST_LENGTH = 12
@@ -106,7 +115,8 @@ class AdapterBuilder:
                  replace: typing.Callable[[Path, Path], None] = os.replace,
                  unlink: typing.Callable[[Path], None] = Path.unlink,
                  log: logging.Logger = _log, patches_dir: Path | None = None, *,
-                 home: DependencyHome = DEFAULT_HOME) -> None:
+                 home: DependencyHome = DEFAULT_HOME, git: IGitClient | None = None,
+                 pin: GitPin | None = None) -> None:
         """Hold what the build reads and runs through.
 
         Args:
@@ -124,6 +134,9 @@ class AdapterBuilder:
             patches_dir: The folder the adapter patches are read from; the packaged one when ``None``.
             home: The home whose dependency tree holds the default work root; the deprecated
                 default home when omitted.
+            git: Reads the HEAD of the fetched sources; a git client on *console* when ``None``.
+            pin: The intel/llvm commit the sources must be at; the one the base fragment pins when
+                ``None``.
         """
         self.cfg = cfg
         self.runner = runner
@@ -135,6 +148,8 @@ class AdapterBuilder:
         self.log = log
         self.patches_dir = default_patches_dir() if patches_dir is None else patches_dir
         self._cached_environment: dict[str, str] | None = None
+        self.git = git or GitClient(console=self.console)
+        self.pin = pin or base_git_pin(K_UR_PIN)
 
     def build(self, spec: "GpuBackendSpec", install: "ToolkitInstall",
              toolchain_root: Path, commit: str, dry_run: bool) -> bool:
@@ -142,10 +157,14 @@ class AdapterBuilder:
 
         Skips the build when the toolchain stamp already records this commit
         for this vendor and every mapped binary is present. Any failing step
-        is reported and returns False without changing *toolchain_root*.
+        is reported and returns False without changing *toolchain_root*. A *commit* other than the
+        pinned one, or sources that end at another commit, is one error and returns False.
         """
         try:
             return self._build(spec, install, toolchain_root, commit, dry_run)
+        except CommitMismatchError as exc:
+            self.console.error(str(exc))
+            return False
         except _RECOVERABLE_ERRORS as exc:
             self.console.warn(f"{spec.vendor} adapter build failed: {exc}")
             return False
@@ -167,6 +186,9 @@ class AdapterBuilder:
         if not target_of(self.cfg).work_root_fits(self.work_root, self.console.warn):
             return False
 
+        if commit.lower() != self.pin.commit:
+            raise CommitMismatchError(
+                "The installed intel/llvm compiler", self.pin.commit, commit.lower())
         env = self._environment()
         short_commit = commit[:_COMMIT_PREFIX_LENGTH]
         src_dir = self.work_root / f"s-{short_commit}"
@@ -174,6 +196,7 @@ class AdapterBuilder:
 
         if not self._fetch_sources(src_dir, commit, env):
             return False
+        self._verify_sources(src_dir)
         if not self._apply_patches(patches, src_dir, env):
             return False
         if not self._configure(spec, install, src_dir, build_dir, commit, env,
@@ -224,6 +247,18 @@ class AdapterBuilder:
                 shutil.rmtree(src_dir, ignore_errors=True)
                 return False
         return True
+
+    def _verify_sources(self, src_dir: Path) -> None:
+        """Check that the HEAD of *src_dir* is the pinned commit and remove the sources when not.
+
+        Raises:
+            CommitMismatchError: HEAD is another commit, or git could not read it.
+        """
+        try:
+            verify_checkout(self.git, src_dir, self.pin)
+        except CommitMismatchError:
+            shutil.rmtree(src_dir, ignore_errors=True)
+            raise
 
     @staticmethod
     def _stamp_key(commit: str, patches: list[Path]) -> str:

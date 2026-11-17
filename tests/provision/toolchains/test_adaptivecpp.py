@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
+from sushicore.fragment_types import GitPin
 from sushicore.proc_memory import RecordingRunner
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.llvm_plans import windows as llvm_windows
@@ -21,9 +22,13 @@ from sushicore.provision.packages.base_memory import (
     InMemoryLinuxPackageManager,
     InMemoryPackageManager,
 )
+from sushicore.provision.source_pins import base_git_pin
 from sushicore.provision.toolchains import adaptivecpp
 from sushicore.provision.toolchains.stamp import toolchains_dir
 
+_COMMIT = "7677cf6eefd8ab46d66168cd07ab042109448124"
+_OTHER_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+_PIN = GitPin("adaptivecpp", "v-test", _COMMIT)
 _SDK_NEWEST = "C:/Program Files/Windows Kits/10/bin/10.0.22000.0/x64"
 _SDK_OLDER = "C:/Program Files/Windows Kits/10/bin/10.0.19041.0/x64"
 
@@ -54,6 +59,14 @@ class _Configure:
         """Record *cmd* and answer the flag."""
         self.commands.append(cmd)
         return self._ok
+
+
+def _git_runner(console: RecordingConsole, head: str = _COMMIT) -> RecordingRunner:
+    """Return a runner whose four git steps succeed and whose HEAD read answers *head*."""
+    runner = RecordingRunner(console)
+    for _ in range(4):
+        runner.script(0)
+    return runner.script(0, (head,))
 
 
 def _on_path(name: str) -> str:
@@ -110,6 +123,7 @@ def test_install_adaptivecpp_reuses_an_existing_binary(provision_home, recording
 
     result = adaptivecpp.install_adaptivecpp(
         _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands,
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert result == str(acpp)
@@ -123,6 +137,7 @@ def test_install_adaptivecpp_skips_without_git_or_cmake(provision_home, recordin
 
     result = adaptivecpp.install_adaptivecpp(
         _linux_cfg(), None, None, dry_run=False, which=_not_on_path, run_command=commands,
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert result is None
@@ -137,6 +152,7 @@ def test_install_adaptivecpp_dry_run_reports_without_building(provision_home, re
 
     result = adaptivecpp.install_adaptivecpp(
         _linux_cfg(), None, None, dry_run=True, which=_on_path, run_command=commands,
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert result == str(toolchains_dir() / "adaptivecpp" / "bin" / "acpp")
@@ -155,6 +171,7 @@ def test_install_adaptivecpp_adds_no_resource_compiler_folder_without_a_windows_
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
         llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure(),
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert environ["PATH"] == "base"
@@ -171,6 +188,7 @@ def test_install_adaptivecpp_puts_the_newest_sdk_resource_compiler_on_the_path(
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_two_sdks,
         llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure(),
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert environ["PATH"].startswith(str(Path(_SDK_NEWEST)))
@@ -186,7 +204,8 @@ def test_install_adaptivecpp_configures_against_a_vendored_llvm_tree(
 
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
-        environ={}, run_command=_Commands(), configure=configure, console=recording_console)
+        environ={}, run_command=_Commands(), configure=configure, runner=_git_runner(recording_console), pin=_PIN,
+        console=recording_console)
 
     assert f"-DLLVM_DIR={cmake_dir}" in configure.commands[0]
     assert f"-DCLANG_INSTALL_PREFIX={llvm}" in configure.commands[0]
@@ -200,7 +219,8 @@ def test_install_adaptivecpp_skips_on_windows_when_no_llvm_is_installed(
 
     result = adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, llvm_bases=[],
-        run_command=commands, console=recording_console)
+        run_command=commands, runner=_git_runner(recording_console), pin=_PIN,
+        console=recording_console)
 
     assert result is None
     assert commands.commands == []
@@ -218,7 +238,8 @@ def test_adaptivecpp_installs_no_llvm_through_winget_without_consent(
 
     result = adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, assume_yes=True, winget=winget,
-        which=_on_path, llvm_bases=[], run_command=_Commands(), console=recording_console)
+        which=_on_path, llvm_bases=[], run_command=_Commands(), runner=_git_runner(recording_console), pin=_PIN,
+        console=recording_console)
 
     assert (result, runner.commands) == (None, [])
 
@@ -235,6 +256,7 @@ def test_install_adaptivecpp_on_windows_installs_boost_and_reuses_an_existing_ll
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, vcpkg, dry_run=False, which=_on_path, glob=_no_sdk,
         llvm_bases=[llvm], environ={}, run_command=_Commands(), configure=configure,
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert vcpkg.installs == [["boost-context", "boost-fiber"]]
@@ -249,6 +271,7 @@ def test_install_adaptivecpp_on_linux_without_a_manager_skips_the_build(
 
     result = adaptivecpp.install_adaptivecpp(
         _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands,
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert result is None
@@ -261,6 +284,7 @@ def test_install_adaptivecpp_on_linux_names_the_dev_packages_when_it_skips(
     """Check that the Linux skip note names the LLVM dev packages to install."""
     adaptivecpp.install_adaptivecpp(
         _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=_Commands(),
+        runner=_git_runner(recording_console), pin=_PIN,
         console=recording_console)
 
     assert "llvm-17-dev" in _infos(recording_console)
@@ -276,7 +300,8 @@ def test_install_adaptivecpp_on_apt_installs_the_pinned_llvm_packages(
 
     adaptivecpp.install_adaptivecpp(
         _linux_cfg(), manager, None, dry_run=False, which=_on_path,
-        run_command=_Commands(1), configure=_Configure(), console=recording_console)
+        run_command=_Commands(1), configure=_Configure(), runner=_git_runner(recording_console), pin=_PIN,
+        console=recording_console)
 
     installs = [list(c.argv) for c in runner.commands if "install" in c.argv]
     assert [argv[-6:] for argv in installs] == [[
@@ -294,10 +319,59 @@ def test_install_adaptivecpp_on_another_manager_translates_the_generic_packages(
 
     adaptivecpp.install_adaptivecpp(
         _linux_cfg(), manager, None, dry_run=False, which=_on_path,
-        run_command=_Commands(), configure=configure, console=recording_console)
+        run_command=_Commands(), configure=configure, runner=_git_runner(recording_console), pin=_PIN,
+        console=recording_console)
 
     assert manager.installs == [[
         "clang", "llvm", "libboost-context-dev", "libboost-fiber-dev",
     ]]
     assert "-DLLVM_DIR=" in configure.commands[0]
     assert not any(arg.startswith("-DCLANG_INSTALL_PREFIX") for arg in configure.commands[0])
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_fetches_the_pinned_commit_and_confirms_head(
+        provision_home, recording_console, tmp_path):
+    """Check that the source is fetched by the pinned hash, checked out detached and read back."""
+    llvm = tmp_path / "llvm"
+    _make_llvm_tree(llvm)
+    git = _git_runner(recording_console)
+
+    adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
+        llvm_bases=[llvm], environ={}, run_command=_Commands(), configure=_Configure(),
+        runner=git, pin=_PIN, console=recording_console)
+
+    steps = [list(c.argv) for c in git.commands]
+    assert [step[3] if step[1] == "-C" else step[1] for step in steps] == [
+        "init", "remote", "fetch", "checkout", "rev-parse"]
+    assert steps[2][-2:] == ["origin", _COMMIT]
+
+
+@pytest.mark.medium
+def test_install_adaptivecpp_stops_when_the_checkout_is_not_the_pinned_commit(
+        provision_home, recording_console, tmp_path):
+    """Check that a HEAD other than the pin gives one error, no configure and no acpp."""
+    llvm = tmp_path / "llvm"
+    _make_llvm_tree(llvm)
+    configure = _Configure(ok=True)
+
+    result = adaptivecpp.install_adaptivecpp(
+        _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
+        llvm_bases=[llvm], environ={}, run_command=_Commands(), configure=configure,
+        runner=_git_runner(recording_console, _OTHER_COMMIT), pin=_PIN,
+        console=recording_console)
+
+    assert result is None
+    assert configure.commands == []
+    [message] = recording_console.texts("error")
+    assert _OTHER_COMMIT in message
+    assert _COMMIT in message
+
+
+@pytest.mark.small
+def test_the_default_pin_of_the_acpp_install_is_a_full_commit_in_the_base_fragment():
+    """Check that the base fragment pins the AdaptiveCpp release by a 40-hex commit."""
+    pin = base_git_pin(adaptivecpp.K_ACPP_PIN)
+
+    assert (pin.ref, len(pin.commit)) == (adaptivecpp.ACPP_VERSION, 40)

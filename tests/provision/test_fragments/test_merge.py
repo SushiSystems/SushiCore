@@ -143,3 +143,23 @@ def test_two_versions_of_one_download_are_reported(tmp_path, recording_console):
     (warning,) = recording_console.texts("warn")
     assert merged.version == "v1"
     assert "version" in warning
+
+
+K_COMMIT = "7677cf6eefd8ab46d66168cd07ab042109448124"
+K_OTHER_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+
+def test_a_commit_one_module_pins_survives_the_merge(tmp_path, recording_console):
+    """A module that declares no commit leaves the pin of the one that does."""
+    merged = _merged(tmp_path, ("a", 'description = "x"\n'),
+                     ("b", f'ref = "v1"\ncommit = "{K_COMMIT}"\n'), console=recording_console)
+    assert merged.commit == K_COMMIT
+
+
+def test_two_different_commits_warn_and_the_first_is_used(tmp_path, recording_console):
+    """Two modules pinning different commits for one entry lose one, and the console says so."""
+    merged = _merged(tmp_path, ("a", f'ref = "v1"\ncommit = "{K_COMMIT}"\n'),
+                     ("b", f'ref = "v2"\ncommit = "{K_OTHER_COMMIT}"\n'),
+                     console=recording_console)
+    assert merged.commit == K_COMMIT
+    assert "commit" in " ".join(recording_console.texts("warn"))

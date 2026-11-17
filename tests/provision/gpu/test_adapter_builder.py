@@ -18,13 +18,17 @@ from pathlib import Path
 
 import pytest
 
+from sushicore.fragment_types import GitPin
 from sushicore.provision.dependency_home import DEFAULT_HOME
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.gpu.adapter_builder import AdapterBuilder
 from sushicore.provision.gpu.adapter_builder_memory import InMemoryBuildStepExecutor
+from sushicore.provision.git_client_memory import InMemoryGitClient
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
+_OTHER_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+_PIN = GitPin("unified-runtime", "nightly-test", _COMMIT)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -146,6 +150,8 @@ def _builder(tmp_path: Path, work_root: Path, *, console, cfg: ProvisionSettings
     toolchain_root = tmp_path / "llvm-sycl"
     toolchain_root.mkdir(exist_ok=True)
     chosen = runner or InMemoryBuildStepExecutor()
+    seams.setdefault("git", InMemoryGitClient(default_head=_COMMIT))
+    seams.setdefault("pin", _PIN)
     builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=chosen, console=console,
                              work_root=work_root,
                              environment=lambda cfg: {}, **seams)
@@ -153,10 +159,11 @@ def _builder(tmp_path: Path, work_root: Path, *, console, cfg: ProvisionSettings
     return _Scene(False, chosen, builder, toolchain_root, work_root, install)
 
 
-def _run(scene: _Scene, spec: _GpuBackendSpec | None = None, *, dry_run: bool = False) -> _Scene:
-    """Build once in *scene* and record the result in it."""
+def _run(scene: _Scene, spec: _GpuBackendSpec | None = None, *, dry_run: bool = False,
+         commit: str = _COMMIT) -> _Scene:
+    """Build once in *scene* at *commit* and record the result in it."""
     scene.result = scene.builder.build(spec or _fake_spec(), scene.install, scene.toolchain_root,
-                                       _COMMIT, dry_run=dry_run)
+                                       commit, dry_run=dry_run)
     return scene
 
 
@@ -592,3 +599,54 @@ def test_every_patch_the_cuda_spec_names_ships_with_the_package():
     assert names == ("cuda-event-anchor.patch",)
     assert all((default_patches_dir() / name).is_file() for name in names)
 
+
+
+@pytest.mark.medium
+def test_a_build_at_the_pinned_commit_confirms_the_head_of_the_sources(
+        tmp_path, short_work_root, recording_console):
+    """Check that a build whose sources end at the pinned commit builds and reports no error."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console,
+                          git=InMemoryGitClient(default_head=_COMMIT)))
+
+    assert scene.result is True
+    assert recording_console.texts("error") == []
+
+
+@pytest.mark.medium
+def test_a_compiler_commit_other_than_the_pin_stops_before_any_fetch(
+        tmp_path, short_work_root, recording_console):
+    """Check that a commit the manifest does not pin fails the build with one error and runs no git."""
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console),
+                 commit=_OTHER_COMMIT)
+
+    assert scene.result is False
+    assert scene.runner.calls == []
+    [message] = recording_console.texts("error")
+    assert _OTHER_COMMIT in message
+    assert _COMMIT in message
+
+
+@pytest.mark.medium
+def test_sources_that_end_at_another_commit_fail_the_build_and_are_removed(
+        tmp_path, short_work_root, recording_console):
+    """Check that a fetch landing off the pin fails with one error, builds nothing and keeps no sources."""
+    git = InMemoryGitClient(default_head=_OTHER_COMMIT)
+
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console, git=git))
+
+    assert scene.result is False
+    assert not [c for c in scene.runner.calls if c[0] == "cmake"]
+    assert not (short_work_root / f"s-{_COMMIT[:8]}").exists()
+    [message] = recording_console.texts("error")
+    assert _OTHER_COMMIT in message
+
+
+@pytest.mark.small
+def test_the_default_pin_is_the_commit_the_base_fragment_pins(recording_console):
+    """Check that a builder given no pin reads the unified-runtime commit from the base fragment."""
+    builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryBuildStepExecutor(),
+                             console=recording_console, git=InMemoryGitClient())
+
+    assert (builder.pin.name, len(builder.pin.commit)) == ("unified-runtime", 40)

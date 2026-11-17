@@ -22,6 +22,8 @@ from sushicore.deps_fragment import (
     read,
     status,
 )
+from sushicore.errors import ConfigError
+from sushicore.fragment_types import GitPin, KeyPin
 from sushicore.proc_memory import RecordingRunner
 
 
@@ -401,3 +403,58 @@ def test_a_malformed_cli_or_exclusion_is_refused(tmp_path, line, expected):
     """A cli that is not a string and an exclusion that is not a list of strings raise."""
     with pytest.raises(ValueError, match=expected):
         read(_fragment(tmp_path, f"[module]\n{line}\n"))
+
+
+K_COMMIT = "7677cf6eefd8ab46d66168cd07ab042109448124"
+K_FINGERPRINT = "E9BF0AFC46D6E8B7DA5882F1BAC6F0C353D04109"
+
+
+@pytest.mark.small
+def test_ref_and_commit_pin_a_clone_in_lower_case(tmp_path):
+    """Check that an entry's ref and commit read as one git pin, the hash in lower case."""
+    (dep,) = read(_fragment(tmp_path, f"""
+        [acpp]
+        ref = "v24.10.0"
+        commit = "{K_COMMIT.upper()}"
+    """)).dependencies
+    assert dep.git_pin() == GitPin("acpp", "v24.10.0", K_COMMIT)
+
+
+@pytest.mark.small
+def test_an_entry_without_a_commit_pins_no_clone(tmp_path):
+    """Check that an entry with no commit has no git pin."""
+    (dep,) = read(_fragment(tmp_path, '[sdl2]\ndescription = "x"\n')).dependencies
+    assert dep.git_pin() is None
+
+
+@pytest.mark.small
+@pytest.mark.parametrize("commit", ["v24.10.0", "7677cf6", "z" * 40, K_COMMIT + "a"])
+def test_a_commit_that_is_not_forty_hex_digits_is_refused(tmp_path, commit):
+    """Check that a branch name, an abbreviation or a long string is not a commit."""
+    with pytest.raises(ConfigError, match="40-hex"):
+        read(_fragment(tmp_path, f'[acpp]\nref = "x"\ncommit = "{commit}"\n'))
+
+
+@pytest.mark.small
+@pytest.mark.parametrize("body", [f'commit = "{K_COMMIT}"', 'ref = "v1"'],
+                         ids=["commit alone", "ref alone"])
+def test_a_commit_and_its_ref_come_together(tmp_path, body):
+    """Check that a clone pin declares both its ref and its commit."""
+    with pytest.raises(ConfigError, match="ref and commit together"):
+        read(_fragment(tmp_path, f"[acpp]\n{body}\n"))
+
+
+@pytest.mark.small
+def test_a_fingerprint_reads_without_spaces_in_lower_case(tmp_path):
+    """Check that a fingerprint written in groups reads as one 40-hex key pin."""
+    grouped = " ".join(K_FINGERPRINT[i:i + 4] for i in range(0, 40, 4))
+    (dep,) = read(_fragment(tmp_path, f'[key]\nfingerprint = "{grouped}"\n')).dependencies
+    assert dep.key_pin() == KeyPin("key", K_FINGERPRINT.lower())
+
+
+@pytest.mark.small
+@pytest.mark.parametrize("fingerprint", ["BAC6F0C353D04109", "z" * 40])
+def test_a_short_or_malformed_fingerprint_is_refused(tmp_path, fingerprint):
+    """Check that a key id or a non-hex fingerprint is not a pin."""
+    with pytest.raises(ConfigError, match="fingerprint"):
+        read(_fragment(tmp_path, f'[key]\nfingerprint = "{fingerprint}"\n'))

@@ -70,8 +70,10 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `output_memory.py` | `MemoryConsole`, the in-memory console adapter a test passes to what prints |
 | `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
 | `pin_chain.py` | Walks the `[sushisystems.<name>]` pins of a chain and finds a library pinned at two versions |
-| `git_client.py` | Clones one tag of a repository and reads a checkout's HEAD |
-| `git_client_memory.py` | `InMemoryGitClient`, an `IGitClient` that clones from a table of tags and runs no git |
+| `git_client.py` | Clones one tag or fetches one commit of a repository, and reads a checkout's HEAD |
+| `pinned_checkout.py` | Fetches a clone at its pinned commit and confirms git's HEAD is that commit |
+| `source_pins.py` | Reads the commits and key fingerprints the base fragment pins for the installers |
+| `git_client_memory.py` | `InMemoryGitClient`, an `IGitClient` that clones from a table of tags, checks out any commit and runs no git |
 | `sushi_fetch.py` | `FetchSushiSourcesStep`, which clones a pinned library and checks its commit |
 | `sushi_source_check.py` | The doctor rows `sushi <name>` and `sushi pins` |
 | `sushi_setup.py` | The locate fallback, and the pin check, fetch and recheck `setup` runs before the closure |
@@ -277,9 +279,20 @@ pin it. `gpu/cuda_toolkit_installer.py` checks each archive against the SHA-256 
 own `redistrib_<version>.json` publishes for it, before unpacking. The design is in
 [`docs/design/GPU_TOOLKIT_SELECTION/README.md`](../../docs/design/GPU_TOOLKIT_SELECTION/README.md).
 
-A download that happens inside a shell pipeline, and a git clone of third-party code, are not
-verified. The clone of a pinned Sushi library is checked against its pinned commit. The full
-list is in
+A git clone of third-party code and a signing key are pinned the same way, in the base fragment.
+An entry that declares `ref` and `commit` (`vcpkg`, `adaptivecpp`, `unified-runtime`) pins the full
+40-hex commit its clone must end at; `ref` records the tag or branch the hash was resolved from and
+is never fetched. `source_pins.base_git_pin(name)` reads the pin, `git_client.checkout_commit`
+fetches that hash alone and `pinned_checkout.checkout_pinned` confirms that `git rev-parse HEAD`
+is the pinned commit, raising `sushicore.errors.CommitMismatchError` when it is not. An existing
+vcpkg tree and the compiler commit the adapter build reads are confirmed the same way. An entry
+that declares `fingerprint` (`oneapi-apt-key`) pins a signing key:
+`intel_oneapi_repo.ensure_intel_oneapi_repo` downloads the key to a file, reads its primary-key
+fingerprints with `gpg --show-keys --with-colons`, installs only the pinned key into
+`/usr/share/keyrings/` and names that keyring in `signed-by=`. A file without the pinned
+fingerprint is refused before anything is installed.
+
+What stays unverified, a download inside a shell pipeline, is listed in
 [`docs/backlog/README.md`](../../docs/reference/KNOWN_ISSUES.md), under "Installing
 third-party software".
 

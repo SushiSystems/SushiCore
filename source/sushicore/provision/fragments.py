@@ -63,7 +63,7 @@ def _merge(existing: Dependency, incoming: Dependency) -> tuple[Dependency, str]
         merged and one had to be chosen; empty when nothing was lost.
     """
     lost = []
-    for field in ("check_cmd", "provides", "version"):
+    for field in ("check_cmd", "provides", "version", "ref", "commit", "fingerprint"):
         one, two = getattr(existing, field), getattr(incoming, field)
         if one and two and one != two:
             lost.append(field)
@@ -87,6 +87,9 @@ def _merge(existing: Dependency, incoming: Dependency) -> tuple[Dependency, str]
         check_cmd=existing.check_cmd or incoming.check_cmd,
         provides=existing.provides or incoming.provides,
         version=existing.version or incoming.version,
+        ref=existing.ref or incoming.ref,
+        commit=existing.commit or incoming.commit,
+        fingerprint=existing.fingerprint or incoming.fingerprint,
         url={**incoming.url, **existing.url},
         sha256={**incoming.sha256, **existing.sha256},
     )

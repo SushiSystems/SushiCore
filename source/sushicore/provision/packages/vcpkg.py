@@ -10,17 +10,29 @@ import shutil
 import typing
 from pathlib import Path
 
+from sushicore.errors import CommitMismatchError
+from sushicore.fragment_types import GitPin
 from sushicore.proc import CommandRunner
 
 from ..default_console import console_or_default
 from .. import home as home_paths
 from ..dependency_home import DEFAULT_HOME, DependencyHome
+from ..git_client import GitClient, IGitClient
+from ..pinned_checkout import checkout_pinned, verify_checkout
 from ..process_run import provision_runner
+from ..source_pins import base_git_pin
 from ..target import target_of
 from .base import IPackageManager
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
+
+
+#: The repository the vcpkg tree is fetched from.
+K_VCPKG_URL = "https://github.com/microsoft/vcpkg.git"
+
+#: The entry of the base fragment that pins the commit of the vcpkg tree.
+K_VCPKG_PIN = "vcpkg"
 
 
 def _port_name(pkg: str) -> str:
@@ -35,7 +47,8 @@ class VcpkgManager(IPackageManager):
     name = "vcpkg"
 
     def __init__(self, cfg: "ProvisionConfig", runner: CommandRunner | None = None, *,
-                 console: typing.Any = None, home: DependencyHome = DEFAULT_HOME) -> None:
+                 console: typing.Any = None, home: DependencyHome = DEFAULT_HOME,
+                 git: IGitClient | None = None, pin: GitPin | None = None) -> None:
         """Store *cfg*, the runner of the vcpkg commands, and resolve the triplet to install for.
 
         Args:
@@ -45,12 +58,16 @@ class VcpkgManager(IPackageManager):
             console: The console the manager and its runner print through.
             home: The home whose roots are searched for a vcpkg tree; the deprecated default home
                 when omitted.
+            git: Fetches the vcpkg tree; a git client over *runner* when ``None``.
+            pin: The commit the vcpkg tree must be at; the one the base fragment pins when ``None``.
         """
         console = console_or_default(console, "VcpkgManager")
         super().__init__(console=console)
         self._cfg = cfg
         self._home = home
         self._runner = runner or provision_runner(console)
+        self._git = git or GitClient(runner=self._runner, console=console)
+        self._pin = pin or base_git_pin(K_VCPKG_PIN)
         self._target = target_of(cfg)
         self._triplet = cfg.vcpkg_triplet or self._target.vcpkg_triplet
 
@@ -74,22 +91,39 @@ class VcpkgManager(IPackageManager):
         return self._exe().is_file() or shutil.which("vcpkg") is not None
 
     def ensure_bootstrapped(self, dry_run: bool) -> bool:
-        """Clone and bootstrap vcpkg into its root if not already present."""
+        """Fetch vcpkg at its pinned commit and bootstrap it into its root if not already present.
+
+        A tree whose HEAD is not the pinned commit is reported as one error and not bootstrapped.
+        """
         root = self._root()
         if self._exe().is_file():
             return True
         self._console.info(f"vcpkg not found; bootstrapping into {root} ...")
-        if not (root / ".git").is_dir():
-            if root.exists():
-                self._console.info(f"Removing stale directory {root} before cloning ...")
-                if not dry_run:
-                    shutil.rmtree(root)
-            rc = self._drain(["git", "clone", "https://github.com/microsoft/vcpkg.git",
-                              str(root)], dry_run)
-            if rc != 0 and not dry_run:
+        try:
+            if not self._fetched(root, dry_run):
                 return False
+        except CommitMismatchError as error:
+            self._console.error(str(error))
+            return False
         rc = self._target.bootstrap_vcpkg(root, self._drain, dry_run)
         return rc == 0 or dry_run
+
+    def _fetched(self, root: Path, dry_run: bool) -> bool:
+        """Report whether *root* holds the pinned vcpkg commit, fetching it when there is no clone.
+
+        Raises:
+            CommitMismatchError: The tree at *root* is at another commit.
+        """
+        if (root / ".git").is_dir():
+            if not dry_run:
+                verify_checkout(self._git, root, self._pin)
+            return True
+        if root.exists():
+            self._console.info(f"Removing stale directory {root} before cloning ...")
+            if not dry_run:
+                shutil.rmtree(root)
+        fetched = checkout_pinned(self._git, K_VCPKG_URL, self._pin, root, dry_run, shallow=False)
+        return fetched or dry_run
 
     def is_installed(self, pkg: str) -> bool:
         """Report whether *pkg*'s port is listed as installed for this triplet."""

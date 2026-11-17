@@ -42,6 +42,30 @@ class Download:
 
 @final
 @dataclass(frozen=True)
+class GitPin:
+    """One git checkout an installer makes for an entry, pinned to a full commit."""
+
+    #: The entry that declares it.
+    name: str
+    #: The tag or branch the commit was resolved from, as a record; it is never fetched.
+    ref: str
+    #: The full lower-case 40-hex hash the checkout must end at.
+    commit: str
+
+
+@final
+@dataclass(frozen=True)
+class KeyPin:
+    """One signing key an installer trusts for an entry, pinned to its full fingerprint."""
+
+    #: The entry that declares it.
+    name: str
+    #: The full lower-case 40-hex fingerprint of the primary key.
+    fingerprint: str
+
+
+@final
+@dataclass(frozen=True)
 class Dependency:
     """One entry of a fragment, as the file declares it."""
 
@@ -59,6 +83,20 @@ class Dependency:
     version: str = ""
     #: Platform to the exact address of the file downloaded for it there.
     url: dict[str, str] = field(default_factory=dict)
+    #: The tag or branch the ``commit`` was resolved from; empty when the entry pins no commit.
+    ref: str = ""
+    #: The full 40-hex commit a clone of the entry ends at; empty when it pins none.
+    commit: str = ""
+    #: The full 40-hex fingerprint of the signing key the entry trusts; empty when it pins none.
+    fingerprint: str = ""
+
+    def git_pin(self) -> GitPin | None:
+        """Return the pinned commit of the entry, or None when it pins none."""
+        return GitPin(self.name, self.ref, self.commit) if self.commit else None
+
+    def key_pin(self) -> KeyPin | None:
+        """Return the pinned key fingerprint of the entry, or None when it pins none."""
+        return KeyPin(self.name, self.fingerprint) if self.fingerprint else None
 
     def download_for(self, platform: str) -> Download | None:
         """Return the pinned download for *platform*, or None when the entry has none there."""

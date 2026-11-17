@@ -50,6 +50,9 @@ K_COMMIT_HEX = re.compile(r"[0-9a-f]{40}")
 #: The platforms a ``sha256`` table may pin a download for.
 K_DIGEST_PLATFORMS = (WINDOWS, "linux")
 
+#: The shape of a full key fingerprint written as hex.
+K_FINGERPRINT_HEX = re.compile(r"[0-9a-f]{40}")
+
 #: The shape of a SHA-256 written as hex.
 K_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
@@ -106,8 +109,12 @@ def read(path: Path) -> Fragment:
             sha256=_read_digests(path, name, table.get("sha256", {})),
             version=_read_version(path, name, table.get("version", "")),
             url=_read_urls(path, name, table.get("url", {})),
+            ref=_read_ref(path, name, table.get("ref", "")),
+            commit=_read_commit(path, name, table.get("commit", "")),
+            fingerprint=_read_fingerprint(path, name, table.get("fingerprint", "")),
         ))
         _require_whole_download(path, dependencies[-1], table)
+        _require_whole_git_pin(path, dependencies[-1])
     _match_pins(path, depends_on, pins)
     return Fragment(dependencies, depends_on, pins, cli, package_exclude)
 
@@ -249,6 +256,60 @@ def _read_urls(path: Path, name: str, value: object) -> dict[str, str]:
                 f"{path}: url of '{name}' for {platform} is {address!r}, "
                 f"and it is an https address.")
     return dict(value)
+
+
+def _read_ref(path: Path, name: str, value: object) -> str:
+    """Return the ``ref`` of the entry *name*.
+
+    Raises:
+        ConfigError: *value* is not a string.
+    """
+    if not isinstance(value, str):
+        raise ConfigError(
+            f"{path}: ref of '{name}' is a {type(value).__name__}, and it is a string.")
+    return value
+
+
+def _read_commit(path: Path, name: str, value: object) -> str:
+    """Return the ``commit`` of the entry *name* in lower case.
+
+    Raises:
+        ConfigError: *value* is not 40 hex digits.
+    """
+    if value == "":
+        return ""
+    if not isinstance(value, str) or not K_COMMIT_HEX.fullmatch(value.lower()):
+        raise ConfigError(
+            f"{path}: commit of '{name}' is {value!r}, and a commit is the full 40-hex hash.")
+    return value.lower()
+
+
+def _read_fingerprint(path: Path, name: str, value: object) -> str:
+    """Return the ``fingerprint`` of the entry *name* in lower case, without spaces.
+
+    Raises:
+        ConfigError: *value* is not 40 hex digits once its spaces are removed.
+    """
+    if value == "":
+        return ""
+    squeezed = value.replace(" ", "").lower() if isinstance(value, str) else ""
+    if not K_FINGERPRINT_HEX.fullmatch(squeezed):
+        raise ConfigError(
+            f"{path}: fingerprint of '{name}' is {value!r}, "
+            f"and a fingerprint is the full 40-hex digits.")
+    return squeezed
+
+
+def _require_whole_git_pin(path: Path, dep: Dependency) -> None:
+    """Check that an entry pinning a commit names the ref it came from.
+
+    Raises:
+        ConfigError: *dep* declares a ``commit`` with no ``ref``, or a ``ref`` with no ``commit``.
+    """
+    if bool(dep.commit) != bool(dep.ref):
+        absent = "ref" if dep.commit else "commit"
+        raise ConfigError(
+            f"{path}: git pin '{dep.name}' lacks {absent}; a clone declares ref and commit together.")
 
 
 def _require_whole_download(path: Path, dep: Dependency, table: dict) -> None:

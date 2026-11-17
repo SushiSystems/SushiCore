@@ -14,16 +14,22 @@ import typing
 from pathlib import Path
 from typing import Any, Callable, MutableMapping, Sequence
 
+from sushicore.errors import CommitMismatchError
+from sushicore.fragment_types import GitPin
+from sushicore.proc import CommandRunner
 
 from ..default_console import console_or_default
 from .. import home as home_paths
 from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..download_checking import DownloadChecking
+from ..git_client import GitClient
 from ..glob_search import K_RC_GLOBS
 from ..dependency_presence import named_manager
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
-from ..process_run import run
+from ..pinned_checkout import checkout_pinned
+from ..process_run import provision_runner, run
+from ..source_pins import base_git_pin
 from ..llvm_plan import LLVM_PLANS, LlvmRequest
 from ..install_context import InstallContext
 from ..target import target_of
@@ -39,8 +45,12 @@ if typing.TYPE_CHECKING:
 
 __all__ = ["ADAPTIVECPP", "AdaptiveCppToolchain", "install_adaptivecpp"]
 
-#: AdaptiveCpp release built from source.
+#: AdaptiveCpp release built from source; the base fragment pins its commit under ``adaptivecpp``.
 ACPP_VERSION = "v24.10.0"
+#: The repository AdaptiveCpp is fetched from.
+ACPP_URL = "https://github.com/AdaptiveCpp/AdaptiveCpp.git"
+#: The entry of the base fragment that pins the commit AdaptiveCpp is built from.
+K_ACPP_PIN = "adaptivecpp"
 #: clang/llvm major version used to build acpp.
 ACPP_LLVM = "17"
 #: Full LLVM release vendored on Windows when no LLVM dev install exists.
@@ -123,6 +133,8 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
                         configure: Callable[[list[str], bool], bool] | None = None,
                         home: DependencyHome | None = None,
                         verifier: "DownloadChecking | None" = None,
+                        runner: CommandRunner | None = None,
+                        pin: GitPin | None = None,
                         ) -> str | None:
     """Build AdaptiveCpp from source; return the ``acpp`` executable path, or None on failure.
 
@@ -134,6 +146,8 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         llvm_bases: The Windows LLVM install roots to look in.
         home: The home whose root holds the toolchains and vcpkg; the default home when ``None``.
         verifier: Checks the LLVM installer it downloads; the deprecated default slot's when ``None``.
+        runner: Runs the git steps of the fetch; the provision runner on *console* when ``None``.
+        pin: The commit the source must be at; the one the base fragment pins when ``None``.
     """
     console = console_or_default(console, "install_adaptivecpp")
     prefix = toolchains_dir(home=home) / "adaptivecpp"
@@ -170,12 +184,14 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "acpp"
         build = src / "build"
-        clone = run_step(
-            [git, "clone", "--depth", "1", "--branch", ACPP_VERSION,
-             "https://github.com/AdaptiveCpp/AdaptiveCpp.git", str(src)],
-            dry_run, check=True,
-        )
-        if clone != 0:
+        client = GitClient(git, runner or provision_runner(console), console=console)
+        try:
+            fetched = checkout_pinned(client, ACPP_URL, pin or base_git_pin(K_ACPP_PIN), src,
+                                      dry_run)
+        except CommitMismatchError as error:
+            console.error(str(error))
+            return None
+        if not fetched:
             console.warn("AdaptiveCpp clone failed; skipping.")
             return None
 

@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""A git client that clones from a table of known tags and runs no git."""
+"""A git client that clones from a table of known tags and commits and runs no git."""
 
 from __future__ import annotations
 
@@ -21,14 +21,18 @@ class InMemoryGitClient(IGitClient):
     Args:
         tags: The commit each ``(url, tag)`` points at.
         commit: The commit every tag outside the table points at; ``None`` makes them fail.
-        clones: Whether clones succeed at all.
+        clones: Whether clones and commit checkouts succeed at all.
+        checkout_head: The HEAD every commit checkout lands at; the requested commit when ``None``,
+            so a test sets it to make a checkout end off its pin.
     """
 
     def __init__(self, tags: Mapping[tuple[str, str], str] | None = None, *,
                  commit: str | None = None, clones: bool = True,
                  heads: Mapping[Path, str] | None = None, default_head: str = "",
-                 materialize: Callable[[Path], None] | None = None) -> None:
+                 materialize: Callable[[Path], None] | None = None,
+                 checkout_head: str | None = None) -> None:
         """Hold the tag table, the fallback commit, the clone switch and the fixed HEADs."""
+        self._checkout_head = checkout_head
         self._materialize = materialize
         self._tags = dict(tags or {})
         self._commit = commit
@@ -36,6 +40,7 @@ class InMemoryGitClient(IGitClient):
         self._heads = {path.resolve(): head for path, head in (heads or {}).items()}
         self._default_head = default_head
         self.calls: list[tuple[str, str, Path, bool]] = []
+        self.checkouts: list[tuple[str, str, Path, bool, bool]] = []
 
     def clone_tag(self, url: str, tag: str, destination: Path, dry_run: bool) -> bool:
         """Record the clone; unless *dry_run*, set the HEAD of *destination* and materialize it."""
@@ -46,6 +51,19 @@ class InMemoryGitClient(IGitClient):
         if dry_run:
             return True
         self._heads[destination.resolve()] = landed
+        if self._materialize is not None:
+            self._materialize(destination)
+        return True
+
+    def checkout_commit(self, url: str, commit: str, destination: Path, dry_run: bool, *,
+                        shallow: bool = True) -> bool:
+        """Record the checkout; unless *dry_run*, set the HEAD of *destination* and materialize it."""
+        self.checkouts.append((url, commit, destination, dry_run, shallow))
+        if not self._clones:
+            return False
+        if dry_run:
+            return True
+        self._heads[destination.resolve()] = commit if self._checkout_head is None else self._checkout_head
         if self._materialize is not None:
             self._materialize(destination)
         return True

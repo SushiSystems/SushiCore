@@ -19,6 +19,12 @@
 #   sha256         Optional table of platform to the SHA-256 of the file downloaded for
 #                  this entry there: { windows = "<64 hex digits>", linux = "..." }.
 #                  docs/reference/DEPENDENCY_FRAGMENT.md lists which entry pins which file.
+#   ref            The tag or branch a clone's commit was resolved from, with `commit`.
+#   commit         The full 40-hex commit a clone of the entry must end at. The installer checks
+#                  that git's HEAD is this commit and stops when it is not; `ref` is a record
+#                  of where the hash came from and is never fetched.
+#   fingerprint    The full 40-hex fingerprint of a signing key. The installer installs the key
+#                  only when the downloaded file holds a primary key with this fingerprint.
 
 [build_tools]
 description   = "C++ compiler and core build tools (gcc, g++, make). Any GCC >= 9 suffices for the intel-llvm -fsycl host pass."
@@ -108,6 +114,49 @@ required      = true
 linux_apt     = ["pkg-config"]
 windows_vcpkg = ["pkgconf"]
 check_cmd     = ["pkg-config", "--version"]
+
+[vcpkg]
+# The clone installs ports from; resolved with `git ls-remote https://github.com/microsoft/vcpkg.git master`.
+description   = "vcpkg, the C++ port manager the Windows installer clones and bootstraps."
+required      = false
+linux_apt     = []
+windows_vcpkg = []
+ref           = "master"
+commit        = "528cfa41f4b1578b16ac6b2f6d2e6f98e5308d2d"
+
+[adaptivecpp]
+# Resolved with `git ls-remote https://github.com/AdaptiveCpp/AdaptiveCpp.git refs/tags/v24.10.0`;
+# the tag is a lightweight one, so the hash is the commit itself.
+description   = "AdaptiveCpp source the toolchain installer builds."
+required      = false
+gpu_only      = true
+linux_apt     = []
+windows_vcpkg = []
+ref           = "v24.10.0"
+commit        = "7677cf6eefd8ab46d66168cd07ab042109448124"
+
+[unified-runtime]
+# The intel/llvm commit of the nightly the intel-llvm entry pins; the GPU adapters build from its
+# unified-runtime folder. Resolved with `git ls-remote https://github.com/intel/llvm.git
+# refs/tags/nightly-2026-11-17`. Renew it with the intel-llvm version and digests.
+description   = "Unified Runtime sources the GPU adapter build checks out of intel/llvm."
+required      = false
+gpu_only      = true
+linux_apt     = []
+windows_vcpkg = []
+ref           = "nightly-2026-11-17"
+commit        = "c74ecddc2fd0542450e31e45bcc46cda98214058"
+
+[oneapi-apt-key]
+# The key that signs the Intel oneAPI apt repository, downloaded from
+# https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB. The file holds five
+# keys; this is the one that has not expired (valid until 2027-08), read from the file with
+# `gpg --show-keys --with-colons`. Renew it when Intel publishes a new key.
+description   = "Signing key of the Intel oneAPI apt repository."
+required      = false
+linux_apt     = []
+windows_vcpkg = []
+fingerprint   = "E9BF0AFC46D6E8B7DA5882F1BAC6F0C353D04109"
 
 # Note: the SYCL toolchains (intel-llvm, AdaptiveCpp, oneAPI) and CUDA are
 # SushiRuntime's dependencies, declared in sushiruntime/cli/sushistack.deps.toml.

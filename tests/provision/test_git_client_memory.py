@@ -78,3 +78,13 @@ def test_the_head_of_an_unlisted_checkout_is_the_default_head():
 
 def test_a_head_is_returned_in_lower_case():
     assert InMemoryGitClient(heads={K_ROOT: "ABCDEF"}).head(K_ROOT) == "abcdef"
+
+
+def test_a_commit_checkout_lands_at_the_commit_and_is_recorded():
+    """Check that the checkout records its call and leaves HEAD at the commit asked for."""
+    client = InMemoryGitClient()
+
+    assert client.checkout_commit("https://x/y.git", "ab" * 20, Path("y"), False)
+
+    assert client.checkouts == [("https://x/y.git", "ab" * 20, Path("y"), False, True)]
+    assert client.head(Path("y")) == "ab" * 20

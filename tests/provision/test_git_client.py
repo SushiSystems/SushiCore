@@ -151,3 +151,39 @@ def test_head_of_a_real_checkout_is_a_lower_case_commit(tmp_path, recording_cons
 def test_head_is_empty_when_git_is_missing(tmp_path, recording_console):
     """Check that an executable that cannot start gives ''."""
     assert GitClient(git="sushi-no-such-git", console=recording_console).head(tmp_path) == ""
+
+
+@pytest.mark.small
+def test_checkout_commit_fetches_the_hash_and_checks_out_detached(recording_console):
+    """Check that the fetch names the full hash at depth one and the checkout is detached."""
+    runner = RecordingRunner(RecordingConsole())
+
+    assert GitClient(runner=runner, console=recording_console).checkout_commit(
+        "https://x/y.git", "ab" * 20, Path("y"), False)
+
+    assert [command.argv for command in runner.commands] == [
+        ("git", "init", "y"),
+        ("git", "-C", "y", "remote", "add", "origin", "https://x/y.git"),
+        ("git", "-C", "y", "fetch", "--depth", "1", "origin", "ab" * 20),
+        ("git", "-C", "y", "checkout", "--detach", "FETCH_HEAD")]
+
+
+@pytest.mark.small
+def test_checkout_commit_without_shallow_fetches_the_history(recording_console):
+    """Check that a full fetch leaves the depth flag out."""
+    runner = RecordingRunner(RecordingConsole())
+
+    GitClient(runner=runner, console=recording_console).checkout_commit(
+        "https://x/y.git", "ab" * 20, Path("y"), False, shallow=False)
+
+    assert "--depth" not in runner.commands[2].argv
+
+
+@pytest.mark.small
+def test_checkout_commit_stops_at_the_first_failing_step(recording_console):
+    """Check that a failed fetch is a failed checkout and runs no checkout."""
+    runner = RecordingRunner(RecordingConsole()).script(0).script(0).script(128)
+
+    assert not GitClient(runner=runner, console=recording_console).checkout_commit(
+        "https://x/y.git", "ab" * 20, Path("y"), False)
+    assert len(runner.commands) == 3

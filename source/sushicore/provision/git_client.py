@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Clones one tag of a repository and reads a checkout's HEAD through git."""
+"""Clones one tag or one commit of a repository and reads a checkout's HEAD through git."""
 
 from __future__ import annotations
 
@@ -19,11 +19,20 @@ _log = logging.getLogger(__name__)
 
 
 class IGitClient(ABC):
-    """The two git operations fetching a pinned Sushi library needs."""
+    """The git operations fetching a pinned library needs."""
 
     @abstractmethod
     def clone_tag(self, url: str, tag: str, destination: Path, dry_run: bool) -> bool:
         """Clone only *tag* of *url* into *destination*, shallow; report success."""
+
+    @abstractmethod
+    def checkout_commit(self, url: str, commit: str, destination: Path, dry_run: bool, *,
+                        shallow: bool = True) -> bool:
+        """Fetch only *commit* of *url* into *destination* and check it out detached; report success.
+
+        The fetch names the full hash, so nothing a branch or tag moves to is ever read. The
+        caller reads :meth:`head` afterwards to confirm the checkout.
+        """
 
     @abstractmethod
     def head(self, checkout: Path) -> str:
@@ -53,6 +62,20 @@ class GitClient(IGitClient):
         command = [self._git, "clone", "--depth", "1", "--branch", tag, "--single-branch",
                    url, str(destination)]
         return self._runner.run_drained(command, None, dry_run=dry_run, check=True) == 0
+
+    def checkout_commit(self, url: str, commit: str, destination: Path, dry_run: bool, *,
+                        shallow: bool = True) -> bool:
+        """Run ``git init``, ``remote add``, ``fetch`` of *commit* and ``checkout --detach``."""
+        repo = [self._git, "-C", str(destination)]
+        fetch = [*repo, "fetch", *(["--depth", "1"] if shallow else []), "origin", commit]
+        steps = [
+            [self._git, "init", str(destination)],
+            [*repo, "remote", "add", "origin", url],
+            fetch,
+            [*repo, "checkout", "--detach", "FETCH_HEAD"],
+        ]
+        return all(self._runner.run_drained(step, None, dry_run=dry_run, check=True) == 0
+                   for step in steps)
 
     def head(self, checkout: Path) -> str:
         """Run ``git rev-parse HEAD`` in *checkout*; return '' when it fails."""
