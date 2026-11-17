@@ -59,8 +59,8 @@ def _diagnostics(files: dict[Path, str] | None = None, *, profile: ModuleProfile
 
 def _cells(console: RecordingConsole, column: int) -> list[str]:
     """Return the body cells of one column of the first table the console printed."""
-    table = console.console.printed[0].objects[0]
-    return list(table.columns[column].cells)
+    rows = next(call.args[1] for call in console.calls if call.kind == "table")
+    return [row[column] for row in rows]
 
 
 def test_env_without_a_build_environment_fails_with_one_line():

@@ -89,23 +89,19 @@ def test_resolve_with_sort_ignores_target_and_default_and_delegates_to_select(tm
     assert console.texts("error") == ["No executables found. Build the project first."]
 
 
-def test_resolve_with_sort_returns_select_choice_even_though_target_also_matches(tmp_path,
-                                                                                  monkeypatch):
+def test_resolve_with_sort_returns_select_choice_even_though_target_also_matches(tmp_path):
     """sort=True must reach `select`'s prompt, not just its empty-tree error path.
 
     *target* names a real, matchable executable here -- if `resolve` checked
-    target before sort, it would return that match directly and IntPrompt.ask
+    target before sort, it would return that match directly and the prompt
     would never be called. Picking the *other* candidate through the (stubbed)
     prompt is proof the sort branch, not the target branch, produced the result.
     """
     _exe(tmp_path, "widget")
     _exe(tmp_path, "zzz_other")
-    console = RecordingConsole()
-    index = ExecutableIndex()
-
-    import rich.prompt
     # find() sorts by lowercased name, so "widget.exe" < "zzz_other.exe": index 2.
-    monkeypatch.setattr(rich.prompt.IntPrompt, "ask", staticmethod(lambda *a, **k: 2))
+    console = RecordingConsole(answer="2")
+    index = ExecutableIndex()
 
     exe = index.resolve(tmp_path, console, target="widget", sort=True, default="widget")
 

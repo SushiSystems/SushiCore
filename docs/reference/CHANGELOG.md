@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — console: Took the line level from the call, and made config, env and the executable picker emit table and prompt events (RW-29, RW-30, `renderer.py`).
 - 2026-11-17 — provision: Kept the NVCC and rc.exe glob tables and the first-match helper once, in probe.py (RW-28, `probe.py`).
 - 2026-11-17 — proc: Ran every child process in source/ through CommandRunner, so tests use RecordingRunner and no module calls subprocess but proc.py (RW-27, `078e7cd`).
 - 2026-11-17 — proc: Made Runner the one process brick, with run_drained and run_quiet, and sent a child's output to the console as events in machine mode (RW-27, `078e7cd`).

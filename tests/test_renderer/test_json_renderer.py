@@ -28,18 +28,14 @@ def _events(out):
 
 def test_line_event_carries_level_and_message():
     r, out, _ = _renderer()
-    r.line("bold blue", "[INFO]", "hello")
+    r.line("info", "bold blue", "[INFO]", "hello")
     assert _events(out) == [{"event": "line", "level": "info", "message": "hello"}]
 
 
-@pytest.mark.parametrize(
-    ("prefix", "level"),
-    [("[WARN]", "warn"), ("", "info")],
-    ids=["named-prefix", "no-prefix"],
-)
-def test_level_comes_from_the_prefix_not_the_style_and_is_info_without_one(prefix, level):
+@pytest.mark.parametrize("level", ["info", "success", "warn", "error"])
+def test_level_comes_from_the_call_not_the_prefix(level):
     r, out, _ = _renderer()
-    r.line("bold red", prefix, "x")
+    r.line(level, "bold red", "[INFO]", "x")
     assert _events(out)[0]["level"] == level
 
 

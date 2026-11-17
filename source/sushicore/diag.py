@@ -131,22 +131,17 @@ class Diagnostics:
 
     def config_show(self) -> int:
         """Print every resolved setting with the layer it came from."""
-        from rich.table import Table
-
         console = self._console
         console.header("Resolved Configuration")
         root = self._config.find_project_root()
         cfg = self._config.load_config()
         origins = self._origins(root, platform.system().lower())
 
-        table = Table(show_header=True, header_style=console.accent)
-        table.add_column("Setting")
-        table.add_column("Value")
-        table.add_column("Source")
-        for f in fields(self._config.Config):
-            table.add_row(f.name, str(getattr(cfg, f.name)),
-                          self._source_of(f.name, origins))
-        console.console.print(table)
+        console.table(
+            ["Setting", "Value", "Source"],
+            [[f.name, str(getattr(cfg, f.name)), self._source_of(f.name, origins)]
+             for f in fields(self._config.Config)],
+        )
 
         rows = self._resolved_paths(cfg, root)
         width = max(len(label) for label, _ in rows)
@@ -163,8 +158,6 @@ class Diagnostics:
 
     def env_dump(self, show_all: bool = False, build_dir: Path | None = None) -> int:
         """Print the environment a build runs under, filtered unless *show_all*."""
-        from rich.table import Table
-
         console = self._console
         if self._build_env is None:
             console.error(f"{self._profile.program} has no build environment to dump.")
@@ -181,12 +174,7 @@ class Diagnostics:
             if show_all or any(tok in k.upper() for tok in tokens)
         }
 
-        table = Table(show_header=True, header_style=console.accent)
-        table.add_column("Variable")
-        table.add_column("Value", overflow="fold")
-        for k, v in shown.items():
-            table.add_row(k, v)
-        console.console.print(table)
+        console.table(["Variable", "Value"], [[k, v] for k, v in shown.items()])
 
         console.info(
             f"{len(shown)} of {len(env)} variables shown"

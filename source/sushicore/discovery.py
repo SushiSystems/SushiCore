@@ -34,9 +34,11 @@ class ConsoleLike(Protocol):
     the dependency points from each CLI into this package, never back.
     """
 
-    console: object  # a rich.console.Console, for printing a renderable
-
     def error(self, message: str) -> None: ...
+
+    def table(self, columns: list[str], rows: list[list[str]], title: str = "") -> None: ...
+
+    def prompt(self, message: str, default: str | None = None) -> str: ...
 
 
 def _is_executable(path: Path) -> bool:
@@ -107,27 +109,22 @@ class ExecutableIndex:
 
     def select(self, build_root: Path, console: ConsoleLike) -> Path | None:
         """Print a table of executables and prompt for one. None if there are none."""
-        # Rich is imported here so find and match never pay for it; docs/architecture/OVERVIEW.md.
-        from rich.prompt import IntPrompt
-        from rich.table import Table
-
         exes = self.find(build_root)
         if not exes:
             console.error("No executables found. Build the project first.")
             return None
 
-        table = Table(title="Available executables", show_lines=False)
-        table.add_column("#", justify="right", style="cyan")
-        table.add_column("Name", style="bold")
-        table.add_column("Path", style="dim")
-        for i, exe in enumerate(exes, 1):
-            table.add_row(str(i), exe.name, str(exe.relative_to(build_root.parent)))
-        console.console.print(table)
-
-        choice = IntPrompt.ask(
-            "Select a number", choices=[str(i) for i in range(1, len(exes) + 1)]
+        console.table(
+            ["#", "Name", "Path"],
+            [[str(i), exe.name, str(exe.relative_to(build_root.parent))]
+             for i, exe in enumerate(exes, 1)],
+            title="Available executables",
         )
-        return exes[choice - 1]
+        answer = console.prompt("Select a number").strip()
+        if not answer.isdigit() or not 1 <= int(answer) <= len(exes):
+            console.error(f"'{answer}' is not a number from 1 to {len(exes)}.")
+            return None
+        return exes[int(answer) - 1]
 
     def resolve(self, build_root: Path, console: ConsoleLike, *, target: str | None = None,
                 sort: bool = False, default: str = "") -> Path | None:

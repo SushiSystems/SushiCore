@@ -23,8 +23,8 @@ _log = logging.getLogger(__name__)
 class Renderer(Protocol):
     """The interface Console needs and nothing more."""
 
-    def line(self, style: str, prefix: str, message: str) -> None:
-        """Draw one prefixed message."""
+    def line(self, level: str, style: str, prefix: str, message: str) -> None:
+        """Draw one prefixed message of the given level: info, success, warn or error."""
         ...
 
     def command(self, cmd_style: str, prefix_style: str, prefix: str, cmd: str) -> None:
@@ -146,8 +146,8 @@ class RichRenderer:
         """Return the Rich console this renderer prints through."""
         return self._console
 
-    def line(self, style: str, prefix: str, message: str) -> None:
-        """Print the message behind a styled prefix."""
+    def line(self, level: str, style: str, prefix: str, message: str) -> None:
+        """Print the message behind a styled prefix; the level only matters to machine readers."""
         lead = f"[{style}]{prefix}[/{style}] " if prefix else ""
         self._console.print(f"{lead}{message}")
 
@@ -219,7 +219,7 @@ class PlainRenderer:
         """Print one line to the stream."""
         print(text, file=self._stream)
 
-    def line(self, style: str, prefix: str, message: str) -> None:
+    def line(self, level: str, style: str, prefix: str, message: str) -> None:
         """Print the prefix and the message separated by one space."""
         self._write(f"{prefix} {message}" if prefix else message)
 
@@ -319,18 +319,6 @@ class TerminalMemoryRenderer(PlainRenderer):
         return self._stream.getvalue()
 
 
-_LEVELS = ("info", "success", "warn", "error")
-
-
-def _level_from_prefix(prefix: str) -> str:
-    """Return the first of info, success, warn, error named in the prefix, or ``info``."""
-    lowered = prefix.lower()
-    for level in _LEVELS:
-        if level in lowered:
-            return level
-    return "info"
-
-
 class JsonRenderer:
     """Write one JSON event per line to stdout and route every stray Rich print to stderr."""
 
@@ -354,9 +342,9 @@ class JsonRenderer:
         self._stream.write(event_line(kind, **fields) + "\n")
         self._stream.flush()
 
-    def line(self, style: str, prefix: str, message: str) -> None:
-        """Emit a ``line`` event whose level the icon prefix names, ``info`` when it names none."""
-        self._emit("line", level=_level_from_prefix(prefix), message=message)
+    def line(self, level: str, style: str, prefix: str, message: str) -> None:
+        """Emit a ``line`` event carrying the level the caller passed."""
+        self._emit("line", level=level, message=message)
 
     def command(self, cmd_style: str, prefix_style: str, prefix: str, cmd: str) -> None:
         """Emit a ``command`` event."""

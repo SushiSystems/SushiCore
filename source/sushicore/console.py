@@ -64,19 +64,19 @@ class Console:
 
     def info(self, msg: str) -> None:
         """Print an informational line."""
-        self._renderer.line(self._theme.info, self._icons.info, msg)
+        self._renderer.line("info", self._theme.info, self._icons.info, msg)
 
     def success(self, msg: str) -> None:
         """Print a success line."""
-        self._renderer.line(self._theme.success, self._icons.success, msg)
+        self._renderer.line("success", self._theme.success, self._icons.success, msg)
 
     def warn(self, msg: str) -> None:
         """Print a warning line."""
-        self._renderer.line(self._theme.warn, self._icons.warn, msg)
+        self._renderer.line("warn", self._theme.warn, self._icons.warn, msg)
 
     def error(self, msg: str) -> None:
         """Print an error line."""
-        self._renderer.line(self._theme.error, self._icons.error, msg)
+        self._renderer.line("error", self._theme.error, self._icons.error, msg)
 
     def command(self, cmd: str) -> None:
         """Echo the command about to be executed."""
