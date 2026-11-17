@@ -26,10 +26,10 @@ def test_a_failing_command_returns_its_exit_code(recording_console, monkeypatch)
     """Check that the exit code of the child is the value returned, and a checked failure is reported."""
     class _Child:
         stdout = io.StringIO("")
-        returncode = 3
 
-        def wait(self) -> None:
-            """Finish at once."""
+        def wait(self) -> int:
+            """Finish at once with exit code 3."""
+            return 3
 
     monkeypatch.setattr("subprocess.Popen", lambda *args, **kwargs: _Child())
     assert run(["tool"], False, check=True) == 3

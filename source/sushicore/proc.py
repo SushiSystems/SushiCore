@@ -2,12 +2,10 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Spawning a child process on behalf of a CLI.
+"""The one brick that spawns child processes on behalf of a CLI.
 
-Five modules carried a copy of this. Stripped of docstrings the copies differed
-in exactly two places: the program name in the not-found message, and whether
-Rich was told not to parse the child's output as markup. The first is what the
-profile is for. The second was a defect in three of them.
+Every operation hands a child's output to the console line by line, so in machine mode
+it is an event and never a line on stdout.
 """
 
 from __future__ import annotations
@@ -20,6 +18,9 @@ from typing import Mapping, Protocol
 
 K_TIMEOUT_EXIT_CODE = 124
 """The exit code a capture returns when its command outlives its timeout, as GNU `timeout` returns."""
+
+K_QUIET_TAIL_LINES = 20
+"""How many of the last output lines a quiet run shows when its command fails."""
 
 
 class RichConsoleLike(Protocol):
@@ -35,9 +36,26 @@ class ConsoleLike(Protocol):
 
     def command(self, text: str) -> None: ...
 
+    def info(self, text: str) -> None: ...
+
     def error(self, text: str) -> None: ...
 
     def warn(self, text: str) -> None: ...
+
+    def is_machine(self) -> bool: ...
+
+
+def emit_output_line(console: ConsoleLike, line: str) -> None:
+    """Hand one line of a child's output to *console*.
+
+    In machine mode the line is an `info` event. Otherwise it is printed with markup off,
+    because child output carries literal "[file:line]" and "[[nodiscard]]" tags that Rich
+    would parse as console markup and silently drop.
+    """
+    if console.is_machine():
+        console.info(line)
+        return
+    console.console.print(line, markup=False, highlight=False, soft_wrap=True)
 
 
 class CommandRunner(Protocol):
@@ -48,11 +66,25 @@ class CommandRunner(Protocol):
         ...
 
     def run(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Run *cmd* in *cwd* and return its exit code."""
+        """Run *cmd* in *cwd* and return its exit code; in machine mode it runs as `run_drained`."""
         ...
 
-    def run_drained(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Run *cmd* in *cwd*, re-emit its output line by line and return its exit code."""
+    def run_drained(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
+                    *, dry_run: bool = False, check: bool = False) -> int:
+        """Run *cmd*, re-emit its output line by line and return its exit code.
+
+        A dry run echoes the command, starts nothing and returns 0. With *check*, a non-zero
+        exit code is also reported as one error.
+        """
+        ...
+
+    def run_quiet(self, cmd: list[str], cwd: Path | None = None,
+                  env: dict[str, str] | None = None, *, dry_run: bool = False) -> bool:
+        """Run *cmd* showing no output unless it fails, and return whether it exited 0.
+
+        A failed run shows the last `K_QUIET_TAIL_LINES` lines of its output. A dry run echoes
+        the command, starts nothing and returns True.
+        """
         ...
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
@@ -114,6 +146,17 @@ class Runner:
             f"(e.g. cmake_exe / ctest_exe / ninja_exe), or\n"
             f"  - run `{self._program} config` to see what the CLI resolved.")
 
+    def _begin(self, cmd: list[str], env: Mapping[str, str] | None,
+               dry_run: bool) -> list[str] | None:
+        """Echo *cmd* and return it with its executable resolved, or None on a dry run."""
+        resolved = list(cmd)
+        resolved[0] = self.resolve_exe(cmd[0], env)
+        self._console.command(subprocess.list2cmdline(resolved))
+        if dry_run:
+            self._console.info("(dry-run) not executed")
+            return None
+        return resolved
+
     def _interrupted(self) -> int:
         """Warn that the child was interrupted and return 130."""
         self._console.warn("Interrupted.")
@@ -121,7 +164,12 @@ class Runner:
 
     def run(self, cmd: list[str], cwd: Path,
             env: dict[str, str] | None = None) -> int:
-        """Run *cmd*, letting the child inherit this process's stdout."""
+        """Run *cmd*, letting the child inherit this process's stdout.
+
+        In machine mode the child must not reach stdout, so the run is `run_drained`.
+        """
+        if self._console.is_machine():
+            return self.run_drained(cmd, cwd, env)
         resolved = list(cmd)
         resolved[0] = self.resolve_exe(cmd[0], env)
         self._console.command(subprocess.list2cmdline(resolved))
@@ -135,42 +183,67 @@ class Runner:
                 raise
             return self._interrupted()
 
-    def run_drained(self, cmd: list[str], cwd: Path,
-                    env: dict[str, str] | None = None) -> int:
+    def run_drained(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
+                    *, dry_run: bool = False, check: bool = False) -> int:
         """Run *cmd* with its output piped here and re-emitted line by line.
 
         Draining the pipe ourselves is what keeps ctest's gtest_discover_tests
         step reliable on Windows: when ctest's stdout is an inherited, slowly
         drained pipe, the discovery child intermittently stalls and registers
         nothing, surfacing as "No tests were found".
-
-        markup=False because child output carries literal "[file:line]" and
-        "[[nodiscard]]" tags that Rich would otherwise parse as console markup
-        and silently drop.
         """
-        resolved = list(cmd)
-        resolved[0] = self.resolve_exe(cmd[0], env)
-        self._console.command(subprocess.list2cmdline(resolved))
+        resolved = self._begin(cmd, env, dry_run)
+        if resolved is None:
+            return 0
         try:
-            proc = subprocess.Popen(
-                resolved, cwd=str(cwd), env=env,
+            process = subprocess.Popen(
+                resolved, cwd=_cwd_text(cwd), env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, errors="replace", bufsize=1)
+                text=True, encoding="utf-8", errors="replace", bufsize=1)
         except FileNotFoundError:
             self._not_found(cmd[0])
             return self._missing_exit_code
         try:
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                self._console.console.print(line.rstrip("\n"), markup=False,
-                                            highlight=False, soft_wrap=True)
-            return proc.wait()
+            if process.stdout is not None:
+                for line in process.stdout:
+                    emit_output_line(self._console, line.rstrip("\n"))
+            code = process.wait()
         except KeyboardInterrupt:
             if not self._catch_interrupt:
                 raise
-            proc.terminate()
-            proc.wait()
+            process.terminate()
+            process.wait()
             return self._interrupted()
+        if check and code != 0:
+            self._console.error(f"Command failed ({code}).")
+        return code
+
+    def run_quiet(self, cmd: list[str], cwd: Path | None = None,
+                  env: dict[str, str] | None = None, *, dry_run: bool = False) -> bool:
+        """Run *cmd* showing no output unless it fails, and return whether it exited 0.
+
+        A missing executable is reported as one error and counts as a failure.
+        """
+        resolved = self._begin(cmd, env, dry_run)
+        if resolved is None:
+            return True
+        try:
+            done = subprocess.run(
+                resolved, cwd=_cwd_text(cwd), env=env,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace")
+        except FileNotFoundError:
+            self._not_found(cmd[0])
+            return False
+        except KeyboardInterrupt:
+            if not self._catch_interrupt:
+                raise
+            self._interrupted()
+            return False
+        if done.returncode != 0:
+            for line in (done.stdout or "").splitlines()[-K_QUIET_TAIL_LINES:]:
+                emit_output_line(self._console, line)
+        return done.returncode == 0
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
                 env: dict[str, str] | None = None,
@@ -196,6 +269,11 @@ class Runner:
                 raise
             return self._interrupted(), "", ""
         return result.returncode, result.stdout, result.stderr
+
+
+def _cwd_text(cwd: Path | None) -> str | None:
+    """Return *cwd* as the text `subprocess` takes, or None for the current folder."""
+    return None if cwd is None else str(cwd)
 
 
 def timed_out_message(program: str, timeout: float | None) -> str:

@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
-from .proc import K_TIMEOUT_EXIT_CODE, ConsoleLike, timed_out_message
+from .proc import (K_QUIET_TAIL_LINES, K_TIMEOUT_EXIT_CODE, ConsoleLike, emit_output_line,
+                   timed_out_message)
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,9 +23,10 @@ class RecordedCommand:
         argv: The command words as they were given.
         cwd: The folder the command was to run in.
         env: A copy of the environment given, or ``None`` when the caller gave none.
-        drained: Whether the command ran through ``run_drained``.
+        drained: Whether the command ran through ``run_drained``, or through ``run`` in machine mode.
         captured: Whether the command ran through ``capture``.
         timeout: The timeout a capture was given, or ``None``.
+        quiet: Whether the command ran through ``run_quiet``.
     """
 
     argv: tuple[str, ...]
@@ -33,6 +35,7 @@ class RecordedCommand:
     drained: bool
     captured: bool = False
     timeout: float | None = None
+    quiet: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,7 @@ class ScriptedRun:
     Attributes:
         exit_code: The exit code returned.
         lines: The output lines a drained run prints, one per line, and a capture returns as stdout.
+            A failed quiet run shows the last `K_QUIET_TAIL_LINES` of them.
         stderr: The error output a capture returns.
         missing: Whether the executable is missing, as if it were on no PATH.
         timed_out: Whether a capture outlives its timeout.
@@ -97,12 +101,31 @@ class RecordingRunner:
         return name
 
     def run(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Record *cmd* and return the next scripted exit code."""
-        return self._answer(cmd, cwd, env, drained=False)
+        """Record *cmd* and return the next scripted exit code; in machine mode it runs drained."""
+        return self._answer(cmd, cwd, env, drained=self._console.is_machine())
 
-    def run_drained(self, cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> int:
-        """Record *cmd*, print the next scripted lines unparsed and return its exit code."""
-        return self._answer(cmd, cwd, env, drained=True)
+    def run_drained(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None = None,
+                    *, dry_run: bool = False, check: bool = False) -> int:
+        """Record *cmd*, hand the next scripted lines to the console and return its exit code."""
+        if dry_run:
+            return self._dry_run(cmd, 0)
+        code = self._answer(cmd, cwd, env, drained=True)
+        if check and code != 0:
+            self._console.error(f"Command failed ({code}).")
+        return code
+
+    def run_quiet(self, cmd: list[str], cwd: Path | None = None,
+                  env: dict[str, str] | None = None, *, dry_run: bool = False) -> bool:
+        """Record *cmd*, show the tail of its scripted lines when it fails and return whether it passed."""
+        if dry_run:
+            return self._dry_run(cmd, True)
+        scripted = self._play(cmd, cwd, env, drained=False, quiet=True)
+        if scripted.missing:
+            return False
+        if scripted.exit_code != 0:
+            for line in scripted.lines[-K_QUIET_TAIL_LINES:]:
+                emit_output_line(self._console, line)
+        return scripted.exit_code == 0
 
     def capture(self, cmd: list[str], cwd: Path | None = None,
                 env: dict[str, str] | None = None,
@@ -119,18 +142,30 @@ class RecordingRunner:
         stdout = "".join(f"{line}\n" for line in scripted.lines)
         return scripted.exit_code, stdout, scripted.stderr
 
-    def _answer(self, cmd: list[str], cwd: Path, env: dict[str, str] | None,
+    def _answer(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
                 *, drained: bool) -> int:
         """Record one command, then play the script queued for it."""
+        scripted = self._play(cmd, cwd, env, drained=drained, quiet=False)
+        if scripted.missing:
+            return self._missing_exit_code
+        if drained:
+            for line in scripted.lines:
+                emit_output_line(self._console, line)
+        return scripted.exit_code
+
+    def _play(self, cmd: list[str], cwd: Path | None, env: dict[str, str] | None,
+              *, drained: bool, quiet: bool) -> ScriptedRun:
+        """Record *cmd*, echo it, report a scripted missing executable and return the script."""
         self._commands.append(RecordedCommand(
-            tuple(cmd), cwd, dict(env) if env is not None else None, drained))
+            tuple(cmd), cwd, dict(env) if env is not None else None, drained, quiet=quiet))
         self._console.command(shlex.join(cmd))
         scripted = self._scripts.pop(0) if self._scripts else ScriptedRun()
         if scripted.missing:
             self._console.error(f"Executable not found: '{cmd[0]}'.")
-            return self._missing_exit_code
-        if drained:
-            for line in scripted.lines:
-                self._console.console.print(line, markup=False, highlight=False,
-                                            soft_wrap=True)
-        return scripted.exit_code
+        return scripted
+
+    def _dry_run(self, cmd: list[str], answer: int | bool) -> int | bool:
+        """Echo *cmd* as a dry run does, record nothing and return *answer*."""
+        self._console.command(shlex.join(cmd))
+        self._console.info("(dry-run) not executed")
+        return answer

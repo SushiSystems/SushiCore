@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — proc: Made Runner the one process brick, with run_drained and run_quiet, and sent a child's output to the console as events in machine mode (RW-27, `proc.py`).
 - 2026-11-17 — provision: Pinned cmake, git, ninja, doxygen and intel-llvm in base.deps.toml with a version, a url and a sha256, and removed the gh_latest helpers (RW-44, `390e839`).
 - 2026-11-17 — provision: Moved run from packages/base.py into process_run.py at layer 1, so git_client sits at layer 2 (RW-23, `b5c0b34`).
 - 2026-11-17 — provision: Made setup fetch, round by round, every Sushi library a fetched library pins, refusing two versions of one (RW-18, `6b8cb0b`).

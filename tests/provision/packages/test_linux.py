@@ -24,8 +24,9 @@ class _Process:
         self.stdout = None
         self.returncode = returncode
 
-    def wait(self) -> None:
-        """Do nothing, since nothing runs."""
+    def wait(self) -> int:
+        """Return the exit code at once, since nothing runs."""
+        return self.returncode
 
 
 def _started(monkeypatch, returncode: int = 0) -> list[list[str]]:

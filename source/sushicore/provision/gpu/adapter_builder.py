@@ -12,12 +12,12 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import typing
 from pathlib import Path
 
 from .. import home
 from .._output import console
+from ..process_run import provision_runner
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
 
 if typing.TYPE_CHECKING:
@@ -53,22 +53,12 @@ class BuildStepExecutor(typing.Protocol):
 
 
 class SubprocessBuildStepExecutor:
-    """Runs a command with :mod:`subprocess`, streaming its output to the console."""
+    """Runs a command through the shared runner, streaming its output to the console."""
 
     def run(self, argv: list[str], cwd: Path | None,
              env: dict[str, str] | None) -> int:
-        """Run *argv*, printing each output line as it arrives, and return the exit code."""
-        console.command(subprocess.list2cmdline(argv))
-        process = subprocess.Popen(
-            argv, cwd=str(cwd) if cwd else None, env=env,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace",
-        )
-        if process.stdout:
-            for line in iter(process.stdout.readline, ""):
-                console.console.print(line.rstrip("\n"), markup=False, highlight=False)
-        process.wait()
-        return process.returncode
+        """Run *argv*, handing each output line to the console, and return the exit code."""
+        return provision_runner().run_drained(argv, cwd, env)
 
 
 def _default_work_root() -> Path:

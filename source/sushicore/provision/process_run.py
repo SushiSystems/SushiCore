@@ -2,29 +2,22 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""The process runner the package managers and the git client share."""
+"""The process runner the package managers, the git client and the toolchain installers share."""
 
 from __future__ import annotations
 
-import subprocess
-
+from ..proc import Runner
 from ._output import console
+
+K_PROGRAM = "sushicore"
+"""The command name the runner's not-found guidance names."""
+
+
+def provision_runner() -> Runner:
+    """Return the runner that prints through the console provision is bound to."""
+    return Runner(console, K_PROGRAM)
 
 
 def run(cmd: list[str], dry_run: bool, *, check: bool = False) -> int:
     """Run *cmd*, streaming its output through the console; return its exit code."""
-    console.command(subprocess.list2cmdline(cmd))
-    if dry_run:
-        console.info("(dry-run) not executed")
-        return 0
-    process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace",
-    )
-    if process.stdout:
-        for line in iter(process.stdout.readline, ""):
-            console.console.print(line.rstrip("\n"), markup=False, highlight=False)
-    process.wait()
-    if check and process.returncode != 0:
-        console.error(f"Command failed ({process.returncode}).")
-    return process.returncode
+    return provision_runner().run_drained(cmd, None, dry_run=dry_run, check=check)

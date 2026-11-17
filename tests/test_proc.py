@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.proc import K_TIMEOUT_EXIT_CODE, CommandRunner, Runner
+from sushicore.proc import K_QUIET_TAIL_LINES, K_TIMEOUT_EXIT_CODE, CommandRunner, Runner
 from sushicore.proc_memory import RecordingRunner
 
 K_LINES = ["note: see [[nodiscard]] here", "second line"]
@@ -237,7 +237,17 @@ class RunnerWorld:
 
 
 class CommandRunnerContract:
-    """The promises every :class:`CommandRunner` keeps; a subclass supplies the world."""
+    """The promises every :class:`CommandRunner` keeps; a subclass builds the world."""
+
+    @pytest.fixture
+    def world(self):
+        """Return a world whose console prints to a terminal."""
+        return self.build(RecordingConsole())
+
+    @pytest.fixture
+    def machine_world(self):
+        """Return a world whose console renders JSON events."""
+        return self.build(RecordingConsole(machine=True))
 
     @pytest.mark.parametrize("method", ["run", "run_drained"])
     @pytest.mark.parametrize("exit_code", [0, 3])
@@ -271,6 +281,62 @@ class CommandRunnerContract:
         getattr(world.runner, method)(world.missing(), Path("."))
         assert len(world.console.texts("error")) == 1
 
+    @pytest.mark.parametrize("method", ["run", "run_drained"])
+    def test_in_machine_mode_a_run_gives_the_output_to_the_console_as_events_not_stdout(
+            self, machine_world, method, capfd):
+        argv = machine_world.exiting(0, K_LINES)
+        getattr(machine_world.runner, method)(argv, Path("."))
+        assert (machine_world.console.texts("info"), machine_world.console.console.printed,
+                capfd.readouterr().out) == (K_LINES, [], "")
+
+    def test_in_machine_mode_a_failed_quiet_run_gives_its_output_to_the_console_as_events(
+            self, machine_world, capfd):
+        argv = machine_world.exiting(3, K_LINES)
+        machine_world.runner.run_quiet(argv)
+        assert (machine_world.console.texts("info"), machine_world.console.console.printed,
+                capfd.readouterr().out) == (K_LINES, [], "")
+
+    def test_a_checked_drained_run_that_fails_reports_one_error(self, world):
+        world.runner.run_drained(world.exiting(3, []), None, check=True)
+        assert world.console.texts("error") == ["Command failed (3)."]
+
+    def test_an_unchecked_drained_run_that_fails_reports_no_error(self, world):
+        world.runner.run_drained(world.exiting(3, []), None)
+        assert world.console.texts("error") == []
+
+    def test_a_drained_dry_run_echoes_the_command_and_returns_zero_without_running_it(self, world):
+        argv = world.exiting(3, K_LINES)
+        assert world.runner.run_drained(argv, None, dry_run=True) == 0
+        assert (len(world.console.texts("command")), world.console.texts("info"),
+                world.console.console.printed) == (1, ["(dry-run) not executed"], [])
+
+    @pytest.mark.parametrize("exit_code, passed", [(0, True), (3, False)])
+    def test_a_quiet_run_returns_whether_the_command_exited_zero(self, world, exit_code, passed):
+        assert world.runner.run_quiet(world.exiting(exit_code, [])) is passed
+
+    def test_a_quiet_run_that_passes_prints_the_command_and_no_output(self, world):
+        world.runner.run_quiet(world.exiting(0, K_LINES))
+        assert (len(world.console.texts("command")), world.console.console.printed) == (1, [])
+
+    def test_a_quiet_run_that_fails_prints_its_output_without_parsing_markup(self, world):
+        world.runner.run_quiet(world.exiting(3, K_LINES))
+        assert [(out.text, out.options["markup"]) for out in world.console.console.printed] == [
+            (line, False) for line in K_LINES]
+
+    def test_a_quiet_run_that_fails_prints_only_the_last_lines(self, world):
+        lines = [f"line {number}" for number in range(K_QUIET_TAIL_LINES + 5)]
+        world.runner.run_quiet(world.exiting(3, lines))
+        assert [out.text for out in world.console.console.printed] == lines[-K_QUIET_TAIL_LINES:]
+
+    def test_a_quiet_dry_run_echoes_the_command_and_passes_without_running_it(self, world):
+        assert world.runner.run_quiet(world.exiting(3, K_LINES), dry_run=True) is True
+        assert (len(world.console.texts("command")), world.console.texts("info"),
+                world.console.console.printed) == (1, ["(dry-run) not executed"], [])
+
+    def test_a_quiet_run_of_a_missing_executable_fails_with_one_error(self, world):
+        assert world.runner.run_quiet(world.missing()) is False
+        assert len(world.console.texts("error")) == 1
+
     def test_a_program_found_on_no_path_resolves_to_its_own_name(self, world):
         assert world.runner.resolve_exe("no-such-binary-anywhere") == "no-such-binary-anywhere"
 
@@ -302,9 +368,7 @@ class CommandRunnerContract:
 class TestRecordingRunnerKeepsTheRunnerContract(CommandRunnerContract):
     """The in-memory runner, spawning nothing."""
 
-    @pytest.fixture
-    def world(self):
-        console = RecordingConsole()
+    def build(self, console):
         runner = RecordingRunner(console, missing_exit_code=K_MISSING_EXIT_CODE)
 
         def exiting(exit_code, lines):
@@ -326,9 +390,7 @@ class TestRecordingRunnerKeepsTheRunnerContract(CommandRunnerContract):
 class TestRunnerKeepsTheRunnerContract(CommandRunnerContract):
     """The real runner, spawning the Python that runs the tests."""
 
-    @pytest.fixture
-    def world(self):
-        console = RecordingConsole()
+    def build(self, console):
         runner = Runner(console, "st", missing_exit_code=K_MISSING_EXIT_CODE)
 
         def exiting(exit_code, lines):
