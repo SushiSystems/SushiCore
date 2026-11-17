@@ -18,6 +18,9 @@ windows_vcpkg = []        # vcpkg port names; empty means nothing to install on 
 check_cmd     = []        # a command; exit code 0 means the dependency is installed
 provides      = ""        # a capability such as "sycl-toolchain"
 sha256        = {}        # platform to the SHA-256 of the file downloaded there
+ref           = ""        # the tag or branch a clone's commit was resolved from
+commit        = ""        # the 40-hex commit a clone must end at
+fingerprint   = ""        # the 40-hex fingerprint of a signing key
 ```
 
 Every key is optional. An entry with both package lists empty installs nothing through a
@@ -146,6 +149,41 @@ same source as before.
 When two fragments declare one entry, their `url` and `sha256` tables are joined. Where both
 pin the same platform differently, or name different versions, the first fragment read wins, and
 the merge prints a warning naming both owners.
+
+## `ref`, `commit` and `fingerprint`
+
+An entry that pins a git clone carries `ref` and `commit` together. `commit` is the full 40-hex
+hash the clone must end at, in either case. `ref` is the tag or branch the hash was resolved from
+with `git ls-remote`; it is a record and is never fetched. The installer fetches the hash alone,
+and when `git rev-parse HEAD` is another commit it stops with
+`sushicore.errors.CommitMismatchError`, which names both commits.
+
+```toml
+[adaptivecpp]
+ref    = "v24.10.0"
+commit = "7677cf6eefd8ab46d66168cd07ab042109448124"
+```
+
+An entry that pins a signing key carries `fingerprint`, the 40 hex digits of the primary key,
+with or without spaces. The installer downloads the key to a file, reads its primary-key
+fingerprints with `gpg --show-keys --with-colons`, and installs the key only when one of them is
+the pin; otherwise it reports one error and installs nothing. A subkey does not count.
+
+The reader raises `ValueError`, naming the file and the entry, when `commit` or `fingerprint` is
+not 40 hex digits, or when only one of `ref` and `commit` is declared. When two fragments declare
+one entry with different values of these keys, the first read wins and the merge prints a warning.
+
+The base fragment pins these entries:
+
+| Entry | Pins | Read by |
+| --- | --- | --- |
+| `vcpkg` | `master` at its commit | `packages/vcpkg.py` |
+| `adaptivecpp` | `v24.10.0` at its commit | `toolchains/adaptivecpp.py` |
+| `unified-runtime` | the intel/llvm commit of the pinned nightly | `gpu/adapter_builder.py` |
+| `oneapi-apt-key` | the fingerprint of the Intel apt signing key | `intel_oneapi_repo.py` |
+
+Renewing one is an edit of the entry: `git ls-remote` for the new hash, or the new key's
+fingerprint from Intel.
 
 ## Format version
 
