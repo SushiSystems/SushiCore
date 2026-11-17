@@ -11,6 +11,7 @@ from typing import final
 
 from .config import ProvisionConfig
 from .dependency_home import DEFAULT_HOME, DependencyHome
+from .download_checking import DownloadChecking
 from .licence_consent import LicenceConsent
 from .toolchain_selection import ToolchainSelection
 
@@ -37,6 +38,8 @@ class InstallContext:
     dry_run: bool = False
     #: The home whose dependency root the steps of this run read.
     home: DependencyHome = DEFAULT_HOME
+    #: The verifier of the run's downloads; None leaves them to the deprecated default slot.
+    verifier: DownloadChecking | None = None
     #: The run's licence consent; installers that accept a licence read it, None means none given.
     consent: LicenceConsent | None = None
     everything: bool = False

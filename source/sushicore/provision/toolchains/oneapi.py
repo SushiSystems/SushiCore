@@ -13,6 +13,7 @@ from typing import Any, Callable
 from sushicore.proc import CommandRunner
 
 from ..default_console import console_or_default
+from ..download_checking import DownloadChecking
 from ..download_verifier import verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence, LicenceConsent, is_accepted
@@ -112,7 +113,8 @@ def install_oneapi(ctx: "InstallContext", *, console: Any = None,
         console.info("(dry-run) skipping Intel oneAPI install.")
         return True
 
-    installer = (download_installer or (lambda: download_oneapi_installer(console=console)))()
+    installer = (download_installer or (lambda: download_oneapi_installer(
+        console=console, verifier=ctx.verifier)))()
     if installer is None:
         return False
     run = run_installer or (
@@ -127,12 +129,14 @@ def oneapi_licences(ctx: "InstallContext") -> list[Licence]:
 
 
 def download_oneapi_installer(*, console: Any = None, directory: Path | None = None,
-                              runner: CommandRunner | None = None) -> Path | None:
+                              runner: CommandRunner | None = None,
+                              verifier: DownloadChecking | None = None) -> Path | None:
     """Download the Intel oneAPI offline installer into the user's home directory, or None on failure.
 
     Args:
         directory: Where the installer is kept; the user's home directory when omitted.
         runner: Runs the curl command; the provision runner when ``None``.
+        verifier: Checks the installer; the deprecated default slot's when ``None``.
 
     Raises:
         DigestMismatchError: The installer's SHA-256 differs from its manifest entry.
@@ -146,7 +150,7 @@ def download_oneapi_installer(*, console: Any = None, directory: Path | None = N
         if dl_rc != 0:
             console.error("Failed to download Intel oneAPI installer.")
             return None
-    verify_download("oneapi", installer)
+    verify_download("oneapi", installer, verifier=verifier)
     return installer
 
 

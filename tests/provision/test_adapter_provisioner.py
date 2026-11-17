@@ -22,7 +22,7 @@ class _Machine:
     def __init__(self) -> None:
         """Hold the three calls."""
         self.refresh_path = lambda: None
-        self.resolve_config = lambda cfg, gpu=False: {"llvm_root": "/opt/llvm"}
+        self.resolve_config = lambda cfg, gpu=False, home=None: {"llvm_root": "/opt/llvm"}
         self.detect_vendor = lambda: "none"
 
 

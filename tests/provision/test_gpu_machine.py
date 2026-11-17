@@ -21,7 +21,7 @@ class _FixedMachine:
         """Hold the three calls, the path refresh recording that it ran."""
         self.refreshed = False
         self.refresh_path = self._refresh
-        self.resolve_config = lambda cfg, gpu=False: {"llvm_root": "/opt/llvm"}
+        self.resolve_config = lambda cfg, gpu=False, home=None: {"llvm_root": "/opt/llvm"}
         self.detect_vendor = lambda: "none"
 
     def _refresh(self) -> None:

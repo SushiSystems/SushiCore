@@ -10,6 +10,7 @@ import shutil
 import tarfile
 import tempfile
 import typing
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable
 
@@ -17,6 +18,7 @@ from sushicore.deps_fragment import Download
 from sushicore.errors import ConfigError, DigestMismatchError
 
 from ..default_console import console_or_default
+from ..download_checking import DownloadChecking
 from ..dependency_home import DEFAULT_HOME, DependencyHome
 from ..download_verifier import pinned_download, verify_download
 from ..install_location import ToolkitInstall
@@ -68,7 +70,8 @@ class IntelLlvmToolchain:
         """
         llvm = install_intel_llvm(
             ctx.cfg, ctx.dry_run, refresh=ctx.refresh_toolchains,
-            refresh_command=ctx.refresh_command, console=env.console, home=ctx.home)
+            refresh_command=ctx.refresh_command, console=env.console, home=ctx.home,
+            verifier=ctx.verifier)
         if llvm:
             ctx.resolved_paths["llvm_root"] = llvm
         else:
@@ -85,12 +88,14 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        console: Any = None,
                        pin: Callable[[str], Download] | None = None,
                        fetch: Callable[[str, Path], None] | None = None,
-                       home: DependencyHome | None = None) -> str | None:
+                       home: DependencyHome | None = None,
+                       verifier: DownloadChecking | None = None) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root, or None on failure.
 
     Args:
         refresh: Re-download over an existing install.
         home: The home whose toolchains folder receives the bundle; the default home when ``None``.
+        verifier: Checks the download; the deprecated default slot's when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
 
     Raises DigestMismatchError when the SHA-256 differs from its manifest entry, and ConfigError
@@ -120,7 +125,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         console.info(f"(dry-run) {verb} intel/llvm '{asset}' at {root}")
         return str(root)
 
-    pinned = (pin or pinned_download)("intel-llvm")
+    pinned = (pin or partial(pinned_download, verifier=verifier))("intel-llvm")
     tag, url = pinned.version, pinned.url
 
     if refresh and clang.is_file():
@@ -135,7 +140,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         try:
             console.info(f"Downloading intel/llvm SYCL bundle {tag} (~300-500 MB) ...")
             (fetch or downloader(console))(url, archive)
-            verify_download("intel-llvm", archive)
+            verify_download("intel-llvm", archive, verifier=verifier)
             _extract_tar_gz(archive, root)
         except (DigestMismatchError, ConfigError):
             raise

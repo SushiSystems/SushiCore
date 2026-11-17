@@ -59,7 +59,7 @@ def provision_adapters_for_run(
     make_builder = make_builder or (
         lambda cfg, out: _subprocess_builder(cfg, out, home=ctx.home))
     actions.refresh_path()
-    probed = actions.resolve_config(ctx.cfg, gpu=ctx.gpu)
+    probed = actions.resolve_config(ctx.cfg, gpu=ctx.gpu, home=ctx.home)
     llvm_root = ctx.resolved_paths.get("llvm_root") or probed.get("llvm_root")
     if not llvm_root:
         console.info("No intel/llvm toolchain installed; GPU adapter build skipped.")

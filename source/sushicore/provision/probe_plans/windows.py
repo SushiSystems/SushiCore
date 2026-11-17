@@ -135,4 +135,4 @@ class WindowsProbePlan(IProbePlan):
         return values
 
 
-PROBE_PLANS.register(K_WINDOWS, WindowsProbePlan())
+PROBE_PLANS.register_factory(K_WINDOWS, WindowsProbePlan)

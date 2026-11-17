@@ -51,7 +51,7 @@ def _machine() -> MachineActions:
     """Return machine calls that touch nothing and probe the single path the tests expect."""
     return MachineActions(
         refresh_path=lambda: None,
-        resolve_config=lambda cfg, gpu=False: {"cmake_exe": "/x/cmake"},
+        resolve_config=lambda cfg, gpu=False, home=None: {"cmake_exe": "/x/cmake"},
         detect_vendor=lambda: "none")
 
 
@@ -727,7 +727,7 @@ def _nvidia_app(tmp_path, console, manager):
                         + '[cuda_kernels]\ndescription = "gpu part"\ngpu_only = true\n',
                         encoding="utf-8")
     actions = MachineActions(refresh_path=lambda: None,
-                             resolve_config=lambda cfg, gpu=False: {"cmake_exe": "/x/cmake"},
+                             resolve_config=lambda cfg, gpu=False, home=None: {"cmake_exe": "/x/cmake"},
                              detect_vendor=lambda: "nvidia")
     return _app(tmp_path, console, managers=lambda cfg: [manager], actions=actions)
 

@@ -27,5 +27,5 @@ class IManagerPlan(ABC):
         """
 
 
-#: The manager plan of each target, registered by the modules of ``manager_plans``.
+#: The manager plan factory of each target, registered by the modules of ``manager_plans``.
 MANAGER_PLANS: TargetPlans[IManagerPlan] = TargetPlans("sushicore.provision.manager_plans")

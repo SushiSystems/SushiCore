@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, final
 
 from .default_console import console_or_default
+from .download_checking import DownloadChecking
 from .download_verifier import DEFAULT_VERIFIER_SLOT, DownloadVerifier
 from .fragments import IDependencySource
 from .gpu_stage import GpuStage
@@ -30,16 +31,20 @@ class InstallDepsStep(Step):
 
     def __init__(self, source: IDependencySource, managers: list[IPackageManager],
                  *, console: Any = None, actions: MachineActions | None = None,
-                 gpu: GpuStage | None = None) -> None:
+                 gpu: GpuStage | None = None,
+                 verifier: DownloadChecking | None = None) -> None:
         """Wire the dependency source, the package managers and the machine.
 
         Args:
             console: The console the step prints through.
             actions: The machine calls; the real ones when omitted.
             gpu: The GPU part of the run; built from *console* and *actions* when omitted.
+            verifier: Checks the run's downloads, and the one the managers were built with; built
+                from the source's digests when omitted.
         """
         console = console_or_default(console, "InstallDepsStep")
         self._source = source
+        self._verifier = verifier
         actions = actions or MachineActions()
         self._services = InstallServices(
             source=source, managers=managers, console=console, actions=actions,
@@ -60,7 +65,8 @@ class InstallDepsStep(Step):
             DigestMismatchError: A download's SHA-256 is not the one its entry pins.
         """
         platform = ctx.cfg.platform
-        verifier = DownloadVerifier(self._source.digests(platform),
-                                    self._source.downloads(platform))
+        verifier = self._verifier or DownloadVerifier(self._source.digests(platform),
+                                                      self._source.downloads(platform))
+        ctx.verifier = verifier
         with DEFAULT_VERIFIER_SLOT.holding(verifier):
             return INSTALL_PLANS.plan_for(target_of(ctx.cfg)).run(ctx, self._services)

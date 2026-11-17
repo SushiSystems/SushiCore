@@ -23,7 +23,7 @@ def _actions(*, paths=None, **overrides) -> MachineActions:
     """Build machine calls that touch nothing and probe *paths*, with *overrides* applied."""
     return MachineActions(**{
         "refresh_path": lambda: None,
-        "resolve_config": lambda cfg, gpu=False: dict(paths or {}),
+        "resolve_config": lambda cfg, gpu=False, home=None: dict(paths or {}),
         **overrides})
 
 

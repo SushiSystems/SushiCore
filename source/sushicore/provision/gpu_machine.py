@@ -9,13 +9,18 @@ from __future__ import annotations
 from typing import Callable, Protocol
 
 from .config import ProvisionConfig
+from .dependency_home import DependencyHome
 
 
 class ConfigResolver(Protocol):
     """Probes the machine-specific tool paths of a configuration."""
 
-    def __call__(self, cfg: ProvisionConfig, gpu: bool = False) -> dict[str, str]:
-        """Return the fields found for *cfg*; the GPU toolkits too when *gpu* is true."""
+    def __call__(self, cfg: ProvisionConfig, gpu: bool = False,
+                 home: DependencyHome | None = None) -> dict[str, str]:
+        """Return the fields found for *cfg*; the GPU toolkits too when *gpu* is true.
+
+        The roots of *home* are searched; the default home's when ``None``.
+        """
         ...
 
 

@@ -44,5 +44,5 @@ class ILlvmPlan(ABC):
         """Install what the build needs and return ``(LLVM_DIR, clang_prefix)``, or ``(None, None)``."""
 
 
-#: The LLVM plan of each target, registered by the modules of ``llvm_plans``.
+#: The LLVM plan of each target, or its factory, registered by the modules of ``llvm_plans``.
 LLVM_PLANS: TargetPlans[ILlvmPlan] = TargetPlans("sushicore.provision.llvm_plans")

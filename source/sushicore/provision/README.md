@@ -15,7 +15,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `lock.py` | The file lock around every operation that changes the root |
 | `host/` | `IHost`, what differs by operating system (links, the root lock, registry paths, display adapters, long paths, CUDA names), with `WindowsHost`, `PosixHost` and `current_host()`, the one place that picks one |
 | `target/` | `ITarget`, what the run's target platform decides (executable names, vcpkg triplet and bootstrap, adapter file names, compiler and manager choice, messages), with `WindowsTarget`, `LinuxTarget` and `target_of(cfg)`, the one place that picks one |
-| `target_plans.py` | `TargetPlans`: the plans one dispatch holds, one per target, filled by the modules of the dispatch's plan package so a new target adds files and no table entry |
+| `target_plans.py` | `TargetPlans`: the plans, or the factories of plans, one dispatch holds, one per target, filled by the modules of the dispatch's plan package so a new target adds files and no table entry; `plan_for(target, home=...)` builds a factory's plan with the home it is given |
 | `probe_plan.py`, `probe_plans/` | `IProbePlan` and `PROBE_PLANS`; `windows.py` and `linux.py` find the SYCL compiler and the local tool paths of each target |
 | `manager_plan.py`, `manager_plans/` | `IManagerPlan` and `MANAGER_PLANS`; `windows.py` and `linux.py` build the package managers of each target |
 | `llvm_plan.py`, `llvm_plans/` | `ILlvmPlan`, `LlvmRequest` and `LLVM_PLANS`; `windows.py` and `linux.py` supply the LLVM the acpp build needs on each target |
@@ -134,7 +134,7 @@ Each command takes the console from `ModuleProvision.console` and hands it to th
 ## The dependency root
 
 The root is `SUSHISYSTEMS_HOME`, else `~/.sushisystems`; a consumer overrides it with
-a `DependencyHome` it passes as `ModuleProvision.home` (the deprecated `home.bind_root(provider)` sets the default one). Toolchains and vcpkg are looked up across `home.search_roots()`:
+a `DependencyHome` it passes as `ModuleProvision.home` (the deprecated `home.bind_root(provider)` sets the default one). The home reaches the code that reads the root by construction: the package managers, the probe, manager and LLVM plans, the toolchains and the GPU vendors take `home=` in their constructor, and the free functions of `home.py` take a `home=` keyword. The plan registries hold factories, so `managers_for(cfg, home=...)`, `probe.find_sycl_compiler(cfg, home=...)` and the toolchains' `install(ctx, env)` build or read with the home of the run. A caller that passes none gets the default home for one more release. Toolchains and vcpkg are looked up across `home.search_roots()`:
 the dependency root first, then the folder `SUSHISTACK_DEPS_DIR` names and a legacy
 `<workspace>/dependencies` tree. New installs go to the dependency root.
 `StackConfig.dependency_roots(root)` puts the tree of the workspace a module sits in, or is
@@ -284,14 +284,10 @@ list is in
 third-party software".
 
 The call
-goes to the `DownloadVerifier` it is passed as `verifier=`, else the one the default `VerifierSlot` holds. `InstallDepsStep.run` holds one built from
-`IDependencySource.digests(platform)` and `downloads(platform)` in that slot until the step ends, so `hub install` and a
-module's `setup` verify against the fragments they read without passing anything down. An
-installer called outside that step meets a verifier that pins nothing.
+goes to the `DownloadVerifier` it is passed as `verifier=`, else the one the default `VerifierSlot` holds. `run_setup` builds one verifier from
+`IDependencySource.digests(platform)` and `downloads(platform)` before the managers, hands it to `module_plan.managers_of(..., verifier=...)`, to `InstallDepsStep(verifier=...)` and to `InstallContext.verifier`. The direct-download manager and the LLVM plan hold it by construction, and the toolchains read `ctx.verifier`. An `InstallDepsStep` built without one builds its own and sets it on the context.
 
-The slot is one object, `download_verifier.DEFAULT_VERIFIER_SLOT`; `bind_verifier` is a deprecated shim over it, the way `home.bind_root` is over `DEFAULT_HOME`. The
-download sites sit under `IPackageManager.install`, `install_gpu_stack` and the toolchain
-functions, and none of those carries the run's fragments.
+The slot is one object, `download_verifier.DEFAULT_VERIFIER_SLOT`; `bind_verifier` is a deprecated shim over it, the way `home.bind_root` is over `DEFAULT_HOME`. `InstallDepsStep.run` still holds the run's verifier in the slot until the step ends, for installers outside this package that pass no verifier; one called outside that step meets a verifier that pins nothing.
 
 A file whose digest differs is deleted, and nothing between the installer and
 `InstallPipeline.run` catches the error, so the install stops there. `sushicore.entry.run`

@@ -40,7 +40,7 @@ class ConfigureStep(Step):
     def run(self, ctx: InstallContext) -> StepResult:
         """Probe machine-specific tool paths and write them and the active toolchain to the sink."""
         self._actions.refresh_path()
-        values = self._actions.resolve_config(ctx.cfg, gpu=ctx.gpu)
+        values = self._actions.resolve_config(ctx.cfg, gpu=ctx.gpu, home=ctx.home)
         ctx.resolved_paths = values
 
         if ctx.dry_run:

@@ -54,7 +54,7 @@ class MachineActions:
     run_command: Callable[[list[str], ProvisionConsole], int] = (
         lambda cmd, console: run_machine_command(cmd, console=console))
     resolve_config: ConfigResolver = (
-        lambda cfg, gpu=False: probe.resolve_local_config(cfg, gpu=gpu))
+        lambda cfg, gpu=False, home=None: probe.resolve_local_config(cfg, gpu=gpu, home=home))
     install_oneapi: Callable[[InstallContext, ProvisionConsole], bool] = (
         lambda ctx, console: oneapi.install_oneapi(ctx, console=console))
     detect_vendor: Callable[[], str] = lambda: gpu_vendor.detect_gpu_vendor()

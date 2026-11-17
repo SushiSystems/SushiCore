@@ -101,7 +101,7 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool, *,
     acpp_ok = bool(acpp_path) and binary_works(acpp_path)
 
     # oneAPI is system-wide; reuse the active-compiler probe. See source/sushicore/provision/README.md.
-    active, _ = find_sycl_compiler(cfg)
+    active, _ = find_sycl_compiler(cfg, home=home)
     oneapi_bin = (first_glob_match(K_ICX_GLOBS) or shutil.which("icx-cl")
                   or shutil.which("icpx") or shutil.which("icx")
                   or (first_glob_match(K_ICX_GLOBS_LINUX) if target.searches_system_prefixes else ""))
@@ -150,13 +150,17 @@ def binary_works(cmd: str, runner: CommandRunner | None = None) -> bool:
     return False
 
 
-def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
+def find_sycl_compiler(cfg: ProvisionConfig, *,
+                       home: DependencyHome | None = None) -> tuple[str | None, str]:
     """Return (compiler, location) for the active SYCL toolchain, or (None, '').
 
     Existence of the binary is not enough — a partial install can leave the exe
     on disk with missing DLLs. The binary is verified by running --version.
+
+    Args:
+        home: The home whose roots the probe plan searches; the default home when ``None``.
     """
-    return PROBE_PLANS.plan_for(target_of(cfg)).find_sycl_compiler(cfg)
+    return PROBE_PLANS.plan_for(target_of(cfg), home=home).find_sycl_compiler(cfg)
 
 
 def find_configured_toolchain(cfg: ProvisionConfig, *,
@@ -194,13 +198,17 @@ def find_configured_toolchain(cfg: ProvisionConfig, *,
     return (None, "")
 
 
-def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False) -> dict[str, str]:
+def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False, *,
+                         home: DependencyHome | None = None) -> dict[str, str]:
     """Probe machine-specific tool paths to write into ``[tool.<platform>]``.
 
     Returns only the fields that were actually found, so we never write empty
     placeholders that would shadow the committed defaults.
+
+    Args:
+        home: The home whose roots the probe plan searches; the default home when ``None``.
     """
-    return PROBE_PLANS.plan_for(target_of(cfg)).resolve_local_config(cfg)
+    return PROBE_PLANS.plan_for(target_of(cfg), home=home).resolve_local_config(cfg)
 
 
 def toolchain_presence(cfg: "ProvisionConfig", *,

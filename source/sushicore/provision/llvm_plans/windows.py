@@ -17,6 +17,7 @@ from sushicore.proc import CommandRunner
 from ..default_console import console_or_default
 from .. import home as home_paths
 from ..dependency_home import DEFAULT_HOME, DependencyHome
+from ..download_checking import DownloadChecking
 from ..download_verifier import verify_download
 from ..llvm_plan import LLVM_PLANS, ILlvmPlan, LlvmRequest
 from ..packages import downloader, gh_tagged_asset
@@ -60,13 +61,15 @@ def vendor_llvm_windows(*, console: Any = None,
                         resolve_asset: Callable[[str, str, str], str] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
                         runner: CommandRunner | None = None,
-                        home: DependencyHome | None = None) -> tuple[str, str] | None:
+                        home: DependencyHome | None = None,
+                        verifier: DownloadChecking | None = None) -> tuple[str, str] | None:
     """Download the official clang+llvm Windows tarball into the tools tree.
 
     Args:
         fetch: Downloads a URL into a file; the download transport.
         runner: Runs the installer command; the provision runner when ``None``.
         home: The home whose root holds the tools tree; the default home when ``None``.
+        verifier: Checks the installer; the deprecated default slot's when ``None``.
 
     Returns ``(LLVM_DIR, clang_prefix)``, or None on failure; raises DigestMismatchError when the
     installer's SHA-256 differs from its manifest entry.
@@ -85,7 +88,7 @@ def vendor_llvm_windows(*, console: Any = None,
         try:
             console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
             (fetch or downloader(console))(url, archive)
-            verify_download("adaptivecpp", archive)
+            verify_download("adaptivecpp", archive, verifier=verifier)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
             # PowerShell triggers a UAC prompt via -Verb RunAs to install silently.
@@ -115,13 +118,16 @@ def vendor_llvm_windows(*, console: Any = None,
 class WindowsLlvmPlan(ILlvmPlan):
     """Installs the boost ports through vcpkg and finds, installs or vendors the LLVM."""
 
-    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
-        """Bind the home whose root holds the vendored LLVM.
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME,
+                 verifier: DownloadChecking | None = None) -> None:
+        """Bind the home whose root holds the vendored LLVM and the verifier of its installer.
 
         Args:
             home: The home the plan reads; the deprecated default home when omitted.
+            verifier: Checks the installer; the deprecated default slot's when ``None``.
         """
         self._home = home
+        self._verifier = verifier
 
     def resolve(self, request: LlvmRequest) -> tuple[str | None, str | None]:
         """Install acpp build deps on Windows; return ``(LLVM_DIR, clang_prefix)``."""
@@ -145,8 +151,9 @@ class WindowsLlvmPlan(ILlvmPlan):
             if existing:
                 return existing
 
-        vendored = vendor_llvm_windows(console=request.console, home=self._home)
+        vendored = vendor_llvm_windows(console=request.console, home=self._home,
+                                    verifier=self._verifier)
         return vendored if vendored else (None, None)
 
 
-LLVM_PLANS.register(K_WINDOWS, WindowsLlvmPlan())
+LLVM_PLANS.register_factory(K_WINDOWS, WindowsLlvmPlan)

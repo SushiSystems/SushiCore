@@ -15,6 +15,8 @@ from . import closure as closure_module
 from . import manifests, probe, sushi_setup
 from .closure import Closure
 from .config import ProvisionConfig
+from .dependency_home import DEFAULT_HOME, DependencyHome
+from .download_checking import DownloadChecking
 from .fragments import TomlDependencySource
 from .licence_consent import LicenceConsent
 from .module_manifest import fragment_path
@@ -25,27 +27,34 @@ from .target import target_of
 
 
 def managers_for(cfg: ProvisionConfig, console: Any = None,
-                 consent: LicenceConsent | None = None) -> list[IPackageManager]:
+                 consent: LicenceConsent | None = None, *,
+                 home: DependencyHome = DEFAULT_HOME,
+                 verifier: DownloadChecking | None = None) -> list[IPackageManager]:
     """Returns the package managers this platform provisions dependencies through.
 
     Args:
         console: The console the managers print through.
         consent: The run's licence consent; winget installs only what it covers.
+        home: The home whose root the managers use; the deprecated default home when omitted.
+        verifier: Checks the managers' downloads; the deprecated default slot's when ``None``.
     """
     console = console_or_default(console, "managers_for")
-    return MANAGER_PLANS.plan_for(target_of(cfg)).managers(cfg, consent, console)
+    plan = MANAGER_PLANS.plan_for(target_of(cfg), home=home, verifier=verifier)
+    return plan.managers(cfg, consent, console)
 
 
 def managers_of(module: ModuleProvision, cfg: ProvisionConfig,
-                consent: LicenceConsent | None = None) -> list[IPackageManager]:
+                consent: LicenceConsent | None = None, *,
+                verifier: DownloadChecking | None = None) -> list[IPackageManager]:
     """Returns the package managers of *module*: the ones it names, else the platform's.
 
     Args:
         consent: The run's licence consent, handed to the platform's managers.
+        verifier: Checks the platform managers' downloads; the deprecated default slot's when ``None``.
     """
     if module.seams.managers:
         return module.seams.managers(cfg)
-    return managers_for(cfg, module.console(), consent)
+    return managers_for(cfg, module.console(), consent, home=module.home, verifier=verifier)
 
 
 def presence_of(module: ModuleProvision, cfg: ProvisionConfig) -> dict[str, bool]:

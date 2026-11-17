@@ -18,6 +18,7 @@ from typing import Any, Callable, MutableMapping, Sequence
 from ..default_console import console_or_default
 from .. import home as home_paths
 from ..dependency_home import DEFAULT_HOME, DependencyHome
+from ..download_checking import DownloadChecking
 from ..glob_search import K_RC_GLOBS
 from ..dependency_presence import named_manager
 from ..install_location import ToolkitInstall
@@ -82,7 +83,8 @@ class AdaptiveCppToolchain:
         acpp = install_adaptivecpp(
             ctx.cfg, env.mgr, env.vcpkg, ctx.dry_run,
             assume_yes=ctx.assume_acpp_llvm,
-            winget=named_manager(env.managers, "winget"), console=env.console, home=ctx.home)
+            winget=named_manager(env.managers, "winget"), console=env.console, home=ctx.home,
+            verifier=ctx.verifier)
         if acpp:
             ctx.resolved_paths["acpp_exe"] = acpp
         elif not ctx.selection.install_intel_llvm:
@@ -120,6 +122,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
                         run_command: Callable[..., int] | None = None,
                         configure: Callable[[list[str], bool], bool] | None = None,
                         home: DependencyHome | None = None,
+                        verifier: "DownloadChecking | None" = None,
                         ) -> str | None:
     """Build AdaptiveCpp from source; return the ``acpp`` executable path, or None on failure.
 
@@ -130,6 +133,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         winget: The winget manager; it installs LLVM only with the user's consent.
         llvm_bases: The Windows LLVM install roots to look in.
         home: The home whose root holds the toolchains and vcpkg; the default home when ``None``.
+        verifier: Checks the LLVM installer it downloads; the deprecated default slot's when ``None``.
     """
     console = console_or_default(console, "install_adaptivecpp")
     prefix = toolchains_dir(home=home) / "adaptivecpp"
@@ -154,7 +158,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         console.info(f"(dry-run) would build AdaptiveCpp {ACPP_VERSION} -> {prefix}")
         return str(acpp_exe)
 
-    llvm_dir, clang_prefix = LLVM_PLANS.plan_for(target).resolve(
+    llvm_dir, clang_prefix = LLVM_PLANS.plan_for(target, home=home, verifier=verifier).resolve(
         LlvmRequest(mgr=mgr, vcpkg=vcpkg, winget=winget, assume_yes=assume_yes,
                     llvm_bases=llvm_bases, console=console))
     if llvm_dir is None:

@@ -51,4 +51,4 @@ class LinuxProbePlan(IProbePlan):
         return values
 
 
-PROBE_PLANS.register(K_LINUX, LinuxProbePlan())
+PROBE_PLANS.register_factory(K_LINUX, LinuxProbePlan)

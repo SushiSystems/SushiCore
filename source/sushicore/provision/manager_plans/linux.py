@@ -45,4 +45,4 @@ class LinuxManagerPlan(IManagerPlan):
                 VcpkgManager(cfg, console=console, home=self._home)]
 
 
-MANAGER_PLANS.register(K_LINUX, LinuxManagerPlan())
+MANAGER_PLANS.register_factory(K_LINUX, LinuxManagerPlan)

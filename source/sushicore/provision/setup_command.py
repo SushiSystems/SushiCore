@@ -13,6 +13,7 @@ from . import home, module_plan, selection, sushi_setup
 from .configure_step import ConfigureStep
 from .detect_step import DetectStep
 from .doctor_command import run_doctor
+from .download_verifier import DownloadVerifier
 from .install_deps_step import InstallDepsStep
 from .licence_consent import LicenceConsent
 from .licence_consent_step import LicenceConsentStep
@@ -79,8 +80,10 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         console.error(str(exc))
         return failed(K_EXIT_USAGE)
     consent = LicenceConsent(console, accept_flag=accept_licences)
-    managers = module_plan.managers_of(module, cfg, consent)
-    install = InstallDepsStep(source, managers, console=console, actions=module.actions)
+    verifier = DownloadVerifier(source.digests(cfg.platform), source.downloads(cfg.platform))
+    managers = module_plan.managers_of(module, cfg, consent, verifier=verifier)
+    install = InstallDepsStep(source, managers, console=console, actions=module.actions,
+                              verifier=verifier)
     pipeline = InstallPipeline([
         DetectStep(source, managers, console=console, **_detect_options(module)),
         LicenceConsentStep(consent, [install.licences]),
@@ -97,6 +100,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         consent=consent,
         assume_acpp_llvm=yes,
         home=module.home,
+        verifier=verifier,
     )
     try:
         with ProvisionLock(home.root(home=module.home) / ".lock", timeout=timeout):

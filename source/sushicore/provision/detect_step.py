@@ -134,9 +134,9 @@ class DetectStep(Step):
 
     def _sycl_compiler_row(self, ctx: InstallContext) -> tuple[str, str, str, str]:
         """Probe the SYCL compiler a build would use and return its row."""
-        compiler, where = probe.find_sycl_compiler(ctx.cfg)
+        compiler, where = probe.find_sycl_compiler(ctx.cfg, home=ctx.home)
         if compiler is None:
-            compiler, where = probe.find_configured_toolchain(ctx.cfg)
+            compiler, where = probe.find_configured_toolchain(ctx.cfg, home=ctx.home)
         ctx.detected["sycl_compiler"] = compiler is not None
         return ("SYCL compiler (active)", _status(compiler is not None), "sushiruntime",
                 f"{compiler or '-'} {where or ''}".strip())

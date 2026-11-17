@@ -49,7 +49,7 @@ def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root():
     out = RecordingConsole()
 
     provision_adapters_for_run(
-        _linux_context(), console=out, actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        _linux_context(), console=out, actions=_actions(resolve_config=lambda cfg, gpu=False, home=None: {}),
         build_adapters=lambda *args, **options: built.append(args))
 
     assert built == []
@@ -65,7 +65,7 @@ def test_provision_adapters_for_run_uses_the_resolved_llvm_root():
 
     provision_adapters_for_run(
         ctx, console=RecordingConsole(),
-        actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        actions=_actions(resolve_config=lambda cfg, gpu=False, home=None: {}),
         build_adapters=lambda cfg, registry, root, builder, dry_run, console: built.append(root))
 
     assert built == [Path("/opt/llvm")]
@@ -78,7 +78,7 @@ def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine():
 
     provision_adapters_for_run(
         _linux_context(), console=RecordingConsole(),
-        actions=_actions(resolve_config=lambda cfg, gpu=False: {"llvm_root": "/usr/lib/llvm"}),
+        actions=_actions(resolve_config=lambda cfg, gpu=False, home=None: {"llvm_root": "/usr/lib/llvm"}),
         build_adapters=lambda cfg, registry, root, builder, dry_run, console: built.append(root))
 
     assert built == [Path("/usr/lib/llvm")]
@@ -92,7 +92,7 @@ def test_provision_adapters_for_run_drops_probed_keys_the_settings_do_not_hold()
 
     provision_adapters_for_run(
         _linux_context(), console=RecordingConsole(),
-        actions=_actions(resolve_config=lambda cfg, gpu=False: probed),
+        actions=_actions(resolve_config=lambda cfg, gpu=False, home=None: probed),
         build_adapters=lambda cfg, registry, root, builder, dry_run, console: built.append(cfg.cxx))
 
     assert built == ["clang++"]
@@ -108,7 +108,7 @@ def test_provision_adapters_for_run_hands_the_builder_it_made_to_the_build():
 
     provision_adapters_for_run(
         ctx, console=RecordingConsole(),
-        actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
+        actions=_actions(resolve_config=lambda cfg, gpu=False, home=None: {}),
         make_builder=lambda cfg, console: builder,
         build_adapters=lambda cfg, registry, root, made, dry_run, console: received.append(made))
 

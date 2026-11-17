@@ -12,6 +12,7 @@ import shutil
 import tempfile
 import urllib.request
 import zipfile
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, MutableMapping, final
 
@@ -21,6 +22,7 @@ from sushicore.proc import CommandRunner
 from ..default_console import console_or_default
 from .. import home as home_paths
 from ..dependency_home import DEFAULT_HOME, DependencyHome
+from ..download_checking import DownloadChecking
 from sushicore.deps_fragment import Download
 
 from ..download_verifier import pinned_download, verify_download
@@ -163,12 +165,14 @@ def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None 
                           fetch: Callable[[str, Path], None] | None = None,
                           cmake_on_system: Callable[[], str] | None = None,
                           on_path: Callable[[str], None] | None = None,
-                          home: DependencyHome | None = None) -> bool:
+                          home: DependencyHome | None = None,
+                          verifier: DownloadChecking | None = None) -> bool:
     """Extract the portable CMake zip into the tools dir and add it to PATH.
 
     Args:
         console: The console the install prints through.
         home: The home whose root holds the tools dir; the default home when ``None``.
+        verifier: Checks the download; the deprecated default slot's when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         cmake_on_system: Finds a cmake already installed, or returns an empty string.
@@ -178,11 +182,11 @@ def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None 
         console.info("cmake: already present, skipping.")
         return True
     try:
-        pinned = (pin or pinned_download)("cmake")
+        pinned = (pin or partial(pinned_download, verifier=verifier))("cmake")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
         (fetch or downloader(console))(pinned.url, zip_dest)
-        verify_download("cmake", zip_dest)
+        verify_download("cmake", zip_dest, verifier=verifier)
         target = tools_dir(home=home) / "cmake"
         console.info(f"Extracting CMake to {target} ...")
         if not _replace_folder_with_archive(zip_dest, target, console):
@@ -204,22 +208,24 @@ def install_cmake_direct(*, console: Any, pin: Callable[[str], Download] | None 
 def install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           on_path: Callable[[str], None] | None = None,
-                          home: DependencyHome | None = None) -> bool:
+                          home: DependencyHome | None = None,
+                          verifier: DownloadChecking | None = None) -> bool:
     """Extract the ninja.exe archive into the tools dir and add it to PATH.
 
     Args:
         console: The console the install prints through.
         home: The home whose root holds the tools dir; the default home when ``None``.
+        verifier: Checks the download; the deprecated default slot's when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         on_path: Puts a directory on the user's PATH.
     """
     try:
-        pinned = (pin or pinned_download)("ninja")
+        pinned = (pin or partial(pinned_download, verifier=verifier))("ninja")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             dest = Path(f.name)
         (fetch or downloader(console))(pinned.url, dest)
-        verify_download("ninja", dest)
+        verify_download("ninja", dest, verifier=verifier)
         tools = tools_dir(home=home)
         tools.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(dest) as zf:
@@ -237,12 +243,14 @@ def install_ninja_direct(*, console: Any, pin: Callable[[str], Download] | None 
 def install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                             fetch: Callable[[str, Path], None] | None = None,
                             on_path: Callable[[str], None] | None = None,
-                            home: DependencyHome | None = None) -> bool:
+                            home: DependencyHome | None = None,
+                          verifier: DownloadChecking | None = None) -> bool:
     """Extract the portable Doxygen zip into the tools dir and add it to PATH.
 
     Args:
         console: The console the install prints through.
         home: The home whose root holds the tools dir; the default home when ``None``.
+        verifier: Checks the download; the deprecated default slot's when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         on_path: Puts a directory on the user's PATH.
@@ -253,11 +261,11 @@ def install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | Non
         console.info("doxygen: already present in deps/tools, skipping.")
         return True
     try:
-        pinned = (pin or pinned_download)("doxygen")
+        pinned = (pin or partial(pinned_download, verifier=verifier))("doxygen")
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_dest = Path(f.name)
         (fetch or downloader(console))(pinned.url, zip_dest)
-        verify_download("doxygen", zip_dest)
+        verify_download("doxygen", zip_dest, verifier=verifier)
         console.info(f"Extracting Doxygen to {target} ...")
         if not _replace_folder_with_archive(zip_dest, target, console):
             return False
@@ -277,23 +285,25 @@ def install_doxygen_direct(*, console: Any, pin: Callable[[str], Download] | Non
 def install_git_direct(*, console: Any, pin: Callable[[str], Download] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
                         runner: CommandRunner | None = None,
-                        home: DependencyHome | None = None) -> bool:
+                        home: DependencyHome | None = None,
+                          verifier: DownloadChecking | None = None) -> bool:
     """Download and silently run the Git for Windows installer.
 
     Args:
         console: The console the install prints through.
         home: Accepted so every recipe is called alike; the installer writes outside the root.
+        verifier: Checks the download; the deprecated default slot's when ``None``.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
         runner: Runs the installer command, stopped after 300 seconds; the provision runner
             on *console* when ``None``.
     """
     try:
-        pinned = (pin or pinned_download)("git")
+        pinned = (pin or partial(pinned_download, verifier=verifier))("git")
         with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
             dest = Path(f.name)
         (fetch or downloader(console))(pinned.url, dest)
-        verify_download("git", dest)
+        verify_download("git", dest, verifier=verifier)
         console.info("Installing Git silently ...")
         rc, _stdout, _stderr = (runner or provision_runner(console)).capture(
             [str(dest), "/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-",
@@ -334,18 +344,21 @@ class DirectDownloadWindowsManager(IPackageManager):
     name = "direct-download"
 
     def __init__(self, runner: CommandRunner | None = None, *, console: Any = None,
-                 home: DependencyHome = DEFAULT_HOME) -> None:
+                 home: DependencyHome = DEFAULT_HOME,
+                 verifier: DownloadChecking | None = None) -> None:
         """Bind the console, the runner that probes whether a tool runs and the home the tools go under.
 
         Args:
             runner: Probes whether a tool runs; the provision runner on *console* when ``None``.
             console: The console the manager and its recipes print through.
             home: The home whose root holds the tools; the deprecated default home when omitted.
+            verifier: Checks the downloads; the deprecated default slot's when ``None``.
         """
         console = console_or_default(console, "DirectDownloadWindowsManager")
         super().__init__(console=console)
         self._runner = runner if runner is not None else provision_runner(console)
         self._home = home
+        self._verifier = verifier
 
     def available(self) -> bool:
         """Report that this manager is always usable."""
@@ -373,5 +386,5 @@ class DirectDownloadWindowsManager(IPackageManager):
             if dry_run:
                 self._console.info(f"(dry-run) would download and install {pkg}.")
                 continue
-            ok = recipe(console=self._console, home=self._home) and ok
+            ok = recipe(console=self._console, home=self._home, verifier=self._verifier) and ok
         return ok

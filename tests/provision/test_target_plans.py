@@ -65,3 +65,13 @@ def test_a_new_plan_module_registers_itself_with_no_edit_to_the_registry(tmp_pat
     assert PLANS.plan_for(WindowsTarget()) == "dropped in"
     for name in ("added_plans", "added_plans.windows", "added_plans_registry"):
         sys.modules.pop(name, None)
+
+
+@pytest.mark.small
+def test_a_factory_builds_its_plan_with_the_dependencies_the_lookup_is_given():
+    """Check that a factory gets the keywords of the lookup and a None keyword is left out."""
+    plans: TargetPlans[str] = TargetPlans("sushicore.provision.probe_plans")
+    plans.register_factory(K_LINUX, lambda home="default", verifier="none": f"{home}/{verifier}")
+
+    assert plans.plan_for(LinuxTarget(), home="held", verifier=None) == "held/none"
+    assert plans.plan_for(LinuxTarget()) == "default/none"

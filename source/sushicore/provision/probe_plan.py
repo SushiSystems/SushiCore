@@ -24,5 +24,5 @@ class IProbePlan(ABC):
         """Return the tool paths found on this machine, only the ones actually found."""
 
 
-#: The probe plan of each target, registered by the modules of ``probe_plans``.
+#: The probe plan factory of each target, registered by the modules of ``probe_plans``.
 PROBE_PLANS: TargetPlans[IProbePlan] = TargetPlans("sushicore.provision.probe_plans")
