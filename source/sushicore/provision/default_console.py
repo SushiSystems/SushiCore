@@ -10,6 +10,7 @@ import warnings
 from typing import Callable
 
 from ..errors import SushiCoreError
+from .deprecated_name import warn_deprecated
 
 
 class ConsoleNotBoundError(SushiCoreError, RuntimeError):
@@ -56,3 +57,29 @@ def bind_console(provider: Callable[[], object] | None) -> None:
         "sushicore.provision.bind_console is deprecated; pass console= to ModuleProvision.",
         DeprecationWarning, stacklevel=2)
     DEFAULT_CONSOLE.bind(provider)
+
+
+class _DefaultConsoleProxy:
+    """Forwards each attribute to the default console as it is read, so it may be bound later."""
+
+    def __getattr__(self, name: str) -> object:
+        """Return *name* of the console the default provider returns now."""
+        return getattr(DEFAULT_CONSOLE(), name)
+
+
+def console_or_default(console: object | None, owner: str, *, depth: int = 2) -> object:
+    """Return *console*, or the default console with a deprecation warning when it is ``None``.
+
+    The default is read on each use, as the old module-level console was, so a CLI may bind it
+    after it builds what prints. Called as the first line of a deprecated-optional ``console=``
+    argument, so the warning points at the caller of *owner*.
+
+    Args:
+        console: The console the caller passed, or ``None``.
+        owner: The name of the constructor or function that took it.
+        depth: The frames from the warning to the caller of *owner*; 2 when *owner* calls this itself.
+    """
+    if console is not None:
+        return console
+    warn_deprecated(f"{owner} without console=", "passing console=", depth=depth)
+    return _DefaultConsoleProxy()

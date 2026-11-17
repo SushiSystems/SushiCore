@@ -15,6 +15,7 @@ import shutil
 import typing
 from pathlib import Path
 
+from ..default_console import console_or_default
 from .. import home
 from ..process_run import provision_runner
 from ..target import ITarget, target_of
@@ -57,8 +58,9 @@ class SubprocessBuildStepExecutor:
         console: The console the output is streamed to.
     """
 
-    def __init__(self, console: typing.Any) -> None:
+    def __init__(self, console: typing.Any = None) -> None:
         """Keep the console the runner prints through."""
+        console = console_or_default(console, "SubprocessBuildStepExecutor")
         self._console = console
 
     def run(self, argv: list[str], cwd: Path | None,
@@ -110,7 +112,7 @@ class AdapterBuilder:
 
     cfg: "ProvisionConfig"
     runner: BuildStepExecutor
-    console: typing.Any
+    console: typing.Any = None
     work_root: Path = dataclasses.field(default_factory=_default_work_root)
     environment: typing.Callable[["ProvisionConfig"], dict[str, str]] | None = None
     replace: typing.Callable[[Path, Path], None] = os.replace
@@ -120,6 +122,10 @@ class AdapterBuilder:
 
     _cached_environment: dict[str, str] | None = dataclasses.field(
         default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Resolve a console left out to the default one, with a deprecation warning."""
+        self.console = console_or_default(self.console, "AdapterBuilder", depth=3)
 
     def build(self, spec: "GpuBackendSpec", install: "ToolkitInstall",
              toolchain_root: Path, commit: str, dry_run: bool) -> bool:

@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from .default_console import console_or_default
 from ..deps_fragment import pins_at
 from . import closure as closure_module
 from . import manifests, probe, sushi_setup
@@ -23,7 +24,7 @@ from .packages import IPackageManager
 from .target import target_of
 
 
-def managers_for(cfg: ProvisionConfig, console: Any,
+def managers_for(cfg: ProvisionConfig, console: Any = None,
                  consent: LicenceConsent | None = None) -> list[IPackageManager]:
     """Returns the package managers this platform provisions dependencies through.
 
@@ -31,6 +32,7 @@ def managers_for(cfg: ProvisionConfig, console: Any,
         console: The console the managers print through.
         consent: The run's licence consent; winget installs only what it covers.
     """
+    console = console_or_default(console, "managers_for")
     return MANAGER_PLANS.plan_for(target_of(cfg)).managers(cfg, consent, console)
 
 

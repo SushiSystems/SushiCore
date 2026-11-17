@@ -8,17 +8,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from .default_console import console_or_default
 from ..proc import Runner
 
 K_PROGRAM = "sushicore"
 """The command name the runner's not-found guidance names."""
 
 
-def provision_runner(console: Any) -> Runner:
+def provision_runner(console: Any = None) -> Runner:
     """Return the runner that prints through *console*."""
+    console = console_or_default(console, "provision_runner")
     return Runner(console, K_PROGRAM)
 
 
-def run(cmd: list[str], dry_run: bool, *, console: Any, check: bool = False) -> int:
+def run(cmd: list[str], dry_run: bool, *, console: Any = None, check: bool = False) -> int:
     """Run *cmd*, streaming its output through *console*; return its exit code."""
+    console = console_or_default(console, "run")
     return provision_runner(console).run_drained(cmd, None, dry_run=dry_run, check=check)

@@ -12,6 +12,7 @@ from typing import Any
 
 from sushicore.proc import CommandRunner
 
+from ..default_console import console_or_default
 from ..process_run import provision_runner
 from ..system import ensure_intel_oneapi_repo, is_root
 from .base import IPackageManager
@@ -63,8 +64,9 @@ class LinuxPackageManager(IPackageManager):
         console: The console the manager and its runner print through.
     """
 
-    def __init__(self, runner: CommandRunner | None = None, *, console: Any) -> None:
+    def __init__(self, runner: CommandRunner | None = None, *, console: Any = None) -> None:
         """Keep the console and the runner every package command goes through."""
+        console = console_or_default(console, "LinuxPackageManager")
         super().__init__(console=console)
         self._runner = runner or provision_runner(console)
 

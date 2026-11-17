@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
+from .default_console import console_or_default
 from . import home
 from .fragments import IDependencySource
 from .packages import IPackageManager
@@ -26,7 +27,7 @@ class UninstallStep(Step):
 
     def __init__(self, source: IDependencySource,
                  managers: list[IPackageManager], sink: ConfigSink,
-                 *, console: Any,
+                 *, console: Any = None,
                  root: Callable[[], Path] | None = None) -> None:
         """Wire the dependency source, the package managers and the sink this step clears.
 
@@ -34,6 +35,7 @@ class UninstallStep(Step):
             console: The console the step prints through.
             root: Returns the dependency root this step may remove; the bound root when omitted.
         """
+        console = console_or_default(console, "UninstallStep")
         self._services = UninstallServices(source=source, managers=managers, console=console)
         self._sink = sink
         self._console = console

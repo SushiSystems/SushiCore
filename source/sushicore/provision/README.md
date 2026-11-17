@@ -58,7 +58,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |
 | `doctor.py`, `checks.py` | The doctor framework and the stock checks |
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
-| `default_console.py` | `bind_console`, deprecated: sets the console a `ModuleProvision` without one prints through |
+| `default_console.py` | `bind_console`, deprecated: sets the console a `ModuleProvision` without one prints through; `console_or_default`, deprecated: what each public constructor and function that takes `console=` uses when it is left out, with a warning |
 | `output_memory.py` | `MemoryConsole`, the in-memory console adapter a test passes to what prints |
 | `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
 | `pin_chain.py` | Walks the `[sushisystems.<name>]` pins of a chain and finds a library pinned at two versions |

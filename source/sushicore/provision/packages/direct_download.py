@@ -18,6 +18,7 @@ from typing import Any, Callable, MutableMapping
 from sushicore.errors import ConfigError, DigestMismatchError
 from sushicore.proc import CommandRunner
 
+from ..default_console import console_or_default
 from .. import home
 from sushicore.deps_fragment import Download
 
@@ -35,8 +36,9 @@ def tools_dir() -> Path:
     return home.tools_dir()
 
 
-def download(url: str, dest: Path, console: Any) -> None:
+def download(url: str, dest: Path, console: Any = None) -> None:
     """Fetch *url* into *dest*, announcing it on *console* and streaming the response in chunks."""
+    console = console_or_default(console, "download")
     console.info(f"Downloading {dest.name} ...")
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:
@@ -44,8 +46,9 @@ def download(url: str, dest: Path, console: Any) -> None:
             fh.write(chunk)
 
 
-def downloader(console: Any) -> Callable[[str, Path], None]:
+def downloader(console: Any = None) -> Callable[[str, Path], None]:
     """Return the download transport that announces each fetch on *console*."""
+    console = console_or_default(console, "downloader")
     return lambda url, dest: download(url, dest, console)
 
 
@@ -315,13 +318,14 @@ class DirectDownloadWindowsManager(IPackageManager):
 
     name = "direct-download"
 
-    def __init__(self, runner: CommandRunner | None = None, *, console: Any) -> None:
+    def __init__(self, runner: CommandRunner | None = None, *, console: Any = None) -> None:
         """Bind the console and the runner that probes whether a tool runs.
 
         Args:
             runner: Probes whether a tool runs; the provision runner on *console* when ``None``.
             console: The console the manager and its recipes print through.
         """
+        console = console_or_default(console, "DirectDownloadWindowsManager")
         super().__init__(console=console)
         self._runner = runner if runner is not None else provision_runner(console)
 

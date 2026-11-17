@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from rich.markup import escape
 
+from .default_console import console_or_default
 from . import home, probe, selection
 from ..proc import CommandRunner
 from ..quiet_runner import quiet_runner
@@ -76,7 +77,7 @@ class DetectStep(Step):
                  managers: list[IPackageManager] | None = None,
                  after_inventory: Callable[[InstallContext, list[Dependency]], None] | None = None,
                  *, toolchain_status=probe.toolchain_status,
-                 gpu_vendor=probe.detect_gpu_vendor, console: Any,
+                 gpu_vendor=probe.detect_gpu_vendor, console: Any = None,
                  runner: CommandRunner | None = None) -> None:
         """Wire the dependency source, the package managers and the machine probes.
 
@@ -88,6 +89,7 @@ class DetectStep(Step):
             console: The console the step prints through.
             runner: Runs each dependency's check command; the quiet runner when ``None``.
         """
+        console = console_or_default(console, "DetectStep")
         self._source = source
         self._managers = managers or []
         self._after_inventory = after_inventory

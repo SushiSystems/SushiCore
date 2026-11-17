@@ -12,6 +12,7 @@ from pathlib import Path
 
 from sushicore.proc import CommandRunner
 
+from ..default_console import console_or_default
 from .. import home
 from ..process_run import provision_runner
 from ..target import target_of
@@ -32,7 +33,7 @@ class VcpkgManager(IPackageManager):
     name = "vcpkg"
 
     def __init__(self, cfg: "ProvisionConfig", runner: CommandRunner | None = None, *,
-                 console: typing.Any) -> None:
+                 console: typing.Any = None) -> None:
         """Store *cfg*, the runner of the vcpkg commands, and resolve the triplet to install for.
 
         Args:
@@ -41,6 +42,7 @@ class VcpkgManager(IPackageManager):
                 when ``None``.
             console: The console the manager and its runner print through.
         """
+        console = console_or_default(console, "VcpkgManager")
         super().__init__(console=console)
         self._cfg = cfg
         self._runner = runner or provision_runner(console)

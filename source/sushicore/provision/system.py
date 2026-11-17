@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from .default_console import console_or_default
+
 import logging
 import os
 from pathlib import Path
@@ -65,7 +67,7 @@ def _bash(cmd: str, runner: CommandRunner | None, console: Any) -> int:
 
 
 def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None, *,
-              console: Any) -> bool:
+              console: Any = None) -> bool:
     """Run *cmd* through bash and return whether it exited zero; a dry run always returns True.
 
     Args:
@@ -73,6 +75,7 @@ def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None, *,
             ``None``.
         console: The console the command and its output are shown through.
     """
+    console = console_or_default(console, "sudo_bash")
     if dry_run:
         console.command(cmd)
         console.info("(dry-run) not executed")
@@ -81,13 +84,14 @@ def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None, *,
 
 
 def ensure_intel_oneapi_repo(dry_run: bool, runner: CommandRunner | None = None, *,
-                             console: Any) -> bool:
+                             console: Any = None) -> bool:
     """Configure the Intel oneAPI apt repository on Debian/Ubuntu, skipping a configured one.
 
     Args:
         runner: Runs bash for each step; the provision runner on *console* when ``None``.
         console: The console the steps are shown through.
     """
+    console = console_or_default(console, "ensure_intel_oneapi_repo")
     if _ONEAPI_KEYRING.is_file() and _ONEAPI_LIST.is_file():
         console.info("Intel oneAPI apt repository already configured.")
         return True

@@ -16,6 +16,7 @@ from typing import Any, Callable
 from sushicore.deps_fragment import Download
 from sushicore.errors import ConfigError, DigestMismatchError
 
+from ..default_console import console_or_default
 from ..download_verifier import pinned_download, verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
@@ -72,7 +73,7 @@ INTEL_LLVM = IntelLlvmToolchain()
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        refresh: bool = False, refresh_command: str = "", *,
-                       console: Any,
+                       console: Any = None,
                        pin: Callable[[str], Download] | None = None,
                        fetch: Callable[[str, Path], None] | None = None) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
@@ -93,6 +94,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         DigestMismatchError: The bundle's SHA-256 is not the one its manifest entry pins.
         ConfigError: No fragment pins the ``intel-llvm`` download for this platform.
     """
+    console = console_or_default(console, "install_intel_llvm")
     root = toolchains_dir() / "llvm-sycl"
     target = target_of(cfg)
     clang = root / "bin" / target.clang_executable

@@ -10,6 +10,7 @@ import dataclasses
 from pathlib import Path
 from typing import Any, Callable
 
+from .default_console import console_or_default
 from .gpu.adapter_builder import AdapterBuilder, SubprocessBuildStepExecutor
 from .gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from .gpu.provisioning import provision_gpu_adapters
@@ -26,7 +27,7 @@ def _subprocess_builder(cfg: Any, console: Any) -> AdapterBuilder:
 
 
 def provision_adapters_for_run(
-        ctx: InstallContext, *, console: Any,
+        ctx: InstallContext, *, console: Any = None,
         actions: MachineActions | None = None,
         make_builder: Callable[[Any, Any], Any] = _subprocess_builder,
         build_adapters: Callable[..., None] | None = None) -> None:
@@ -39,6 +40,7 @@ def provision_adapters_for_run(
         build_adapters: Builds the adapters of one toolchain; defaults to
             :func:`sushicore.provision.gpu.provisioning.provision_gpu_adapters`.
     """
+    console = console_or_default(console, "provision_adapters_for_run")
     actions = actions or MachineActions()
     build_adapters = build_adapters or provision_gpu_adapters
     actions.refresh_path()
@@ -78,12 +80,13 @@ class GpuStage:
         toolkit_present: Answers whether the run's NVIDIA toolkit is already on the machine.
     """
 
-    def __init__(self, *, console: Any, actions: MachineActions | None = None,
+    def __init__(self, *, console: Any = None, actions: MachineActions | None = None,
                  install_stack: Callable[..., bool] | None = None,
                  provision_adapters: Callable[[InstallContext], None] | None = None,
                  toolkit_present: Callable[[InstallContext], bool] | None = None,
                  ) -> None:
         """Wire the console, the machine calls and the GPU actions."""
+        console = console_or_default(console, "GpuStage")
         self._console = console
         self._toolkit_present = toolkit_present or (lambda ctx: _nvidia_toolkit_present(ctx))
         self._actions = actions or MachineActions()

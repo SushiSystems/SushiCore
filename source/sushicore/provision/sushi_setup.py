@@ -11,6 +11,7 @@ from typing import Any, Optional, Sequence
 
 from sushicore.deps_fragment import SushiPin
 
+from .default_console import console_or_default
 from . import home
 from .closure import Locate
 from .git_client import IGitClient
@@ -63,7 +64,7 @@ def _fetch(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitC
 
 
 def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitClient,
-            timeout: float, console: Any) -> bool:
+            timeout: float, console: Any = None) -> bool:
     """Fetch every pinned library of the chain, one layer at a time; report success.
 
     Each round walks the pins of the libraries on disk, fetches what is missing, and walks
@@ -77,6 +78,7 @@ def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGit
         timeout: Seconds to wait for another process's lock.
         console: The console the run prints through.
     """
+    console = console_or_default(console, "prepare")
     if not pins:
         return True
     known: set[str] = set()

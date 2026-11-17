@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 
 
+from .default_console import console_or_default
 from .config import ProvisionConfig
 from .licence_consent import LicenceConsent
 
@@ -104,8 +105,9 @@ class Step(ABC):
 class InstallPipeline:
     """Runs an ordered list of steps, stopping on the first failure."""
 
-    def __init__(self, steps: list[Step], console: Any) -> None:
+    def __init__(self, steps: list[Step], console: Any = None) -> None:
         """Hold the ordered *steps* this pipeline runs and the *console* it reports through."""
+        console = console_or_default(console, "InstallPipeline")
         self._steps = steps
         self._console = console
 

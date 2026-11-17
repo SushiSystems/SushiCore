@@ -9,6 +9,7 @@ from __future__ import annotations
 import typing
 from pathlib import Path
 
+from ..default_console import console_or_default
 from ..target import target_of
 from .compiler_identity import read_intel_llvm_commit
 
@@ -32,7 +33,7 @@ def provision_gpu_adapters(
     dry_run: bool,
     commit_reader: typing.Callable[[Path], str | None] = read_intel_llvm_commit,
     *,
-    console: typing.Any,
+    console: typing.Any = None,
 ) -> None:
     """Build every located backend's Unified Runtime adapter for one toolchain.
 
@@ -40,6 +41,7 @@ def provision_gpu_adapters(
         dry_run: Report the action without touching the filesystem.
         console: The console the run reports through.
     """
+    console = console_or_default(console, "provision_gpu_adapters")
     try:
         _provision(cfg, registry, toolchain_root, builder, dry_run, commit_reader, console)
     except Exception as exc:

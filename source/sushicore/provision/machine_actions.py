@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
+from .default_console import console_or_default
 from ..proc import CommandRunner
 from . import probe
 from .packages import refresh_windows_path
@@ -20,7 +21,7 @@ from .toolchains import oneapi
 
 
 def run_machine_command(command: list[str], runner: CommandRunner | None = None, *,
-                        console: Any) -> int:
+                        console: Any = None) -> int:
     """Run *command* in the current folder through *runner* and return its exit code.
 
     Args:
@@ -28,6 +29,7 @@ def run_machine_command(command: list[str], runner: CommandRunner | None = None,
         runner: Runs the command with its output shown; the provision runner on *console*
             when ``None``.
     """
+    console = console_or_default(console, "run_machine_command")
     return (runner or provision_runner(console)).run(command, Path.cwd())
 
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .default_console import console_or_default
 from .download_verifier import DownloadVerifier, bind_verifier
 from .fragments import IDependencySource
 from .gpu_stage import GpuStage
@@ -25,7 +26,7 @@ class InstallDepsStep(Step):
     name = "install-deps"
 
     def __init__(self, source: IDependencySource, managers: list[IPackageManager],
-                 *, console: Any, actions: MachineActions | None = None,
+                 *, console: Any = None, actions: MachineActions | None = None,
                  gpu: GpuStage | None = None) -> None:
         """Wire the dependency source, the package managers and the machine.
 
@@ -34,6 +35,7 @@ class InstallDepsStep(Step):
             actions: The machine calls; the real ones when omitted.
             gpu: The GPU part of the run; built from *console* and *actions* when omitted.
         """
+        console = console_or_default(console, "InstallDepsStep")
         self._source = source
         actions = actions or MachineActions()
         self._services = InstallServices(

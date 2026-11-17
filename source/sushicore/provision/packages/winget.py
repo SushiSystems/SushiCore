@@ -12,6 +12,7 @@ from typing import Any
 
 from sushicore.proc import CommandRunner
 
+from ..default_console import console_or_default
 from ..licence_consent import Licence, LicenceConsent, is_accepted
 from ..process_run import provision_runner
 from .base import IPackageManager
@@ -23,7 +24,7 @@ class WingetManager(IPackageManager):
 
     name = "winget"
 
-    def __init__(self, consent: LicenceConsent | None = None, *, console: Any,
+    def __init__(self, consent: LicenceConsent | None = None, *, console: Any = None,
                  show: Callable[[list[str]], str] | None = None,
                  runner: CommandRunner | None = None) -> None:
         """Store the run's consent, the runner of the winget commands and the licence reader.
@@ -37,6 +38,7 @@ class WingetManager(IPackageManager):
             console: The console the manager and its runner print through.
             runner: Runs the winget commands; the provision runner on *console* when ``None``.
         """
+        console = console_or_default(console, "WingetManager")
         super().__init__(console=console)
         self._consent = consent
         self._runner = runner or provision_runner(console)

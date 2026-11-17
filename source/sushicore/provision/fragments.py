@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from .default_console import console_or_default
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from dataclasses import fields as dc_fields
@@ -145,8 +147,9 @@ def _parse_manifest(path: Path, owner: str) -> tuple[list[Dependency], list[str]
 class TomlDependencySource(IDependencySource):
     """Aggregates dependency fragments from an explicit list of ``(path, owner)`` pairs."""
 
-    def __init__(self, sources: list[tuple[Path, str]], *, console: Any) -> None:
+    def __init__(self, sources: list[tuple[Path, str]], *, console: Any = None) -> None:
         """Store the given fragment files and the console; nothing is read until :meth:`all`."""
+        console = console_or_default(console, "TomlDependencySource")
         self._console = console
         self._sources = sources
         self._depends_on: dict[str, list[str]] = {}

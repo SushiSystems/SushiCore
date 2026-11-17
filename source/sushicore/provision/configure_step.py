@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .default_console import console_or_default
 from .pipeline import InstallContext, Step, StepResult
 from .sinks import ConfigSink, render_local_config
 from .machine_actions import MachineActions
@@ -18,7 +19,7 @@ class ConfigureStep(Step):
 
     name = "configure"
 
-    def __init__(self, sink: ConfigSink, *, console: Any,
+    def __init__(self, sink: ConfigSink, *, console: Any = None,
                  actions: MachineActions | None = None) -> None:
         """Bind this step to the sink its probed values and active toolchain are written to.
 
@@ -26,6 +27,7 @@ class ConfigureStep(Step):
             console: The console the step prints through.
             actions: The machine calls; the real ones when omitted.
         """
+        console = console_or_default(console, "ConfigureStep")
         self._sink = sink
         self._console = console
         self._actions = actions or MachineActions()

@@ -10,6 +10,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Callable, MutableMapping
+from ..default_console import console_or_default
 from ..host import current_host
 
 _log = logging.getLogger(__name__)
@@ -53,12 +54,13 @@ class IPackageManager(ABC):
 
     name: str = "pkg"
 
-    def __init__(self, *, console: Any) -> None:
+    def __init__(self, *, console: Any = None) -> None:
         """Keep the console a manager prints through.
 
         Args:
             console: The console the manager reports through.
         """
+        console = console_or_default(console, "IPackageManager")
         self._console = console
 
     @abstractmethod

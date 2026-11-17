@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from .default_console import console_or_default
 from ..proc import CommandRunner
 from .process_run import provision_runner
 
@@ -40,8 +41,9 @@ class GitClient(IGitClient):
     """
 
     def __init__(self, git: str = "git", runner: CommandRunner | None = None, *,
-                 console: Any) -> None:
+                 console: Any = None) -> None:
         """Store the executable and the runner."""
+        console = console_or_default(console, "GitClient")
         self._git = git
         self._runner = runner or provision_runner(console)
 

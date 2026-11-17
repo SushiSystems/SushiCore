@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, MutableMapping, Sequence
 
 
+from ..default_console import console_or_default
 from .. import home
 from ..probe import K_RC_GLOBS
 from ..dependency_presence import named_manager
@@ -101,7 +102,7 @@ def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> 
 def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None",
                         vcpkg: "IPackageManager | None", dry_run: bool,
                         assume_yes: bool = False, *,
-                        console: Any,
+                        console: Any = None,
                         winget: "IPackageManager | None" = None,
                         which: Callable[[str], str | None] | None = None,
                         glob: Callable[[str], list[str]] | None = None,
@@ -134,6 +135,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
     Returns:
         The ``acpp`` executable path on success, None when it could not be built.
     """
+    console = console_or_default(console, "install_adaptivecpp")
     prefix = toolchains_dir() / "adaptivecpp"
     target = target_of(cfg)
     acpp = prefix / "bin" / target.acpp_launcher

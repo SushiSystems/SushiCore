@@ -13,6 +13,7 @@ from typing import Any, Sequence
 
 from sushicore.deps_fragment import SushiPin
 
+from .default_console import console_or_default
 from .git_client import IGitClient
 from .pipeline import InstallContext, Step, StepResult
 from .sushi_sources import SourceKind, directory_variable, fetched_dir, resolve
@@ -28,8 +29,9 @@ class FetchSushiSourcesStep(Step):
 
     name = "fetch Sushi libraries"
 
-    def __init__(self, root: Path, pins: Sequence[SushiPin], git: IGitClient, console: Any) -> None:
+    def __init__(self, root: Path, pins: Sequence[SushiPin], git: IGitClient, console: Any = None) -> None:
         """Hold the checkout *root*, its *pins*, the *git* to clone with and the *console*."""
+        console = console_or_default(console, "FetchSushiSourcesStep")
         self._console = console
         self._root = root
         self._pins = list(pins)

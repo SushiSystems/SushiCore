@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from sushicore.proc import CommandRunner
 
+from ..default_console import console_or_default
 from ..download_verifier import verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence, LicenceConsent, is_accepted
@@ -92,7 +93,7 @@ class OneApiToolchain:
 ONEAPI = OneApiToolchain()
 
 
-def install_oneapi(ctx: "InstallContext", *, console: Any,
+def install_oneapi(ctx: "InstallContext", *, console: Any = None,
                    download_installer: Callable[[], Path | None] | None = None,
                    run_installer: Callable[[Path], bool] | None = None) -> bool:
     """Download and silently install Intel oneAPI DPC++, when selected and needed.
@@ -112,6 +113,7 @@ def install_oneapi(ctx: "InstallContext", *, console: Any,
     Returns:
         True on success or when nothing needed doing; False on failure.
     """
+    console = console_or_default(console, "install_oneapi")
     if not oneapi_licences(ctx):
         return True
     if ctx.dry_run:
@@ -132,7 +134,7 @@ def oneapi_licences(ctx: "InstallContext") -> list[Licence]:
     return [K_ONEAPI_LICENCE] if needed else []
 
 
-def download_oneapi_installer(*, console: Any, directory: Path | None = None,
+def download_oneapi_installer(*, console: Any = None, directory: Path | None = None,
                               runner: CommandRunner | None = None) -> Path | None:
     """Download the Intel oneAPI offline installer into the user's home directory.
 
@@ -148,6 +150,7 @@ def download_oneapi_installer(*, console: Any, directory: Path | None = None,
         DigestMismatchError: The installer's SHA-256 is not the one its manifest entry
             pins, whether it was downloaded now or left by an earlier run.
     """
+    console = console_or_default(console, "download_oneapi_installer")
     installer = (directory or Path.home()) / "intel-oneapi-toolkit-offline.exe"
     if not installer.is_file():
         console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
@@ -160,7 +163,7 @@ def download_oneapi_installer(*, console: Any, directory: Path | None = None,
     return installer
 
 
-def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None, console: Any,
+def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None, console: Any = None,
                          runner: CommandRunner | None = None) -> bool:
     """Run the Intel oneAPI installer silently, elevating on demand.
 
@@ -176,6 +179,7 @@ def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None, con
         True when the installer reports success; False without consent to
         :data:`K_ONEAPI_LICENCE`, and nothing runs then.
     """
+    console = console_or_default(console, "run_oneapi_installer")
     if not is_accepted(consent, K_ONEAPI_LICENCE):
         console.error(f"Intel oneAPI needs consent to {K_ONEAPI_LICENCE.name}: "
                       f"{K_ONEAPI_LICENCE.link}")
