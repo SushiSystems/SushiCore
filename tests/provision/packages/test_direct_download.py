@@ -199,3 +199,26 @@ def test_direct_install_warns_only_when_the_user_path_write_is_refused(
     else:
         assert len(warnings) == 1
         assert str(dd.tools_dir().joinpath(*path_parts)) in warnings[0]
+
+
+@pytest.mark.medium
+@pytest.mark.parametrize(("installer", "member", "folder"), [
+    ("_install_cmake_direct", "cmake-1.0/bin/cmake.exe", "cmake"),
+    ("_install_doxygen_direct", "doxygen-1.0/doxygen.exe", "doxygen"),
+])
+@pytest.mark.parametrize("safe", [False, True])
+def test_a_direct_install_removes_its_folder_only_when_the_root_is_safe(
+        installer, member, folder, safe, provision_home, recording_console, monkeypatch):
+    """Check that an unsafe root is refused with its files kept, and a safe one is replaced."""
+    monkeypatch.setattr(dd.home, "is_removable_root", lambda _path: safe)
+    target = dd.tools_dir() / folder
+    target.mkdir(parents=True)
+    (target / "stale.txt").write_text("stale")
+    options = {"cmake_on_system": lambda: ""} if folder == "cmake" else {}
+
+    installed = getattr(dd, installer)(
+        resolve_asset=_asked_for([]), fetch=_fetch_archive(member), on_path=lambda _dir: None,
+        **options)
+
+    assert installed is safe
+    assert (target / "stale.txt").exists() is not safe

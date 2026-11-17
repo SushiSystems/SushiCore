@@ -119,6 +119,27 @@ def _cmake_on_system() -> str:
     return ""
 
 
+def _replace_folder_with_archive(archive: Path, target: Path) -> bool:
+    """Replace *target* with the contents of the zip *archive*, unless *target* is protected.
+
+    Returns:
+        False, with the folder untouched, when *target* is not a safe dependency root.
+    """
+    with tempfile.TemporaryDirectory() as staging:
+        stage = Path(staging)
+        with zipfile.ZipFile(archive) as zf:
+            zf.extractall(stage)
+        entries = list(stage.iterdir())
+        srcroot = entries[0] if len(entries) == 1 and entries[0].is_dir() else stage
+        if target.exists():
+            if not home.is_removable_root(target):
+                console.error(f"Refusing to remove {target}: not a safe dependency root.")
+                return False
+            shutil.rmtree(target, ignore_errors=True)
+        shutil.move(str(srcroot), str(target))
+    return True
+
+
 def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] | None = None,
                           fetch: Callable[[str, Path], None] | None = None,
                           cmake_on_system: Callable[[], str] | None = None,
@@ -142,15 +163,8 @@ def _install_cmake_direct(*, resolve_asset: Callable[[str, str], str] | None = N
         verify_download("cmake", zip_dest)
         target = tools_dir() / "cmake"
         console.info(f"Extracting CMake to {target} ...")
-        with tempfile.TemporaryDirectory() as staging:
-            stage = Path(staging)
-            with zipfile.ZipFile(zip_dest) as zf:
-                zf.extractall(stage)
-            entries = list(stage.iterdir())
-            srcroot = entries[0] if len(entries) == 1 and entries[0].is_dir() else stage
-            if target.exists():
-                shutil.rmtree(target, ignore_errors=True)
-            shutil.move(str(srcroot), str(target))
+        if not _replace_folder_with_archive(zip_dest, target):
+            return False
         zip_dest.unlink(missing_ok=True)
         (on_path or _put_on_user_path)(str(_cmake_portable_bin()))
         if (_cmake_portable_bin() / "cmake.exe").is_file():
@@ -216,15 +230,8 @@ def _install_doxygen_direct(*, resolve_asset: Callable[[str, str], str] | None =
         (fetch or download)(url, zip_dest)
         verify_download("doxygen", zip_dest)
         console.info(f"Extracting Doxygen to {target} ...")
-        with tempfile.TemporaryDirectory() as staging:
-            stage = Path(staging)
-            with zipfile.ZipFile(zip_dest) as zf:
-                zf.extractall(stage)
-            entries = list(stage.iterdir())
-            srcroot = entries[0] if len(entries) == 1 and entries[0].is_dir() else stage
-            if target.exists():
-                shutil.rmtree(target, ignore_errors=True)
-            shutil.move(str(srcroot), str(target))
+        if not _replace_folder_with_archive(zip_dest, target):
+            return False
         zip_dest.unlink(missing_ok=True)
         (on_path or _put_on_user_path)(str(target))
         if exe.is_file():
