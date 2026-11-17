@@ -63,7 +63,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | A9 | RW-67, RW-71: in-memory package managers in `provision/packages/` and the tests that copy one |  | done |
 | A10 | RW-20: `provision/steps.py` split into one file per step class, and its test mirror | A9 | done |
 | B1 | RW-23: the process helper moved below the package managers | A10 | done |
-| B2 | RW-27: one brick for every child process | B1 | running |
+| B2 | RW-27: one brick for every child process | B1 | done |
 | B3 | RW-28: the probe tables and helpers of `provision` merged | B2 | todo |
 | B4 | RW-24: dispatch on platform and manager through the contracts | B3 | todo |
 | B5 | RW-31: the toolchain installers on the GPU backends' contract | B4 | todo |
