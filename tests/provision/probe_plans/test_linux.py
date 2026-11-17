@@ -32,7 +32,7 @@ def test_a_configured_oneapi_root_without_setvars_is_left_out(tmp_path):
 
 
 @pytest.mark.small
-def test_the_probe_lookup_builds_the_plan_with_the_home_it_is_given(tmp_path):
+def test_the_probe_lookup_builds_the_plan_with_the_home_it_is_given(tmp_path, monkeypatch):
     """Check that find_sycl_compiler's plan searches the given home, not the default one."""
     from sushicore.provision import probe
     from sushicore.provision.config import ProvisionSettings
@@ -43,5 +43,11 @@ def test_the_probe_lookup_builds_the_plan_with_the_home_it_is_given(tmp_path):
     held = DependencyHome(lambda: tmp_path / "held-root")
     cfg = ProvisionSettings(platform="linux")
 
-    assert PROBE_PLANS.plan_for(target_of(cfg), home=held)._home is held
+    from sushicore.provision.probe_plans import linux as linux_plan
+
+    seen = []
+    monkeypatch.setattr(linux_plan, "discover_installed_toolchains",
+                        lambda _cfg, _values, *, home: seen.append(home))
+    PROBE_PLANS.plan_for(target_of(cfg), home=held).resolve_local_config(cfg)
+    assert seen == [held]
     assert probe.find_sycl_compiler(cfg, home=held) is not None
