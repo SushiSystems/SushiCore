@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 2026-11-17 — provision: Moved run from packages/base.py into process_run.py at layer 1, so git_client sits at layer 2 (RW-23, `process_run.py`).
+- 2026-11-17 — provision: Moved run from packages/base.py into process_run.py at layer 1, so git_client sits at layer 2 (RW-23, `b5c0b34`).
 - 2026-11-17 — provision: Made setup fetch, round by round, every Sushi library a fetched library pins, refusing two versions of one (RW-18, `6b8cb0b`).
 - 2026-11-17 — provision: Refused to remove the portable cmake or doxygen folder under a root is_removable_root does not accept (RW-92, `c90587c`).
 2026-11-17 — provision: Asked before accepting any third-party licence, split the steps into one file each, and split the clock into wall and monotonic ports (RW-46, RW-20, RW-66).

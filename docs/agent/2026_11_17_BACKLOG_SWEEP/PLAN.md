@@ -36,6 +36,11 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
   `winget show --id <id>`, VS Build Tools included; no winget link is hard-coded. A package whose
   manifest has no licence URL is shown by its id with "no licence link published". The oneAPI and
   CUDA links stay the vendors' EULA pages.
+- RW-44: a download is data, not code. The fragment schema gains `version` and `url`; the names,
+  repositories, assets, versions and digests of cmake, ninja, doxygen, git, intel-llvm, the LLVM
+  installer and oneAPI move from the installers into `base.deps.toml`, and the installers read
+  them. No installer resolves "latest"; renewing a pin is an edit of the fragment with its digest
+  from the vendor's published checksum.
 - RW-4: the 141 untracked review files are read, what still holds goes into a tracked report
   under `docs/agent/`, and `.superpowers/` is left for the owner to delete.
 
@@ -53,7 +58,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | A8 | RW-66: `provision/sushi_packages/clock.py`, the store, the resolver and their tests |  | done |
 | A9 | RW-67, RW-71: in-memory package managers in `provision/packages/` and the tests that copy one |  | done |
 | A10 | RW-20: `provision/steps.py` split into one file per step class, and its test mirror | A9 | done |
-| B1 | RW-23: the process helper moved below the package managers | A10 | todo |
+| B1 | RW-23: the process helper moved below the package managers | A10 | done |
 | B2 | RW-27: one brick for every child process | B1 | todo |
 | B3 | RW-28: the probe tables and helpers of `provision` merged | B2 | todo |
 | B4 | RW-24: dispatch on platform and manager through the contracts | B3 | todo |
@@ -62,7 +67,7 @@ The owner handed these decisions over on 2026-11-17; each is taken on engineerin
 | B7 | RW-26: one base error for the package | B5, B6 | todo |
 | B8 | RW-36, RW-33, RW-34: module state, split units, typed seams | B7 | todo |
 | B9 | RW-35, RW-32: tests off private names, docstrings | B8 | todo |
-| C1 | RW-44, RW-45: a version and digest for every download, pinned keys and commits | A10 | todo |
+| C1 | RW-44, RW-45: a version and digest for every download, pinned keys and commits | B1 | running |
 | C2 | RW-18: a Sushi library pinned only by a fetched library | A10 | done |
 | C3 | RW-10, RW-11: the build caches and configuration rewritten, toolchains by version | C2 | todo |
 | D1 | RW-59: design topic BACKLOG, the stamp in `check_all`, the unverified mark | A1 | done |

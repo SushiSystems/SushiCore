@@ -4,7 +4,6 @@
 
 | ID | Pri | State | Title | Done when | Blocked by | Source | Opened |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RW-23 | P2 | open | Move the process helper below the package managers | `packages/base.run` sits low enough for `provision/git_client.py` to sit below layer 4 |  |  | 2026-10-19 |
 | RW-24 | P2 | open | Dispatch on platform and package manager through the contracts | no code switches on a platform or manager name where a contract exists (Code C2) |  |  | 2026-10-19 |
 | RW-26 | P2 | open | Give the package one base error | failures raise one base error instead of a `bool`, `None` or a bare built-in, and `find_project_root` raises it in place of `SystemExit` (Code C7, Cli C8) |  |  | 2026-10-19 |
 | RW-27 | P2 | open | Run every child process through one brick | the four runner copies and the 41 direct `subprocess` calls go through one brick that keeps stdout to events in machine mode (Code C8, Cli C4) |  |  | 2026-10-19 |
