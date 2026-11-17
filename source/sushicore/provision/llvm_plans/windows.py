@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Sequence, final
 
-from sushicore.errors import DigestMismatchError
+from sushicore.errors import DigestMismatchError, SushiCoreError
 from sushicore.proc import CommandRunner
 
 from .. import home
@@ -47,7 +47,7 @@ def find_windows_llvm(bases: Sequence[Path] | None = None) -> tuple[str, str] | 
     return None
 
 
-class _LlvmInstallerError(RuntimeError):
+class _LlvmInstallerError(SushiCoreError, RuntimeError):
     """The elevated LLVM installer ended with a non-zero exit code."""
 
 

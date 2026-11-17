@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from xml.etree import ElementTree
 
+from ..errors import SushiCoreError
 
-class ResultFileError(Exception):
+
+class ResultFileError(SushiCoreError):
     """Raised when a result file cannot be read as the XML a test run writes."""
 
 

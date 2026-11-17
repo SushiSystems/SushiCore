@@ -20,6 +20,7 @@ from rich.console import Console as RichConsole
 from typer.core import TyperGroup
 
 from .console import Console
+from .errors import SushiCoreError
 from .help.from_click import build_model
 from .help.logo_choice import choose_logo
 from .help.page import HelpPage
@@ -36,7 +37,7 @@ LogoChooser = Callable[..., Component | None]
 HelpWriter = Callable[["click.Context", "click.HelpFormatter"], None]
 
 
-class _HelpPageError(Exception):
+class _HelpPageError(SushiCoreError):
     """Reports that a help page cannot be drawn."""
 
 

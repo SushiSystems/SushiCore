@@ -12,10 +12,11 @@ from __future__ import annotations
 import typing
 from pathlib import Path
 
+from ...errors import SushiCoreError
 from .gpu_hardware import GpuHardware
 
 
-class ToolkitSourceError(Exception):
+class ToolkitSourceError(SushiCoreError):
     """A vendor's release index or archive could not be read, verified or unpacked."""
 
 

@@ -18,7 +18,7 @@ and has no application of its own.
 | `stack_config` | `StackConfig`: the compiler and vcpkg of a module that consumes a dependency root, and `locate_sibling` |
 | `profile` | `ModuleProfile`: what one CLI says about itself, such as its name, command, environment prefix and root marker |
 | `deps_fragment` | The one reader of a `sushistack.deps.toml` fragment |
-| `errors` | `SushiCoreError`, `ConfigError` and `DigestMismatchError`, the failures an entry point prints as one line |
+| `errors` | `SushiCoreError`, the one base every exception class the package defines derives from, so a caller catches one type; `ConfigError` and `DigestMismatchError`, the failures an entry point prints as one line. Where a class also derived from a built-in, it keeps that built-in as a second base |
 
 ### Printing
 
