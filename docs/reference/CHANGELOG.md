@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-17 — provision: Moved the branches on the run's target platform behind ITarget, picked once by target_of (RW-24, `provision/target/`).
 - 2026-11-17 — provision: Moved what differs by operating system behind IHost and the apt-only steps behind LinuxPackageManager methods, chosen once each (RW-24, `provision/host/`).
 - 2026-11-17 — console: Took the line level from the call, and made config, env and the executable picker emit table and prompt events (RW-29, RW-30, `renderer.py`).
 - 2026-11-17 — provision: Kept the NVCC and rc.exe glob tables and the first-match helper once, in probe.py (RW-28, `f7b3ae3`).

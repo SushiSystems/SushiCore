@@ -23,6 +23,7 @@ from .gpu_stage import GpuStage
 from .licence_consent import Licence, is_accepted
 from .machine_actions import MachineActions
 from .toolchains import adaptivecpp, intel_llvm
+from .target import K_LINUX, K_WINDOWS, target_of
 from .toolchains.oneapi import oneapi_licences
 
 #: System toolchain installed through the toolchain manager, not the manifest.
@@ -55,6 +56,8 @@ class InstallDepsStep(Step):
         self._console = console
         self._actions = actions or MachineActions()
         self._gpu = gpu or GpuStage(console=console, actions=self._actions)
+        self._licence_plans = {K_WINDOWS: self._windows_licences, K_LINUX: self._linux_licences}
+        self._run_plans = {K_WINDOWS: self._run_windows, K_LINUX: self._run_linux}
 
     def licences(self, ctx: InstallContext) -> list[Licence]:
         """Returns the third-party licences this step's installers need for *ctx*.
@@ -62,8 +65,14 @@ class InstallDepsStep(Step):
         Read after detection, so *ctx* already holds what the machine has.
         """
         needed: list[Licence] = self._gpu.toolkit_licences(ctx)
-        if ctx.cfg.platform != "windows":
-            return needed
+        return self._licence_plans[target_of(ctx.cfg).name](ctx, needed)
+
+    def _linux_licences(self, ctx: InstallContext, needed: list[Licence]) -> list[Licence]:
+        """Return *needed* as it is: Linux installs through distro packages with no licence prompt."""
+        return needed
+
+    def _windows_licences(self, ctx: InstallContext, needed: list[Licence]) -> list[Licence]:
+        """Return *needed* plus the licences of the winget packages this run installs."""
         winget = named_manager(self._managers, "winget")
         if winget and winget.available():
             git_missing = not self._actions.which("git")
@@ -87,9 +96,7 @@ class InstallDepsStep(Step):
         bind_verifier(DownloadVerifier(self._source.digests(platform),
                                        self._source.downloads(platform)))
         try:
-            if ctx.cfg.platform == "windows":
-                return self._run_windows(ctx)
-            return self._run_linux(ctx)
+            return self._run_plans[target_of(ctx.cfg).name](ctx)
         finally:
             bind_verifier(None)
 

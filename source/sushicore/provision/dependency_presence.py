@@ -12,6 +12,7 @@ from ..proc import CommandRunner
 from .fragments import Dependency
 from .packages import IPackageManager, LinuxPackageManager
 from .process_run import provision_runner
+from .target import K_LINUX_MANAGERS, target_for_platform
 
 
 def check_cmd_ok(cmd: list[str], runner: CommandRunner | None = None) -> bool:
@@ -40,10 +41,6 @@ def manager_holds(dep: Dependency, mgr: IPackageManager | None, platform: str,
     return False
 
 
-#: The Linux managers that can answer whether a manifest package is installed.
-K_LINUX_MANAGERS = ("apt", "dnf", "yum", "pacman", "zypper")
-
-
 def vcpkg_manager(managers: list[IPackageManager]) -> IPackageManager | None:
     """Return the vcpkg manager among *managers*, if wired in."""
     return named_manager(managers, "vcpkg")
@@ -63,9 +60,7 @@ def available_linux_manager(managers: list[IPackageManager]) -> LinuxPackageMana
 
 def dep_manager(managers: list[IPackageManager], platform: str) -> IPackageManager | None:
     """Return the manager that knows whether a manifest dependency is installed."""
-    if platform == "windows":
-        return vcpkg_manager(managers)
-    return available_linux_manager(managers)
+    return target_for_platform(platform).dependency_manager(managers)
 
 
 def held_by_managers(managers: list[IPackageManager],

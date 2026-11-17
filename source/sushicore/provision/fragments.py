@@ -16,6 +16,7 @@ from sushicore import deps_fragment
 from sushicore.deps_fragment import Dependency as FragmentDependency
 from sushicore.deps_fragment import Download
 from sushicore.provision._output import console
+from sushicore.provision.target import target_for_platform
 
 #: Owner label for dependencies contributed by no single module.
 SHARED_OWNER = "shared"
@@ -30,9 +31,8 @@ class Dependency(FragmentDependency):
 
     def vcpkg_fallback_ports(self, platform: str) -> list[str]:
         """Return the vcpkg ports to install on Linux when this dep has no apt package."""
-        if platform == "windows" or self.linux_apt:
-            return []
-        return self.windows_vcpkg
+        return target_for_platform(platform).vcpkg_fallback_ports(
+            self.linux_apt, self.windows_vcpkg)
 
 
 def _merge_ports(first: list[str], second: list[str]) -> list[str]:

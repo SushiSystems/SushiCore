@@ -18,6 +18,7 @@ from .fragments import TomlDependencySource
 from .licence_consent import LicenceConsent
 from .module_manifest import fragment_path
 from .module_provision import ModuleProvision
+from .target import K_LINUX, K_WINDOWS, target_of
 from .packages import (
     AptManager,
     DirectDownloadWindowsManager,
@@ -31,6 +32,23 @@ from .packages import (
 )
 
 
+def _windows_managers(cfg: ProvisionConfig,
+                      consent: LicenceConsent | None) -> list[IPackageManager]:
+    """Returns winget, the direct downloads and vcpkg."""
+    return [WingetManager(consent), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
+
+
+def _linux_managers(cfg: ProvisionConfig,
+                    consent: LicenceConsent | None) -> list[IPackageManager]:
+    """Returns the distro managers and vcpkg."""
+    return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
+            VcpkgManager(cfg)]
+
+
+#: The builder of each target's package managers.
+_MANAGER_BUILDERS = {K_WINDOWS: _windows_managers, K_LINUX: _linux_managers}
+
+
 def managers_for(cfg: ProvisionConfig,
                  consent: LicenceConsent | None = None) -> list[IPackageManager]:
     """Returns the package managers this platform provisions dependencies through.
@@ -38,10 +56,7 @@ def managers_for(cfg: ProvisionConfig,
     Args:
         consent: The run's licence consent; winget installs only what it covers.
     """
-    if cfg.is_windows:
-        return [WingetManager(consent), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
-    return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
-            VcpkgManager(cfg)]
+    return _MANAGER_BUILDERS[target_of(cfg).name](cfg, consent)
 
 
 def managers_of(module: ModuleProvision, cfg: ProvisionConfig,

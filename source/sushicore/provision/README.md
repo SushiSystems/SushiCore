@@ -13,6 +13,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `registry.py` | Reads and writes `registry.toml`, the record of installed components and their consumers, and seeds it from a tree already on disk |
 | `lock.py` | The file lock around every operation that changes the root |
 | `host/` | `IHost`, what differs by operating system (links, the root lock, registry paths, display adapters, long paths, CUDA names), with `WindowsHost`, `PosixHost` and `current_host()`, the one place that picks one |
+| `target/` | `ITarget`, what the run's target platform decides (executable names, vcpkg triplet and bootstrap, adapter file names, compiler and manager choice, messages), with `WindowsTarget`, `LinuxTarget` and `target_of(cfg)`, the one place that picks one |
 | `links.py` | Makes, reads and removes a directory link: a junction on Windows, a symlink elsewhere |
 | `migrate.py` | `migrate`, `rollback` and `finalize`: moves a dependency root to another directory behind a journal, and rolls the move back or finalizes it; re-exports the names below |
 | `migration_plan.py` | `plan` and the `Move`, `MigrationPlan` and `PlanProbes` it returns and reads through: what a migration moves, worked out without changing the disk |

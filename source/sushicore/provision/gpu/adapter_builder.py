@@ -18,6 +18,7 @@ from pathlib import Path
 from .. import home
 from .._output import console
 from ..process_run import provision_runner
+from ..target import ITarget, target_of
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
 
 if typing.TYPE_CHECKING:
@@ -25,9 +26,6 @@ if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
 
 _log = logging.getLogger(__name__)
-
-#: Windows work_root paths beyond this length push fetched object paths past MAX_PATH.
-_MAX_WORK_ROOT_LENGTH = 60
 
 #: Commit characters used in directory names under the work root.
 _COMMIT_PREFIX_LENGTH = 8
@@ -68,13 +66,7 @@ def _default_work_root() -> Path:
 
 def _default_environment(cfg: "ProvisionConfig") -> dict[str, str]:
     """Return the build environment for the adapter's cmake and ninja subprocesses."""
-    if not cfg.is_windows:
-        return dict(os.environ)
-    from sushicore.build_env import merge_env, snapshot_windows
-    snapshot = snapshot_windows(cfg, console)
-    if snapshot is None:
-        return dict(os.environ)
-    return merge_env(os.environ, snapshot)
+    return target_of(cfg).adapter_build_environment(cfg, console)
 
 
 def _default_patches_dir() -> Path:
@@ -82,24 +74,12 @@ def _default_patches_dir() -> Path:
     return Path(__file__).parent / "patches"
 
 
-def _binary_names(base_name: str, is_windows: bool) -> list[str]:
-    """Return the platform file names *base_name* maps to."""
-    if is_windows:
-        return [f"{base_name}.dll"]
-    return [f"lib{base_name}.so*"]
-
-
-def _bin_subdir(is_windows: bool) -> str:
-    """Return the toolchain subdirectory an adapter binary installs into."""
-    return "bin" if is_windows else "lib"
-
-
 def _adapters_present(toolchain_root: Path, spec: "GpuBackendSpec",
-                      is_windows: bool) -> bool:
+                      target: ITarget) -> bool:
     """Report whether every one of *spec*'s adapter binaries already exists."""
-    target_dir = toolchain_root / _bin_subdir(is_windows)
+    target_dir = toolchain_root / target.adapter_install_subdir
     for base_name in spec.adapter_binaries:
-        for pattern in _binary_names(base_name, is_windows):
+        for pattern in target.adapter_binary_patterns(base_name):
             if not sorted(target_dir.glob(pattern)):
                 return False
     return True
@@ -151,7 +131,7 @@ class AdapterBuilder:
         patches = [self.patches_dir / name for name in spec.adapter_patches]
         stamp_key = self._stamp_key(commit, patches)
         stamped = toolchain_adapter_commit(toolchain_root, spec.vendor)
-        if stamped == stamp_key and _adapters_present(toolchain_root, spec, self.cfg.is_windows):
+        if stamped == stamp_key and _adapters_present(toolchain_root, spec, target_of(self.cfg)):
             console.info(f"{spec.vendor} adapter already built for {commit[:12]}.")
             return True
 
@@ -159,14 +139,8 @@ class AdapterBuilder:
             console.info(f"(dry-run) would build {spec.vendor} adapter at {commit[:12]}")
             return True
 
-        if self.cfg.is_windows:
-            work_root_length = len(str(self.work_root.absolute()))
-            if work_root_length > _MAX_WORK_ROOT_LENGTH:
-                console.warn(
-                    f"Adapter build root is {work_root_length} characters, "
-                    f"over the {_MAX_WORK_ROOT_LENGTH} limit that avoids "
-                    f"Windows' long-path ninja failure: {self.work_root}")
-                return False
+        if not target_of(self.cfg).work_root_fits(self.work_root, console.warn):
+            return False
 
         env = self._environment()
         short_commit = commit[:_COMMIT_PREFIX_LENGTH]
@@ -261,14 +235,7 @@ class AdapterBuilder:
             "-G", "Ninja",
             "-DCMAKE_BUILD_TYPE=Release",
         ]
-        if self.cfg.is_windows:
-            bin_dir = toolchain_root / "bin"
-            clang_cl = bin_dir / "clang-cl.exe"
-            argv += [
-                f"-DCMAKE_C_COMPILER={clang_cl}",
-                f"-DCMAKE_CXX_COMPILER={clang_cl}",
-                f"-DCMAKE_LINKER={bin_dir / 'lld-link.exe'}",
-            ]
+        argv += target_of(self.cfg).adapter_compiler_args(toolchain_root)
         ninja = self.cfg.expand(self.cfg.ninja_exe)
         if ninja:
             argv.append(f"-DCMAKE_MAKE_PROGRAM={ninja}")
@@ -315,7 +282,7 @@ class AdapterBuilder:
         output_dir = build_dir / "bin"
         staged: list[Path] = []
         for base_name in spec.adapter_binaries:
-            for pattern in _binary_names(base_name, self.cfg.is_windows):
+            for pattern in target_of(self.cfg).adapter_binary_patterns(base_name):
                 matches = sorted(output_dir.glob(pattern))
                 if not matches:
                     console.warn(
@@ -338,7 +305,7 @@ class AdapterBuilder:
         a failure at either stage rolls back everything already done, so
         *toolchain_root* ends up exactly as it started.
         """
-        target_dir = toolchain_root / _bin_subdir(self.cfg.is_windows)
+        target_dir = toolchain_root / target_of(self.cfg).adapter_install_subdir
         target_dir.mkdir(parents=True, exist_ok=True)
         staging_dir = staged[0].parent
 

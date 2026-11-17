@@ -29,10 +29,6 @@ class ProvisionConfig(Protocol):
     llvm_root: str
     acpp_exe: str
 
-    @property
-    def is_windows(self) -> bool:
-        """Report whether the config was resolved for Windows."""
-
     def expand(self, value: str) -> str:
         """Expand ``~`` and environment variables in a path value."""
 

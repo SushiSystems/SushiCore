@@ -23,6 +23,7 @@ from .._output import console
 from ..download_verifier import verify_download
 from ..packages import download, gh_tagged_asset
 from ..process_run import provision_runner, run
+from ..target import K_LINUX, K_WINDOWS, target_of
 from ._process import _run_quiet
 from .stamp import toolchains_dir
 
@@ -171,7 +172,8 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         The ``acpp`` executable path on success, None when it could not be built.
     """
     prefix = toolchains_dir() / "adaptivecpp"
-    acpp = prefix / "bin" / ("acpp.bat" if cfg.is_windows else "acpp")
+    target = target_of(cfg)
+    acpp = prefix / "bin" / target.acpp_launcher
     acpp_exe = prefix / "bin" / "acpp"
     for cand in (acpp, acpp_exe):
         if cand.is_file():
@@ -191,11 +193,12 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         console.info(f"(dry-run) would build AdaptiveCpp {ACPP_VERSION} -> {prefix}")
         return str(acpp_exe)
 
-    llvm_dir, clang_prefix = (
-        _acpp_deps_windows(vcpkg, assume_yes=assume_yes, winget=winget,
-                           llvm_bases=llvm_bases)
-        if cfg.is_windows else _acpp_deps_linux(mgr)
-    )
+    llvm_dependencies = {
+        K_WINDOWS: lambda: _acpp_deps_windows(vcpkg, assume_yes=assume_yes, winget=winget,
+                                              llvm_bases=llvm_bases),
+        K_LINUX: lambda: _acpp_deps_linux(mgr),
+    }
+    llvm_dir, clang_prefix = llvm_dependencies[target.name]()
     if llvm_dir is None:
         _explain_acpp_skip(cfg)
         return None
@@ -221,18 +224,13 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         ]
         if clang_prefix:
             cfg_cmd.append(f"-DCLANG_INSTALL_PREFIX={clang_prefix}")
-            if cfg.is_windows:
-                vcpkg_tc = home.root() / "vcpkg" / "scripts" / "buildsystems" / "vcpkg.cmake"
-                if vcpkg_tc.is_file():
-                    cfg_cmd.append(f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_tc}")
+            cfg_cmd.extend(target.acpp_configure_args(
+                home.root() / "vcpkg" / "scripts" / "buildsystems" / "vcpkg.cmake"))
         if cfg.ninja_exe:
             cfg_cmd.append(f"-DCMAKE_MAKE_PROGRAM={cfg.expand(cfg.ninja_exe)}")
 
         # clang-cl needs rc.exe (Windows SDK Resource Compiler) on PATH for the manifest embed.
-        if cfg.is_windows:
-            rc_dir = _find_windows_sdk_rc_dir(glob)
-            if rc_dir and rc_dir.lower() not in env.get("PATH", "").lower():
-                env["PATH"] = rc_dir + os.pathsep + env.get("PATH", "")
+        target.prepare_acpp_environment(env, lambda: _find_windows_sdk_rc_dir(glob))
 
         configure_ok = (configure or _run_quiet)(cfg_cmd, dry_run)
         if not configure_ok:
@@ -261,17 +259,8 @@ def _explain_acpp_skip(cfg: "ProvisionConfig") -> None:
     """
     console.warn("AdaptiveCpp (acpp) was skipped — it builds from source and its "
                  "LLVM development dependency is not available.")
-    if cfg.is_windows:
-        console.info("Install it anytime with [cmd]sr setup acpp[/cmd] — "
-                     f"that downloads LLVM {LLVM_WINDOWS_VERSION} (~2-3 GB) into the "
-                     "deps folder and builds acpp, no prompt.")
-        console.info("Note: the intel/llvm bundle cannot supply this LLVM — it ships "
-                     "a compiler, not the LLVM cmake/dev files acpp needs.")
-    else:
-        console.info("To enable acpp on Linux, install the LLVM dev packages, e.g. "
-                     "(Debian/Ubuntu): clang-17 llvm-17-dev libclang-17-dev "
-                     "libboost-context-dev libboost-fiber-dev, then re-run "
-                     "`sr setup --profile normal`.")
+    for note in target_of(cfg).acpp_skip_notes(LLVM_WINDOWS_VERSION):
+        console.info(note)
     console.info("This is non-fatal: intel-llvm is installed and selected, so you "
                  "can build and run now. acpp is the secondary toolchain.")
 

@@ -21,6 +21,7 @@ from sushicore.provision.download_verifier import unpinned_downloads
 from sushicore.provision.fragments import Dependency, IDependencySource
 from sushicore.provision.process_run import provision_runner
 from sushicore.provision.selection import required_groups
+from sushicore.provision.target import target_of
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 
 #: Timeout, in seconds, for every ``--version`` probe a check runs.
@@ -81,23 +82,15 @@ def compiler_check(cfg: ProvisionConfig, fix: str = "",
         runner: Runs the version probes; the provision runner when ``None``.
     """
     def fn() -> CheckResult:
-        compilers: list[tuple[str, str]] = []
-        if cfg.platform == "windows":
-            dev_shell = os.environ.get("VSINSTALLDIR")
-            configured = cfg.expand(cfg.vs_vcvars) if cfg.vs_vcvars else ""
-            found, info = (True, dev_shell) if dev_shell else (
-                bool(configured) and Path(configured).is_file(), configured)
-            if found:
-                compilers.append(("MSVC", info))
+        target = target_of(cfg)
+        compilers = target.host_compilers(cfg)
         for label, exe in (("Clang", "clang++"), ("GCC", "g++")):
             line = _first_version_line(exe, runner)
             if line:
                 compilers.append((label, line))
         if compilers:
             return CheckResult(State.OK, "; ".join(f"{lbl}: {info}" for lbl, info in compilers))
-        detail = ("no MSVC (VSINSTALLDIR/vs_vcvars), clang++ or g++ found"
-                  if cfg.platform == "windows" else "no clang++ or g++ on PATH")
-        return CheckResult(State.FAIL, detail, fix)
+        return CheckResult(State.FAIL, target.no_compiler_detail, fix)
     return FunctionCheck("c++ compiler", "build", True, fn)
 
 

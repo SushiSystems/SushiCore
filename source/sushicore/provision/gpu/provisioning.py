@@ -10,6 +10,7 @@ import typing
 from pathlib import Path
 
 from .._output import console
+from ..target import target_of
 from .compiler_identity import read_intel_llvm_commit
 
 if typing.TYPE_CHECKING:
@@ -21,8 +22,7 @@ if typing.TYPE_CHECKING:
 
 def _clang_path(toolchain_root: Path, cfg: "ProvisionConfig") -> Path:
     """Return the compiler binary whose commit identifies the installed bundle."""
-    name = "clang++.exe" if cfg.is_windows else "clang++"
-    return toolchain_root / "bin" / name
+    return toolchain_root / "bin" / target_of(cfg).clang_executable
 
 
 def provision_gpu_adapters(

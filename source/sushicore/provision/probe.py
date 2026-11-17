@@ -18,6 +18,7 @@ from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.host import IHost, current_host
 from sushicore.provision.process_run import provision_runner
+from sushicore.provision.target import K_LINUX, K_WINDOWS, target_of
 
 _log = logging.getLogger(__name__)
 
@@ -164,8 +165,7 @@ def installed_toolchain(name: str, relative: Path, roots: Sequence[Path] | None 
 
 def _installed_clang(cfg: ProvisionConfig) -> Path | None:
     """Return the intel/llvm bundle's clang++ in any dependency root, or None."""
-    exe = "clang++.exe" if cfg.platform == "windows" else "clang++"
-    return installed_toolchain("llvm-sycl", Path("bin") / exe)
+    return installed_toolchain("llvm-sycl", Path("bin") / target_of(cfg).clang_executable)
 
 
 def _installed_acpp() -> Path | None:
@@ -189,11 +189,10 @@ def _discover_installed_toolchains(cfg: ProvisionConfig, values: dict[str, str])
 
 def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, str]]:
     """Return one ``(name, present, detail)`` row per SYCL toolchain (and CUDA if *gpu*)."""
-    win = cfg.platform == "windows"
+    target = target_of(cfg)
 
     found_clang = _installed_clang(cfg)
-    clang = found_clang or _toolchains_dir() / "llvm-sycl" / "bin" / (
-        "clang++.exe" if win else "clang++")
+    clang = found_clang or _toolchains_dir() / "llvm-sycl" / "bin" / target.clang_executable
     intel_ok = found_clang is not None and binary_works(str(clang))
 
     found_acpp = _installed_acpp()
@@ -204,7 +203,7 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
     active, _ = find_sycl_compiler(cfg)
     oneapi_bin = (first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl")
                   or shutil.which("icpx") or shutil.which("icx")
-                  or (first_glob_match(_ICX_GLOBS_LINUX) if not win else ""))
+                  or (first_glob_match(_ICX_GLOBS_LINUX) if target.searches_system_prefixes else ""))
     oneapi_ok = (active in ("icx-cl", "icpx")
                  or (bool(oneapi_bin) and binary_works(oneapi_bin)))
 
@@ -218,11 +217,11 @@ def toolchain_status(cfg: ProvisionConfig, gpu: bool) -> list[tuple[str, bool, s
     ]
     if gpu:
         cuda_path = os.environ.get("CUDA_PATH", "")
-        in_cuda_path = (os.path.join(cuda_path, "bin", "nvcc.exe" if win else "nvcc")
+        in_cuda_path = (os.path.join(cuda_path, "bin", target.nvcc_executable)
                         if cuda_path else "")
         nvcc_bin = ((in_cuda_path if in_cuda_path and os.path.isfile(in_cuda_path) else "")
                     or shutil.which("nvcc")
-                    or (first_glob_match(K_NVCC_GLOBS_LINUX) if not win else ""))
+                    or (first_glob_match(K_NVCC_GLOBS_LINUX) if target.searches_system_prefixes else ""))
         nvcc_ok = bool(nvcc_bin) and binary_works(nvcc_bin)
         detail = (f"NVIDIA CUDA toolkit (nvcc) -> {_rich_escape(nvcc_bin)}" if nvcc_ok
                   else "NVIDIA CUDA toolkit (nvcc)")
@@ -330,15 +329,22 @@ def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
     Existence of the binary is not enough — a partial install can leave the exe
     on disk with missing DLLs. The binary is verified by running --version.
     """
-    if cfg.platform == "windows":
-        icx = cfg.expand(cfg.icx_compiler) if cfg.icx_compiler else ""
-        if icx and Path(icx).is_file() and binary_works(icx):
-            return ("icx-cl", icx)
-        hit = first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
-        if hit and binary_works(hit):
-            return ("icx-cl", hit)
-        return (None, "")
-    # Linux: prefer oneAPI icpx, then intel/llvm clang++.
+    return _SYCL_COMPILER_FINDERS[target_of(cfg).name](cfg)
+
+
+def _find_windows_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
+    """Return the working oneAPI ``icx-cl`` from the config, the install roots or PATH."""
+    icx = cfg.expand(cfg.icx_compiler) if cfg.icx_compiler else ""
+    if icx and Path(icx).is_file() and binary_works(icx):
+        return ("icx-cl", icx)
+    hit = first_glob_match(_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
+    if hit and binary_works(hit):
+        return ("icx-cl", hit)
+    return (None, "")
+
+
+def _find_linux_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
+    """Return the first working of oneAPI ``icpx`` and the intel/llvm ``clang++`` on PATH."""
     for cc in ("icpx", "clang++"):
         path = shutil.which(cc)
         if path and binary_works(path):
@@ -346,18 +352,23 @@ def find_sycl_compiler(cfg: ProvisionConfig) -> tuple[str | None, str]:
     return (None, "")
 
 
+#: The SYCL compiler finder of each target.
+_SYCL_COMPILER_FINDERS = {K_WINDOWS: _find_windows_sycl_compiler,
+                          K_LINUX: _find_linux_sycl_compiler}
+
+
 def find_configured_toolchain(cfg: ProvisionConfig) -> tuple[str | None, str]:
     """Return (label, path) for a SYCL compiler installed by the provisioning CLI, or (None, '')."""
-    win = cfg.platform == "windows"
+    clang_executable = target_of(cfg).clang_executable
     base = _toolchains_dir()
 
     bundle = ""
     if cfg.llvm_root:
-        cand = Path(cfg.expand(cfg.llvm_root)) / "bin" / ("clang++.exe" if win else "clang++")
+        cand = Path(cfg.expand(cfg.llvm_root)) / "bin" / clang_executable
         if cand.is_file():
             bundle = str(cand)
     if not bundle:
-        cand = base / "llvm-sycl" / "bin" / ("clang++.exe" if win else "clang++")
+        cand = base / "llvm-sycl" / "bin" / clang_executable
         if cand.is_file():
             bundle = str(cand)
     if bundle and binary_works(bundle):
@@ -382,9 +393,7 @@ def resolve_local_config(cfg: ProvisionConfig, gpu: bool = False) -> dict[str, s
     Returns only the fields that were actually found, so we never write empty
     placeholders that would shadow the committed defaults.
     """
-    if cfg.platform == "windows":
-        return _resolve_windows(cfg)
-    return _resolve_linux(cfg)
+    return _LOCAL_CONFIG_RESOLVERS[target_of(cfg).name](cfg)
 
 
 def _resolve_windows(cfg: ProvisionConfig,
@@ -486,3 +495,7 @@ def _resolve_linux(cfg: ProvisionConfig) -> dict[str, str]:
 def toolchain_presence(cfg: "ProvisionConfig") -> dict[str, bool]:
     """Return each SYCL toolchain's key mapped to whether this machine holds it."""
     return {name: present for name, present, _detail in toolchain_status(cfg, False)}
+
+
+#: The local-config resolver of each target.
+_LOCAL_CONFIG_RESOLVERS = {K_WINDOWS: _resolve_windows, K_LINUX: _resolve_linux}

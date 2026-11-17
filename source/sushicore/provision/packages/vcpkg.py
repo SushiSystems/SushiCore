@@ -15,6 +15,7 @@ from sushicore.proc import CommandRunner
 from .. import home
 from .._output import console
 from ..process_run import provision_runner
+from ..target import target_of
 from .base import IPackageManager
 
 if typing.TYPE_CHECKING:
@@ -40,8 +41,8 @@ class VcpkgManager(IPackageManager):
         """
         self._cfg = cfg
         self._runner = runner or provision_runner()
-        self._triplet = cfg.vcpkg_triplet or (
-            "x64-windows" if cfg.platform == "windows" else "x64-linux")
+        self._target = target_of(cfg)
+        self._triplet = cfg.vcpkg_triplet or self._target.vcpkg_triplet
 
     def _drain(self, command: list[str], dry_run: bool) -> int:
         """Run *command*, streaming its output through the console; report a failure once."""
@@ -56,8 +57,7 @@ class VcpkgManager(IPackageManager):
 
     def _exe(self) -> Path:
         """Return the path of the vcpkg executable under this manager's root."""
-        name = "vcpkg.exe" if self._cfg.platform == "windows" else "vcpkg"
-        return self._root() / name
+        return self._root() / self._target.vcpkg_executable
 
     def available(self) -> bool:
         """Report whether the vcpkg executable exists, locally or on PATH."""
@@ -78,14 +78,7 @@ class VcpkgManager(IPackageManager):
                               str(root)], dry_run)
             if rc != 0 and not dry_run:
                 return False
-        if self._cfg.platform == "windows":
-            bootstrap = root / "bootstrap-vcpkg.bat"
-            rc = self._drain(["cmd", "/c", str(bootstrap), "-disableMetrics"], dry_run)
-        else:
-            bootstrap = root / "bootstrap-vcpkg.sh"
-            if not dry_run:
-                bootstrap.chmod(bootstrap.stat().st_mode | 0o111)
-            rc = self._drain([str(bootstrap), "-disableMetrics"], dry_run)
+        rc = self._target.bootstrap_vcpkg(root, self._drain, dry_run)
         return rc == 0 or dry_run
 
     def is_installed(self, pkg: str) -> bool:

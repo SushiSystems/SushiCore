@@ -18,6 +18,7 @@ from .package_lists import dedup
 from .packages import IPackageManager, tools_dir
 from .pipeline import InstallContext, Step, StepResult
 from .sinks import ConfigSink
+from .target import K_LINUX, K_WINDOWS, target_of
 
 
 class UninstallStep(Step):
@@ -40,12 +41,11 @@ class UninstallStep(Step):
         self._sink = sink
         self._console = console
         self._root = root or (lambda: home.root())
+        self._run_plans = {K_WINDOWS: self._run_windows, K_LINUX: self._run_linux}
 
     def run(self, ctx: InstallContext) -> StepResult:
         """Dispatch to the Linux or Windows uninstall routine for this platform."""
-        if ctx.cfg.platform == "windows":
-            return self._run_windows(ctx)
-        return self._run_linux(ctx)
+        return self._run_plans[target_of(ctx.cfg).name](ctx)
 
     def _run_linux(self, ctx: InstallContext) -> StepResult:
         """Remove Linux packages and vcpkg ports, and toolchains too with ``ctx.everything``."""

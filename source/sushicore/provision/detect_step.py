@@ -20,6 +20,7 @@ from .fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
 from .packages import IPackageManager, refresh_windows_path
 from .pipeline import InstallContext, Step, StepResult
 from .process_run import provision_runner
+from .target import target_of
 
 
 #: The three statuses an inventory row can carry.
@@ -115,7 +116,7 @@ class DetectStep(Step):
             "doxygen":   cfg.expand(cfg.doxygen_exe)  if cfg.doxygen_exe  else "",
         }
         rows: list[tuple[str, str, str, str]] = []
-        for tool in ("python3" if cfg.platform != "windows" else "python",
+        for tool in (target_of(cfg).python_executable,
                      "git", "cmake", "ninja", "pkg-config", "doxygen"):
             path = shutil.which(tool) or ""
             if not path and configured.get(tool) and Path(configured[tool]).is_file():
@@ -259,14 +260,7 @@ class DetectStep(Step):
 
         self._console.info(f"Vendored dependencies go in one folder: {home.root()}")
         self._console.info(removal_note(ctx))
-        if ctx.cfg.platform == "windows":
-            self._console.info("System prerequisites kept outside that folder: the C++ "
-                         "host compiler (Visual Studio Build Tools + Windows SDK), "
-                         "git, and the toolkit for the detected GPU.")
-        else:
-            self._console.info("System prerequisites kept outside that folder: the host "
-                         "compiler (gcc) plus the -dev packages (hwloc, gtest, "
-                         "opencl), git, and the toolkit for the detected GPU.")
+        self._console.info(target_of(ctx.cfg).system_prerequisites_note)
 
         self.report_inventory(ctx, rows)
         if self._after_inventory is not None:

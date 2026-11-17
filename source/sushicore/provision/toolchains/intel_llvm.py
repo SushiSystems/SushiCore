@@ -19,6 +19,7 @@ from sushicore.errors import ConfigError, DigestMismatchError
 from .._output import console
 from ..download_verifier import pinned_download, verify_download
 from ..packages import download
+from ..target import target_of
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
 
@@ -50,8 +51,9 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         ConfigError: No fragment pins the ``intel-llvm`` download for this platform.
     """
     root = toolchains_dir() / "llvm-sycl"
-    clang = root / "bin" / ("clang++.exe" if cfg.is_windows else "clang++")
-    asset = "sycl_windows.tar.gz" if cfg.is_windows else "sycl_linux.tar.gz"
+    target = target_of(cfg)
+    clang = root / "bin" / target.clang_executable
+    asset = target.intel_llvm_asset
 
     if clang.is_file() and not refresh:
         stamp = read_toolchain_stamp(root)
