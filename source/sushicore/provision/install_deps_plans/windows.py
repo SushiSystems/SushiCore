@@ -155,7 +155,7 @@ class WindowsInstallPlan(IInstallPlan):
             "(C++ workloads) — this may take 10–20 minutes.",
             spinner="bouncingBar",
         ):
-            rc = services.actions.run_command(vs_cmd)
+            rc = services.actions.run_command(vs_cmd, console)
         if rc != 0:
             console.warn("Visual Studio Build Tools install failed or was cancelled.")
             return False

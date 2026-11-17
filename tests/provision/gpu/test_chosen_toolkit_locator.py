@@ -46,45 +46,45 @@ def parts(tmp_path, recording_console):
 
 def test_provision_installs_the_release_the_hardware_needs(parts):
     """Check that the release chosen for the cards is the one installed."""
-    assert parts.locator.provision(K_CFG, dry_run=False) is True
+    assert parts.locator.provision(K_CFG, dry_run=False, console=parts.console) is True
 
     assert parts.vendor.installed == ["2.0"]
 
 
 def test_provision_names_the_root_in_the_process_variable(parts):
     """Check that the process variable holds the root of the installed release."""
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.process[K_ROOT_VARIABLE] == str(parts.vendor.root_of("2.0"))
 
 
 def test_provision_names_the_root_in_the_user_variable(parts):
     """Check that the user's persistent variable holds the root of the installed release."""
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.user.read(K_ROOT_VARIABLE) == str(parts.vendor.root_of("2.0"))
 
 
 def test_locate_finds_the_toolkit_that_provision_named(parts):
     """Check that locate returns the root provision wrote to the process variable."""
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.locator.locate(K_CFG).root == parts.vendor.root_of("2.0")
 
 
 def test_provision_records_the_choice(parts):
     """Check that the choice file holds the fingerprint, the platform and the release."""
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.choices.read() == ToolkitChoice("new", "linux-x86_64", "2.0")
 
 
 def test_a_recorded_choice_is_reused_without_the_network(parts):
     """Check that the same hardware reuses its release with the index unreachable."""
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
     parts.vendor.offline = True
 
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.vendor.chosen == ["new"]
     assert parts.console.texts("warn") == []
@@ -92,10 +92,10 @@ def test_a_recorded_choice_is_reused_without_the_network(parts):
 
 def test_new_hardware_chooses_again(parts):
     """Check that a changed fingerprint is not served the recorded release."""
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
     parts.vendor.hardware = FixedHardware("old")
 
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.vendor.installed == ["2.0", "1.0"]
 
@@ -104,7 +104,7 @@ def test_the_override_installs_its_release(parts):
     """Check that the release the override variable names is the one installed."""
     parts.process[K_OVERRIDE] = "1.0"
 
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.vendor.installed == ["1.0"]
 
@@ -113,7 +113,7 @@ def test_the_override_is_not_recorded(parts):
     """Check that an override leaves the choice file without a record."""
     parts.process[K_OVERRIDE] = "1.0"
 
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.choices.read() is None
 
@@ -122,7 +122,7 @@ def test_an_unknown_override_installs_nothing_and_says_why(parts):
     """Check that an override no release matches is reported with its reason, not raised."""
     parts.process[K_OVERRIDE] = "9.9"
 
-    assert parts.locator.provision(K_CFG, dry_run=False) is True
+    assert parts.locator.provision(K_CFG, dry_run=False, console=parts.console) is True
 
     assert parts.vendor.installed == []
     assert parts.console.texts("warn") == [
@@ -136,7 +136,7 @@ def test_an_unreachable_index_keeps_the_toolkit_in_use(tmp_path, recording_conso
     parts.process[K_ROOT_VARIABLE] = str(existing)
     parts.vendor.offline = True
 
-    assert parts.locator.provision(K_CFG, dry_run=False) is True
+    assert parts.locator.provision(K_CFG, dry_run=False, console=parts.console) is True
 
     assert parts.vendor.installed == []
     assert parts.console.texts("warn") == [
@@ -147,7 +147,7 @@ def test_no_driver_installs_nothing_and_says_so(tmp_path, recording_console):
     """Check that a machine without the vendor's driver is reported and left alone."""
     parts = _scene(tmp_path, recording_console, hardware=None)
 
-    assert parts.locator.provision(K_CFG, dry_run=False) is True
+    assert parts.locator.provision(K_CFG, dry_run=False, console=parts.console) is True
 
     assert parts.vendor.installed == []
     assert parts.console.texts("warn") == [
@@ -157,14 +157,14 @@ def test_no_driver_installs_nothing_and_says_so(tmp_path, recording_console):
 
 def test_dry_run_installs_nothing(parts):
     """Check that a dry run installs no release."""
-    parts.locator.provision(K_CFG, dry_run=True)
+    parts.locator.provision(K_CFG, dry_run=True, console=parts.console)
 
     assert parts.vendor.installed == []
 
 
 def test_dry_run_does_not_write_the_root_variable(parts):
     """Check that a dry run leaves the process variable unset."""
-    parts.locator.provision(K_CFG, dry_run=True)
+    parts.locator.provision(K_CFG, dry_run=True, console=parts.console)
 
     assert K_ROOT_VARIABLE not in parts.process
 
@@ -173,7 +173,7 @@ def test_hardware_no_release_fits_falls_back_to_the_cpu(tmp_path, recording_cons
     """Check that a card no release fits gets no install and the CPU-path warning."""
     parts = _scene(tmp_path, recording_console, hardware="ancient")
 
-    parts.locator.provision(K_CFG, dry_run=False)
+    parts.locator.provision(K_CFG, dry_run=False, console=parts.console)
 
     assert parts.vendor.installed == []
     assert parts.console.texts("warn") == [

@@ -60,18 +60,18 @@ def test_an_override_that_is_not_a_release_raises(parts):
         vendor.resolve_override("latest")
 
 
-def test_install_hands_the_listed_tarball_to_the_installer(parts):
+def test_install_hands_the_listed_tarball_to_the_installer(parts, recording_console):
     """Check that a label becomes the right tarball."""
     vendor, installer = parts
 
-    vendor.install("7.12.0-gfx110X-all")
+    vendor.install("7.12.0-gfx110X-all", recording_console)
 
     assert installer.installed == [_p((7, 12, 0), "gfx110X-all")]
 
 
-def test_a_label_no_longer_listed_raises(parts):
+def test_a_label_no_longer_listed_raises(parts, recording_console):
     """Check that a release AMD withdrew is reported."""
     vendor, _installer = parts
 
     with pytest.raises(RocmIndexError):
-        vendor.install("6.0.0-gfx110X-all")
+        vendor.install("6.0.0-gfx110X-all", recording_console)

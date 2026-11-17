@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 from .gpu_hardware import GpuHardware
 from .toolkit_vendor import ToolkitSourceError
@@ -86,7 +86,7 @@ class InMemoryToolkitVendor:
         """Return the fixed hardware."""
         return self.hardware
 
-    def choose(self, hardware: GpuHardware) -> str | None:
+    def choose(self, hardware: GpuHardware, console: Any) -> str | None:
         """Return the release the hardware's fingerprint maps to, or raise when offline."""
         self._reach_index()
         self.chosen.append(hardware.fingerprint())
@@ -107,7 +107,7 @@ class InMemoryToolkitVendor:
         """Return the release folder under the base."""
         return self._base / label
 
-    def install(self, label: str) -> Path:
+    def install(self, label: str, console: Any) -> Path:
         """Mark the release as installed, or raise when offline."""
         self._reach_index()
         self._roots.add(self.root_of(label))

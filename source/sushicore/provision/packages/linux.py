@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 from sushicore.proc import CommandRunner
 
-from .._output import console
 from ..process_run import provision_runner
 from ..system import ensure_intel_oneapi_repo, is_root
 from .base import IPackageManager
@@ -59,12 +59,14 @@ class LinuxPackageManager(IPackageManager):
     """Speaks apt-format package names as its lingua franca.
 
     Args:
-        runner: Runs the package commands; the provision runner when ``None``.
+        runner: Runs the package commands; the provision runner on *console* when ``None``.
+        console: The console the manager and its runner print through.
     """
 
-    def __init__(self, runner: CommandRunner | None = None) -> None:
-        """Keep the runner every package command goes through."""
-        self._runner = runner or provision_runner()
+    def __init__(self, runner: CommandRunner | None = None, *, console: Any) -> None:
+        """Keep the console and the runner every package command goes through."""
+        super().__init__(console=console)
+        self._runner = runner or provision_runner(console)
 
     def _drain(self, command: list[str], dry_run: bool, *, check: bool = False) -> int:
         """Run *command*, streaming its output through the console; return its exit code."""
@@ -116,7 +118,7 @@ class AptManager(LinuxPackageManager):
 
     def install_oneapi(self, dry_run: bool) -> bool:
         """Configure the Intel apt repository, then install ``intel-oneapi-compiler-dpcpp-cpp``."""
-        return (ensure_intel_oneapi_repo(dry_run)
+        return (ensure_intel_oneapi_repo(dry_run, console=self._console)
                 and self.install(["intel-oneapi-compiler-dpcpp-cpp"], dry_run))
 
     def install_acpp_build_deps(self, llvm_version: str) -> tuple[str | None, str | None]:
@@ -148,7 +150,7 @@ class AptManager(LinuxPackageManager):
             return True
         sudo = [] if is_root() else ["sudo"]
         if self._drain([*sudo, "apt-get", "update"], dry_run) != 0 and not dry_run:
-            console.warn("apt-get update failed; continuing anyway.")
+            self._console.warn("apt-get update failed; continuing anyway.")
         rc = self._drain([*sudo, "apt-get", "install", "-y", *pkgs], dry_run, check=True)
         return rc == 0
 

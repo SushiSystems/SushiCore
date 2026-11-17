@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from ..deps_fragment import pins_at
 from . import closure as closure_module
@@ -23,14 +23,15 @@ from .packages import IPackageManager
 from .target import target_of
 
 
-def managers_for(cfg: ProvisionConfig,
+def managers_for(cfg: ProvisionConfig, console: Any,
                  consent: LicenceConsent | None = None) -> list[IPackageManager]:
     """Returns the package managers this platform provisions dependencies through.
 
     Args:
+        console: The console the managers print through.
         consent: The run's licence consent; winget installs only what it covers.
     """
-    return MANAGER_PLANS.plan_for(target_of(cfg)).managers(cfg, consent)
+    return MANAGER_PLANS.plan_for(target_of(cfg)).managers(cfg, consent, console)
 
 
 def managers_of(module: ModuleProvision, cfg: ProvisionConfig,
@@ -42,7 +43,7 @@ def managers_of(module: ModuleProvision, cfg: ProvisionConfig,
     """
     if module.seams.managers:
         return module.seams.managers(cfg)
-    return managers_for(cfg, consent)
+    return managers_for(cfg, module.console(), consent)
 
 
 def presence_of(module: ModuleProvision, cfg: ProvisionConfig) -> dict[str, bool]:
@@ -76,7 +77,7 @@ def closure_for(module: ModuleProvision, root: Path) -> Closure:
 def source_for(module: ModuleProvision, root: Path, found: Closure) -> TomlDependencySource:
     """Returns the dependency source over *found*, or over the module's own fragment path."""
     sources = list(found.sources) or [(root / fragment_of(module, root), module.profile.key)]
-    return TomlDependencySource(sources)
+    return TomlDependencySource(sources, console=module.console())
 
 
 def missing_module_message(module: str, wanted_by: str) -> str:

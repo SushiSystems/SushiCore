@@ -10,7 +10,6 @@ import dataclasses
 from pathlib import Path
 from typing import Any, Callable
 
-from ._output import console
 from .gpu.adapter_builder import AdapterBuilder, SubprocessBuildStepExecutor
 from .gpu.cuda_toolkit_installer import K_CUDA_LICENCE
 from .gpu.provisioning import provision_gpu_adapters
@@ -21,22 +20,22 @@ from .packages import LinuxPackageManager, install_gpu_stack
 from .pipeline import InstallContext
 
 
-def _subprocess_builder(cfg: Any) -> AdapterBuilder:
-    """Return the adapter builder that runs its commands as processes."""
-    return AdapterBuilder(cfg=cfg, runner=SubprocessBuildStepExecutor())
+def _subprocess_builder(cfg: Any, console: Any) -> AdapterBuilder:
+    """Return the adapter builder that runs its commands as processes printing through *console*."""
+    return AdapterBuilder(cfg=cfg, runner=SubprocessBuildStepExecutor(console), console=console)
 
 
 def provision_adapters_for_run(
-        ctx: InstallContext, *, console: Any = console,
+        ctx: InstallContext, *, console: Any,
         actions: MachineActions | None = None,
-        make_builder: Callable[[Any], Any] = _subprocess_builder,
+        make_builder: Callable[[Any, Any], Any] = _subprocess_builder,
         build_adapters: Callable[..., None] | None = None) -> None:
     """Build every located GPU backend's Unified Runtime adapter for this run.
 
     Args:
         console: The console the skip message is printed through.
         actions: The machine calls; the real ones when omitted.
-        make_builder: Builds the adapter builder from the probed configuration.
+        make_builder: Builds the adapter builder from the probed configuration and the console.
         build_adapters: Builds the adapters of one toolchain; defaults to
             :func:`sushicore.provision.gpu.provisioning.provision_gpu_adapters`.
     """
@@ -50,7 +49,8 @@ def provision_adapters_for_run(
         return
     held = {field.name for field in dataclasses.fields(ctx.cfg)}
     cfg = dataclasses.replace(ctx.cfg, **{key: value for key, value in probed.items() if key in held})
-    build_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), make_builder(cfg), ctx.dry_run)
+    build_adapters(cfg, DEFAULT_REGISTRY, Path(llvm_root), make_builder(cfg, console), ctx.dry_run,
+                   console=console)
 
 
 def _nvidia_toolkit_present(ctx: InstallContext) -> bool:
@@ -78,7 +78,7 @@ class GpuStage:
         toolkit_present: Answers whether the run's NVIDIA toolkit is already on the machine.
     """
 
-    def __init__(self, *, console: Any = console, actions: MachineActions | None = None,
+    def __init__(self, *, console: Any, actions: MachineActions | None = None,
                  install_stack: Callable[..., bool] | None = None,
                  provision_adapters: Callable[[InstallContext], None] | None = None,
                  toolkit_present: Callable[[InstallContext], bool] | None = None,
@@ -88,7 +88,8 @@ class GpuStage:
         self._toolkit_present = toolkit_present or (lambda ctx: _nvidia_toolkit_present(ctx))
         self._actions = actions or MachineActions()
         self._install_stack = install_stack or (
-            lambda cfg, vendor, dry_run: install_gpu_stack(cfg, vendor, dry_run))
+            lambda cfg, vendor, dry_run: install_gpu_stack(
+                cfg, vendor, dry_run, console=self._console))
         self._provision_adapters = provision_adapters or (
             lambda ctx: provision_adapters_for_run(
                 ctx, console=self._console, actions=self._actions))

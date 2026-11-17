@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from sushicore.deps_fragment import SushiPin
 
 from . import home
-from ._output import console
 from .closure import Locate
 from .git_client import IGitClient
 from .lock import LockTimeout, ProvisionLock
@@ -39,8 +38,8 @@ def locator(base: Locate, root: Path, pins: Sequence[SushiPin]) -> Locate:
     return locate
 
 
-def _walk(owner: str, root: Path, pins: Sequence[SushiPin]) -> PinWalk | None:
-    """Return the chain's walk; print each conflict or malformed fragment and return None."""
+def _walk(owner: str, root: Path, pins: Sequence[SushiPin], console: Any) -> PinWalk | None:
+    """Return the chain's walk; print each conflict or bad fragment on *console*, else None."""
     try:
         found = walk(owner, root, pins)
     except ValueError as exc:
@@ -52,9 +51,9 @@ def _walk(owner: str, root: Path, pins: Sequence[SushiPin]) -> PinWalk | None:
 
 
 def _fetch(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitClient,
-           timeout: float) -> bool:
+           timeout: float, console: Any) -> bool:
     """Clone each of *pins* that no directory or sibling provides, under the root's lock."""
-    pipeline = InstallPipeline([FetchSushiSourcesStep(root, pins, git)])
+    pipeline = InstallPipeline([FetchSushiSourcesStep(root, pins, git, console)], console)
     try:
         with ProvisionLock(home.root() / ".lock", timeout=timeout):
             return pipeline.run(ctx, show_progress=False)
@@ -64,7 +63,7 @@ def _fetch(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitC
 
 
 def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGitClient,
-            timeout: float) -> bool:
+            timeout: float, console: Any) -> bool:
     """Fetch every pinned library of the chain, one layer at a time; report success.
 
     Each round walks the pins of the libraries on disk, fetches what is missing, and walks
@@ -76,17 +75,18 @@ def prepare(ctx: InstallContext, root: Path, pins: Sequence[SushiPin], git: IGit
         pins: The pins of its own fragment.
         git: Clones and inspects the libraries.
         timeout: Seconds to wait for another process's lock.
+        console: The console the run prints through.
     """
     if not pins:
         return True
     known: set[str] = set()
     while True:
-        found = _walk(ctx.consumer, root, pins)
+        found = _walk(ctx.consumer, root, pins, console)
         if found is None:
             return False
         names = {pin.name for pin in found.pins}
         if names == known:
             return True
         known = names
-        if not _fetch(ctx, root, found.pins, git, timeout):
+        if not _fetch(ctx, root, found.pins, git, timeout, console):
             return False

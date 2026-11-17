@@ -29,13 +29,14 @@ def _spec(locator) -> GpuBackendSpec:
 
 
 @pytest.mark.small
-def test_install_gpu_stack_dispatches_through_the_registry():
+def test_install_gpu_stack_dispatches_through_the_registry(recording_console):
     """Check that the stack of a registered vendor is provisioned by its locator."""
     locator = InMemoryToolkitLocator()
     cfg = ProvisionSettings(platform="linux")
 
     result = packages.install_gpu_stack(cfg, "fakevendor", dry_run=True,
-                                        registry=Registry((_spec(locator),)))
+                                        registry=Registry((_spec(locator),)),
+                                        console=recording_console)
 
     assert result is True
     assert locator.provisioned_with == [(cfg, True)]
@@ -46,7 +47,8 @@ def test_install_gpu_stack_dispatches_through_the_registry():
 def test_install_gpu_stack_reports_no_gpu_for_an_unregistered_vendor(recording_console, vendor):
     """Check that an unregistered vendor gets the CPU-only line and a True answer."""
     cfg = ProvisionSettings(platform="linux")
-    assert packages.install_gpu_stack(cfg, vendor, dry_run=True, registry=Registry(())) is True
+    assert packages.install_gpu_stack(cfg, vendor, dry_run=True, registry=Registry(()),
+                                      console=recording_console) is True
     assert recording_console.calls == [
         ("info", ("No discrete GPU detected; using the CPU (SPIR/OpenCL) path only.",)),
     ]
@@ -57,5 +59,5 @@ def test_install_gpu_stack_prints_nothing_for_a_registered_vendor(recording_cons
     """Check that a registered vendor gets no CPU-only line."""
     registry = Registry((_spec(InMemoryToolkitLocator()),))
     packages.install_gpu_stack(ProvisionSettings(platform="linux"), "fakevendor", True,
-                               registry=registry)
+                               registry=registry, console=recording_console)
     assert recording_console.calls == []

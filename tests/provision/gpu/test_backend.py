@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 
 import pytest
@@ -25,6 +25,7 @@ from sushicore.provision.gpu.cuda import CUDA
 from sushicore.provision.gpu.level_zero import LEVEL_ZERO
 
 from sushicore.provision.gpu.rocm import ROCM
+from sushicore.provision.output_memory import MemoryConsole
 
 
 
@@ -38,7 +39,7 @@ def test_every_backend_reports_not_provided_on_darwin(spec, name, recording_cons
     cfg = SimpleNamespace(platform="darwin")
 
     assert spec.locator.locate(cfg) is None
-    assert spec.locator.provision(cfg, dry_run=True) is True
+    assert spec.locator.provision(cfg, dry_run=True, console=recording_console) is True
     assert recording_console.texts("info") == [f"{name} is not provided on darwin."]
 
 
@@ -48,6 +49,7 @@ class LocatorWorld:
 
     locator: ToolkitLocator
     expected: ToolkitInstall | None
+    console: object = field(default_factory=MemoryConsole)
 
 
 class ToolkitLocatorContract:
@@ -65,7 +67,8 @@ class ToolkitLocatorContract:
         assert world.locator.locate(cfg) == world.locator.locate(cfg)
 
     def test_a_dry_run_provision_succeeds_unless_it_failed_fatally(self, world):
-        assert world.locator.provision(SimpleNamespace(platform="linux"), dry_run=True) is True
+        assert world.locator.provision(
+            SimpleNamespace(platform="linux"), dry_run=True, console=world.console) is True
 
 
 _INSTALL = ToolkitInstall(root=pathlib.Path("/opt/toolkit"), version="1.0")
@@ -86,7 +89,7 @@ class TestNotProvidedKeepsTheToolkitLocatorContract(ToolkitLocatorContract):
 
     @pytest.fixture
     def world(self, recording_console):
-        return LocatorWorld(NotProvided("CUDA", "linux"), None)
+        return LocatorWorld(NotProvided("CUDA", "linux"), None, recording_console)
 
 
 @pytest.mark.medium
@@ -95,4 +98,4 @@ class TestPlatformLocatorKeepsTheToolkitLocatorContract(ToolkitLocatorContract):
 
     @pytest.fixture
     def world(self, recording_console):
-        return LocatorWorld(PlatformLocator("CUDA", {}), None)
+        return LocatorWorld(PlatformLocator("CUDA", {}), None, recording_console)

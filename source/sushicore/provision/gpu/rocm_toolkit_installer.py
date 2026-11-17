@@ -17,7 +17,6 @@ import urllib.request
 from pathlib import Path
 
 from .. import home
-from .._output import console
 from ..system import USER_AGENT
 from .rocm_package import RocmPackage
 from .toolkit_vendor import ToolkitSourceError
@@ -66,8 +65,11 @@ class RocmTarballInstaller:
         """Report whether the release was unpacked to the end."""
         return is_rocm_root(self.root_of(label))
 
-    def install(self, package: RocmPackage) -> Path:
+    def install(self, package: RocmPackage, console: typing.Any) -> Path:
         """Install *package* and return its root; an installed release is returned as is.
+
+        Args:
+            console: The console the download is announced on.
 
         Raises:
             RocmInstallError: The tarball could not be downloaded or unpacked.
@@ -75,7 +77,7 @@ class RocmTarballInstaller:
         root = self.root_of(package.label)
         if self.is_installed(package.label):
             return root
-        archive = self._fetch(package)
+        archive = self._fetch(package, console)
         staging = self.base_dir / f".{package.label}"
         _remove_tree(staging)
         try:
@@ -95,7 +97,7 @@ class RocmTarballInstaller:
         """Delete tarballs kept from an install that did not finish."""
         _remove_tree(self.base_dir / "downloads")
 
-    def _fetch(self, package: RocmPackage) -> Path:
+    def _fetch(self, package: RocmPackage, console: typing.Any) -> Path:
         """Download the tarball, resuming nothing: a partial file is fetched again."""
         dest = self.base_dir / "downloads" / package.url.rsplit("/", 1)[-1]
         if dest.is_file():

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from .config import ProvisionConfig
 from .licence_consent import LicenceConsent
@@ -18,8 +19,12 @@ class IManagerPlan(ABC):
     """Builds the package managers one target provisions its dependencies through."""
 
     @abstractmethod
-    def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None) -> list[IPackageManager]:
-        """Return the managers, in the order they are tried; *consent* gates winget's installs."""
+    def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None,
+                 console: Any) -> list[IPackageManager]:
+        """Return the managers, in the order they are tried; *consent* gates winget's installs.
+
+        Each manager prints through *console*.
+        """
 
 
 #: The manager plan of each target, registered by the modules of ``manager_plans``.

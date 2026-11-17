@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 from ..proc import CommandRunner
 from .process_run import provision_runner
@@ -33,13 +34,16 @@ class GitClient(IGitClient):
 
     Args:
         git: The git executable; ``git`` on PATH by default.
-        runner: Runs the clone drained and captures the HEAD read; the provision runner when ``None``.
+        runner: Runs the clone drained and captures the HEAD read; the provision runner on
+            *console* when ``None``.
+        console: The console the clone's output is shown through.
     """
 
-    def __init__(self, git: str = "git", runner: CommandRunner | None = None) -> None:
+    def __init__(self, git: str = "git", runner: CommandRunner | None = None, *,
+                 console: Any) -> None:
         """Store the executable and the runner."""
         self._git = git
-        self._runner = runner or provision_runner()
+        self._runner = runner or provision_runner(console)
 
     def clone_tag(self, url: str, tag: str, destination: Path, dry_run: bool) -> bool:
         """Run ``git clone --depth 1 --branch <tag> --single-branch``; report success."""

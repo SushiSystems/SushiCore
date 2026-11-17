@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import home
-from ._output import console
 from .fragments import IDependencySource
 from .packages import IPackageManager
 from .pipeline import InstallContext, Step, StepResult
@@ -27,7 +26,7 @@ class UninstallStep(Step):
 
     def __init__(self, source: IDependencySource,
                  managers: list[IPackageManager], sink: ConfigSink,
-                 *, console: Any = console,
+                 *, console: Any,
                  root: Callable[[], Path] | None = None) -> None:
         """Wire the dependency source, the package managers and the sink this step clears.
 

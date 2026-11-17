@@ -14,12 +14,11 @@ from rich.markup import escape
 
 from . import home, probe, selection
 from ..proc import CommandRunner
-from ._output import console
+from ..quiet_runner import quiet_runner
 from .dependency_presence import check_cmd_ok, dep_installed, dep_manager, vcpkg_manager
 from .fragments import SHARED_OWNER, Dependency, IDependencySource, owner_order
 from .packages import IPackageManager, refresh_windows_path
 from .pipeline import InstallContext, Step, StepResult
-from .process_run import provision_runner
 from .target import target_of
 
 
@@ -77,7 +76,7 @@ class DetectStep(Step):
                  managers: list[IPackageManager] | None = None,
                  after_inventory: Callable[[InstallContext, list[Dependency]], None] | None = None,
                  *, toolchain_status=probe.toolchain_status,
-                 gpu_vendor=probe.detect_gpu_vendor, console: Any = console,
+                 gpu_vendor=probe.detect_gpu_vendor, console: Any,
                  runner: CommandRunner | None = None) -> None:
         """Wire the dependency source, the package managers and the machine probes.
 
@@ -87,7 +86,7 @@ class DetectStep(Step):
             toolchain_status: Reads the SYCL toolchains off the machine.
             gpu_vendor: Reads the discrete-GPU vendor off the machine.
             console: The console the step prints through.
-            runner: Runs each dependency's check command; the provision runner when ``None``.
+            runner: Runs each dependency's check command; the quiet runner when ``None``.
         """
         self._source = source
         self._managers = managers or []
@@ -95,7 +94,7 @@ class DetectStep(Step):
         self._toolchain_status = toolchain_status
         self._gpu_vendor = gpu_vendor
         self._console = console
-        self._runner = runner if runner is not None else provision_runner()
+        self._runner = runner if runner is not None else quiet_runner()
 
     def _dep_manager(self, plat: str) -> IPackageManager | None:
         """Return the manager that knows whether a manifest dep is installed."""

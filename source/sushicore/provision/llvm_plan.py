@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from .packages import IPackageManager, LinuxPackageManager
 from .target_plans import TargetPlans
@@ -25,6 +25,7 @@ class LlvmRequest:
         winget: The winget manager, or None when unavailable.
         assume_yes: Skip the consent prompt for the heavy LLVM download.
         llvm_bases: The Windows LLVM install roots to look in; the defaults when ``None``.
+        console: The console the plan prints through.
     """
 
     mgr: LinuxPackageManager | None
@@ -32,6 +33,7 @@ class LlvmRequest:
     winget: IPackageManager | None
     assume_yes: bool
     llvm_bases: Sequence[Path] | None
+    console: Any
 
 
 class ILlvmPlan(ABC):

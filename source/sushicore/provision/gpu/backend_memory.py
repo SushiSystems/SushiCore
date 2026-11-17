@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 from .backend import ToolkitInstall
 
@@ -39,7 +40,7 @@ class InMemoryToolkitLocator:
             raise self._fail_with
         return self._install
 
-    def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
+    def provision(self, cfg: "ProvisionConfig", dry_run: bool, console: Any) -> bool:
         """Record *cfg* and *dry_run*, change nothing and return the fixed outcome."""
         self.provisioned_with.append((cfg, dry_run))
         return self._provisioned

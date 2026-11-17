@@ -169,7 +169,7 @@ def test_fetch_reuses_a_copy_whose_md5_matches(tmp_path, recording_console):
     (tmp_path / "setup.exe").write_bytes(_BODY)
     open_url = _OfflineUrl()
 
-    fetched = HttpDownloader(open_url=open_url).fetch(_DOWNLOAD, tmp_path)
+    fetched = HttpDownloader(open_url=open_url).fetch(_DOWNLOAD, tmp_path, recording_console)
 
     assert fetched == tmp_path / "setup.exe"
     assert open_url.calls == 0
@@ -180,7 +180,7 @@ def test_fetch_deletes_a_copy_whose_md5_does_not_match(tmp_path, recording_conso
     """Check that a stored installer with another MD5 is removed before the download starts."""
     (tmp_path / "setup.exe").write_bytes(b"truncated")
 
-    HttpDownloader(open_url=_OfflineUrl()).fetch(_DOWNLOAD, tmp_path)
+    HttpDownloader(open_url=_OfflineUrl()).fetch(_DOWNLOAD, tmp_path, recording_console)
 
     assert not (tmp_path / "setup.exe").exists()
 
@@ -188,7 +188,7 @@ def test_fetch_deletes_a_copy_whose_md5_does_not_match(tmp_path, recording_conso
 @pytest.mark.medium
 def test_fetch_returns_none_and_warns_when_the_download_fails(tmp_path, recording_console):
     """Check that an unreachable host gives None and one warning naming the file and the error."""
-    fetched = HttpDownloader(open_url=_OfflineUrl()).fetch(_DOWNLOAD, tmp_path)
+    fetched = HttpDownloader(open_url=_OfflineUrl()).fetch(_DOWNLOAD, tmp_path, recording_console)
 
     assert fetched is None
     assert recording_console.texts("warn") == ["Download of setup.exe failed: offline"]

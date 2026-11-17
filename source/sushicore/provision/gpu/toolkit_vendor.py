@@ -55,8 +55,11 @@ class ToolkitVendor(typing.Protocol):
         """Return the cards, or None when there is no driver to ask."""
         ...
 
-    def choose(self, hardware: GpuHardware) -> str | None:
+    def choose(self, hardware: GpuHardware, console: typing.Any) -> str | None:
         """Return the label of the release the hardware needs, or None when none fits.
+
+        Args:
+            console: The console a probe of the index announces itself on.
 
         Raises:
             ToolkitSourceError: The index could not be read.
@@ -79,8 +82,11 @@ class ToolkitVendor(typing.Protocol):
         """Return where the release is, or would be, installed."""
         ...
 
-    def install(self, label: str) -> Path:
+    def install(self, label: str, console: typing.Any) -> Path:
         """Install the release unless it is in place, and return its root.
+
+        Args:
+            console: The console a download announces itself on.
 
         Raises:
             ToolkitSourceError: The release could not be downloaded, verified or unpacked.

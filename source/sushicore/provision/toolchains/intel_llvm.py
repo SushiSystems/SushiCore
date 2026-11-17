@@ -11,16 +11,15 @@ import tarfile
 import tempfile
 import typing
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from sushicore.deps_fragment import Download
 from sushicore.errors import ConfigError, DigestMismatchError
 
-from .._output import console
 from ..download_verifier import pinned_download, verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
-from ..packages import download
+from ..packages import downloader
 from ..pipeline import InstallContext
 from ..target import target_of
 from .stamp import (
@@ -59,7 +58,7 @@ class IntelLlvmToolchain:
         """
         llvm = install_intel_llvm(
             ctx.cfg, ctx.dry_run, refresh=ctx.refresh_toolchains,
-            refresh_command=ctx.refresh_command)
+            refresh_command=ctx.refresh_command, console=env.console)
         if llvm:
             ctx.resolved_paths["llvm_root"] = llvm
         else:
@@ -73,6 +72,7 @@ INTEL_LLVM = IntelLlvmToolchain()
 
 def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
                        refresh: bool = False, refresh_command: str = "", *,
+                       console: Any,
                        pin: Callable[[str], Download] | None = None,
                        fetch: Callable[[str, Path], None] | None = None) -> str | None:
     """Download and extract the intel/llvm SYCL bundle; return its root directory.
@@ -82,6 +82,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         dry_run: Report the action without touching the filesystem.
         refresh: Re-download over an existing install.
         refresh_command: The command the consumer offers for a refresh; named in the note about a stale bundle.
+        console: The console the install prints through.
         pin: Maps an entry name to its pinned download; the bound verifier's when ``None``.
         fetch: Downloads a URL into a file; the download transport.
 
@@ -129,7 +130,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading intel/llvm SYCL bundle {tag} (~300-500 MB) ...")
-            (fetch or download)(url, archive)
+            (fetch or downloader(console))(url, archive)
             verify_download("intel-llvm", archive)
             _extract_tar_gz(archive, root)
         except (DigestMismatchError, ConfigError):

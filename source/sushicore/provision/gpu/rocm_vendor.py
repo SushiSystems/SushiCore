@@ -70,7 +70,7 @@ class RocmVendor:
         """Return the AMD cards."""
         return self._hardware()
 
-    def choose(self, hardware: AmdHardware) -> str | None:
+    def choose(self, hardware: AmdHardware, console: typing.Any) -> str | None:
         """Return the newest tarball whose family covers every card."""
         chosen = select_package(hardware, self._index.packages(self.platform_key))
         return chosen.label if chosen is not None else None
@@ -102,9 +102,9 @@ class RocmVendor:
         """Return ``<home>/rocm/<label>``."""
         return self._installer.root_of(label)
 
-    def install(self, label: str) -> Path:
-        """Download and unpack the tarball labelled *label*."""
-        return self._installer.install(self._package(label))
+    def install(self, label: str, console: typing.Any) -> Path:
+        """Download and unpack the tarball labelled *label*, announcing it on *console*."""
+        return self._installer.install(self._package(label), console)
 
     def discard_downloads(self) -> None:
         """Delete tarballs left by an install that did not finish."""

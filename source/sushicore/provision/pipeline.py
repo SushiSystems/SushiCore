@@ -9,8 +9,8 @@ from __future__ import annotations
 import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, fields
+from typing import Any
 
-from sushicore.provision._output import console
 
 from .config import ProvisionConfig
 from .licence_consent import LicenceConsent
@@ -104,9 +104,10 @@ class Step(ABC):
 class InstallPipeline:
     """Runs an ordered list of steps, stopping on the first failure."""
 
-    def __init__(self, steps: list[Step]) -> None:
-        """Hold the ordered *steps* this pipeline runs."""
+    def __init__(self, steps: list[Step], console: Any) -> None:
+        """Hold the ordered *steps* this pipeline runs and the *console* it reports through."""
         self._steps = steps
+        self._console = console
 
     @property
     def steps(self) -> list[Step]:
@@ -127,24 +128,23 @@ class InstallPipeline:
         del show_progress
         total = len(self._steps)
         for index, step in enumerate(self._steps, start=1):
-            console.header(f"setup: {step.name}")
-            console.progress(step.name, index, total, index / total)
+            self._console.header(f"setup: {step.name}")
+            self._console.progress(step.name, index, total, index / total)
             result = step.run(ctx)
             if result is StepResult.FAILED:
-                console.error(f"Step '{step.name}' failed; stopping pipeline.")
+                self._console.error(f"Step '{step.name}' failed; stopping pipeline.")
                 return False
             if result is StepResult.SKIPPED:
-                console.info(f"Step '{step.name}' skipped (nothing to do).")
+                self._console.info(f"Step '{step.name}' skipped (nothing to do).")
             else:
-                console.success(f"Step '{step.name}' done.")
+                self._console.success(f"Step '{step.name}' done.")
         self._report_warnings(ctx)
         return True
 
-    @staticmethod
-    def _report_warnings(ctx: InstallContext) -> None:
+    def _report_warnings(self, ctx: InstallContext) -> None:
         """Re-print any non-fatal problems after the progress bar clears."""
         if not ctx.warnings:
             return
-        console.warn(f"Completed with {len(ctx.warnings)} warning(s):")
+        self._console.warn(f"Completed with {len(ctx.warnings)} warning(s):")
         for message in ctx.warnings:
-            console.warn(f"  - {message}")
+            self._console.warn(f"  - {message}")

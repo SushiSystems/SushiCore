@@ -11,6 +11,7 @@ import pytest
 from sushicore.deps_fragment import read
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.fragments import TomlDependencySource
+from sushicore.provision.output_memory import MemoryConsole
 from sushicore.provision.module_checks import ModuleState, doctor_checks
 
 from .sushi_fakes import pinned_git, write_fragment
@@ -20,7 +21,9 @@ from .sushi_fakes import pinned_git, write_fragment
 def _state(root, own):
     """Return the state of the module at *root* whose fragment is *own*."""
     return ModuleState(cfg=ProvisionSettings(platform="linux"), root=root, owner="sushiai",
-                       program="sa", own=own, source=TomlDependencySource([]), missing=())
+                       program="sa", own=own, source=TomlDependencySource([],
+                                                                          console=MemoryConsole()),
+                                                                          missing=())
 
 
 def _names(root, own):

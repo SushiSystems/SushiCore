@@ -37,25 +37,26 @@ class _Steps:
 @pytest.mark.small
 @pytest.mark.parametrize(("superuser", "sudo"), [(False, "sudo "), (True, "")],
                          ids=["user", "root"])
-def test_level_zero_linux_provision_installs_with_sudo_unless_root(superuser, sudo):
+def test_level_zero_linux_provision_installs_with_sudo_unless_root(
+        superuser, sudo, recording_console):
     """Check that the apt line carries sudo for a user and none for root."""
     steps = _Steps()
     locator = LinuxLevelZeroLocator(ensure_repo=lambda dry_run: True,
                                     is_superuser=lambda: superuser, run_steps=steps)
 
-    assert locator.provision(_CFG, dry_run=True) is True
+    assert locator.provision(_CFG, dry_run=True, console=recording_console) is True
 
     assert steps.lines == [(f"{sudo}apt-get update && {sudo}{_APT_SUFFIX}", True)]
 
 
 @pytest.mark.small
-def test_level_zero_linux_provision_stops_when_the_repository_is_not_ready():
+def test_level_zero_linux_provision_stops_when_the_repository_is_not_ready(recording_console):
     """Check that a failed repository setup returns False and runs no apt line."""
     steps = _Steps()
     locator = LinuxLevelZeroLocator(ensure_repo=lambda dry_run: False,
                                     is_superuser=lambda: False, run_steps=steps)
 
-    assert locator.provision(_CFG, dry_run=False) is False
+    assert locator.provision(_CFG, dry_run=False, console=recording_console) is False
 
     assert steps.lines == []
 
@@ -66,7 +67,7 @@ def test_level_zero_linux_provision_warns_when_the_install_fails(recording_conso
     locator = LinuxLevelZeroLocator(ensure_repo=lambda dry_run: True,
                                     is_superuser=lambda: False, run_steps=_Steps(False))
 
-    assert locator.provision(_CFG, dry_run=False) is False
+    assert locator.provision(_CFG, dry_run=False, console=recording_console) is False
 
     assert recording_console.texts("warn") == [
         "Intel GPU runtime install failed; the build will fall back to the CPU/OpenCL path."]

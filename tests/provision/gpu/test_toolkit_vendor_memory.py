@@ -31,17 +31,17 @@ def test_fixed_hardware_names_its_cards_as_fingerprint_and_description():
     assert (cards.fingerprint(), cards.describe()) == ("sm_89", "sm_89")
 
 
-def test_choose_returns_the_release_of_the_fingerprint_and_records_it():
+def test_choose_returns_the_release_of_the_fingerprint_and_records_it(recording_console):
     """Check that choose maps the fingerprint to its release and records the question."""
     vendor = _vendor()
 
-    assert vendor.choose(FixedHardware("new")) == "2.0"
+    assert vendor.choose(FixedHardware("new"), recording_console) == "2.0"
     assert vendor.chosen == ["new"]
 
 
-def test_choose_returns_none_for_a_fingerprint_no_release_fits():
+def test_choose_returns_none_for_a_fingerprint_no_release_fits(recording_console):
     """Check that an unmapped fingerprint gets no release."""
-    assert _vendor().choose(FixedHardware("ancient")) is None
+    assert _vendor().choose(FixedHardware("ancient"), recording_console) is None
 
 
 def test_resolve_override_returns_a_published_release():
@@ -55,11 +55,11 @@ def test_resolve_override_refuses_a_release_that_is_not_published():
         _vendor().resolve_override("9.9")
 
 
-def test_install_marks_the_release_installed_and_returns_its_root():
+def test_install_marks_the_release_installed_and_returns_its_root(recording_console):
     """Check that an install returns the folder under the base and makes it a toolkit root."""
     vendor = _vendor()
 
-    root = vendor.install("2.0")
+    root = vendor.install("2.0", recording_console)
 
     assert root == K_BASE / "2.0"
     assert vendor.is_installed("2.0")
@@ -78,17 +78,17 @@ def test_a_preset_toolkit_root_is_a_toolkit_root():
 
 
 @pytest.mark.parametrize("call", [
-    lambda vendor: vendor.choose(FixedHardware("new")),
-    lambda vendor: vendor.resolve_override("1.0"),
-    lambda vendor: vendor.install("1.0"),
+    lambda vendor, console: vendor.choose(FixedHardware("new"), console),
+    lambda vendor, console: vendor.resolve_override("1.0"),
+    lambda vendor, console: vendor.install("1.0", console),
 ], ids=["choose", "resolve-override", "install"])
-def test_an_offline_vendor_raises_on_every_call_that_reads_the_index(call):
+def test_an_offline_vendor_raises_on_every_call_that_reads_the_index(call, recording_console):
     """Check that choose, resolve_override and install raise when the index is unreachable."""
     vendor = _vendor()
     vendor.offline = True
 
     with pytest.raises(ToolkitSourceError):
-        call(vendor)
+        call(vendor, recording_console)
 
 
 def test_discard_downloads_counts_the_calls():

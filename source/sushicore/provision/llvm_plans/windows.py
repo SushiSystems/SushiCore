@@ -9,16 +9,15 @@ from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Callable, Sequence, final
+from typing import Any, Callable, Sequence, final
 
 from sushicore.errors import DigestMismatchError
 from sushicore.proc import CommandRunner
 
 from .. import home
-from .._output import console
 from ..download_verifier import verify_download
 from ..llvm_plan import LLVM_PLANS, ILlvmPlan, LlvmRequest
-from ..packages import download, gh_tagged_asset
+from ..packages import downloader, gh_tagged_asset
 from ..process_run import provision_runner
 from ..target import K_WINDOWS
 from ..toolchains.adaptivecpp import LLVM_WINDOWS_VERSION
@@ -52,15 +51,17 @@ class _LlvmInstallerError(RuntimeError):
     """The elevated LLVM installer ended with a non-zero exit code."""
 
 
-def vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None = None,
+def vendor_llvm_windows(*, console: Any,
+                        resolve_asset: Callable[[str, str, str], str] | None = None,
                         fetch: Callable[[str, Path], None] | None = None,
                         runner: CommandRunner | None = None) -> tuple[str, str] | None:
     """Download the official clang+llvm Windows tarball into the tools tree.
 
     Args:
+        console: The console the vendoring prints through.
         resolve_asset: Maps a repository, a tag and an asset name to the asset URL.
         fetch: Downloads a URL into a file; the download transport.
-        runner: Runs the installer command; the provision runner when ``None``.
+        runner: Runs the installer command; the provision runner on *console* when ``None``.
 
     Returns:
         ``(LLVM_DIR, clang_prefix)`` for the vendored install, or None on failure.
@@ -80,7 +81,7 @@ def vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None 
         archive = Path(tmp) / asset
         try:
             console.info(f"Downloading LLVM {LLVM_WINDOWS_VERSION} (~1 GB) into {dest} ...")
-            (fetch or download)(url, archive)
+            (fetch or downloader(console))(url, archive)
             verify_download("adaptivecpp", archive)
             console.info("Installing LLVM silently (this takes a minute) ...")
             dest.mkdir(parents=True, exist_ok=True)
@@ -89,7 +90,7 @@ def vendor_llvm_windows(*, resolve_asset: Callable[[str, str, str], str] | None 
                 f"Start-Process -FilePath '{archive}' "
                 f"-ArgumentList '/S /D={dest.absolute()}' -Wait -Verb RunAs"
             )
-            code = (runner or provision_runner()).run_drained(
+            code = (runner or provision_runner(console)).run_drained(
                 ["powershell", "-NoProfile", "-Command", ps_cmd], None)
             if code != 0:
                 raise _LlvmInstallerError(f"the LLVM installer exited with {code}")
@@ -127,13 +128,13 @@ class WindowsLlvmPlan(ILlvmPlan):
         # Prefer winget when available; otherwise vendor the official tarball.
         winget = request.winget
         if winget is not None and winget.available():
-            console.info("Installing LLVM via winget ...")
+            request.console.info("Installing LLVM via winget ...")
             winget.install(["LLVM.LLVM"], dry_run=False)
             existing = find_windows_llvm(request.llvm_bases)
             if existing:
                 return existing
 
-        vendored = vendor_llvm_windows()
+        vendored = vendor_llvm_windows(console=request.console)
         return vendored if vendored else (None, None)
 
 

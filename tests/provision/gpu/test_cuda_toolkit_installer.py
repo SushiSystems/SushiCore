@@ -76,7 +76,7 @@ def test_install_merges_every_component_into_one_root(tmp_path, recording_consol
     release = _release(server, libnvvm=server.add("libnvvm", {"nvvm/libdevice/x.bc": ""}))
     installer = RedistToolkitInstaller(tmp_path, server.download)
 
-    root = installer.install(release)
+    root = installer.install(release, recording_console)
 
     assert root == tmp_path / "13.1.2"
     assert nvcc_in(root).is_file()
@@ -93,10 +93,10 @@ def test_install_of_an_installed_release_downloads_nothing(tmp_path, recording_c
     server = _Server()
     release = _release(server)
     installer = RedistToolkitInstaller(tmp_path, server.download)
-    installer.install(release)
+    installer.install(release, recording_console)
     server.fetched.clear()
 
-    installer.install(release)
+    installer.install(release, recording_console)
 
     assert server.fetched == []
 
@@ -109,7 +109,7 @@ def test_a_mismatching_archive_installs_nothing(tmp_path, recording_console):
     installer = RedistToolkitInstaller(tmp_path, server.download)
 
     with pytest.raises(ToolkitInstallError):
-        installer.install(_release(server, cuda_cudart=bad))
+        installer.install(_release(server, cuda_cudart=bad), recording_console)
 
     assert not installer.is_installed("13.1.2")
     assert not list((tmp_path / "downloads").glob("*cudart*"))
@@ -123,7 +123,7 @@ def test_a_missing_required_component_installs_nothing(tmp_path, recording_conso
     del release.archives["cuda_nvml_dev"]
 
     with pytest.raises(ToolkitInstallError):
-        RedistToolkitInstaller(tmp_path, server.download).install(release)
+        RedistToolkitInstaller(tmp_path, server.download).install(release, recording_console)
 
 
 @pytest.mark.medium
@@ -136,7 +136,7 @@ def test_an_archive_escaping_its_folder_is_refused(tmp_path, recording_console):
 
     with pytest.raises(ToolkitInstallError):
         RedistToolkitInstaller(tmp_path / "cuda", server.download).install(
-            _release(server, cuda_nvcc=evil))
+            _release(server, cuda_nvcc=evil), recording_console)
 
     assert not (tmp_path / "escape.txt").exists()
 
@@ -155,7 +155,7 @@ def test_a_tar_xz_archive_unpacks(tmp_path, recording_console):
     nvcc = RedistArchive(f"{K_ROOT}nvcc.tar.xz", hashlib.sha256(buffer.getvalue()).hexdigest())
 
     root = RedistToolkitInstaller(tmp_path, server.download).install(
-        _release(server, cuda_nvcc=nvcc))
+        _release(server, cuda_nvcc=nvcc), recording_console)
 
     assert nvcc_in(root).read_bytes() == b"nvcc"
 
@@ -169,7 +169,7 @@ def test_probe_unpacks_only_the_compiler_and_cleans_up(tmp_path, recording_conso
     installer = RedistToolkitInstaller(
         tmp_path, server.download, lambda nvcc: seen.append(nvcc) or frozenset({"89"}))
 
-    archs = installer.probe_architectures(release)
+    archs = installer.probe_architectures(release, recording_console)
 
     assert archs == frozenset({"89"})
     assert server.fetched == [f"{K_ROOT}cuda_nvcc.zip"]

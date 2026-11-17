@@ -19,7 +19,7 @@ from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.doctor import Check, CheckResult, FunctionCheck, State
 from sushicore.provision.download_verifier import unpinned_downloads
 from sushicore.provision.fragments import Dependency, IDependencySource
-from sushicore.provision.process_run import provision_runner
+from sushicore.quiet_runner import quiet_runner
 from sushicore.provision.selection import required_groups
 from sushicore.provision.target import target_of
 from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
@@ -30,7 +30,7 @@ _VERSION_TIMEOUT = 15
 
 def _first_version_line(exe: str, runner: CommandRunner | None = None) -> str:
     """Return the first line ``<exe> --version`` prints, or '' when it cannot run."""
-    code, out, err = (runner or provision_runner()).capture([exe, "--version"],
+    code, out, err = (runner or quiet_runner()).capture([exe, "--version"],
                                                             timeout=_VERSION_TIMEOUT)
     if did_not_run(exe, code, err):
         return ""
@@ -64,7 +64,7 @@ def tool_check(name: str, exe: str, group: str = "build", required: bool = True,
 
     Args:
         works: Asked whether *exe* runs; ``probe.binary_works`` through *runner* when ``None``.
-        runner: Runs the version probe; the provision runner when ``None``.
+        runner: Runs the version probe; the quiet runner when ``None``.
     """
     def fn() -> CheckResult:
         runs = works or (lambda name: probe.binary_works(name, runner))
@@ -79,7 +79,7 @@ def compiler_check(cfg: ProvisionConfig, fix: str = "",
     """Return a check reporting every C++ compiler found, MSVC/Clang/GCC each in turn.
 
     Args:
-        runner: Runs the version probes; the provision runner when ``None``.
+        runner: Runs the version probes; the quiet runner when ``None``.
     """
     def fn() -> CheckResult:
         target = target_of(cfg)
@@ -136,10 +136,10 @@ def fragment_check(source: IDependencySource, platform: str, gpu: bool, fix: str
         installed: Asked about a dependency whose ``check_cmd`` failed; a true
             answer passes it, as the install inventory does.
         runner: Runs each ``check_cmd``, which passes when it exits zero within the version
-            timeout; the provision runner when ``None``.
+            timeout; the quiet runner when ``None``.
     """
     def fn() -> CheckResult:
-        run = runner or provision_runner()
+        run = runner or quiet_runner()
         failing: list[str] = []
         required_failed = False
         for dep in source.selected(platform, gpu):
@@ -246,7 +246,7 @@ def standard_checks(cfg: ProvisionConfig, fix: str,
     """Return the checks every module CLI registers: python, cmake, ctest, ninja, compiler, git.
 
     Args:
-        runner: Runs every version probe; the provision runner when ``None``.
+        runner: Runs every version probe; the quiet runner when ``None``.
     """
     checks = [
         python_check(),

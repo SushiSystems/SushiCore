@@ -25,7 +25,7 @@ from sushicore.provision.pipeline import InstallContext, StepResult
 def _services(managers, dependencies=()) -> InstallServices:
     """Build the services of a run with git and Visual Studio present and no machine touched."""
     console = RecordingConsole()
-    actions = MachineActions(refresh_path=lambda: None, install_oneapi=lambda ctx: True,
+    actions = MachineActions(refresh_path=lambda: None, install_oneapi=lambda ctx, console: True,
                              which=lambda name: f"/bin/{name}", find_vcvars=lambda: Path("vcvars64.bat"))
     return InstallServices(source=InMemoryDependencySource(list(dependencies)), managers=managers,
                            console=console, actions=actions,

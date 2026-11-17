@@ -38,7 +38,7 @@ def test_choose_gives_the_newest_release_the_driver_runs_and_the_cards_fit(
     """Check that the driver ceiling and the cards' architectures pick the release."""
     vendor, _installer = _vendor()
 
-    assert vendor.choose(NvidiaHardware(cards, ceiling)) == expected
+    assert vendor.choose(NvidiaHardware(cards, ceiling), recording_console) == expected
 
 
 @pytest.mark.small
@@ -46,7 +46,7 @@ def test_a_compiler_that_does_not_run_is_skipped(recording_console):
     """Check that a broken newest compiler makes the choice fall to the next major."""
     vendor, _installer = _vendor(broken=[(13, 4, 3)])
 
-    assert vendor.choose(NvidiaHardware(("89",), (13, 4))) == "12.9.2"
+    assert vendor.choose(NvidiaHardware(("89",), (13, 4)), recording_console) == "12.9.2"
 
 
 @pytest.mark.small
@@ -54,7 +54,7 @@ def test_a_skipped_compiler_is_reported(recording_console):
     """Check that the console says which release was skipped and why."""
     vendor, _installer = _vendor(broken=[(13, 4, 3)])
 
-    vendor.choose(NvidiaHardware(("89",), (13, 4)))
+    vendor.choose(NvidiaHardware(("89",), (13, 4)), recording_console)
 
     assert recording_console.texts("warn") == ["CUDA 13.4.3 skipped: nvcc did not run"]
 
@@ -77,11 +77,11 @@ def test_an_override_that_is_not_a_version_raises():
 
 
 @pytest.mark.small
-def test_install_hands_the_release_of_the_label_to_the_installer():
+def test_install_hands_the_release_of_the_label_to_the_installer(recording_console):
     """Check that a label becomes the right release."""
     vendor, installer = _vendor()
 
-    vendor.install("12.6.3")
+    vendor.install("12.6.3", recording_console)
 
     assert installer.installed == ["12.6.3"]
 

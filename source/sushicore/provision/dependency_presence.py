@@ -11,13 +11,13 @@ from typing import Callable
 from ..proc import CommandRunner
 from .fragments import Dependency
 from .packages import IPackageManager, LinuxPackageManager
-from .process_run import provision_runner
+from ..quiet_runner import quiet_runner
 from .target import K_LINUX, target_for_platform
 
 
 def check_cmd_ok(cmd: list[str], runner: CommandRunner | None = None) -> bool:
-    """Return True if *cmd* runs through *runner* (the provision runner when ``None``) and exits 0."""
-    return (runner or provision_runner()).capture(cmd)[0] == 0
+    """Return True if *cmd* runs through *runner* (the quiet runner when ``None``) and exits 0."""
+    return (runner or quiet_runner()).capture(cmd)[0] == 0
 
 
 def dep_installed(dep: Dependency, mgr: IPackageManager | None, platform: str,

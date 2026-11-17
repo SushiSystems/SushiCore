@@ -7,6 +7,6 @@
 See ``docs/design/PROVISION/README.md``.
 """
 
-from ._output import bind_console
+from .default_console import bind_console
 
 __all__ = ["bind_console"]

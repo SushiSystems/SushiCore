@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Callable
+from typing import Any
 
 from sushicore.proc import CommandRunner
 
-from .._output import console
 from ..licence_consent import Licence, LicenceConsent, is_accepted
 from ..process_run import provision_runner
 from .base import IPackageManager
@@ -23,7 +23,7 @@ class WingetManager(IPackageManager):
 
     name = "winget"
 
-    def __init__(self, consent: LicenceConsent | None = None, *,
+    def __init__(self, consent: LicenceConsent | None = None, *, console: Any,
                  show: Callable[[list[str]], str] | None = None,
                  runner: CommandRunner | None = None) -> None:
         """Store the run's consent, the runner of the winget commands and the licence reader.
@@ -34,10 +34,12 @@ class WingetManager(IPackageManager):
             consent: The run's licence consent.
             show: Returns what a ``winget show`` command prints; reads it through *runner* when
                 ``None``.
-            runner: Runs the winget commands; the provision runner when ``None``.
+            console: The console the manager and its runner print through.
+            runner: Runs the winget commands; the provision runner on *console* when ``None``.
         """
+        super().__init__(console=console)
         self._consent = consent
-        self._runner = runner or provision_runner()
+        self._runner = runner or provision_runner(console)
         self._show = show or self._read_output
         self._licences: dict[str, Licence] = {}
 
@@ -77,7 +79,7 @@ class WingetManager(IPackageManager):
         refused = [] if dry_run else [
             held for held in map(self.licence_of, pkgs) if not is_accepted(self._consent, held)]
         if refused:
-            console.error("winget installs nothing without consent to: "
+            self._console.error("winget installs nothing without consent to: "
                           + ", ".join(f"{held.name} ({held.link})" for held in refused))
             return False
         ok = True

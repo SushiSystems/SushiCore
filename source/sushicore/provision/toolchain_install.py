@@ -28,7 +28,9 @@ def install_toolchains(ctx: InstallContext, services: InstallServices,
         False when a selected toolchain reported a fatal failure.
     """
     env = ToolchainEnv(console=services.console, managers=services.managers, mgr=mgr,
-                       vcpkg=vcpkg, install_oneapi=services.actions.install_oneapi)
+                       vcpkg=vcpkg,
+                       install_oneapi=lambda run: services.actions.install_oneapi(
+                           run, services.console))
     selected = ctx.selection.as_dict()
     ok = True
     for toolchain in registry.all():

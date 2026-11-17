@@ -16,7 +16,6 @@ import typing
 from pathlib import Path
 
 from .. import home
-from .._output import console
 from ..process_run import provision_runner
 from ..target import ITarget, target_of
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
@@ -51,22 +50,25 @@ class BuildStepExecutor(typing.Protocol):
 
 
 class SubprocessBuildStepExecutor:
-    """Runs a command through the shared runner, streaming its output to the console."""
+    """Runs a command through the shared runner, streaming its output to the console.
+
+    Args:
+        console: The console the output is streamed to.
+    """
+
+    def __init__(self, console: typing.Any) -> None:
+        """Keep the console the runner prints through."""
+        self._console = console
 
     def run(self, argv: list[str], cwd: Path | None,
              env: dict[str, str] | None) -> int:
         """Run *argv*, handing each output line to the console, and return the exit code."""
-        return provision_runner().run_drained(argv, cwd, env)
+        return provision_runner(self._console).run_drained(argv, cwd, env)
 
 
 def _default_work_root() -> Path:
     """Return a short build directory under the shared dependency tree."""
     return home.root() / "ur"
-
-
-def _default_environment(cfg: "ProvisionConfig") -> dict[str, str]:
-    """Return the build environment for the adapter's cmake and ninja subprocesses."""
-    return target_of(cfg).adapter_build_environment(cfg, console)
 
 
 def _default_patches_dir() -> Path:
@@ -92,17 +94,19 @@ class AdapterBuilder:
     :param cfg: Resolved configuration; selects the platform's tools and file
         mapping.
     :param runner: Runs the fetch, configure and build commands.
+    :param console: The console the build reports through.
     :param work_root: Scratch directory for sources and build trees. Defaults
         to a short path under the shared dependency tree.
     :param environment: Returns the environment the build subprocesses run
-        under. Defaults to a vcvars64 snapshot on Windows, the current
-        environment elsewhere. Called at most once per builder instance.
+        under. A vcvars64 snapshot on Windows and the current
+        environment elsewhere when ``None``. Called at most once per builder instance.
     """
 
     cfg: "ProvisionConfig"
     runner: BuildStepExecutor
+    console: typing.Any
     work_root: Path = dataclasses.field(default_factory=_default_work_root)
-    environment: typing.Callable[["ProvisionConfig"], dict[str, str]] = _default_environment
+    environment: typing.Callable[["ProvisionConfig"], dict[str, str]] | None = None
     replace: typing.Callable[[Path, Path], None] = os.replace
     unlink: typing.Callable[[Path], None] = Path.unlink
     log: logging.Logger = _log
@@ -122,7 +126,7 @@ class AdapterBuilder:
         try:
             return self._build(spec, install, toolchain_root, commit, dry_run)
         except _RECOVERABLE_ERRORS as exc:
-            console.warn(f"{spec.vendor} adapter build failed: {exc}")
+            self.console.warn(f"{spec.vendor} adapter build failed: {exc}")
             return False
 
     def _build(self, spec: "GpuBackendSpec", install: "ToolkitInstall",
@@ -132,14 +136,14 @@ class AdapterBuilder:
         stamp_key = self._stamp_key(commit, patches)
         stamped = toolchain_adapter_commit(toolchain_root, spec.vendor)
         if stamped == stamp_key and _adapters_present(toolchain_root, spec, target_of(self.cfg)):
-            console.info(f"{spec.vendor} adapter already built for {commit[:12]}.")
+            self.console.info(f"{spec.vendor} adapter already built for {commit[:12]}.")
             return True
 
         if dry_run:
-            console.info(f"(dry-run) would build {spec.vendor} adapter at {commit[:12]}")
+            self.console.info(f"(dry-run) would build {spec.vendor} adapter at {commit[:12]}")
             return True
 
-        if not target_of(self.cfg).work_root_fits(self.work_root, console.warn):
+        if not target_of(self.cfg).work_root_fits(self.work_root, self.console.warn):
             return False
 
         env = self._environment()
@@ -169,13 +173,15 @@ class AdapterBuilder:
         if not installed:
             return False
         record_toolchain_adapter(toolchain_root, spec.vendor, stamp_key)
-        console.success(f"{spec.vendor} adapter built for {commit[:12]}.")
+        self.console.success(f"{spec.vendor} adapter built for {commit[:12]}.")
         return True
 
     def _environment(self) -> dict[str, str]:
         """Return the build environment, computed once and reused for this instance."""
         if self._cached_environment is None:
-            self._cached_environment = self.environment(self.cfg)
+            self._cached_environment = (
+                self.environment(self.cfg) if self.environment is not None
+                else target_of(self.cfg).adapter_build_environment(self.cfg, self.console))
         return self._cached_environment
 
     def _fetch_sources(self, src_dir: Path, commit: str,
@@ -193,7 +199,7 @@ class AdapterBuilder:
         ]
         for argv in steps:
             if self._run(argv, src_dir, env) != 0:
-                console.warn(f"Fetching unified-runtime sources failed at: {argv}")
+                self.console.warn(f"Fetching unified-runtime sources failed at: {argv}")
                 shutil.rmtree(src_dir, ignore_errors=True)
                 return False
         return True
@@ -215,7 +221,7 @@ class AdapterBuilder:
             if self._run(["git", "apply", "--reverse", "--check", str(patch)], src_dir, env) == 0:
                 continue
             if self._run(["git", "apply", str(patch)], src_dir, env) != 0:
-                console.warn(f"Applying {patch.name} to the unified-runtime sources failed.")
+                self.console.warn(f"Applying {patch.name} to the unified-runtime sources failed.")
                 return False
         return True
 
@@ -251,7 +257,7 @@ class AdapterBuilder:
         for key, value in spec.adapter_definitions(install).items():
             argv.append(f"-D{key}={value}")
         if self._run(argv, None, env) != 0:
-            console.warn(f"Configuring the {spec.vendor} adapter build failed.")
+            self.console.warn(f"Configuring the {spec.vendor} adapter build failed.")
             return False
         return True
 
@@ -261,7 +267,7 @@ class AdapterBuilder:
         cmake = self.cfg.expand(self.cfg.cmake_exe) or "cmake"
         argv = [cmake, "--build", str(build_dir), "--target", spec.adapter_target]
         if self._run(argv, None, env) != 0:
-            console.warn(f"Building the {spec.vendor} adapter target failed.")
+            self.console.warn(f"Building the {spec.vendor} adapter target failed.")
             return False
         return True
 
@@ -270,7 +276,7 @@ class AdapterBuilder:
         try:
             return self.runner.run(argv, cwd, env)
         except FileNotFoundError as exc:
-            console.warn(f"Command not found: {argv[0]} ({exc})")
+            self.console.warn(f"Command not found: {argv[0]} ({exc})")
             return 1
 
     def _stage_binaries(self, spec: "GpuBackendSpec",
@@ -285,7 +291,7 @@ class AdapterBuilder:
             for pattern in target_of(self.cfg).adapter_binary_patterns(base_name):
                 matches = sorted(output_dir.glob(pattern))
                 if not matches:
-                    console.warn(
+                    self.console.warn(
                         f"Expected {spec.vendor} adapter output {pattern} "
                         f"was not produced in {output_dir}.")
                     shutil.rmtree(staging, ignore_errors=True)
@@ -318,7 +324,7 @@ class AdapterBuilder:
             try:
                 self.replace(destination, previous_copy)
             except OSError as exc:
-                console.warn(
+                self.console.warn(
                     f"Could not move existing {destination} aside before install: {exc}")
                 self._restore_previous(previous)
                 return False
@@ -330,7 +336,7 @@ class AdapterBuilder:
             try:
                 self.replace(source, destination)
             except OSError as exc:
-                console.warn(f"Installing {destination} failed: {exc}")
+                self.console.warn(f"Installing {destination} failed: {exc}")
                 self._undo_installs(installed, previous)
                 self._restore_previous(
                     {dest: prev for dest, prev in previous.items() if dest not in installed})
@@ -360,7 +366,8 @@ class AdapterBuilder:
                     self.unlink(destination)
             except OSError as exc:
                 state = f"restore from {previous_copy}" if previous_copy else "removal"
-                console.warn(f"Rollback failed: {destination} left in place, {state} failed: {exc}")
+                self.console.warn(
+                    f"Rollback failed: {destination} left in place, {state} failed: {exc}")
 
     def _restore_previous(self, previous: dict[Path, Path]) -> None:
         """Restore every destination moved aside in *previous* to its original path."""
@@ -368,6 +375,6 @@ class AdapterBuilder:
             try:
                 self.replace(previous_copy, destination)
             except OSError as exc:
-                console.warn(
+                self.console.warn(
                     f"Rollback failed: {previous_copy} could not be restored to "
                     f"{destination}: {exc}")

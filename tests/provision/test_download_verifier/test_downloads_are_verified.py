@@ -135,7 +135,7 @@ def test_a_tool_archive_with_the_wrong_digest_is_not_extracted(
     pins.digests[name] = K_WRONG_DIGEST
 
     with pytest.raises(DigestMismatchError):
-        installer(fetch=fetch, on_path=_ignore_path, **extra)
+        installer(fetch=fetch, on_path=_ignore_path, **extra, console=recording_console)
 
     assert not dd.tools_dir().joinpath(*installed).exists()
     assert not fetch.written[0].exists()
@@ -148,7 +148,7 @@ def test_a_tool_archive_with_the_pinned_digest_installs(
     pins.digests[name] = _digest(payload)
 
     done = installer(fetch=_Fetch(payload), on_path=_ignore_path,
-                     **extra)
+                     **extra, console=recording_console)
 
     assert done is True
     assert dd.tools_dir().joinpath(*installed).exists()
@@ -160,7 +160,7 @@ def test_a_tool_archive_with_no_digest_installs_and_is_named(
         installer, name, payload, installed, extra, provision_home, recording_console, pins):
     """Check that an unpinned archive installs as before and is recorded by name."""
     done = installer(fetch=_Fetch(payload), on_path=_ignore_path,
-                     **extra)
+                     **extra, console=recording_console)
 
     assert done is True
     assert dd.tools_dir().joinpath(*installed).exists()
@@ -174,7 +174,8 @@ def test_a_git_installer_with_the_wrong_digest_is_not_run(recording_console, pin
 
     with pytest.raises(DigestMismatchError):
         dd._install_git_direct(pin=_pin,
-                               fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
+                               fetch=_Fetch(K_INSTALLER_BYTES), runner=runner,
+                               console=recording_console)
 
     assert runner.commands == []
 
@@ -185,7 +186,8 @@ def test_a_git_installer_with_the_pinned_digest_is_run(recording_console, pins):
     pins.digests["git"] = _digest(K_INSTALLER_BYTES)
 
     installed = dd._install_git_direct(pin=_pin,
-                                       fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
+                                       fetch=_Fetch(K_INSTALLER_BYTES), runner=runner,
+                                       console=recording_console)
 
     assert installed is True
     assert len(runner.commands) == 1
@@ -200,7 +202,7 @@ def test_an_intel_llvm_bundle_with_the_wrong_digest_is_not_extracted(
     with pytest.raises(DigestMismatchError):
         intel_llvm.install_intel_llvm(
             ProvisionSettings(platform="linux"), dry_run=False,
-            pin=_pin, fetch=_Fetch(_bundle_bytes()))
+            pin=_pin, fetch=_Fetch(_bundle_bytes()), console=recording_console)
 
     assert not (toolchains_dir() / "llvm-sycl" / "bin" / "clang++").exists()
 
@@ -213,7 +215,7 @@ def test_an_intel_llvm_bundle_with_the_pinned_digest_is_extracted(
 
     root = intel_llvm.install_intel_llvm(
         ProvisionSettings(platform="linux"), dry_run=False,
-        pin=_pin, fetch=_Fetch(bundle))
+        pin=_pin, fetch=_Fetch(bundle), console=recording_console)
 
     assert (Path(root) / "bin" / "clang++").is_file()
     assert pins.verifier.unverified() == ()
@@ -228,7 +230,7 @@ def test_an_llvm_installer_with_the_wrong_digest_is_not_run(
     with pytest.raises(DigestMismatchError):
         llvm_windows.vendor_llvm_windows(
             resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES),
-            runner=runner)
+            runner=runner, console=recording_console)
 
     assert runner.commands == []
 
@@ -240,7 +242,8 @@ def test_an_llvm_installer_with_the_pinned_digest_is_run(
     pins.digests["adaptivecpp"] = _digest(K_INSTALLER_BYTES)
 
     llvm_windows.vendor_llvm_windows(
-        resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES), runner=runner)
+        resolve_asset=_resolve_tagged_asset, fetch=_Fetch(K_INSTALLER_BYTES), runner=runner,
+        console=recording_console)
 
     assert len(runner.commands) == 1
     assert pins.verifier.unverified() == ()
@@ -253,7 +256,9 @@ def test_a_oneapi_installer_with_the_wrong_digest_is_not_returned(
 
     with pytest.raises(DigestMismatchError):
         oneapi.download_oneapi_installer(
-            directory=tmp_path, runner=_CurlWritesPayload(recording_console, K_INSTALLER_BYTES))
+            directory=tmp_path, runner=_CurlWritesPayload(recording_console,
+                                                          K_INSTALLER_BYTES),
+                                                          console=recording_console)
 
     assert not (tmp_path / K_ONEAPI_INSTALLER).exists()
 
@@ -267,7 +272,9 @@ def test_a_oneapi_installer_left_by_an_earlier_run_is_verified_too(
 
     with pytest.raises(DigestMismatchError):
         oneapi.download_oneapi_installer(
-            directory=tmp_path, runner=_CurlWritesPayload(recording_console, K_INSTALLER_BYTES))
+            directory=tmp_path, runner=_CurlWritesPayload(recording_console,
+                                                          K_INSTALLER_BYTES),
+                                                          console=recording_console)
 
     assert not installer.exists()
 
@@ -278,7 +285,8 @@ def test_a_oneapi_installer_with_the_pinned_digest_is_returned(
     pins.digests["oneapi"] = _digest(K_INSTALLER_BYTES)
 
     returned = oneapi.download_oneapi_installer(
-        directory=tmp_path, runner=_CurlWritesPayload(recording_console, K_INSTALLER_BYTES))
+        directory=tmp_path, runner=_CurlWritesPayload(recording_console,
+                                                      K_INSTALLER_BYTES), console=recording_console)
 
     assert returned == tmp_path / K_ONEAPI_INSTALLER
     assert pins.verifier.unverified() == ()

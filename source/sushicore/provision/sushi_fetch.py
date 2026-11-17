@@ -9,11 +9,10 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from sushicore.deps_fragment import SushiPin
 
-from ._output import console
 from .git_client import IGitClient
 from .pipeline import InstallContext, Step, StepResult
 from .sushi_sources import SourceKind, directory_variable, fetched_dir, resolve
@@ -29,8 +28,9 @@ class FetchSushiSourcesStep(Step):
 
     name = "fetch Sushi libraries"
 
-    def __init__(self, root: Path, pins: Sequence[SushiPin], git: IGitClient) -> None:
-        """Hold the consumer's checkout *root*, its *pins*, and the *git* to clone with."""
+    def __init__(self, root: Path, pins: Sequence[SushiPin], git: IGitClient, console: Any) -> None:
+        """Hold the checkout *root*, its *pins*, the *git* to clone with and the *console*."""
+        self._console = console
         self._root = root
         self._pins = list(pins)
         self._git = git
@@ -58,9 +58,10 @@ class FetchSushiSourcesStep(Step):
         destination.parent.mkdir(parents=True, exist_ok=True)
         url = K_REPOSITORY_URL.format(name=pin.name)
         if not self._git.clone_tag(url, pin.version, destination, dry_run):
-            console.error(f"Fetching {pin.name} {pin.version} failed: git could not clone the "
-                          f"tag {pin.version} of {url}. Clone it yourself and set "
-                          f"{directory_variable(pin.name)} to the checkout.")
+            self._console.error(
+                f"Fetching {pin.name} {pin.version} failed: git could not clone the "
+                f"tag {pin.version} of {url}. Clone it yourself and set "
+                f"{directory_variable(pin.name)} to the checkout.")
             shutil.rmtree(destination, ignore_errors=True)
             return False
         if dry_run:
@@ -68,7 +69,7 @@ class FetchSushiSourcesStep(Step):
         head = self._git.head(destination)
         if head != pin.commit:
             shutil.rmtree(destination, ignore_errors=True)
-            console.error(f"{pin.name} {pin.version} is at commit {head or '(unknown)'}, "
+            self._console.error(f"{pin.name} {pin.version} is at commit {head or '(unknown)'}, "
                           f"and the fragment pins {pin.commit}; the clone was removed.")
             return False
         _log.info("fetched %s %s into %s", pin.name, pin.version, destination)

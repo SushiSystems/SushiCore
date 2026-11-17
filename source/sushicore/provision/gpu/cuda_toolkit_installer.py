@@ -23,11 +23,10 @@ from sushicore.errors import DigestMismatchError
 from sushicore.proc import CommandRunner
 
 from .. import home
-from .._output import console
 from ..host import current_host
 from ..integrity import verify_sha256
 from ..licence_consent import Licence
-from ..process_run import provision_runner
+from ...quiet_runner import quiet_runner
 from ..system import USER_AGENT
 from .cuda_release import RedistArchive, RedistRelease
 from .toolkit_vendor import ToolkitSourceError
@@ -63,12 +62,12 @@ def list_gpu_architectures(nvcc: Path, *, runner: CommandRunner | None = None) -
 
     Args:
         nvcc: The compiler to ask.
-        runner: Runs the command; the provision runner when ``None``.
+        runner: Runs the command; the quiet runner when ``None``.
 
     Raises:
         ToolkitInstallError: nvcc did not run or exited non-zero.
     """
-    code, out, err = (runner or provision_runner()).capture([str(nvcc), "--list-gpu-arch"],
+    code, out, err = (runner or quiet_runner()).capture([str(nvcc), "--list-gpu-arch"],
                                                             timeout=60)
     if code != 0:
         raise ToolkitInstallError(f"{nvcc} --list-gpu-arch failed (exit {code}): {err.strip()}")
@@ -109,8 +108,11 @@ class RedistToolkitInstaller:
         """Report whether the release's nvcc is in place."""
         return nvcc_in(self.root_of(release_label)).is_file()
 
-    def probe_architectures(self, release: RedistRelease) -> frozenset[str]:
+    def probe_architectures(self, release: RedistRelease, console: typing.Any) -> frozenset[str]:
         """Return the architectures the release's compiler builds for, unpacking only nvcc.
+
+        Args:
+            console: The console a download is announced on.
 
         Raises:
             ToolkitInstallError: The compiler archive is missing, mismatching or does not run.
@@ -120,15 +122,18 @@ class RedistToolkitInstaller:
         probe_root = self._base() / f".{release.label}-probe"
         _remove_tree(probe_root)
         try:
-            self._unpack(self._archive(release, "cuda_nvcc"), probe_root)
+            self._unpack(self._archive(release, "cuda_nvcc", console), probe_root)
             return self._list_architectures(nvcc_in(probe_root))
         finally:
             _remove_tree(probe_root)
 
-    def install(self, release: RedistRelease) -> Path:
+    def install(self, release: RedistRelease, console: typing.Any) -> Path:
         """Install *release* and return its root; an installed release is returned as is.
 
         The caller holds the user's consent to :data:`K_CUDA_LICENCE`.
+
+        Args:
+            console: The console a download is announced on.
 
         Raises:
             ToolkitInstallError: A component is missing, mismatching or does not unpack.
@@ -141,7 +146,7 @@ class RedistToolkitInstaller:
         names = [*K_REQUIRED_COMPONENTS,
                  *(name for name in K_COMPANION_COMPONENTS if name in release.archives)]
         for name in names:
-            self._unpack(self._archive(release, name), staging)
+            self._unpack(self._archive(release, name, console), staging)
         _remove_tree(root)
         os.replace(_long_path(staging), _long_path(root))
         self.discard_downloads()
@@ -151,7 +156,7 @@ class RedistToolkitInstaller:
         """Delete the archives kept for releases that were probed or installed."""
         _remove_tree(self._downloads())
 
-    def _archive(self, release: RedistRelease, name: str) -> Path:
+    def _archive(self, release: RedistRelease, name: str, console: typing.Any) -> Path:
         """Return the verified archive of component *name*, downloading it when needed."""
         archive = release.archives.get(name)
         if archive is None:

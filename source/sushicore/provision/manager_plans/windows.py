@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import Any, final
 
 from ..config import ProvisionConfig
 from ..licence_consent import LicenceConsent
@@ -19,9 +19,11 @@ from ..target import K_WINDOWS
 class WindowsManagerPlan(IManagerPlan):
     """Provisions through winget, the direct downloads and vcpkg."""
 
-    def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None) -> list[IPackageManager]:
+    def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None,
+                 console: Any) -> list[IPackageManager]:
         """Return winget, the direct downloads and vcpkg."""
-        return [WingetManager(consent), DirectDownloadWindowsManager(), VcpkgManager(cfg)]
+        return [WingetManager(consent, console=console),
+                DirectDownloadWindowsManager(console=console), VcpkgManager(cfg, console=console)]
 
 
 MANAGER_PLANS.register(K_WINDOWS, WindowsManagerPlan())

@@ -140,13 +140,14 @@ def _produce(work_root: Path, names: list[str]) -> None:
         (output_dir / name).write_bytes(b"fake")
 
 
-def _builder(tmp_path: Path, work_root: Path, *, cfg: ProvisionSettings | None = None,
+def _builder(tmp_path: Path, work_root: Path, *, console, cfg: ProvisionSettings | None = None,
              runner: InMemoryBuildStepExecutor | None = None, **seams) -> _Scene:
     """Return a scene that holds a builder over *runner* and a fresh toolchain folder, not yet run."""
     toolchain_root = tmp_path / "llvm-sycl"
     toolchain_root.mkdir(exist_ok=True)
     chosen = runner or InMemoryBuildStepExecutor()
-    builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=chosen, work_root=work_root,
+    builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=chosen, console=console,
+                             work_root=work_root,
                              environment=lambda cfg: {}, **seams)
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
     return _Scene(False, chosen, builder, toolchain_root, work_root, install)
@@ -170,7 +171,7 @@ def test_a_build_fetches_the_sources_with_a_sparse_checkout_of_the_commit(
     """Check that a build fetches only unified-runtime at the commit, in five git steps."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
 
     fetch_calls = [c for c in scene.runner.calls if c[0] == "git"]
     assert fetch_calls == [
@@ -188,7 +189,7 @@ def test_a_build_configures_the_adapter_option_and_the_toolkit_definitions(
     """Check that the configure command enables the adapter and passes the vendor definitions."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
 
     configure_call = _configure_call(scene)
     assert "-DUR_BUILD_ADAPTER_FAKE=ON" in configure_call
@@ -204,7 +205,7 @@ def test_a_windows_configure_compiles_with_the_toolchains_clang_cl_and_lld_link(
     """Check that a Windows configure names the toolchain's clang-cl and lld-link, not cl."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
 
     bin_dir = scene.toolchain_root / "bin"
     configure_call = _configure_call(scene)
@@ -219,7 +220,7 @@ def test_a_build_runs_cmake_on_the_adapter_target(tmp_path, short_work_root, rec
     """Check that the build step names the vendor's adapter target."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
 
     build_call = next(c for c in scene.runner.calls if c[:2] == ["cmake", "--build"])
     assert build_call[build_call.index("--target") + 1] == "ur_adapter_fake"
@@ -231,7 +232,7 @@ def test_a_full_build_installs_the_binaries_into_the_toolchain(
     """Check that a full build returns True and places the DLL under the toolchain's bin."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
 
     assert scene.result is True
     assert (scene.toolchain_root / "bin" / "ur_adapter_fake.dll").is_file()
@@ -243,7 +244,7 @@ def test_a_full_build_stamps_the_commit_for_the_vendor(
     """Check that a full build records the built commit under the vendor in the stamp."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
 
     stamp = json.loads((scene.toolchain_root / TOOLCHAIN_STAMP).read_text())
     assert stamp["adapters"]["fake"] == _COMMIT
@@ -254,7 +255,7 @@ def test_a_second_call_with_the_same_commit_is_skipped(
         tmp_path, short_work_root, recording_console):
     """Check that a second call with the same commit runs no command."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
     scene.runner.calls.clear()
 
     again = _run(scene)
@@ -268,7 +269,7 @@ def test_a_matching_stamp_with_a_missing_binary_rebuilds(
         tmp_path, short_work_root, recording_console):
     """Check that a stamp for the commit does not skip the build when a binary is gone."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    scene = _run(_builder(tmp_path, short_work_root))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
     (scene.toolchain_root / "bin" / "ur_adapter_fake.dll").unlink()
     scene.runner.calls.clear()
 
@@ -283,7 +284,7 @@ def test_a_matching_stamp_with_a_missing_binary_rebuilds(
 def test_a_dry_run_runs_no_commands_and_writes_no_stamp(
         tmp_path, short_work_root, recording_console):
     """Check that a dry run returns True, runs nothing and leaves no stamp."""
-    scene = _run(_builder(tmp_path, short_work_root), dry_run=True)
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console), dry_run=True)
 
     assert scene.result is True
     assert scene.runner.calls == []
@@ -294,7 +295,7 @@ def test_a_dry_run_runs_no_commands_and_writes_no_stamp(
 def test_a_dry_run_says_which_adapter_it_would_build(
         tmp_path, short_work_root, recording_console):
     """Check that a dry run prints one line naming the vendor and the short commit."""
-    _run(_builder(tmp_path, short_work_root), dry_run=True)
+    _run(_builder(tmp_path, short_work_root, console=recording_console), dry_run=True)
 
     assert recording_console.texts("info") == [
         f"(dry-run) would build fake adapter at {_COMMIT[:12]}"]
@@ -307,7 +308,7 @@ def test_a_failing_configure_returns_false_and_leaves_bin_untouched(
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     runner = InMemoryBuildStepExecutor(fail_on="-S")
 
-    scene = _run(_builder(tmp_path, short_work_root, runner=runner))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console, runner=runner))
 
     assert scene.result is False
     assert not (scene.toolchain_root / "bin").exists()
@@ -320,7 +321,7 @@ def test_a_missing_git_or_cmake_returns_false_without_raising(
     """Check that an executable that is on no PATH fails the build instead of raising."""
     runner = InMemoryBuildStepExecutor(missing=True)
 
-    scene = _run(_builder(tmp_path, short_work_root, runner=runner))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console, runner=runner))
 
     assert scene.result is False
     assert not (scene.toolchain_root / "bin").exists()
@@ -331,7 +332,8 @@ def test_a_failing_install_rolls_back_every_binary_already_placed(
         tmp_path, short_work_root, recording_console):
     """Check that a rename that fails after one binary landed leaves bin without either binary."""
     _produce(short_work_root, ["ur_adapter_fake.dll", "umf.dll"])
-    scene = _builder(tmp_path, short_work_root, replace=_CountedReplace(fail_on=2))
+    scene = _builder(tmp_path, short_work_root, console=recording_console,
+                     replace=_CountedReplace(fail_on=2))
 
     _run(scene, _fake_spec(binary_bases=("ur_adapter_fake", "umf")))
 
@@ -345,7 +347,8 @@ def test_a_failing_install_restores_a_pre_existing_binary(
         tmp_path, short_work_root, recording_console):
     """Check that a failing install puts the old binary back and removes the new one."""
     _produce(short_work_root, ["ur_adapter_fake.dll", "umf.dll"])
-    scene = _builder(tmp_path, short_work_root, replace=_CountedReplace(fail_on=3))
+    scene = _builder(tmp_path, short_work_root, console=recording_console,
+                     replace=_CountedReplace(fail_on=3))
     bin_dir = scene.toolchain_root / "bin"
     bin_dir.mkdir()
     (bin_dir / "ur_adapter_fake.dll").write_bytes(b"old")
@@ -367,7 +370,7 @@ def test_a_base_name_maps_to_the_platforms_file_and_folder(
     """Check that the platform picks the binary's file name and the toolchain folder it lands in."""
     _produce(short_work_root, [built])
 
-    scene = _run(_builder(tmp_path, short_work_root, cfg=cfg))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console, cfg=cfg))
 
     assert scene.result is True
     assert (scene.toolchain_root / folder / built).is_file()
@@ -380,7 +383,7 @@ def test_linux_configure_does_not_force_the_msvc_compiler(
     """Check that a Linux configure names no cl compiler."""
     _produce(short_work_root, ["libur_adapter_fake.so.0"])
 
-    scene = _run(_builder(tmp_path, short_work_root, cfg=_linux_cfg()))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console, cfg=_linux_cfg()))
 
     configure_call = _configure_call(scene)
     assert "-DCMAKE_C_COMPILER=cl" not in configure_call
@@ -397,7 +400,8 @@ def test_configure_passes_the_configured_ninja_program_only(
     """Check that the make program is passed when ninja is configured and omitted when not."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
 
-    scene = _run(_builder(tmp_path, short_work_root, cfg=_windows_cfg(ninja_exe=ninja_exe)))
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console,
+                          cfg=_windows_cfg(ninja_exe=ninja_exe)))
 
     passed = [a for a in _configure_call(scene) if a.startswith("-DCMAKE_MAKE_PROGRAM=")]
     assert passed == expected
@@ -409,7 +413,7 @@ def test_the_environment_provider_is_called_at_most_once_per_builder(
     """Check that two builds on one builder ask for the environment once."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     asked: list[object] = []
-    scene = _builder(tmp_path, short_work_root)
+    scene = _builder(tmp_path, short_work_root, console=recording_console)
     scene.builder.environment = lambda cfg: asked.append(cfg) or {}
     _run(scene)
     other = tmp_path / "llvm-sycl-2"
@@ -424,19 +428,20 @@ def test_the_environment_provider_is_called_at_most_once_per_builder(
 @pytest.mark.medium
 def test_a_long_work_root_is_refused_on_windows(tmp_path, recording_console):
     """Check that a work root over the limit fails the build before any command runs."""
-    scene = _run(_builder(tmp_path, tmp_path / ("x" * 80)))
+    scene = _run(_builder(tmp_path, tmp_path / ("x" * 80), console=recording_console))
 
     assert scene.result is False
     assert scene.runner.calls == []
 
 
 @pytest.mark.small
-def test_the_default_work_root_is_ur_under_the_dependency_root():
+def test_the_default_work_root_is_ur_under_the_dependency_root(recording_console):
     """Check that build trees go under ``ur`` in the root the dependency root is bound to."""
     root = Path("dependency-root")
     home.bind_root(lambda: root)
     try:
-        builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryBuildStepExecutor())
+        builder = AdapterBuilder(cfg=_linux_cfg(), runner=InMemoryBuildStepExecutor(),
+                                 console=recording_console)
     finally:
         home.bind_root(None)
 
@@ -451,7 +456,8 @@ def test_a_previous_binary_that_cannot_be_removed_is_recorded(
     handler = _ListHandler()
     logger = logging.Logger("adapter-builder-test")
     logger.addHandler(handler)
-    scene = _builder(tmp_path, short_work_root, unlink=_LockedPreviousCopies(), log=logger)
+    scene = _builder(tmp_path, short_work_root, console=recording_console,
+                     unlink=_LockedPreviousCopies(), log=logger)
     bin_dir = scene.toolchain_root / "bin"
     bin_dir.mkdir()
     (bin_dir / "ur_adapter_fake.dll").write_bytes(b"old")
@@ -464,13 +470,14 @@ def test_a_previous_binary_that_cannot_be_removed_is_recorded(
     assert "ur_adapter_fake.dll.previous" in handler.messages[0]
 
 
-def _patched_scene(tmp_path: Path, work_root: Path, runner: InMemoryBuildStepExecutor,
+def _patched_scene(tmp_path: Path, work_root: Path, console, runner: InMemoryBuildStepExecutor,
                    body: bytes = b"patch body one") -> _Scene:
     """Return a scene whose patches folder holds ``fix.patch`` with *body*."""
     patches = tmp_path / "patches"
     patches.mkdir(exist_ok=True)
     (patches / "fix.patch").write_bytes(body)
-    return _builder(tmp_path, work_root, runner=runner, patches_dir=patches)
+    return _builder(tmp_path, work_root, console=console, runner=runner,
+                    patches_dir=patches)
 
 
 def _patched_spec() -> _GpuBackendSpec:
@@ -485,7 +492,8 @@ def test_a_named_patch_is_applied_after_the_fetch_and_before_the_configure(
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     runner = InMemoryBuildStepExecutor(fail_on="--reverse")
 
-    scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
+    scene = _run(_patched_scene(tmp_path, short_work_root, recording_console, runner),
+                 _patched_spec())
 
     calls = scene.runner.calls
     applied = [i for i, c in enumerate(calls) if c[:2] == ["git", "apply"] and "--reverse" not in c]
@@ -503,7 +511,8 @@ def test_a_reused_source_that_holds_the_patch_is_not_patched_again(
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     (short_work_root / f"s-{_COMMIT[:8]}" / "unified-runtime").mkdir(parents=True)
 
-    scene = _run(_patched_scene(tmp_path, short_work_root, InMemoryBuildStepExecutor()),
+    scene = _run(_patched_scene(tmp_path, short_work_root, recording_console,
+                                InMemoryBuildStepExecutor()),
                  _patched_spec())
 
     applies = [c for c in scene.runner.calls if c[:2] == ["git", "apply"]]
@@ -517,7 +526,8 @@ def test_a_failing_patch_returns_false_before_the_configure(
     """Check that a patch that does not apply stops the build with a warning."""
     runner = InMemoryBuildStepExecutor(fail_on=str(tmp_path / "patches" / "fix.patch"))
 
-    scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
+    scene = _run(_patched_scene(tmp_path, short_work_root, recording_console, runner),
+                 _patched_spec())
 
     assert scene.result is False
     assert not any("-S" in c for c in scene.runner.calls)
@@ -531,7 +541,8 @@ def test_the_stamp_key_carries_a_digest_of_the_patch_contents(
     _produce(short_work_root, ["ur_adapter_fake.dll"])
     runner = InMemoryBuildStepExecutor(fail_on="--reverse")
 
-    scene = _run(_patched_scene(tmp_path, short_work_root, runner), _patched_spec())
+    scene = _run(_patched_scene(tmp_path, short_work_root, recording_console, runner),
+                 _patched_spec())
 
     stamp = json.loads((scene.toolchain_root / TOOLCHAIN_STAMP).read_text())
     digest = hashlib.sha256(b"patch body one").hexdigest()[:12]
@@ -543,9 +554,9 @@ def test_a_bare_commit_stamp_is_rebuilt_once_the_spec_names_a_patch(
         tmp_path, short_work_root, recording_console):
     """Check that a toolchain stamped with the bare commit is not skipped for a patched spec."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    first = _run(_builder(tmp_path, short_work_root))
+    first = _run(_builder(tmp_path, short_work_root, console=recording_console))
     runner = InMemoryBuildStepExecutor(fail_on="--reverse")
-    patched = _patched_scene(tmp_path, short_work_root, runner)
+    patched = _patched_scene(tmp_path, short_work_root, recording_console, runner)
     patched.toolchain_root = first.toolchain_root
     patched.builder.cfg = first.builder.cfg
 
@@ -560,7 +571,7 @@ def test_a_stamp_with_the_patch_digest_skips_the_rebuild(
         tmp_path, short_work_root, recording_console):
     """Check that a second call with an unchanged patch runs no command."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    scene = _run(_patched_scene(tmp_path, short_work_root,
+    scene = _run(_patched_scene(tmp_path, short_work_root, recording_console,
                                 InMemoryBuildStepExecutor(fail_on="--reverse")), _patched_spec())
     scene.runner.calls.clear()
 

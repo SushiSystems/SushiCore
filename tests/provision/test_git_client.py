@@ -20,11 +20,12 @@ from sushicore.provision.git_client_memory import InMemoryGitClient
 
 
 @pytest.mark.small
-def test_clone_tag_runs_a_shallow_single_tag_clone():
+def test_clone_tag_runs_a_shallow_single_tag_clone(recording_console):
     """Check that the clone asks git for the tag only, at depth one."""
     runner = RecordingRunner(RecordingConsole())
 
-    GitClient(runner=runner).clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
+    GitClient(runner=runner, console=recording_console).clone_tag("https://x/y.git", "v1.0.0",
+                                                                  Path("y"), False)
 
     assert [command.argv for command in runner.commands] == [
         ("git", "clone", "--depth", "1", "--branch", "v1.0.0", "--single-branch",
@@ -32,25 +33,27 @@ def test_clone_tag_runs_a_shallow_single_tag_clone():
 
 
 @pytest.mark.small
-def test_clone_tag_reports_a_failed_clone():
+def test_clone_tag_reports_a_failed_clone(recording_console):
     """Check that a nonzero exit is a failed clone."""
-    client = GitClient(runner=RecordingRunner(RecordingConsole()).script(128))
+    client = GitClient(runner=RecordingRunner(RecordingConsole()).script(128),
+                       console=recording_console)
     assert not client.clone_tag("https://x/y.git", "v1.0.0", Path("y"), False)
 
 
 @pytest.mark.small
-def test_head_reads_the_commit_git_prints_in_lower_case():
+def test_head_reads_the_commit_git_prints_in_lower_case(recording_console):
     """Check that head asks git for HEAD in the checkout and lower-cases the answer."""
     runner = RecordingRunner(RecordingConsole()).script(0, ("ABCDEF",))
 
-    assert GitClient(runner=runner).head(Path("repo")) == "abcdef"
+    assert GitClient(runner=runner, console=recording_console).head(Path("repo")) == "abcdef"
     assert runner.commands[0].argv == ("git", "-C", "repo", "rev-parse", "HEAD")
 
 
 @pytest.mark.small
-def test_head_is_empty_when_git_exits_nonzero():
+def test_head_is_empty_when_git_exits_nonzero(recording_console):
     """Check that a failed rev-parse gives ''."""
-    client = GitClient(runner=RecordingRunner(RecordingConsole()).script(128, stderr="fatal"))
+    client = GitClient(runner=RecordingRunner(RecordingConsole()).script(128, stderr="fatal"),
+                       console=recording_console)
     assert client.head(Path("repo")) == ""
 
 
@@ -128,21 +131,23 @@ class TestGitClientKeepsTheGitClientContract(GitClientContract):
         _git(source, "tag", K_TAG)
         elsewhere = tmp_path / "elsewhere"
         elsewhere.mkdir()
-        return GitWorld(GitClient(), source.as_uri(), _git(source, "rev-parse", "HEAD"),
+        head = _git(source, "rev-parse", "HEAD")
+        return GitWorld(GitClient(console=recording_console), source.as_uri(), head,
                         tmp_path / "clone", elsewhere)
 
 
 @pytest.mark.medium
-def test_head_of_a_real_checkout_is_a_lower_case_commit(tmp_path):
+def test_head_of_a_real_checkout_is_a_lower_case_commit(tmp_path, recording_console):
     """Check that head gives the 40 lower-case hex digits of the checkout's commit."""
     _git(tmp_path, "init", "-q")
     (tmp_path / "file.txt").write_text("content", encoding="utf-8")
     _git(tmp_path, "add", "file.txt")
     _git(tmp_path, "commit", "-q", "-m", "first")
-    assert GitClient().head(tmp_path) == _git(tmp_path, "rev-parse", "HEAD").lower()
+    assert GitClient(console=recording_console).head(tmp_path) == _git(tmp_path, "rev-parse",
+                                                                       "HEAD").lower()
 
 
 @pytest.mark.medium
-def test_head_is_empty_when_git_is_missing(tmp_path):
+def test_head_is_empty_when_git_is_missing(tmp_path, recording_console):
     """Check that an executable that cannot start gives ''."""
-    assert GitClient(git="sushi-no-such-git").head(tmp_path) == ""
+    assert GitClient(git="sushi-no-such-git", console=recording_console).head(tmp_path) == ""

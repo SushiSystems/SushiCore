@@ -109,7 +109,8 @@ def test_install_adaptivecpp_reuses_an_existing_binary(provision_home, recording
     commands = _Commands()
 
     result = adaptivecpp.install_adaptivecpp(
-        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands)
+        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands,
+        console=recording_console)
 
     assert result == str(acpp)
     assert commands.commands == []
@@ -121,7 +122,8 @@ def test_install_adaptivecpp_skips_without_git_or_cmake(provision_home, recordin
     commands = _Commands()
 
     result = adaptivecpp.install_adaptivecpp(
-        _linux_cfg(), None, None, dry_run=False, which=_not_on_path, run_command=commands)
+        _linux_cfg(), None, None, dry_run=False, which=_not_on_path, run_command=commands,
+        console=recording_console)
 
     assert result is None
     assert recording_console.texts("warn") == ["AdaptiveCpp build needs git and cmake; skipping."]
@@ -134,7 +136,8 @@ def test_install_adaptivecpp_dry_run_reports_without_building(provision_home, re
     commands = _Commands()
 
     result = adaptivecpp.install_adaptivecpp(
-        _linux_cfg(), None, None, dry_run=True, which=_on_path, run_command=commands)
+        _linux_cfg(), None, None, dry_run=True, which=_on_path, run_command=commands,
+        console=recording_console)
 
     assert result == str(toolchains_dir() / "adaptivecpp" / "bin" / "acpp")
     assert commands.commands == []
@@ -151,7 +154,8 @@ def test_install_adaptivecpp_adds_no_resource_compiler_folder_without_a_windows_
 
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
-        llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure())
+        llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure(),
+        console=recording_console)
 
     assert environ["PATH"] == "base"
 
@@ -166,7 +170,8 @@ def test_install_adaptivecpp_puts_the_newest_sdk_resource_compiler_on_the_path(
 
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_two_sdks,
-        llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure())
+        llvm_bases=[llvm], environ=environ, run_command=_Commands(), configure=_Configure(),
+        console=recording_console)
 
     assert environ["PATH"].startswith(str(Path(_SDK_NEWEST)))
 
@@ -181,7 +186,7 @@ def test_install_adaptivecpp_configures_against_a_vendored_llvm_tree(
 
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, glob=_no_sdk,
-        environ={}, run_command=_Commands(), configure=configure)
+        environ={}, run_command=_Commands(), configure=configure, console=recording_console)
 
     assert f"-DLLVM_DIR={cmake_dir}" in configure.commands[0]
     assert f"-DCLANG_INSTALL_PREFIX={llvm}" in configure.commands[0]
@@ -195,7 +200,7 @@ def test_install_adaptivecpp_skips_on_windows_when_no_llvm_is_installed(
 
     result = adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, which=_on_path, llvm_bases=[],
-        run_command=commands)
+        run_command=commands, console=recording_console)
 
     assert result is None
     assert commands.commands == []
@@ -207,13 +212,13 @@ def test_adaptivecpp_installs_no_llvm_through_winget_without_consent(
         provision_home, recording_console, monkeypatch):
     """Check that a run whose user accepted no winget agreements installs no LLVM through winget."""
     runner = RecordingRunner(recording_console)
-    winget = WingetManager(show=lambda command: "", runner=runner)
-    monkeypatch.setattr(llvm_windows, "vendor_llvm_windows", lambda: None)
+    winget = WingetManager(show=lambda command: "", runner=runner, console=recording_console)
+    monkeypatch.setattr(llvm_windows, "vendor_llvm_windows", lambda console: None)
     monkeypatch.setattr(winget_module.shutil, "which", lambda name: "C:/winget.exe")
 
     result = adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, None, dry_run=False, assume_yes=True, winget=winget,
-        which=_on_path, llvm_bases=[], run_command=_Commands())
+        which=_on_path, llvm_bases=[], run_command=_Commands(), console=recording_console)
 
     assert (result, runner.commands) == (None, [])
 
@@ -229,7 +234,8 @@ def test_install_adaptivecpp_on_windows_installs_boost_and_reuses_an_existing_ll
 
     adaptivecpp.install_adaptivecpp(
         _windows_cfg(), None, vcpkg, dry_run=False, which=_on_path, glob=_no_sdk,
-        llvm_bases=[llvm], environ={}, run_command=_Commands(), configure=configure)
+        llvm_bases=[llvm], environ={}, run_command=_Commands(), configure=configure,
+        console=recording_console)
 
     assert vcpkg.installs == [["boost-context", "boost-fiber"]]
     assert f"-DLLVM_DIR={cmake_dir}" in configure.commands[0]
@@ -242,7 +248,8 @@ def test_install_adaptivecpp_on_linux_without_a_manager_skips_the_build(
     commands = _Commands()
 
     result = adaptivecpp.install_adaptivecpp(
-        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands)
+        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=commands,
+        console=recording_console)
 
     assert result is None
     assert commands.commands == []
@@ -253,7 +260,8 @@ def test_install_adaptivecpp_on_linux_names_the_dev_packages_when_it_skips(
         provision_home, recording_console):
     """Check that the Linux skip note names the LLVM dev packages to install."""
     adaptivecpp.install_adaptivecpp(
-        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=_Commands())
+        _linux_cfg(), None, None, dry_run=False, which=_on_path, run_command=_Commands(),
+        console=recording_console)
 
     assert "llvm-17-dev" in _infos(recording_console)
 
@@ -263,12 +271,12 @@ def test_install_adaptivecpp_on_apt_installs_the_pinned_llvm_packages(
         provision_home, recording_console):
     """Check that an apt host is asked for the pinned LLVM, clang, lld and boost packages."""
     runner = RecordingRunner(recording_console)
-    manager = AptManager(runner)
+    manager = AptManager(runner, console=recording_console)
     llvm = adaptivecpp.ACPP_LLVM
 
     adaptivecpp.install_adaptivecpp(
         _linux_cfg(), manager, None, dry_run=False, which=_on_path,
-        run_command=_Commands(1), configure=_Configure())
+        run_command=_Commands(1), configure=_Configure(), console=recording_console)
 
     installs = [list(c.argv) for c in runner.commands if "install" in c.argv]
     assert [argv[-6:] for argv in installs] == [[
@@ -286,7 +294,7 @@ def test_install_adaptivecpp_on_another_manager_translates_the_generic_packages(
 
     adaptivecpp.install_adaptivecpp(
         _linux_cfg(), manager, None, dry_run=False, which=_on_path,
-        run_command=_Commands(), configure=configure)
+        run_command=_Commands(), configure=configure, console=recording_console)
 
     assert manager.installs == [[
         "clang", "llvm", "libboost-context-dev", "libboost-fiber-dev",

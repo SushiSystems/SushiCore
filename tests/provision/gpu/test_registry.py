@@ -69,7 +69,7 @@ def test_a_duplicate_vendor_or_probe_vendor_is_refused(first, second):
         Registry((_fake_spec(*first), _fake_spec(*second)))
 
 
-def test_platform_locator_dispatches_to_the_matching_platform():
+def test_platform_locator_dispatches_to_the_matching_platform(recording_console):
     """Check that platform locator dispatches to the matching platform."""
     linux_locator = _locator("/opt/fake-linux")
     dispatcher = PlatformLocator("fake", {"linux": linux_locator})
@@ -78,7 +78,7 @@ def test_platform_locator_dispatches_to_the_matching_platform():
     install = dispatcher.locate(cfg)
     assert install == ToolkitInstall(root=pathlib.Path("/opt/fake-linux"), version="1.0")
 
-    assert dispatcher.provision(cfg, dry_run=False) is True
+    assert dispatcher.provision(cfg, dry_run=False, console=recording_console) is True
     assert len(linux_locator.provisioned_with) == 1
 
 
@@ -88,7 +88,7 @@ def test_platform_locator_falls_back_to_not_provided(recording_console):
     cfg = SimpleNamespace(platform="windows")
 
     assert dispatcher.locate(cfg) is None
-    assert dispatcher.provision(cfg, dry_run=False) is True
+    assert dispatcher.provision(cfg, dry_run=False, console=recording_console) is True
     assert recording_console.texts("info") == ["fake is not provided on windows."]
 
 
@@ -97,5 +97,5 @@ def test_not_provided_always_locates_nothing_and_reports_success(recording_conso
     locator = NotProvided("fake", "windows")
     cfg = SimpleNamespace(platform="windows")
     assert locator.locate(cfg) is None
-    assert locator.provision(cfg, dry_run=True) is True
+    assert locator.provision(cfg, dry_run=True, console=recording_console) is True
     assert recording_console.texts("info") == ["fake is not provided on windows."]

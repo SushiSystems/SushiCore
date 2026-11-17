@@ -10,16 +10,15 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.provision._output import bound_memory_console
+from sushicore.provision.output_memory import MemoryConsole
 
 from .migration_fakes import build_roots
 
 
 @pytest.fixture
-def recording_console():
-    """Bind the in-memory console adapter for the test, then unbind it."""
-    with bound_memory_console() as memory:
-        yield memory
+def recording_console() -> MemoryConsole:
+    """Return a fresh in-memory console for the test to pass to what prints."""
+    return MemoryConsole()
 
 
 @pytest.fixture

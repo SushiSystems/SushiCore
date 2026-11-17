@@ -62,7 +62,8 @@ def test_a_direct_install_replaces_the_previous_folder(
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
     installed = getattr(dd, installer)(
-        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer))
+        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer),
+        console=recording_console)
 
     assert installed is True
     assert not (target / "stale.txt").exists()
@@ -73,7 +74,8 @@ def test_a_direct_install_replaces_the_previous_folder(
 def test_ninja_direct_install_puts_ninja_in_the_tools_folder(provision_home, recording_console):
     """Check that the ninja archive's executable lands in the tools folder."""
     installed = dd._install_ninja_direct(
-        pin=_pinned([]), fetch=_fetch_archive("ninja.exe"), on_path=lambda _dir: None)
+        pin=_pinned([]), fetch=_fetch_archive("ninja.exe"), on_path=lambda _dir: None,
+        console=recording_console)
     assert installed is True
     assert (dd.tools_dir() / "ninja.exe").is_file()
 
@@ -92,7 +94,8 @@ def test_a_direct_install_reads_the_entry_of_its_own_tool(
     """Check that each installer asks the fragment's pin for the entry named after its tool."""
     asked: list[str] = []
     getattr(dd, installer)(
-        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer, asked))
+        fetch=_fetch_archive(member), on_path=lambda _dir: None,
+        **_sources(installer, asked), console=recording_console)
     assert asked == [entry]
 
 
@@ -108,7 +111,8 @@ def test_a_direct_install_lets_a_missing_pin_through(
 
     with pytest.raises(ConfigError):
         getattr(dd, installer)(pin=no_pin, **({"cmake_on_system": lambda: ""}
-                                              if installer == "_install_cmake_direct" else {}))
+                                              if installer == "_install_cmake_direct" else {}),
+                                              console=recording_console)
 
 
 @pytest.mark.medium
@@ -124,7 +128,8 @@ def test_the_cmake_install_downloads_the_address_its_entry_pins(
         _write_zip(dest, "cmake-1.0/bin/cmake.exe")
 
     dd._install_cmake_direct(
-        pin=_pinned(asked), fetch=fetch, cmake_on_system=lambda: "", on_path=lambda _dir: None)
+        pin=_pinned(asked), fetch=fetch, cmake_on_system=lambda: "", on_path=lambda _dir: None,
+        console=recording_console)
 
     assert asked == ["cmake"]
     assert fetched == ["https://example.invalid/pinned.zip"]
@@ -214,13 +219,13 @@ K_DIRECT_INSTALLS = [
 ]
 
 
-def _run_direct_install(installer: str, member: str, path_written: bool) -> bool:
+def _run_direct_install(installer: str, member: str, path_written: bool, console) -> bool:
     """Run *installer* against a one-member archive; the user PATH write answers *path_written*."""
     return getattr(dd, installer)(
         fetch=_fetch_archive(member),
         on_path=lambda directory: dd._put_on_user_path(
-            directory, add_to_path=lambda _directory: path_written),
-        **_sources(installer))
+            directory, console, add_to_path=lambda _directory: path_written),
+        **_sources(installer), console=console)
 
 
 @pytest.mark.medium
@@ -229,7 +234,7 @@ def _run_direct_install(installer: str, member: str, path_written: bool) -> bool
 def test_direct_install_warns_only_when_the_user_path_write_is_refused(
         installer, member, path_parts, path_written, provision_home, recording_console):
     """Check that a refused user PATH write warns once, a stored one stays quiet, both install."""
-    assert _run_direct_install(installer, member, path_written) is True
+    assert _run_direct_install(installer, member, path_written, recording_console) is True
     warnings = recording_console.texts("warn")
     if path_written:
         assert warnings == []
@@ -252,7 +257,8 @@ def test_a_direct_install_removes_its_folder_only_when_the_root_is_safe(
     target.mkdir(parents=True)
     (target / "stale.txt").write_text("stale")
     installed = getattr(dd, installer)(
-        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer))
+        fetch=_fetch_archive(member), on_path=lambda _dir: None, **_sources(installer),
+        console=recording_console)
 
     assert installed is safe
     assert (target / "stale.txt").exists() is not safe

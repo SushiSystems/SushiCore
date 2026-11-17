@@ -22,7 +22,8 @@ def manager(tmp_path, recording_console):
     """Return a Windows VcpkgManager with a vcpkg file under a folder of its own, listing imgui alone."""
     (tmp_path / "vcpkg.exe").write_text("")
     runner = RecordingRunner(recording_console).script(0, (LISTED.rstrip(),))
-    return VcpkgManager(ProvisionSettings(platform="windows", vcpkg_root=str(tmp_path)), runner)
+    return VcpkgManager(ProvisionSettings(platform="windows", vcpkg_root=str(tmp_path)), runner,
+                        console=recording_console)
 
 
 @pytest.mark.medium

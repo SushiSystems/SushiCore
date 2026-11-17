@@ -37,11 +37,11 @@ def test_the_index_hands_out_a_copy_of_its_list():
     assert index.packages("linux") == K_PACKAGES
 
 
-def test_the_installer_records_each_tarball_and_returns_its_label_as_a_path():
+def test_the_installer_records_each_tarball_and_returns_its_label_as_a_path(recording_console):
     """Check that an install records the tarball and returns a path named by its label."""
     installer = InMemoryTarballInstaller()
 
-    root = installer.install(K_PACKAGES[0])
+    root = installer.install(K_PACKAGES[0], recording_console)
 
     assert installer.installed == [K_PACKAGES[0]]
     assert root == Path("7.13.0-gfx110X-all")

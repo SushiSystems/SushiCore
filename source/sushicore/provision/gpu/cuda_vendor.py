@@ -11,7 +11,6 @@ import shutil
 import typing
 from pathlib import Path
 
-from .._output import console
 from ..host import current_host
 from ..probe import K_NVCC_GLOBS_LINUX, first_glob_match
 from .cuda_hardware import NvidiaHardware, query_hardware
@@ -72,9 +71,10 @@ class CudaVendor:
         """Return the cards and the driver's ceiling."""
         return self._hardware()
 
-    def choose(self, hardware: NvidiaHardware) -> str | None:
+    def choose(self, hardware: NvidiaHardware, console: typing.Any) -> str | None:
         """Return the newest release the driver runs whose nvcc builds every card."""
-        chosen = select_release(hardware, self._index.versions(), self._architectures)
+        chosen = select_release(hardware, self._index.versions(),
+                                lambda version: self._architectures(version, console))
         return format_version(chosen) if chosen is not None else None
 
     def resolve_override(self, text: str) -> str:
@@ -96,10 +96,10 @@ class CudaVendor:
         """Return ``<home>/cuda/<label>``."""
         return self._installer.root_of(label)
 
-    def install(self, label: str) -> Path:
-        """Download, verify and unpack the release."""
+    def install(self, label: str, console: typing.Any) -> Path:
+        """Download, verify and unpack the release, announcing it on *console*."""
         return self._installer.install(self._index.release(parse_version(label),
-                                                           self.platform_key))
+                                                           self.platform_key), console)
 
     def discard_downloads(self) -> None:
         """Delete the nvcc archives kept from probing."""
@@ -115,13 +115,13 @@ class CudaVendor:
             first_glob_match(K_NVCC_GLOBS_LINUX) if current_host().searches_system_prefixes else "")
         return Path(nvcc).resolve().parent.parent if nvcc else None
 
-    def _architectures(self, version: Version) -> frozenset[str]:
+    def _architectures(self, version: Version, console: typing.Any) -> frozenset[str]:
         """Return what *version*'s nvcc builds for; an unreadable one builds for nothing."""
         console.info(f"Asking the CUDA {format_version(version)} compiler which cards it "
                      "builds for ...")
         try:
             return self._installer.probe_architectures(
-                self._index.release(version, self.platform_key))
+                self._index.release(version, self.platform_key), console)
         except (RedistError, ToolkitInstallError) as error:
             console.warn(f"CUDA {format_version(version)} skipped: {error}")
             return frozenset()

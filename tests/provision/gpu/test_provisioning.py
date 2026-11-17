@@ -53,7 +53,8 @@ def test_a_missing_commit_builds_nothing_and_says_so(recording_console, dry_run,
     builder = InMemoryAdapterBuilder()
 
     provision_gpu_adapters(_cfg(), registry, _TOOLCHAIN, builder, dry_run=dry_run,
-                           commit_reader=lambda path: None)
+                           commit_reader=lambda path: None,
+                           console=recording_console)
 
     assert builder.built == []
     assert recording_console.texts("info") == infos
@@ -69,7 +70,8 @@ def test_a_backend_with_no_located_toolkit_is_skipped(recording_console):
     builder = InMemoryAdapterBuilder()
 
     provision_gpu_adapters(_cfg(), registry, _TOOLCHAIN, builder, dry_run=False,
-                           commit_reader=lambda path: _COMMIT)
+                           commit_reader=lambda path: _COMMIT,
+                           console=recording_console)
 
     assert builder.built == ["rocm"]
     assert recording_console.texts("info") == ["cuda toolkit not found; adapter build skipped."]
@@ -84,7 +86,8 @@ def test_one_built_and_one_failed_are_both_called_and_neither_raises(recording_c
     builder = InMemoryAdapterBuilder({"cuda": True, "rocm": False})
 
     provision_gpu_adapters(_cfg(), registry, _TOOLCHAIN, builder, dry_run=False,
-                           commit_reader=lambda path: _COMMIT)
+                           commit_reader=lambda path: _COMMIT,
+                           console=recording_console)
 
     assert builder.built == ["cuda", "rocm"]
     assert recording_console.texts("warn") == []
@@ -97,7 +100,8 @@ def test_a_locator_that_raises_is_swallowed_and_warned(recording_console):
     builder = InMemoryAdapterBuilder()
 
     provision_gpu_adapters(_cfg(), registry, _TOOLCHAIN, builder, dry_run=False,
-                           commit_reader=lambda path: _COMMIT)
+                           commit_reader=lambda path: _COMMIT,
+                           console=recording_console)
 
     assert builder.built == []
     assert recording_console.texts("warn") == [

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import Any, final
 
 from ..config import ProvisionConfig
 from ..licence_consent import LicenceConsent
@@ -27,10 +27,12 @@ from ..target import K_LINUX
 class LinuxManagerPlan(IManagerPlan):
     """Provisions through the distro managers and vcpkg."""
 
-    def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None) -> list[IPackageManager]:
+    def managers(self, cfg: ProvisionConfig, consent: LicenceConsent | None,
+                 console: Any) -> list[IPackageManager]:
         """Return the distro managers and vcpkg."""
-        return [AptManager(), DnfManager(), YumManager(), PacmanManager(), ZypperManager(),
-                VcpkgManager(cfg)]
+        return [AptManager(console=console), DnfManager(console=console),
+                YumManager(console=console), PacmanManager(console=console),
+                ZypperManager(console=console), VcpkgManager(cfg, console=console)]
 
 
 MANAGER_PLANS.register(K_LINUX, LinuxManagerPlan())

@@ -81,7 +81,7 @@ def test_install_intel_llvm_reuses_an_existing_bundle(provision_home, recording_
     pinner = _Pinner()
 
     result = intel_llvm.install_intel_llvm(
-        _linux_cfg(), dry_run=False, pin=pinner)
+        _linux_cfg(), dry_run=False, pin=pinner, console=recording_console)
 
     assert result == str(root)
     assert pinner.lookups == 0
@@ -93,7 +93,8 @@ def test_install_intel_llvm_dry_run_reports_without_downloading(provision_home, 
     root = toolchains_dir() / "llvm-sycl"
     fetcher = _Fetcher()
 
-    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=True, fetch=fetcher)
+    result = intel_llvm.install_intel_llvm(_linux_cfg(), dry_run=True, fetch=fetcher,
+                                           console=recording_console)
 
     assert result == str(root)
     assert fetcher.downloads == 0
@@ -110,7 +111,7 @@ def test_install_intel_llvm_refresh_skips_when_tag_unchanged(provision_home, rec
 
     result = intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False, refresh=True,
-        pin=_Pinner("nightly-1"), fetch=fetcher)
+        pin=_Pinner("nightly-1"), fetch=fetcher, console=recording_console)
 
     assert result == str(root)
     assert fetcher.downloads == 0
@@ -123,7 +124,9 @@ def test_install_intel_llvm_downloads_and_extracts_on_first_install(
 
     result = intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        pin=_Pinner("nightly-2"), fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
+        pin=_Pinner("nightly-2"), fetch=_Fetcher(("bin/clang++",
+                                                  "lib/libsomething.so")),
+                                                  console=recording_console)
 
     assert result == str(root)
     assert (root / "bin" / "clang++").is_file()
@@ -135,7 +138,8 @@ def test_install_intel_llvm_stops_when_no_fragment_pins_the_bundle(
     """Check that a missing pin reaches the caller as the error that names the entry."""
     with pytest.raises(ConfigError):
         intel_llvm.install_intel_llvm(
-            _linux_cfg(), dry_run=False, pin=_Pinner(error=ConfigError("no pin 'intel-llvm'")))
+            _linux_cfg(), dry_run=False, pin=_Pinner(error=ConfigError("no pin 'intel-llvm'")),
+            console=recording_console)
 
 
 def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
@@ -147,7 +151,7 @@ def test_install_intel_llvm_cleans_up_on_download_failure_without_refresh(
 
     result = intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        pin=_Pinner(), fetch=_Fetcher(error=OSError("network down")))
+        pin=_Pinner(), fetch=_Fetcher(error=OSError("network down")), console=recording_console)
 
     assert result is None
     assert not root.exists()
@@ -160,7 +164,7 @@ def test_install_intel_llvm_collapses_a_single_top_level_wrapper_dir(
 
     intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
-        pin=_Pinner(), fetch=_Fetcher(("wrap/bin/clang++",)))
+        pin=_Pinner(), fetch=_Fetcher(("wrap/bin/clang++",)), console=recording_console)
 
     assert (root / "bin" / "clang++").is_file()
     assert not (root / "wrap").exists()
@@ -173,7 +177,7 @@ def test_install_intel_llvm_leaves_an_unwrapped_layout_alone(provision_home, rec
     intel_llvm.install_intel_llvm(
         _linux_cfg(), dry_run=False,
         pin=_Pinner(),
-        fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")))
+        fetch=_Fetcher(("bin/clang++", "lib/libsomething.so")), console=recording_console)
 
     assert (root / "bin" / "clang++").is_file()
     assert (root / "lib" / "libsomething.so").is_file()

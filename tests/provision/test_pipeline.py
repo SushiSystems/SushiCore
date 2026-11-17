@@ -13,9 +13,10 @@ from sushicore.provision.pipeline import InstallContext, InstallPipeline, StepRe
 from sushicore.provision.pipeline_memory import ScriptedStep
 
 
-def _ran(steps, **options):
+def _ran(steps, console, **options):
     """Run *steps* through a pipeline over a fresh context; return the pipeline's answer."""
-    return InstallPipeline(steps).run(InstallContext(cfg=ProvisionSettings()), **options)
+    return InstallPipeline(steps, console=console).run(InstallContext(cfg=ProvisionSettings()),
+                                                       **options)
 
 
 @pytest.mark.small
@@ -24,7 +25,7 @@ def test_pipeline_stops_on_the_first_failure(recording_console):
     log = []
     steps = [ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.FAILED, log),
              ScriptedStep("c", StepResult.OK, log)]
-    assert _ran(steps) is False
+    assert _ran(steps, console=recording_console) is False
 
 
 @pytest.mark.small
@@ -33,7 +34,7 @@ def test_pipeline_runs_no_step_after_the_first_failure(recording_console):
     log = []
     steps = [ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.FAILED, log),
              ScriptedStep("c", StepResult.OK, log)]
-    _ran(steps)
+    _ran(steps, console=recording_console)
     assert log == ["a", "b"]
 
 
@@ -41,7 +42,8 @@ def test_pipeline_runs_no_step_after_the_first_failure(recording_console):
 def test_each_step_gets_a_header(recording_console):
     """Check that each step is announced by one header."""
     log = []
-    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)])
+    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)],
+         console=recording_console)
     assert [args[0] for name, args in recording_console.calls if name == "header"] == [
         "setup: a", "setup: b"]
 
@@ -50,7 +52,8 @@ def test_each_step_gets_a_header(recording_console):
 def test_each_step_gets_a_progress_event(recording_console):
     """Check that each step is reported to a program by one progress event."""
     log = []
-    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)])
+    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)],
+         console=recording_console)
     assert [args[:3] for name, args in recording_console.calls if name == "progress"] == [
         ("a", 1, 2), ("b", 2, 2)]
 
@@ -59,7 +62,8 @@ def test_each_step_gets_a_progress_event(recording_console):
 def test_a_done_step_is_reported_as_a_success_and_a_skipped_one_as_information(recording_console):
     """Check that one step of each kind gives one success line and one information line."""
     log = []
-    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)])
+    _ran([ScriptedStep("a", StepResult.OK, log), ScriptedStep("b", StepResult.SKIPPED, log)],
+         console=recording_console)
     names = [name for name, _ in recording_console.calls]
     assert (names.count("success"), names.count("info")) == (1, 1)
 
@@ -67,14 +71,15 @@ def test_a_done_step_is_reported_as_a_success_and_a_skipped_one_as_information(r
 @pytest.mark.small
 def test_a_caller_that_still_passes_show_progress_is_served(recording_console):
     """Check that the ignored show_progress argument is still accepted."""
-    assert _ran([ScriptedStep("a", StepResult.OK, [])], show_progress=True) is True
+    assert _ran([ScriptedStep("a", StepResult.OK, [])], show_progress=True,
+                console=recording_console) is True
 
 
 @pytest.mark.small
 def test_the_warnings_of_a_run_are_printed_again_after_the_steps(recording_console):
     """Check that a non-fatal warning of the context is re-printed once the steps ran."""
     step = ScriptedStep("a", StepResult.OK, [], warnings=("ninja missing",))
-    _ran([step])
+    _ran([step], console=recording_console)
     warnings = [args[0] for name, args in recording_console.calls if name == "warn"]
     assert warnings == ["Completed with 1 warning(s):", "  - ninja missing"]
 
@@ -89,6 +94,6 @@ def test_a_step_given_the_empty_selection_installs_nothing(recording_console):
             seen.append(ctx.selection.as_dict())
             return super().run(ctx)
 
-    _ran([_Probe("a", StepResult.OK, [])])
+    _ran([_Probe("a", StepResult.OK, [])], console=recording_console)
     assert seen == [{"install_intel_llvm": False, "install_acpp": False, "oneapi": False,
                      "gpu": False}]

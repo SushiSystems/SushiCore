@@ -34,26 +34,27 @@ def test_the_index_releases_hold_the_version_and_no_archive():
     assert release == RedistRelease((13, 1, 2), {})
 
 
-def test_the_installer_probe_answers_the_architectures_of_the_releases_major():
+def test_the_installer_probe_answers_the_architectures_of_the_releases_major(recording_console):
     """Check that the probe answers the table row of the release's major."""
     installer = InMemoryRedistInstaller(K_ARCHITECTURES)
 
-    assert installer.probe_architectures(RedistRelease((12, 9, 1), {})) == frozenset({"61"})
+    assert installer.probe_architectures(RedistRelease((12, 9, 1), {}),
+                                         recording_console) == frozenset({"61"})
 
 
-def test_the_installer_probe_raises_for_a_broken_compiler():
+def test_the_installer_probe_raises_for_a_broken_compiler(recording_console):
     """Check that a version listed as broken raises ToolkitInstallError."""
     installer = InMemoryRedistInstaller(K_ARCHITECTURES, broken=[(13, 4, 3)])
 
     with pytest.raises(ToolkitInstallError):
-        installer.probe_architectures(RedistRelease((13, 4, 3), {}))
+        installer.probe_architectures(RedistRelease((13, 4, 3), {}), recording_console)
 
 
-def test_the_installer_records_the_label_and_returns_the_release_folder():
+def test_the_installer_records_the_label_and_returns_the_release_folder(recording_console):
     """Check that an install records the label and returns the folder under the base."""
     installer = InMemoryRedistInstaller(K_ARCHITECTURES, base_dir=Path("base"))
 
-    root = installer.install(RedistRelease((12, 6, 3), {}))
+    root = installer.install(RedistRelease((12, 6, 3), {}), recording_console)
 
     assert installer.installed == ["12.6.3"]
     assert root == Path("base") / "12.6.3"

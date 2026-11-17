@@ -12,12 +12,11 @@ import shutil
 import tempfile
 import typing
 from pathlib import Path
-from typing import Callable, MutableMapping, Sequence
+from typing import Any, Callable, MutableMapping, Sequence
 
 
 from .. import home
 from ..probe import K_RC_GLOBS
-from .._output import console
 from ..dependency_presence import named_manager
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence
@@ -71,7 +70,7 @@ class AdaptiveCppToolchain:
         acpp = install_adaptivecpp(
             ctx.cfg, env.mgr, env.vcpkg, ctx.dry_run,
             assume_yes=ctx.assume_acpp_llvm,
-            winget=named_manager(env.managers, "winget"))
+            winget=named_manager(env.managers, "winget"), console=env.console)
         if acpp:
             ctx.resolved_paths["acpp_exe"] = acpp
         elif not ctx.selection.install_intel_llvm:
@@ -100,6 +99,7 @@ def _find_windows_sdk_rc_dir(glob: Callable[[str], list[str]] | None = None) -> 
 def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None",
                         vcpkg: "IPackageManager | None", dry_run: bool,
                         assume_yes: bool = False, *,
+                        console: Any,
                         winget: "IPackageManager | None" = None,
                         which: Callable[[str], str | None] | None = None,
                         glob: Callable[[str], list[str]] | None = None,
@@ -116,6 +116,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         vcpkg: The vcpkg manager, or None when unavailable.
         dry_run: Report the action without touching the filesystem.
         assume_yes: Skip the Windows LLVM consent prompt.
+        console: The console the build prints through.
         winget: The winget manager, or None when unavailable; it installs LLVM only when it holds
             the user's consent to winget's agreements.
         which: Finds an executable on the search path; ``shutil.which`` when omitted.
@@ -124,7 +125,7 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         environ: The environment whose ``PATH`` gains the SDK resource compiler's folder;
             ``os.environ`` when omitted.
         run_command: Runs a command and returns its exit code; takes the command, the dry-run
-            flag and a ``check`` keyword. ``process_run.run`` when omitted.
+            flag and a ``check`` keyword. ``process_run.run`` on *console* when omitted.
         configure: Runs the configure command quietly and reports success; takes the command
             and the dry-run flag. The quiet subprocess runner when omitted.
 
@@ -155,15 +156,17 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
 
     llvm_dir, clang_prefix = LLVM_PLANS.plan_for(target).resolve(
         LlvmRequest(mgr=mgr, vcpkg=vcpkg, winget=winget, assume_yes=assume_yes,
-                    llvm_bases=llvm_bases))
+                    llvm_bases=llvm_bases, console=console))
     if llvm_dir is None:
-        _explain_acpp_skip(cfg)
+        _explain_acpp_skip(cfg, console)
         return None
 
+    run_step = run_command or (
+        lambda cmd, dry, *, check=False: run(cmd, dry, console=console, check=check))
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "acpp"
         build = src / "build"
-        clone = (run_command or run)(
+        clone = run_step(
             [git, "clone", "--depth", "1", "--branch", ACPP_VERSION,
              "https://github.com/AdaptiveCpp/AdaptiveCpp.git", str(src)],
             dry_run, check=True,
@@ -189,12 +192,13 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
         # clang-cl needs rc.exe (Windows SDK Resource Compiler) on PATH for the manifest embed.
         target.prepare_acpp_environment(env, lambda: _find_windows_sdk_rc_dir(glob))
 
-        configure_ok = (configure or _run_quiet)(cfg_cmd, dry_run)
+        configure_ok = (configure or (lambda cmd, dry: _run_quiet(cmd, dry, console=console)))(
+            cfg_cmd, dry_run)
         if not configure_ok:
             console.warn("AdaptiveCpp configure failed; skipping. "
                          "intel-llvm is installed and selected.")
             return None
-        if (run_command or run)([cmake, "--build", str(build), "--target", "install"],
+        if run_step([cmake, "--build", str(build), "--target", "install"],
                 dry_run, check=True) != 0:
             console.warn("AdaptiveCpp build failed; skipping. "
                          "intel-llvm is installed and selected.")
@@ -208,11 +212,12 @@ def install_adaptivecpp(cfg: "ProvisionConfig", mgr: "LinuxPackageManager | None
     return None
 
 
-def _explain_acpp_skip(cfg: "ProvisionConfig") -> None:
+def _explain_acpp_skip(cfg: "ProvisionConfig", console: Any) -> None:
     """Explain why the acpp build was skipped and how to enable it later.
 
     Args:
         cfg: Resolved configuration; selects the platform-specific message.
+        console: The console the explanation is printed through.
     """
     console.warn("AdaptiveCpp (acpp) was skipped — it builds from source and its "
                  "LLVM development dependency is not available.")

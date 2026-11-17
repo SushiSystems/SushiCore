@@ -47,7 +47,7 @@ def test_prepare_fetches_a_chain_that_agrees(tmp_path, provision_home, recording
     pins = pins_at(root / "cli/sushistack.deps.toml")
     git = pinned_git()
 
-    assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
+    assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0, console=recording_console)
     assert len(git.calls) == 1
 
 
@@ -60,15 +60,16 @@ def test_prepare_stops_on_a_conflict_before_cloning(tmp_path, provision_home, re
     pins = pins_at(root / "cli/sushistack.deps.toml")
     git = pinned_git()
 
-    assert not sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
+    assert not sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0, console=recording_console)
     assert git.calls == []
     errors = [args[0] for name, args in recording_console.calls if name == "error"]
     assert any("sushiai" in e and "sushiruntime" in e for e in errors)
 
 
-def test_prepare_has_nothing_to_do_without_pins(tmp_path, provision_home):
+def test_prepare_has_nothing_to_do_without_pins(tmp_path, provision_home, recording_console):
     """Check that a module with no pins takes no lock and succeeds."""
-    assert sushi_setup.prepare(_ctx(), tmp_path, [], pinned_git(), timeout=1.0)
+    assert sushi_setup.prepare(_ctx(), tmp_path, [], pinned_git(), timeout=1.0,
+                               console=recording_console)
     assert not (provision_home / ".lock").exists()
 
 
@@ -87,5 +88,5 @@ def test_prepare_fetches_a_library_pinned_only_by_a_fetched_library(
 
     git = InMemoryGitClient(commit=K_PINNED, materialize=materialize)
 
-    assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0)
+    assert sushi_setup.prepare(_ctx(), root, pins, git, timeout=1.0, console=recording_console)
     assert (provision_home / "sources" / "sushilog" / "v1.0.0").is_dir()

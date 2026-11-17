@@ -11,7 +11,6 @@ from typing import Optional
 
 from ..build_tree import K_DEFAULT_BUILD_TYPE, tree_dir
 from ..proc import CommandRunner, Runner
-from ._output import bind_console, console
 from .module_provision import ModuleProvision
 from .package_install import PackageInstaller
 from .process_run import K_PROGRAM
@@ -61,11 +60,11 @@ def register_package_command(app: "typer.Typer", module: ModuleProvision,
             False, "--force", help="Clear a --prefix that holds files this command did not stage."),
     ) -> None:
         """Install the built tree to a prefix and archive it for redistribution."""
-        bind_console(module.console)
+        console = module.console()
         cfg = module.load_config()
         cmake = cfg.expand(cfg.cmake_exe) if cfg.cmake_exe else "cmake"
         installer = PackageInstaller(
-            module.console(), cmake,
+            console, cmake,
             runner or Runner(console, K_PROGRAM, missing_exit_code=K_MISSING_EXIT_CODE))
         root = module.project_root()
         tree = Path(build_dir) if build_dir else tree_dir(root, K_DEFAULT_TREE, K_DEFAULT_BUILD_TYPE)

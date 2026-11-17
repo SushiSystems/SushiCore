@@ -10,12 +10,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from dataclasses import fields as dc_fields
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from sushicore import deps_fragment
 from sushicore.deps_fragment import Dependency as FragmentDependency
 from sushicore.deps_fragment import Download
-from sushicore.provision._output import console
 from sushicore.provision.target import target_for_platform
 
 #: Owner label for dependencies contributed by no single module.
@@ -146,8 +145,9 @@ def _parse_manifest(path: Path, owner: str) -> tuple[list[Dependency], list[str]
 class TomlDependencySource(IDependencySource):
     """Aggregates dependency fragments from an explicit list of ``(path, owner)`` pairs."""
 
-    def __init__(self, sources: list[tuple[Path, str]]) -> None:
-        """Store the given fragment files; nothing is read until :meth:`all`."""
+    def __init__(self, sources: list[tuple[Path, str]], *, console: Any) -> None:
+        """Store the given fragment files and the console; nothing is read until :meth:`all`."""
+        self._console = console
         self._sources = sources
         self._depends_on: dict[str, list[str]] = {}
         self._merged: list[Dependency] | None = None
@@ -175,7 +175,7 @@ class TomlDependencySource(IDependencySource):
                 if dep.name in merged:
                     merged[dep.name], warning = _merge(merged[dep.name], dep)
                     if warning:
-                        console.warn(warning)
+                        self._console.warn(warning)
                     continue
                 merged[dep.name] = dep
         self._merged = list(merged.values())

@@ -17,7 +17,7 @@ from sushicore.provision.process_run import run
 @pytest.mark.small
 def test_a_dry_run_executes_nothing_and_returns_zero(recording_console):
     """Check that a dry run reports the command and gives exit code zero."""
-    assert run([sys.executable, "-c", "raise SystemExit(5)"], True) == 0
+    assert run([sys.executable, "-c", "raise SystemExit(5)"], True, console=recording_console) == 0
     assert recording_console.texts("info") == ["(dry-run) not executed"]
 
 
@@ -32,5 +32,5 @@ def test_a_failing_command_returns_its_exit_code(recording_console, monkeypatch)
             return 3
 
     monkeypatch.setattr("subprocess.Popen", lambda *args, **kwargs: _Child())
-    assert run(["tool"], False, check=True) == 3
+    assert run(["tool"], False, check=True, console=recording_console) == 3
     assert recording_console.texts("error") == ["Command failed (3)."]

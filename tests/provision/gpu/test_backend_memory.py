@@ -23,13 +23,14 @@ def test_a_locator_with_no_install_finds_none():
     assert InMemoryToolkitLocator().locate(_CFG) is None
 
 
-def test_provision_returns_the_outcome_the_locator_was_built_with():
-    assert InMemoryToolkitLocator(provisioned=False).provision(_CFG, dry_run=False) is False
+def test_provision_returns_the_outcome_the_locator_was_built_with(recording_console):
+    assert InMemoryToolkitLocator(provisioned=False).provision(_CFG, dry_run=False,
+                                                               console=recording_console) is False
 
 
-def test_provision_records_the_configuration_and_the_dry_run_flag():
+def test_provision_records_the_configuration_and_the_dry_run_flag(recording_console):
     locator = InMemoryToolkitLocator(ToolkitInstall(pathlib.Path("/t"), None))
-    locator.provision(_CFG, dry_run=True)
+    locator.provision(_CFG, dry_run=True, console=recording_console)
     assert locator.provisioned_with == [(_CFG, True)]
 
 

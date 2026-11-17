@@ -13,7 +13,7 @@ import re
 import typing
 
 from ...proc import CommandRunner
-from ..process_run import provision_runner
+from ...quiet_runner import quiet_runner
 
 _log = logging.getLogger(__name__)
 
@@ -74,9 +74,9 @@ def query_hardware(runner: CommandRunner | None = None) -> NvidiaHardware | None
     """Ask ``nvidia-smi`` about this machine; None when there is no driver to ask.
 
     Args:
-        runner: Runs ``nvidia-smi``; the provision runner when ``None``.
+        runner: Runs ``nvidia-smi``; the quiet runner when ``None``.
     """
-    run = runner or provision_runner()
+    run = runner or quiet_runner()
     caps = _ask(run, ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"])
     banner = _ask(run, ["nvidia-smi"]) if caps is not None else None
     if caps is None or banner is None:

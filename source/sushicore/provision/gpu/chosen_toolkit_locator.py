@@ -16,7 +16,6 @@ import os
 import pathlib
 import typing
 
-from .._output import console
 from ..user_environment import UserEnvironment, read_user_variable, write_user_variable
 from .backend import ToolkitInstall
 from .gpu_hardware import GpuHardware
@@ -60,7 +59,7 @@ class ChosenToolkitLocator:
         found = self._vendor.find_system_toolkit()
         return ToolkitInstall(root=found, version=None) if found is not None else None
 
-    def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
+    def provision(self, cfg: "ProvisionConfig", dry_run: bool, console: typing.Any) -> bool:
         """Install the release this machine needs and point the root variable at it.
 
         Always returns True: without a driver, a network or a fitting release the CPU path
@@ -78,10 +77,10 @@ class ChosenToolkitLocator:
                          f"install it under {self._vendor.toolkits_dir}.")
             return True
         try:
-            root = self._provide(hardware)
+            root = self._provide(hardware, console)
         except ToolkitSourceError as error:
             self._vendor.discard_downloads()
-            self._report_failure(cfg, str(error))
+            self._report_failure(cfg, str(error), console)
             return True
         if root is None:
             return True
@@ -91,14 +90,14 @@ class ChosenToolkitLocator:
         console.success(f"{name} toolkit at {root}; {variable} points to it.")
         return True
 
-    def _provide(self, hardware: GpuHardware) -> pathlib.Path | None:
+    def _provide(self, hardware: GpuHardware, console: typing.Any) -> pathlib.Path | None:
         """Return the root of the release to use, installing it when needed."""
         vendor = self._vendor
         override = self._process.get(vendor.override_variable, "").strip()
         if override:
             label = vendor.resolve_override(override)
             console.info(f"{vendor.override_variable} asks for {vendor.name} {label}.")
-            return self._install(label)
+            return self._install(label, console)
         choices = self._choices or ToolkitChoiceFile(vendor.toolkits_dir / "choice.json")
         recorded = choices.read()
         if (recorded is not None and recorded.fingerprint == hardware.fingerprint()
@@ -107,7 +106,7 @@ class ChosenToolkitLocator:
             console.info(f"{vendor.name} {recorded.release} was chosen for this hardware "
                          "before.")
             return vendor.root_of(recorded.release)
-        label = vendor.choose(hardware)
+        label = vendor.choose(hardware, console)
         if label is None:
             vendor.discard_downloads()
             console.warn(f"No published {vendor.name} release fits {hardware.describe()}; "
@@ -115,19 +114,19 @@ class ChosenToolkitLocator:
                          "uses the CPU path.")
             return None
         console.info(f"{vendor.name} {label} is the newest release that fits every card here.")
-        root = self._install(label)
+        root = self._install(label, console)
         choices.write(ToolkitChoice(hardware.fingerprint(), vendor.platform_key, label))
         return root
 
-    def _install(self, label: str) -> pathlib.Path:
+    def _install(self, label: str, console: typing.Any) -> pathlib.Path:
         """Install the release labelled *label* unless it is in place, and return its root."""
         vendor = self._vendor
         if vendor.is_installed(label):
             return vendor.root_of(label)
         console.info(f"Installing {vendor.name} {label} under {vendor.root_of(label)}.")
-        return vendor.install(label)
+        return vendor.install(label, console)
 
-    def _report_failure(self, cfg: "ProvisionConfig", reason: str) -> None:
+    def _report_failure(self, cfg: "ProvisionConfig", reason: str, console: typing.Any) -> None:
         """Say why no release was installed and what the build uses instead."""
         existing = self.locate(cfg)
         fallback = (f"the toolkit at {existing.root} stays in use" if existing is not None

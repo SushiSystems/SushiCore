@@ -93,4 +93,4 @@ class TestTomlDependencySourceKeepsTheDependencySourceContract(DependencySourceC
     def source(self, tmp_path, recording_console) -> IDependencySource:
         path = tmp_path / "sushistack.deps.toml"
         path.write_text(_fragment_text(K_DEPENDENCIES, ["sushilog"]), encoding="utf-8")
-        return TomlDependencySource([(path, K_OWNER)])
+        return TomlDependencySource([(path, K_OWNER)], console=recording_console)

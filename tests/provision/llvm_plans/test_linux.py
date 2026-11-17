@@ -9,13 +9,15 @@ from __future__ import annotations
 import pytest
 
 from sushicore.provision.llvm_plan import LlvmRequest
+from sushicore.provision.output_memory import MemoryConsole
 from sushicore.provision.llvm_plans.linux import LinuxLlvmPlan
 from sushicore.provision.packages.base_memory import InMemoryLinuxPackageManager
 
 
 def _request(mgr) -> LlvmRequest:
     """Build a request that holds only the distro manager *mgr*."""
-    return LlvmRequest(mgr=mgr, vcpkg=None, winget=None, assume_yes=False, llvm_bases=None)
+    return LlvmRequest(mgr=mgr, vcpkg=None, winget=None, assume_yes=False, llvm_bases=None,
+                        console=MemoryConsole())
 
 
 @pytest.mark.small

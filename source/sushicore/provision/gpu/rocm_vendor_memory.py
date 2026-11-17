@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from .rocm_package import RocmPackage
 
@@ -43,7 +43,7 @@ class InMemoryTarballInstaller:
         self.base_dir = base_dir
         self.installed: list[RocmPackage] = []
 
-    def install(self, package: RocmPackage) -> Path:
+    def install(self, package: RocmPackage, console: Any) -> Path:
         """Record *package* and return its label as a path."""
         self.installed.append(package)
         return Path(package.label)

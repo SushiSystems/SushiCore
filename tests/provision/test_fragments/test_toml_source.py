@@ -21,47 +21,47 @@ def _write(path, body):
     return path
 
 
-def test_source_reads_only_the_files_it_is_given(tmp_path):
+def test_source_reads_only_the_files_it_is_given(tmp_path, recording_console):
     """Check that source reads only the files it is given."""
     mine = _write(tmp_path / "mine.deps.toml", '[gtest]\ndescription = "t"\nrequired = false\n'
                   'linux_apt = ["libgtest-dev"]\nwindows_vcpkg = ["gtest"]\n')
-    source = TomlDependencySource([(mine, "sushitrack")])
+    source = TomlDependencySource([(mine, "sushitrack")], console=recording_console)
     deps = source.all()
     assert [d.name for d in deps] == ["gtest"]
     assert deps[0].owner == "sushitrack"
 
 
-def test_same_named_deps_merge_across_files(tmp_path):
+def test_same_named_deps_merge_across_files(tmp_path, recording_console):
     """Check that same named deps merge across files."""
     a = _write(tmp_path / "a.deps.toml", '[x]\ndescription = "a"\nrequired = false\n'
                'linux_apt = ["p1"]\nwindows_vcpkg = []\n')
     b = _write(tmp_path / "b.deps.toml", '[x]\ndescription = "b"\nrequired = true\n'
                'linux_apt = ["p2"]\nwindows_vcpkg = []\n')
-    (dep,) = TomlDependencySource([(a, SHARED_OWNER), (b, "m")]).all()
+    (dep,) = TomlDependencySource([(a, SHARED_OWNER), (b, "m")], console=recording_console).all()
     assert dep.required is True
     assert dep.linux_apt == ["p1", "p2"]
 
 
-def test_digests_returns_the_pins_for_one_platform(tmp_path):
+def test_digests_returns_the_pins_for_one_platform(tmp_path, recording_console):
     """Check that digests names each pinned dependency of a platform and leaves out the rest."""
     digest = "3f" * 32
     mine = _write(tmp_path / "mine.deps.toml",
                   f'[cmake]\nversion = "v1"\nurl = {{ windows = "https://example.invalid/c.zip" }}\n'
                   f'sha256 = {{ windows = "{digest}" }}\n'
                   '[ninja]\ndescription = "unpinned"\n')
-    source = TomlDependencySource([(mine, SHARED_OWNER)])
+    source = TomlDependencySource([(mine, SHARED_OWNER)], console=recording_console)
 
     assert source.digests("windows") == {"cmake": digest}
     assert source.digests("linux") == {}
 
 
-def test_downloads_returns_the_whole_pin_for_one_platform(tmp_path):
+def test_downloads_returns_the_whole_pin_for_one_platform(tmp_path, recording_console):
     """Check that downloads names each pinned entry's version, url and digest for a platform."""
     digest = "3f" * 32
     mine = _write(tmp_path / "mine.deps.toml",
                   '[cmake]\nversion = "v1"\nurl = { windows = "https://example.invalid/c.zip" }\n'
                   f'sha256 = {{ windows = "{digest}" }}\n[ninja]\ndescription = "unpinned"\n')
-    source = TomlDependencySource([(mine, SHARED_OWNER)])
+    source = TomlDependencySource([(mine, SHARED_OWNER)], console=recording_console)
 
     assert source.downloads("windows") == {
         "cmake": Download("cmake", "v1", "https://example.invalid/c.zip", digest)}

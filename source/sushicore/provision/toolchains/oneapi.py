@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import typing
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from sushicore.proc import CommandRunner
 
-from .._output import console
 from ..download_verifier import verify_download
 from ..install_location import ToolkitInstall
 from ..licence_consent import Licence, LicenceConsent, is_accepted
@@ -93,7 +92,7 @@ class OneApiToolchain:
 ONEAPI = OneApiToolchain()
 
 
-def install_oneapi(ctx: "InstallContext", *,
+def install_oneapi(ctx: "InstallContext", *, console: Any,
                    download_installer: Callable[[], Path | None] | None = None,
                    run_installer: Callable[[Path], bool] | None = None) -> bool:
     """Download and silently install Intel oneAPI DPC++, when selected and needed.
@@ -104,6 +103,7 @@ def install_oneapi(ctx: "InstallContext", *,
     Args:
         ctx: The shared install context; reads ``selection.oneapi``, ``detected``
             and ``dry_run``.
+        console: The console the install prints through.
         download_installer: Fetches the offline installer and returns its path, or None on
             failure; :func:`download_oneapi_installer` when omitted.
         run_installer: Runs the installer at a path and reports success;
@@ -118,10 +118,11 @@ def install_oneapi(ctx: "InstallContext", *,
         console.info("(dry-run) skipping Intel oneAPI install.")
         return True
 
-    installer = (download_installer or download_oneapi_installer)()
+    installer = (download_installer or (lambda: download_oneapi_installer(console=console)))()
     if installer is None:
         return False
-    run = run_installer or (lambda path: run_oneapi_installer(path, consent=ctx.consent))
+    run = run_installer or (
+        lambda path: run_oneapi_installer(path, consent=ctx.consent, console=console))
     return run(installer)
 
 
@@ -131,13 +132,14 @@ def oneapi_licences(ctx: "InstallContext") -> list[Licence]:
     return [K_ONEAPI_LICENCE] if needed else []
 
 
-def download_oneapi_installer(*, directory: Path | None = None,
+def download_oneapi_installer(*, console: Any, directory: Path | None = None,
                               runner: CommandRunner | None = None) -> Path | None:
     """Download the Intel oneAPI offline installer into the user's home directory.
 
     Args:
+        console: The console the download prints through.
         directory: Where the installer is kept; the user's home directory when omitted.
-        runner: Runs the curl command; the provision runner when ``None``.
+        runner: Runs the curl command; the provision runner on *console* when ``None``.
 
     Returns:
         The downloaded (or already-present) installer path, or None on failure.
@@ -149,7 +151,7 @@ def download_oneapi_installer(*, directory: Path | None = None,
     installer = (directory or Path.home()) / "intel-oneapi-toolkit-offline.exe"
     if not installer.is_file():
         console.info("Downloading Intel oneAPI Installer (~4 GB) from Intel servers ...")
-        dl_rc = (runner or provision_runner()).run(
+        dl_rc = (runner or provision_runner(console)).run(
             ["curl", "-L", "-o", str(installer), _ONEAPI_URL], Path.cwd())
         if dl_rc != 0:
             console.error("Failed to download Intel oneAPI installer.")
@@ -158,7 +160,7 @@ def download_oneapi_installer(*, directory: Path | None = None,
     return installer
 
 
-def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
+def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None, console: Any,
                          runner: CommandRunner | None = None) -> bool:
     """Run the Intel oneAPI installer silently, elevating on demand.
 
@@ -166,8 +168,9 @@ def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
         installer: Path of the downloaded offline installer executable.
         consent: The run's licence consent; the installer launches only when it covers
             :data:`K_ONEAPI_LICENCE`.
+        console: The console the install prints through.
         runner: Runs the installer, and the elevated PowerShell launch stopped after 1200
-            seconds; the provision runner when ``None``.
+            seconds; the provision runner on *console* when ``None``.
 
     Returns:
         True when the installer reports success; False without consent to
@@ -177,7 +180,7 @@ def run_oneapi_installer(installer: Path, *, consent: LicenceConsent | None,
         console.error(f"Intel oneAPI needs consent to {K_ONEAPI_LICENCE.name}: "
                       f"{K_ONEAPI_LICENCE.link}")
         return False
-    runner = runner or provision_runner()
+    runner = runner or provision_runner(console)
     oneapi_cmd = [
         str(installer), "-s", "-a", "--silent", "--eula", "accept",
         "-p=NEED_VS2022_INTEGRATION=1",

@@ -44,7 +44,7 @@ def test_a_windows_run_hands_the_gpu_stage_the_context_when_gpu_is_selected():
     step = InstallDepsStep(
         InMemoryDependencySource([]), managers=[], console=RecordingConsole(),
         actions=_actions(which=lambda name: "/bin/" + name, find_vcvars=lambda: Path("vcvars64.bat"),
-                         install_oneapi=lambda run: True),
+                         install_oneapi=lambda run, console: True),
         gpu=recorded.stage())
 
     result = step.run(ctx)
@@ -59,7 +59,7 @@ def test_a_windows_run_without_gpu_leaves_the_gpu_stage_with_nothing_to_install(
     step = InstallDepsStep(
         InMemoryDependencySource([]), managers=[], console=RecordingConsole(),
         actions=_actions(which=lambda name: "/bin/" + name, find_vcvars=lambda: Path("vcvars64.bat"),
-                         install_oneapi=lambda run: True),
+                         install_oneapi=lambda run, console: True),
         gpu=recorded.stage())
 
     step.run(_windows_context(gpu=False, vendor="nvidia"))
@@ -76,7 +76,8 @@ def test_vs_build_tools_are_not_installed_when_a_visual_studio_has_the_cpp_tools
         console=RecordingConsole(),
         actions=_actions(which=lambda name: "/bin/" + name,
                          find_vcvars=lambda: Path("vcvars64.bat"),
-                         run_command=ran.append, install_oneapi=lambda run: True),
+                         run_command=lambda command, console: ran.append(command),
+                         install_oneapi=lambda run, console: True),
         gpu=RecordedGpuStage().stage())
 
     result = step.run(_windows_context(gpu=False, vendor="none"))
@@ -109,8 +110,8 @@ def _vs_missing_step(ran: list, gpu: GpuStage | None = None) -> InstallDepsStep:
         InMemoryDependencySource([]), managers=[_Winget(name="winget")],
         console=RecordingConsole(),
         actions=_actions(which=lambda name: "/bin/" + name, find_vcvars=lambda: None,
-                         run_command=lambda command: _ran(ran, command),
-                         install_oneapi=lambda run: True),
+                         run_command=lambda command, console: _ran(ran, command),
+                         install_oneapi=lambda run, console: True),
         gpu=gpu or RecordedGpuStage().stage())
 
 

@@ -41,11 +41,11 @@ _TOOLCHAIN_ROWS = [
 ]
 
 
-def _step(src):
+def _step(src, console):
     """Build a DetectStep with fixed toolchain and GPU-vendor probes."""
     return DetectStep(src, managers=[],
                       toolchain_status=lambda cfg, gpu: _TOOLCHAIN_ROWS,
-                      gpu_vendor=lambda: "none")
+                      gpu_vendor=lambda: "none", console=console)
 
 
 def _ctx():
@@ -53,50 +53,52 @@ def _ctx():
     return InstallContext(cfg=ProvisionSettings(platform="linux"))
 
 
-def test_undeclared_toolchains_are_not_needed():
+def test_undeclared_toolchains_are_not_needed(recording_console):
     """Check that undeclared toolchains are not needed."""
     src = InMemoryDependencySource([dep("cmake")])
-    rows = _step(src).inventory_rows(_ctx(), src.all())
+    rows = _step(src, recording_console).inventory_rows(_ctx(), src.all())
     status = {name: s for name, s, _o, _d in rows}
     assert status["intel-llvm"] == "NOT NEEDED" and status["cuda"] == "NOT NEEDED"
 
 
-def test_declared_toolchains_are_missing_when_absent():
+def test_declared_toolchains_are_missing_when_absent(recording_console):
     """Check that declared toolchains are missing when absent."""
     src = InMemoryDependencySource([dep("intel-llvm", "sushiruntime")])
-    rows = _step(src).inventory_rows(_ctx(), src.all())
+    rows = _step(src, recording_console).inventory_rows(_ctx(), src.all())
     assert dict((n, s) for n, s, _o, _d in rows)["intel-llvm"] == "MISSING"
 
 
-def test_rows_are_grouped_by_owner_in_dependency_order():
+def test_rows_are_grouped_by_owner_in_dependency_order(recording_console):
     """Check that rows are grouped by owner in dependency order."""
     src = InMemoryDependencySource([dep("a", "sushiai"), dep("r", "sushiruntime"), dep("cmake")],
                        depends_on={"sushiai": ["sushiruntime"]})
     ctx = InstallContext(cfg=ProvisionSettings(platform="linux"))
-    owners = [o for _n, _s, o, _d in _step(src).inventory_rows(ctx, src.all())]
+    owners = [o for _n, _s, o, _d in _step(src, recording_console).inventory_rows(ctx, src.all())]
     first_index = {o: owners.index(o) for o in dict.fromkeys(owners)}
     assert first_index["shared"] < first_index["sushiruntime"] < first_index["sushiai"]
 
 
-def test_a_toolchain_whose_capability_another_provides_is_not_needed():
+def test_a_toolchain_whose_capability_another_provides_is_not_needed(recording_console):
     """Check that a toolchain whose capability another provides is not needed."""
     src = InMemoryDependencySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
                         dep("adaptivecpp", "sushiruntime", provides="sycl-toolchain")])
     step = DetectStep(src, managers=[], gpu_vendor=lambda: "none",
                       toolchain_status=lambda cfg, gpu: [
-                          ("intel-llvm", True, "intel/llvm"), ("adaptivecpp", False, "acpp")])
+                          ("intel-llvm", True, "intel/llvm"), ("adaptivecpp", False,
+                                                               "acpp")], console=recording_console)
     rows = {name: (state, detail) for name, state, _o, detail in
             step.inventory_rows(_ctx(), src.all())}
     assert rows["intel-llvm"][0] == "OK"
     assert rows["adaptivecpp"] == ("NOT NEEDED", "acpp (intel-llvm provides sycl-toolchain)")
 
 
-def test_every_member_of_an_unsatisfied_capability_is_missing():
+def test_every_member_of_an_unsatisfied_capability_is_missing(recording_console):
     """Check that every member of an unsatisfied capability is missing."""
     src = InMemoryDependencySource([dep("intel-llvm", "sushiruntime", provides="sycl-toolchain"),
                         dep("adaptivecpp", "sushiruntime", provides="sycl-toolchain")])
     step = DetectStep(src, managers=[], gpu_vendor=lambda: "none",
                       toolchain_status=lambda cfg, gpu: [
-                          ("intel-llvm", False, ""), ("adaptivecpp", False, "")])
+                          ("intel-llvm", False, ""), ("adaptivecpp", False,
+                                                      "")], console=recording_console)
     states = {name: state for name, state, _o, _d in step.inventory_rows(_ctx(), src.all())}
     assert (states["intel-llvm"], states["adaptivecpp"]) == ("MISSING", "MISSING")

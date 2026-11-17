@@ -9,10 +9,9 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from sushicore.proc import CommandRunner
-from sushicore.provision._output import console
 from sushicore.provision.process_run import provision_runner
 
 _log = logging.getLogger(__name__)
@@ -60,29 +59,34 @@ def os_release(read_text: Callable[[], str] | None = None) -> dict[str, str]:
     return data
 
 
-def _bash(cmd: str, runner: CommandRunner | None) -> int:
-    """Run *cmd* through bash in the current folder, its output shown; return the exit code."""
-    return (runner or provision_runner()).run(["bash", "-c", cmd], Path.cwd())
+def _bash(cmd: str, runner: CommandRunner | None, console: Any) -> int:
+    """Run *cmd* through bash here, its output shown on *console*; return the exit code."""
+    return (runner or provision_runner(console)).run(["bash", "-c", cmd], Path.cwd())
 
 
-def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None) -> bool:
+def sudo_bash(cmd: str, dry_run: bool, runner: CommandRunner | None = None, *,
+              console: Any) -> bool:
     """Run *cmd* through bash and return whether it exited zero; a dry run always returns True.
 
     Args:
-        runner: Runs bash, which echoes the command; the provision runner when ``None``.
+        runner: Runs bash, which echoes the command; the provision runner on *console* when
+            ``None``.
+        console: The console the command and its output are shown through.
     """
     if dry_run:
         console.command(cmd)
         console.info("(dry-run) not executed")
         return True
-    return _bash(cmd, runner) == 0
+    return _bash(cmd, runner, console) == 0
 
 
-def ensure_intel_oneapi_repo(dry_run: bool, runner: CommandRunner | None = None) -> bool:
+def ensure_intel_oneapi_repo(dry_run: bool, runner: CommandRunner | None = None, *,
+                             console: Any) -> bool:
     """Configure the Intel oneAPI apt repository on Debian/Ubuntu, skipping a configured one.
 
     Args:
-        runner: Runs bash for each step; the provision runner when ``None``.
+        runner: Runs bash for each step; the provision runner on *console* when ``None``.
+        console: The console the steps are shown through.
     """
     if _ONEAPI_KEYRING.is_file() and _ONEAPI_LIST.is_file():
         console.info("Intel oneAPI apt repository already configured.")
@@ -99,7 +103,7 @@ def ensure_intel_oneapi_repo(dry_run: bool, runner: CommandRunner | None = None)
         console.info("(dry-run) not executed")
         return True
     for cmd in (key_cmd, list_cmd):
-        if _bash(cmd, runner) != 0:
+        if _bash(cmd, runner, console) != 0:
             console.error("Failed to configure the Intel oneAPI apt repository "
                           "(need curl and gpg). Install oneAPI manually or skip it.")
             return False

@@ -27,6 +27,7 @@
 | RW-111 | P3 | open | Split resolve_local_config of the Windows probe plan into its steps | probe_plans/windows.py resolve_local_config is a short method over named steps, each tested |  | `source/sushicore/provision/probe_plans/windows.py` | 2026-11-17 |
 | RW-112 | P2 | open | Pin oneAPI's order against the GPU stage and move its target switch into the plans | a test fixes whether oneAPI installs before or after the GPU stage, OneApiToolchain has no env.mgr is None branch, and ToolchainEnv names no toolchain |  | `source/sushicore/provision/toolchains/oneapi.py` | 2026-11-17 |
 | RW-113 | P3 | open | Let detect read the toolchain registry's locate instead of its own probes | detect_step finds intel-llvm, AdaptiveCpp and oneAPI through TOOLCHAINS locate |  | `source/sushicore/provision/toolchains/registry.py` | 2026-11-17 |
+| RW-114 | P3 | open | Type the provision console with one Console protocol instead of Any | provision steps, managers and functions take a console typed by one protocol that names header, progress, table, prompt and the line methods |  | `source/sushicore/provision/default_console.py` | 2026-11-17 |
 
 ## Known issues
 

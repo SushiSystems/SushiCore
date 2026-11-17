@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 from .cuda_release import RedistRelease, Version
 from .cuda_toolkit_installer import ToolkitInstallError
@@ -53,13 +53,13 @@ class InMemoryRedistInstaller:
         self._architectures = dict(architectures)
         self._broken = set(broken)
 
-    def probe_architectures(self, release: RedistRelease) -> frozenset[str]:
+    def probe_architectures(self, release: RedistRelease, console: Any) -> frozenset[str]:
         """Return what the release's major builds for, or raise when its compiler is broken."""
         if release.version in self._broken:
             raise ToolkitInstallError("nvcc did not run")
         return self._architectures[release.version[0]]
 
-    def install(self, release: RedistRelease) -> Path:
+    def install(self, release: RedistRelease, console: Any) -> Path:
         """Record the install and return the release folder."""
         self.installed.append(release.label)
         return self.base_dir / release.label

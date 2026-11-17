@@ -55,7 +55,7 @@ def test_install_unpacks_the_tarball_as_the_root(tmp_path, recording_console):
     server = _Server(_tarball({"include/hip/hip_runtime.h": b"", "bin/hipcc": b"x"}))
     installer = RocmTarballInstaller(tmp_path, server.download)
 
-    root = installer.install(K_PACKAGE)
+    root = installer.install(K_PACKAGE, recording_console)
 
     assert root == tmp_path / "7.13.0-gfx110X-all"
     assert is_rocm_root(root)
@@ -67,9 +67,9 @@ def test_an_installed_release_is_not_downloaded_again(tmp_path, recording_consol
     """Check that a second install is free."""
     server = _Server(_tarball({"include/hip/hip_runtime.h": b""}))
     installer = RocmTarballInstaller(tmp_path, server.download)
-    installer.install(K_PACKAGE)
+    installer.install(K_PACKAGE, recording_console)
 
-    installer.install(K_PACKAGE)
+    installer.install(K_PACKAGE, recording_console)
 
     assert server.fetched == 1
 
@@ -79,7 +79,7 @@ def test_a_tarball_without_hip_headers_installs_nothing(tmp_path, recording_cons
     installer = RocmTarballInstaller(tmp_path, _Server(_tarball({"README": b""})).download)
 
     with pytest.raises(RocmInstallError):
-        installer.install(K_PACKAGE)
+        installer.install(K_PACKAGE, recording_console)
 
     assert not installer.is_installed(K_PACKAGE.label)
 
@@ -89,7 +89,7 @@ def test_a_corrupt_tarball_installs_nothing(tmp_path, recording_console):
     installer = RocmTarballInstaller(tmp_path, _Server(b"not a tarball").download)
 
     with pytest.raises(RocmInstallError):
-        installer.install(K_PACKAGE)
+        installer.install(K_PACKAGE, recording_console)
 
     assert not installer.is_installed(K_PACKAGE.label)
 
@@ -102,7 +102,7 @@ def test_a_failed_download_installs_nothing(tmp_path, recording_console):
         raise OSError("connection reset")
 
     with pytest.raises(RocmInstallError):
-        RocmTarballInstaller(tmp_path, fail).install(K_PACKAGE)
+        RocmTarballInstaller(tmp_path, fail).install(K_PACKAGE, recording_console)
 
     assert not (tmp_path / "downloads" / "rocm.tar.gz").exists()
     assert not (tmp_path / "downloads" / "rocm.tar.gz.part").exists()

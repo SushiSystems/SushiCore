@@ -17,7 +17,7 @@ from sushicore.proc import CommandRunner, did_not_run
 from sushicore.provision import home
 from sushicore.provision.config import ProvisionConfig
 from sushicore.provision.host import IHost, current_host
-from sushicore.provision.process_run import provision_runner
+from sushicore.quiet_runner import quiet_runner
 from sushicore.provision.probe_plan import PROBE_PLANS
 from sushicore.provision.target import target_of
 
@@ -67,7 +67,7 @@ def _vcvars_from_vswhere(program_files: str | None = None,
 
     Args:
         program_files: The folder holding ``Microsoft Visual Studio``; the environment's when ``None``.
-        runner: Runs vswhere; the provision runner when ``None``.
+        runner: Runs vswhere; the quiet runner when ``None``.
     """
     program_files = program_files or os.environ.get("ProgramFiles(x86)") or os.environ.get(
         "ProgramFiles", r"C:\Program Files")
@@ -77,7 +77,7 @@ def _vcvars_from_vswhere(program_files: str | None = None,
     cmd = [str(vswhere), "-latest", "-prerelease", "-products", "*",
            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
            "-property", "installationPath"]
-    code, out, err = (runner or provision_runner()).capture(cmd, timeout=30)
+    code, out, err = (runner or quiet_runner()).capture(cmd, timeout=30)
     if did_not_run(cmd[0], code, err):
         _log.warning("vswhere did not run (%s); no Visual Studio install is reported", err)
         return None
@@ -229,7 +229,7 @@ def detect_gpu_vendor() -> str:
         return "nvidia"
     if shutil.which("rocminfo") or shutil.which("rocm-smi"):
         return "amd"
-    return classify_display_adapters(current_host().display_adapters(provision_runner()))
+    return classify_display_adapters(current_host().display_adapters(quiet_runner()))
 
 
 #: Name fragments, without spaces or hyphens, that mark an AMD or Intel adapter as integrated.
@@ -297,9 +297,9 @@ def binary_works(cmd: str, runner: CommandRunner | None = None) -> bool:
     A missing binary, a crash, or a non-zero exit all return False.
 
     Args:
-        runner: Runs the command; the provision runner when ``None``.
+        runner: Runs the command; the quiet runner when ``None``.
     """
-    run = runner or provision_runner()
+    run = runner or quiet_runner()
     for flag in ("--version", "-version"):
         code, _out, err = run.capture([cmd, flag], timeout=15)
         if did_not_run(cmd, code, err):

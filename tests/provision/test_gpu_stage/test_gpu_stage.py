@@ -49,7 +49,7 @@ def test_provision_adapters_for_run_skips_without_a_resolved_llvm_root():
 
     provision_adapters_for_run(
         _linux_context(), console=out, actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
-        build_adapters=lambda *args: built.append(args))
+        build_adapters=lambda *args, **options: built.append(args))
 
     assert built == []
     assert any("GPU adapter build skipped" in text for text in out.texts("info"))
@@ -65,7 +65,7 @@ def test_provision_adapters_for_run_uses_the_resolved_llvm_root():
     provision_adapters_for_run(
         ctx, console=RecordingConsole(),
         actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
-        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(root))
+        build_adapters=lambda cfg, registry, root, builder, dry_run, console: built.append(root))
 
     assert built == [Path("/opt/llvm")]
 
@@ -78,7 +78,7 @@ def test_provision_adapters_for_run_uses_a_toolchain_already_on_the_machine():
     provision_adapters_for_run(
         _linux_context(), console=RecordingConsole(),
         actions=_actions(resolve_config=lambda cfg, gpu=False: {"llvm_root": "/usr/lib/llvm"}),
-        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(root))
+        build_adapters=lambda cfg, registry, root, builder, dry_run, console: built.append(root))
 
     assert built == [Path("/usr/lib/llvm")]
 
@@ -92,7 +92,7 @@ def test_provision_adapters_for_run_drops_probed_keys_the_settings_do_not_hold()
     provision_adapters_for_run(
         _linux_context(), console=RecordingConsole(),
         actions=_actions(resolve_config=lambda cfg, gpu=False: probed),
-        build_adapters=lambda cfg, registry, root, builder, dry_run: built.append(cfg.cxx))
+        build_adapters=lambda cfg, registry, root, builder, dry_run, console: built.append(cfg.cxx))
 
     assert built == ["clang++"]
 
@@ -108,8 +108,8 @@ def test_provision_adapters_for_run_hands_the_builder_it_made_to_the_build():
     provision_adapters_for_run(
         ctx, console=RecordingConsole(),
         actions=_actions(resolve_config=lambda cfg, gpu=False: {}),
-        make_builder=lambda cfg: builder,
-        build_adapters=lambda cfg, registry, root, made, dry_run: received.append(made))
+        make_builder=lambda cfg, console: builder,
+        build_adapters=lambda cfg, registry, root, made, dry_run, console: received.append(made))
 
     assert received == [builder]
 
@@ -146,34 +146,35 @@ def test_the_windows_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
 
 
 @pytest.mark.small
-def test_the_linux_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_is_selected():
+def test_the_linux_gpu_stage_installs_the_sdk_and_builds_the_adapters_when_gpu_is_selected(
+        recording_console):
     """Check that a selected GPU gets its SDK and then its adapters through apt."""
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia")
 
-    recorded.stage().provision_linux(ctx, AptManager())
+    recorded.stage().provision_linux(ctx, AptManager(console=recording_console))
 
     assert (recorded.stacks, recorded.adapters) == (["nvidia"], [ctx])
 
 
 @pytest.mark.small
-def test_the_linux_gpu_stage_does_nothing_without_gpu():
+def test_the_linux_gpu_stage_does_nothing_without_gpu(recording_console):
     """Check that a run which did not select the GPU installs and builds nothing on Linux."""
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=False), gpu_vendor="nvidia")
 
-    recorded.stage().provision_linux(ctx, AptManager())
+    recorded.stage().provision_linux(ctx, AptManager(console=recording_console))
 
     assert (recorded.stacks, recorded.adapters) == ([], [])
 
 
 @pytest.mark.small
-def test_the_linux_gpu_stage_builds_no_adapter_when_no_gpu_is_detected():
+def test_the_linux_gpu_stage_builds_no_adapter_when_no_gpu_is_detected(recording_console):
     """Check that vendor none reaches the SDK install, which settles on the CPU path, and no build."""
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="none")
 
-    recorded.stage().provision_linux(ctx, AptManager())
+    recorded.stage().provision_linux(ctx, AptManager(console=recording_console))
 
     assert (recorded.stacks, recorded.adapters) == (["none"], [])
 
@@ -210,12 +211,12 @@ def test_the_windows_gpu_stage_installs_no_cuda_toolkit_without_consent():
 
 
 @pytest.mark.small
-def test_the_linux_gpu_stage_installs_no_cuda_toolkit_without_consent():
+def test_the_linux_gpu_stage_installs_no_cuda_toolkit_without_consent(recording_console):
     """Check that an NVIDIA run on apt whose user did not accept the CUDA licence installs no SDK."""
     recorded = RecordedGpuStage()
     ctx = _linux_context(selection=ToolchainSelection(gpu=True), gpu_vendor="nvidia",
                          consent=None)
 
-    recorded.stage().provision_linux(ctx, AptManager())
+    recorded.stage().provision_linux(ctx, AptManager(console=recording_console))
 
     assert recorded.stacks == []

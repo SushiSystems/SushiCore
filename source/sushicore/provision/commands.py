@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Optional
 
 from . import selection
-from ._output import bind_console
 from .doctor import GROUPS
 from .doctor_command import run_doctor
 from .link_command import run_link, run_unlink
@@ -56,7 +55,6 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
                 help="Accept the third-party licences setup names, for unattended runs."),
         ) -> None:
             """Provision what this module needs to build, then report readiness."""
-            bind_console(module.console)
             raise typer.Exit(finish(module.console(), run_setup(
                 module, dry_run=dry_run, yes=yes, toolchains=toolchain or (), gpu=not no_gpu,
                 accept_licences=accept_licences)))
@@ -69,7 +67,6 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             None, "--for", help="Restrict the report to one check group: " + " | ".join(known_groups) + "."),
     ) -> None:
         """Report on this machine's readiness to build the module."""
-        bind_console(module.console)
         console = module.console()
         if for_group is not None and for_group not in known_groups:
             console.error(
@@ -87,7 +84,6 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             None, "--workspace", help="Workspace root to register this module in."),
     ) -> None:
         """Record this module's location in a workspace's module registry."""
-        bind_console(module.console)
         raise typer.Exit(finish(module.console(), run_link(module, workspace)))
 
     @command("unlink")
@@ -96,5 +92,4 @@ def register_provision_commands(app: "typer.Typer", module: ModuleProvision) -> 
             None, "--workspace", help="Workspace root to remove this module from."),
     ) -> None:
         """Remove this module's entry from a workspace's module registry."""
-        bind_console(module.console)
         raise typer.Exit(finish(module.console(), run_unlink(module, workspace)))

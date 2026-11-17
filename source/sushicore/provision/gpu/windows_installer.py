@@ -20,8 +20,7 @@ from pathlib import Path
 
 from ...proc import CommandRunner, did_not_run
 from .. import home
-from .._output import console
-from ..process_run import provision_runner
+from ...quiet_runner import quiet_runner
 from ..system import USER_AGENT
 
 warnings.warn(
@@ -77,7 +76,8 @@ def installers_dir() -> Path:
 class Downloader(typing.Protocol):
     """Fetches an installer and proves it matches its published digest."""
 
-    def fetch(self, download: InstallerDownload, dest_dir: Path) -> Path | None:
+    def fetch(self, download: InstallerDownload, dest_dir: Path,
+              console: typing.Any) -> Path | None:
         """Return the verified local file, or None when the fetch or the check failed."""
         ...
 
@@ -122,19 +122,23 @@ class HttpDownloader:
         """Store the function that opens a URL."""
         self._open_url = open_url or urllib.request.urlopen
 
-    def fetch(self, download: InstallerDownload, dest_dir: Path) -> Path | None:
-        """Reuse a verified copy in *dest_dir*, else download and verify a fresh one."""
+    def fetch(self, download: InstallerDownload, dest_dir: Path,
+              console: typing.Any) -> Path | None:
+        """Reuse a verified copy in *dest_dir*, else download and verify a fresh one.
+
+        Everything it reports goes through *console*.
+        """
         dest = dest_dir / download.file_name
         try:
-            if self._reusable(dest, download):
+            if self._reusable(dest, download, console):
                 console.info(f"Using the verified {dest.name} already in {dest_dir}.")
                 return dest
-            return self._download(download, dest)
+            return self._download(download, dest, console)
         except _FETCH_ERRORS as exc:
             console.warn(f"Download of {download.file_name} failed: {exc}")
             return None
 
-    def _reusable(self, dest: Path, download: InstallerDownload) -> bool:
+    def _reusable(self, dest: Path, download: InstallerDownload, console: typing.Any) -> bool:
         """Return True for a copy whose MD5 matches; delete a copy whose MD5 does not."""
         if not dest.is_file():
             return False
@@ -144,7 +148,8 @@ class HttpDownloader:
         dest.unlink()
         return False
 
-    def _download(self, download: InstallerDownload, dest: Path) -> Path | None:
+    def _download(self, download: InstallerDownload, dest: Path,
+                  console: typing.Any) -> Path | None:
         """Download to ``<file>.part``, verify it and rename it to *dest*."""
         dest.parent.mkdir(parents=True, exist_ok=True)
         part = dest.with_name(dest.name + ".part")
@@ -174,12 +179,12 @@ def _ps_quote(text: str) -> str:
 class PowerShellElevatedRunner:
     """Starts a process through ``Start-Process -Verb RunAs``, showing one UAC prompt.
 
-    :param runner: Runs the PowerShell command line. Defaults to the provision runner.
+    :param runner: Runs the PowerShell command line. Defaults to the quiet runner.
     """
 
     def __init__(self, runner: CommandRunner | None = None) -> None:
         """Store the runner of the command."""
-        self._runner = runner or provision_runner()
+        self._runner = runner or quiet_runner()
 
     def command(self, exe: Path, args: typing.Sequence[str]) -> list[str]:
         """Return the PowerShell command line that runs *exe* elevated and exits with its code."""

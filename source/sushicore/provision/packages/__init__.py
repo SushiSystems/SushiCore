@@ -12,6 +12,7 @@ from .direct_download import (
     WINGET_ID_TO_CMD,
     DirectDownloadWindowsManager,
     download,
+    downloader,
     tools_dir,
 )
 from .github_release import (
@@ -45,6 +46,7 @@ __all__ = [
     "install_gpu_stack",
     "refresh_windows_path",
     "download",
+    "downloader",
     "gh_tagged_asset",
     "tools_dir",
 ]

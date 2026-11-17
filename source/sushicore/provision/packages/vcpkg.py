@@ -13,7 +13,6 @@ from pathlib import Path
 from sushicore.proc import CommandRunner
 
 from .. import home
-from .._output import console
 from ..process_run import provision_runner
 from ..target import target_of
 from .base import IPackageManager
@@ -32,15 +31,19 @@ class VcpkgManager(IPackageManager):
 
     name = "vcpkg"
 
-    def __init__(self, cfg: "ProvisionConfig", runner: CommandRunner | None = None) -> None:
+    def __init__(self, cfg: "ProvisionConfig", runner: CommandRunner | None = None, *,
+                 console: typing.Any) -> None:
         """Store *cfg*, the runner of the vcpkg commands, and resolve the triplet to install for.
 
         Args:
             cfg: The provision configuration.
-            runner: Runs the git, bootstrap and vcpkg commands; the provision runner when ``None``.
+            runner: Runs the git, bootstrap and vcpkg commands; the provision runner on *console*
+                when ``None``.
+            console: The console the manager and its runner print through.
         """
+        super().__init__(console=console)
         self._cfg = cfg
-        self._runner = runner or provision_runner()
+        self._runner = runner or provision_runner(console)
         self._target = target_of(cfg)
         self._triplet = cfg.vcpkg_triplet or self._target.vcpkg_triplet
 
@@ -68,10 +71,10 @@ class VcpkgManager(IPackageManager):
         root = self._root()
         if self._exe().is_file():
             return True
-        console.info(f"vcpkg not found; bootstrapping into {root} ...")
+        self._console.info(f"vcpkg not found; bootstrapping into {root} ...")
         if not (root / ".git").is_dir():
             if root.exists():
-                console.info(f"Removing stale directory {root} before cloning ...")
+                self._console.info(f"Removing stale directory {root} before cloning ...")
                 if not dry_run:
                     shutil.rmtree(root)
             rc = self._drain(["git", "clone", "https://github.com/microsoft/vcpkg.git",
@@ -98,7 +101,7 @@ class VcpkgManager(IPackageManager):
         if not pkgs:
             return True
         if not self.ensure_bootstrapped(dry_run):
-            console.error("vcpkg bootstrap failed.")
+            self._console.error("vcpkg bootstrap failed.")
             return False
         exe = self._exe()
         ports = [f"{p}:{self._triplet}" for p in pkgs]
@@ -111,7 +114,7 @@ class VcpkgManager(IPackageManager):
             return True
         exe = self._exe()
         if not exe.is_file():
-            console.warn("vcpkg not found; skipping port removal.")
+            self._console.warn("vcpkg not found; skipping port removal.")
             return True
         ports = [f"{p}:{self._triplet}" for p in pkgs]
         rc = self._drain([str(exe), "remove", *ports], dry_run)

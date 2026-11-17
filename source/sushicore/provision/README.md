@@ -40,7 +40,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `integrity.py` | Compares a file's SHA-256 with an expected digest |
 | `download_verifier.py` | Checks each download of a run against the digest its fragment entry pins, and names the downloads no entry pins |
 | `packages/` | One file per package manager: apt, dnf, yum, pacman and zypper in `linux.py`, winget, direct download, vcpkg, GitHub releases, the GPU stack; `base_memory.py` holds `InMemoryPackageManager` and its Linux form `InMemoryLinuxPackageManager`, which hold their packages in memory and run no command |
-| `process_run.py` | `run`: runs a command, streams its output through the console and returns its exit code; the package managers and `git_client.py` call it |
+| `process_run.py` | `provision_runner(console)` and `run`: run a command, stream its output through the console they are given and return its exit code; the package managers and `git_client.py` call them |
 | `probe.py`, `system.py` | Find tools on this machine and ask the operating system |
 | `toolchains/` | The `Toolchain` contract and `ToolchainEnv` in `toolchain.py`, one file per toolchain (intel/llvm, AdaptiveCpp, oneAPI) each declaring its `Toolchain`, `registry.py` listing them in install order, and the `.sushi_toolchain.json` stamp. A new toolchain adds a file and one line in `registry.py`, as a GPU backend does in `gpu/registry.py` |
 | `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.16.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
@@ -58,7 +58,8 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `sinks_memory.py` | `InMemoryConfigSink`, a `ConfigSink` that records its calls and writes no file |
 | `doctor.py`, `checks.py` | The doctor framework and the stock checks |
 | `config.py` | The configuration shape the steps read, and a concrete one for a standalone module |
-| `_output.py` | The console the package prints through, bound by `bind_console`, and `MemoryConsole`, the in-memory adapter beside it, bound for a block by `bound_memory_console` |
+| `default_console.py` | `bind_console`, deprecated: sets the console a `ModuleProvision` without one prints through |
+| `output_memory.py` | `MemoryConsole`, the in-memory console adapter a test passes to what prints |
 | `sushi_sources.py` | Finds a Sushi library's checkout: `<NAME>_DIR`, the sibling, then the fetched copy |
 | `pin_chain.py` | Walks the `[sushisystems.<name>]` pins of a chain and finds a library pinned at two versions |
 | `git_client.py` | Clones one tag of a repository and reads a checkout's HEAD |
@@ -101,20 +102,21 @@ module = ModuleProvision(
 register_provision_commands(app, module)
 ```
 
-`ModuleProvision` takes eight optional fields beside the four above:
+`ModuleProvision` takes nine optional fields beside the three required ones:
 
 | Field | Meaning |
 | --- | --- |
+| `console` | Returns the console every step and function of the commands prints through; the one the deprecated `bind_console` set when omitted. |
 | `extra_checks` | Returns the module's own doctor checks. |
 | `fragment` | The fragment's path below the project root; `cli/sushistack.deps.toml` by default. |
 | `locate` | Finds the checkout of a module `depends_on` names. A `StackConfig` module passes `locate_sibling`. When `locate` returns None, `sushi_sources.resolve` looks for the module. |
-| `git` | Builds the git client that fetches pinned Sushi libraries; `GitClient` by default. |
+| `git` | Builds the git client that fetches pinned Sushi libraries; a `GitClient` on the module's console by default. |
 | `uses_base` | Adds the shared base fragment (gtest, opencl, pkgconf) before the module's own. |
 | `panel` | The help panel the commands are listed under. |
 | `is_binary` | Reports a binary install, which gets `doctor` alone. |
 | `seams` | A `MachineSeams`: the `managers`, `base_checks` and `toolchains` builders that replace the real machine reads, passed once. |
 
-Each command binds the module's console through `bind_console` when it runs.
+Each command takes the console from `ModuleProvision.console` and hands it to the steps and functions it runs. `bind_console` stays one release as a deprecated shim: it sets the console a `ModuleProvision` without one uses, and warns.
 
 ## The dependency root
 
@@ -274,7 +276,7 @@ goes to the `DownloadVerifier` bound for the run. `InstallDepsStep.run` binds on
 module's `setup` verify against the fragments they read without passing anything down. An
 installer called outside that step meets a verifier that pins nothing.
 
-The verifier is bound at module level, the way `bind_console` and `home.bind_root` are. The
+The verifier is bound at module level, the way `home.bind_root` is. The
 download sites sit under `IPackageManager.install`, `install_gpu_stack` and the toolchain
 functions, and none of those carries the run's fragments.
 

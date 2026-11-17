@@ -9,7 +9,6 @@ from __future__ import annotations
 import typing
 from pathlib import Path
 
-from .._output import console
 from ..target import target_of
 from .compiler_identity import read_intel_llvm_commit
 
@@ -32,14 +31,17 @@ def provision_gpu_adapters(
     builder: "AdapterBuilder",
     dry_run: bool,
     commit_reader: typing.Callable[[Path], str | None] = read_intel_llvm_commit,
+    *,
+    console: typing.Any,
 ) -> None:
     """Build every located backend's Unified Runtime adapter for one toolchain.
 
     Args:
         dry_run: Report the action without touching the filesystem.
+        console: The console the run reports through.
     """
     try:
-        _provision(cfg, registry, toolchain_root, builder, dry_run, commit_reader)
+        _provision(cfg, registry, toolchain_root, builder, dry_run, commit_reader, console)
     except Exception as exc:
         console.warn(f"GPU adapter provisioning failed ({type(exc).__name__}): {exc}")
 
@@ -51,6 +53,7 @@ def _provision(
     builder: "AdapterBuilder",
     dry_run: bool,
     commit_reader: typing.Callable[[Path], str | None],
+    console: typing.Any,
 ) -> None:
     """Run the provisioning steps proper, with recoverable errors left to the caller."""
     commit = commit_reader(_clang_path(toolchain_root, cfg))

@@ -52,7 +52,7 @@ def _install_step(manager: IPackageManager) -> InstallDepsStep:
     source = InMemoryDependencySource([Dependency(name="cmake", sha256={"windows": "3f" * 32})])
     actions = _actions(which=lambda name: "/bin/git" if name == "git" else None,
                        find_vcvars=lambda: Path("vcvars64.bat"),
-                       install_oneapi=lambda run: True)
+                       install_oneapi=lambda run, console: True)
     return InstallDepsStep(source, managers=[manager], console=RecordingConsole(),
                                  actions=actions)
 
@@ -84,7 +84,7 @@ def test_install_deps_binds_the_pinned_downloads_of_the_run():
                    sha256={"windows": pinned.sha256})])
     actions = _actions(which=lambda name: "/bin/git" if name == "git" else None,
                        find_vcvars=lambda: Path("vcvars64.bat"),
-                       install_oneapi=lambda run: True)
+                       install_oneapi=lambda run, console: True)
     step = InstallDepsStep(source, managers=[manager], console=RecordingConsole(),
                            actions=actions)
 
@@ -105,7 +105,8 @@ def test_a_digest_mismatch_stops_the_pipeline_and_unbinds_the_run(tmp_path, reco
     later_sink = InMemoryConfigSink()
     later = ConfigureStep(later_sink, console=RecordingConsole(),
                                 actions=_actions(paths={"ninja_exe": "n"}))
-    pipeline = InstallPipeline([_install_step(_downloading_manager(archive, raise_it)), later])
+    pipeline = InstallPipeline([_install_step(_downloading_manager(archive, raise_it)), later],
+                               console=recording_console)
 
     with pytest.raises(DigestMismatchError):
         pipeline.run(InstallContext(cfg=ProvisionSettings(platform="windows")), show_progress=False)

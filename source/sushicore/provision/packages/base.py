@@ -9,9 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Callable, MutableMapping
-
-from .._output import console
+from typing import Any, Callable, MutableMapping
 from ..host import current_host
 
 _log = logging.getLogger(__name__)
@@ -55,6 +53,14 @@ class IPackageManager(ABC):
 
     name: str = "pkg"
 
+    def __init__(self, *, console: Any) -> None:
+        """Keep the console a manager prints through.
+
+        Args:
+            console: The console the manager reports through.
+        """
+        self._console = console
+
     @abstractmethod
     def available(self) -> bool:
         """Report whether the underlying tool is present on this machine."""
@@ -77,5 +83,5 @@ class IPackageManager(ABC):
         Returns:
             True on success.
         """
-        console.warn(f"{self.name}: remove not implemented, skipping.")
+        self._console.warn(f"{self.name}: remove not implemented, skipping.")
         return True

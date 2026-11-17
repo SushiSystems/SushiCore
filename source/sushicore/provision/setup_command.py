@@ -59,7 +59,7 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return failed()
     fetch = InstallContext(cfg=cfg, consumer=module.profile.key,
                            program=module.profile.program, dry_run=dry_run)
-    if not sushi_setup.prepare(fetch, root, pins, module.git(), timeout):
+    if not sushi_setup.prepare(fetch, root, pins, module.git_client(), timeout, console):
         return failed()
     try:
         found = module_plan.closure_for(module, root)
@@ -79,14 +79,14 @@ def run_setup(module: ModuleProvision, *, dry_run: bool, yes: bool,
         return failed(K_EXIT_USAGE)
     consent = LicenceConsent(console, accept_flag=accept_licences)
     managers = module_plan.managers_of(module, cfg, consent)
-    install = InstallDepsStep(source, managers, actions=module.actions)
+    install = InstallDepsStep(source, managers, console=console, actions=module.actions)
     pipeline = InstallPipeline([
-        DetectStep(source, managers, **_detect_options(module)),
+        DetectStep(source, managers, console=console, **_detect_options(module)),
         LicenceConsentStep(consent, [install.licences]),
         install,
-        ConfigureStep(ModuleSink(root / module.config_dir, K_SINK_HEADER),
+        ConfigureStep(ModuleSink(root / module.config_dir, K_SINK_HEADER), console=console,
                       actions=module.actions),
-    ])
+    ], console)
     ctx = InstallContext(
         cfg=cfg,
         selection=chosen,

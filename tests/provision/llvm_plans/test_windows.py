@@ -12,6 +12,7 @@ import pytest
 
 from sushicore.provision.llvm_plan import LlvmRequest
 from sushicore.provision.llvm_plans.windows import WindowsLlvmPlan, find_windows_llvm, llvm_missing
+from sushicore.provision.output_memory import MemoryConsole
 from sushicore.provision.packages.base_memory import InMemoryPackageManager
 
 
@@ -24,7 +25,8 @@ def _llvm_tree(root: Path) -> Path:
 
 def _request(**overrides) -> LlvmRequest:
     """Build a request with nothing available and no consent, with *overrides* applied."""
-    fields = {"mgr": None, "vcpkg": None, "winget": None, "assume_yes": False, "llvm_bases": []}
+    fields = {"mgr": None, "vcpkg": None, "winget": None, "assume_yes": False, "llvm_bases": [],
+              "console": MemoryConsole()}
     return LlvmRequest(**{**fields, **overrides})
 
 

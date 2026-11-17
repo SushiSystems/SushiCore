@@ -38,14 +38,15 @@ def sent_agents(monkeypatch):
 
 @pytest.mark.small
 @pytest.mark.parametrize("call", [
-    lambda tmp: github_release.gh_tagged_asset("o/r", "v1", "*"),
-    lambda tmp: direct_download.download("https://example.invalid/x", tmp / "x"),
+    lambda tmp, console: github_release.gh_tagged_asset("o/r", "v1", "*"),
+    lambda tmp, console: direct_download.download(
+        "https://example.invalid/x", tmp / "x", console),
 ])
 def test_every_package_request_sends_the_sushicore_agent(
         call, sent_agents, tmp_path, recording_console):
     """Check that every package request sends the sushicore agent."""
     with pytest.raises(_Sent):
-        call(tmp_path)
+        call(tmp_path, recording_console)
     assert sent_agents == ["sushicore-installer"]
 
 

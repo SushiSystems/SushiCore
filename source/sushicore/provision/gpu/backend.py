@@ -9,7 +9,6 @@ from __future__ import annotations
 import dataclasses
 import typing
 
-from .._output import console
 from ..install_location import ToolkitFinder, ToolkitInstall
 
 if typing.TYPE_CHECKING:
@@ -28,8 +27,8 @@ __all__ = [
 class ToolkitLocator(ToolkitFinder, typing.Protocol):
     """Finds and, when possible, provisions one vendor's toolkit."""
 
-    def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
-        """Install or report on the toolkit. Return True unless it failed fatally."""
+    def provision(self, cfg: "ProvisionConfig", dry_run: bool, console: typing.Any) -> bool:
+        """Install or report on the toolkit through *console*; True unless it failed fatally."""
         ...
 
 
@@ -50,7 +49,7 @@ class NotProvided:
         """Return None; this backend is never found on this platform."""
         return None
 
-    def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
+    def provision(self, cfg: "ProvisionConfig", dry_run: bool, console: typing.Any) -> bool:
         """Report that the backend is not provided here. Always succeeds."""
         console.info(f"{self._backend} is not provided on {self._platform}.")
         return True
@@ -83,9 +82,9 @@ class PlatformLocator:
         """Locate through the locator registered for cfg's platform."""
         return self._for(cfg).locate(cfg)
 
-    def provision(self, cfg: "ProvisionConfig", dry_run: bool) -> bool:
+    def provision(self, cfg: "ProvisionConfig", dry_run: bool, console: typing.Any) -> bool:
         """Provision through the locator registered for cfg's platform."""
-        return self._for(cfg).provision(cfg, dry_run)
+        return self._for(cfg).provision(cfg, dry_run, console)
 
 
 @dataclasses.dataclass(frozen=True)

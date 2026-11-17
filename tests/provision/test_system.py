@@ -30,7 +30,7 @@ def _system_warnings(caplog) -> list[str]:
 @pytest.mark.small
 def test_sudo_bash_dry_run_shows_the_command_and_runs_nothing(recording_console):
     """Check that a dry run of sudo_bash shows the command, says it was not executed and answers True."""
-    assert system.sudo_bash("false", dry_run=True) is True
+    assert system.sudo_bash("false", dry_run=True, console=recording_console) is True
     assert [(name, args[0]) for name, args in recording_console.calls] == [
         ("command", "false"), ("info", "(dry-run) not executed")]
 
@@ -62,7 +62,7 @@ def test_an_absent_os_release_is_not_a_warning(caplog):
 @pytest.mark.small
 def test_a_dry_run_of_the_oneapi_repository_succeeds_without_an_error(recording_console):
     """Check that a dry run answers True and records no error line."""
-    assert system.ensure_intel_oneapi_repo(True) is True
+    assert system.ensure_intel_oneapi_repo(True, console=recording_console) is True
     assert not [name for name, _ in recording_console.calls if name == "error"]
 
 
@@ -70,8 +70,10 @@ def test_a_dry_run_of_the_oneapi_repository_succeeds_without_an_error(recording_
 def test_sudo_bash_runs_the_command_through_bash_and_reports_its_exit(recording_console):
     """Check that sudo_bash hands the command to bash and answers whether it exited zero."""
     runner = RecordingRunner(RecordingConsole()).script(0).script(1)
-    assert system.sudo_bash("apt update", dry_run=False, runner=runner) is True
-    assert system.sudo_bash("apt update", dry_run=False, runner=runner) is False
+    assert system.sudo_bash("apt update", dry_run=False, runner=runner,
+                            console=recording_console) is True
+    assert system.sudo_bash("apt update", dry_run=False, runner=runner,
+                            console=recording_console) is False
     assert runner.commands[0].argv == ("bash", "-c", "apt update")
 
 
@@ -80,6 +82,6 @@ def test_a_failed_oneapi_repository_step_is_one_error(recording_console, tmp_pat
     """Check that a bash step that exits non-zero reports one error and answers False."""
     monkeypatch.setattr(system, "_ONEAPI_KEYRING", tmp_path / "absent.gpg")
     runner = RecordingRunner(RecordingConsole()).script(1)
-    assert system.ensure_intel_oneapi_repo(False, runner) is False
+    assert system.ensure_intel_oneapi_repo(False, runner, console=recording_console) is False
     assert [name for name, _ in recording_console.calls].count("error") == 1
     assert len(runner.commands) == 1

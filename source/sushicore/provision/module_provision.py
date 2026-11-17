@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 from ..profile import ModuleProfile
 from .closure import Locate
 from .config import ProvisionConfig
+from .default_console import DEFAULT_CONSOLE
 from .doctor import Check
 from .git_client import GitClient, IGitClient
 from .machine_seams import MachineSeams
@@ -32,11 +33,14 @@ class ModuleProvision:
     """What one module CLI hands the shared commands.
 
     Args:
+        console: Returns the console the commands print through, called on each use; the one the
+            deprecated ``bind_console`` set when omitted.
         locate: Finds the checkout of a module the fragment's ``depends_on`` names.
         panel: The help panel the commands are listed under, or None for the default.
         is_binary: Reports a binary install, which registers ``doctor`` alone.
         uses_base: Whether the shared base fragment joins the module's own.
-        git: Builds the git client that fetches and inspects pinned Sushi libraries.
+        git: Builds the git client that fetches and inspects pinned Sushi libraries; None builds
+            the stock one, printing through the module's console.
         fragment: The dependency fragment below the project root; None reads the module's manifest.
         config_dir: The folder below the project root that holds the local configuration and the
             workspace link.
@@ -54,17 +58,23 @@ class ModuleProvision:
     profile: ModuleProfile
     project_root: Callable[[], Path]
     load_config: Callable[[], ProvisionConfig]
-    console: Callable[[], object]
+    console: Callable[[], object] = DEFAULT_CONSOLE
     extra_checks: Callable[[], list[Check]] = lambda: []
     fragment: Optional[str] = None
     locate: Locate = _locate_nothing
     panel: Optional[str] = None
     is_binary: Callable[[], bool] = lambda: False
     uses_base: bool = False
-    git: Callable[[], IGitClient] = GitClient
+    git: Optional[Callable[[], IGitClient]] = None
     config_dir: str = "cli"
     groups: tuple[str, ...] = ()
     seams: MachineSeams = MachineSeams()
     actions: Optional["MachineActions"] = None
     lock_timeout: Optional[float] = None
     register: Optional[Callable[[Path, str, Path], None]] = None
+
+    def git_client(self) -> IGitClient:
+        """Return the git client of this module: the one ``git`` builds, else the stock one."""
+        if self.git is not None:
+            return self.git()
+        return GitClient(console=self.console())

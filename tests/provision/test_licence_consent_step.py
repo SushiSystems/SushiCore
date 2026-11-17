@@ -39,7 +39,8 @@ def _run(answer: str, *, dry_run: bool = False) -> tuple[bool, _InstallStep, Rec
     console = RecordingConsole(answer=answer)
     install = _InstallStep()
     consent = LicenceConsent(console, accept_flag=False)
-    pipeline = InstallPipeline([LicenceConsentStep(consent, [lambda ctx: [K_EULA]]), install])
+    pipeline = InstallPipeline([LicenceConsentStep(consent, [lambda ctx: [K_EULA]]), install],
+                               console=console)
     ok = pipeline.run(InstallContext(cfg=ProvisionSettings(platform="linux"), dry_run=dry_run))
     return ok, install, console
 
