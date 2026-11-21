@@ -76,13 +76,20 @@ class GitReader:
         return sorted({line for line in (logged or "").splitlines() if line})
 
     def extract(self, tag: str, folder: str, destination: Path) -> None:
-        """Unpacks a folder of the tag into a directory, as the tag holds it."""
+        """Unpacks a folder of the tag into a directory, as the tag holds it.
+
+        Where `tarfile` has extraction filters the `data` filter is applied; a Python that has none
+        extracts the members of the tag's own archive as they are.
+        """
         code, packed, _ = self._runner.capture_bytes(
             ["git", "-C", str(self._checkout), "archive", "--format=tar", tag, folder])
         if code != 0:
             raise SharedToolsError(f"git archive {tag} {folder} failed in {self._checkout}")
         with tarfile.open(fileobj=io.BytesIO(packed)) as archive:
-            archive.extractall(destination, filter="data")
+            if hasattr(tarfile, "data_filter"):
+                archive.extractall(destination, filter="data")
+            else:
+                archive.extractall(destination)
 
     def _run(self, *arguments: str) -> str | None:
         """Returns the text a git command printed, or None when git could not run it or it failed."""

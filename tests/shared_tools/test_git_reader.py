@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,19 @@ def test_snapshot_of_a_tag_git_cannot_archive_raises(upstream):
     reader = GitReader(Path("repo"), RecordingRunner(RecordingConsole()).script(128))
     with pytest.raises(SharedToolsError):
         reader.snapshot(K_TAG, "tools")
+
+
+def test_extract_unpacks_where_tarfile_has_no_extraction_filter(upstream, tmp_path, monkeypatch):
+    """A Python before the extraction filters still unpacks the tag's folder."""
+    original = tarfile.TarFile.extractall
+
+    def without_filter(self, path=".", members=None, *, numeric_owner=False):
+        return original(self, path, members, numeric_owner=numeric_owner, filter="fully_trusted")
+
+    monkeypatch.setattr(tarfile.TarFile, "extractall", without_filter)
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    GitReader(upstream).extract(K_TAG, "tools", tmp_path)
+    assert (tmp_path / K_SHARED).is_file()
 
 
 def test_files_lists_the_tag_under_the_given_paths(upstream):

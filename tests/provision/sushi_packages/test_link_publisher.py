@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from sushicore.provision.host import WindowsHost
+from sushicore.provision.host import current_host
 from sushicore.provision.sushi_packages.link_publisher import LinkPublisher
 from sushicore.provision.sushi_packages.package import Package
 from sushicore.provision.sushi_packages.package_error import PackageError
@@ -26,7 +26,7 @@ def test_publish_points_the_link_at_the_package(tmp_path):
     """Check that the published link reaches the package's config folder."""
     root = tmp_path / "packages"
     publisher = LinkPublisher(PackageLocks(root, factory=MemoryLocks()),
-                              StableLink(root, host=WindowsHost()))
+                              StableLink(root, host=current_host()))
     package = install(PackageStore(root), make_key())
     link = publisher.publish(package, "c1", "sushiai")
     assert (link / "prefix" / "lib" / "cmake" / "SushiRuntime").is_dir()

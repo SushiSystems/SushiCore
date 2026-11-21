@@ -491,6 +491,21 @@ def test_a_capture_of_a_command_line_string_keeps_the_quotes_inside_it():
     assert (status, stdout.strip()) == (0, "42")
 
 
+@pytest.mark.small
+def test_a_command_line_string_reaches_the_process_as_words_where_the_host_does_not_parse_it(
+        monkeypatch):
+    seen = []
+
+    def run(command, **keywords):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(os, "name", "posix")
+    monkeypatch.setattr(subprocess, "run", run)
+    Runner(RecordingConsole(), "st").capture('tool -c "two words" plain')
+    assert seen[0][1:] == ["-c", "two words", "plain"]
+
+
 @pytest.mark.medium
 def test_a_capture_decodes_the_output_with_the_encoding_it_is_given():
     code = "import sys; sys.stdout.buffer.write('caf\\u00e9'.encode('utf-8'))"

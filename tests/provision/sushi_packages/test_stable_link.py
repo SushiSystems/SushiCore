@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.provision import links
-from sushicore.provision.host import PosixHost, WindowsHost
+from sushicore.provision.host import PosixHost, WindowsHost, current_host
 from sushicore.provision.sushi_packages.stable_link import StableLink
 
 
@@ -31,6 +31,9 @@ def _symlinks_work() -> bool:
 K_NEEDS_SYMLINKS = pytest.mark.skipif(
     os.name == "nt" or not _symlinks_work(), reason="this platform or account makes no symlink")
 
+#: Skips a test of the junction host anywhere but on Windows, where junctions exist.
+K_NEEDS_WINDOWS = pytest.mark.skipif(os.name != "nt", reason="junctions exist on Windows only")
+
 
 @pytest.fixture
 def folders(tmp_path):
@@ -43,6 +46,7 @@ def folders(tmp_path):
 
 
 @pytest.mark.medium
+@K_NEEDS_WINDOWS
 def test_the_windows_link_follows_the_newest_package(folders):
     """Check that two junction updates leave the link on the second package."""
     root, first, second = folders
@@ -53,6 +57,7 @@ def test_the_windows_link_follows_the_newest_package(folders):
 
 
 @pytest.mark.medium
+@K_NEEDS_WINDOWS
 def test_the_windows_link_update_keeps_every_package_folder(folders):
     """Check that moving the junction deletes no package folder."""
     root, first, second = folders
@@ -95,7 +100,7 @@ def test_the_name_has_config_and_consumer():
 def test_targets_lists_every_digest_a_link_names(folders):
     """Check that the links of two consumers give two digests."""
     root, first, second = folders
-    link = StableLink(root, host=WindowsHost())
+    link = StableLink(root, host=current_host())
     link.point("sushiruntime", "c1", "sushiai", first)
     link.point("sushiruntime", "c1", "sushiengine", second)
     assert link.targets("sushiruntime") == {"d1", "d2"}
@@ -105,7 +110,7 @@ def test_targets_lists_every_digest_a_link_names(folders):
 def test_targets_counts_only_entries_that_carry_the_link_mark(folders):
     """Check that a link without the mark beside the library's links is not a target."""
     root, first, second = folders
-    link = StableLink(root, host=WindowsHost())
+    link = StableLink(root, host=current_host())
     link.point("sushiruntime", "c1", "sushiai", first)
     links.make_dir_link(root / "sushiruntime" / "plain", second)
     assert link.targets("sushiruntime") == {"d1"}

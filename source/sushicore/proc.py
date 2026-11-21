@@ -11,6 +11,7 @@ it is an event and never a line on stdout.
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -346,9 +347,13 @@ class Runner:
         return result.returncode, result.stdout, result.stderr
 
     def _resolved(self, cmd: list[str] | str, env: Mapping[str, str] | None) -> list[str] | str:
-        """Return *cmd* with its executable resolved; a command line string is left as given."""
+        """Return *cmd* with its executable resolved.
+
+        A command line string is left as given on Windows, which parses it, and is split into
+        words by `shlex` elsewhere, so the quotes in it keep their meaning.
+        """
         if isinstance(cmd, str):
-            return cmd
+            return cmd if os.name == "nt" else self._resolved(shlex.split(cmd), env)
         resolved = list(cmd)
         resolved[0] = self.resolve_exe(cmd[0], env)
         return resolved

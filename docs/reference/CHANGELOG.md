@@ -6,6 +6,8 @@
 
 ## v0.15.0 — 2026-11-21
 
+- 2026-11-21 — proc: Split a command line string into words with `shlex` where the host does not parse it, so `capture` runs a `check_cmd` string on Linux as it does on Windows (RW-148, `proc.py`).
+- 2026-11-21 — shared_tools: Extracted a tag's folder without the `data` filter where `tarfile` has none, so `sync` runs on a Python 3.10 patch release before the filters (RW-148, `git_reader.py`).
 - 2026-11-21 — documentation: Corrected the manual where two reviewers found a sentence the code contradicts, such as the sub-package count, the `clean` and `run` options, the admission rule and the environment variables (RW-139).
 - 2026-11-21 — shared_tools: Added `GitReader.snapshot`, which `sync` uses to read the tag's tools with one git call and not one per file, so it takes 0.4 s and not 2.7 s (RW-138, `git_reader.py`, `sync_service.py`).
 - 2026-11-21 — tools: Added `check_all.py --skip-history`, which the pre-commit hook passes, and `run_suite.py`, which runs checker tests one process per file, so the hook takes 8 s and not 45; `nightly.yml` fetches full history (RW-137).

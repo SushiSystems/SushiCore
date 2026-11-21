@@ -4,6 +4,7 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """The shared `clean` command: which trees a filter selects, and that only --yes removes them."""
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +22,7 @@ pytestmark = pytest.mark.medium
 
 K_NAMES = {None: "default", "address": "asan", "thread": "tsan"}
 K_TYPES = ("debug", "release")
+K_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class _Driver:
@@ -348,4 +350,4 @@ def test_a_tree_the_driver_holds_is_selected_though_it_is_not_on_disk(tmp_path):
 def test_the_help_example_names_a_type_the_cli_offers(tmp_path):
     result = CliRunner().invoke(_named_app(_Target(tmp_path)), ["clean", "--help"])
 
-    assert "clean --type editor" in result.output
+    assert "clean --type editor" in K_ANSI.sub("", result.output)

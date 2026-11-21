@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,7 @@ def test_the_posix_host_keeps_a_path_unchanged_and_reads_no_registry():
 
 
 @pytest.mark.medium
+@pytest.mark.skipif(os.name == "nt", reason="renaming over a directory link is a POSIX operation")
 def test_the_posix_host_replaces_a_link_in_place(tmp_path):
     """Check that a second replace_dir_link repoints the link at the new folder."""
     first, second = tmp_path / "first", tmp_path / "second"

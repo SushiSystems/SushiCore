@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ def test_the_windows_host_states_its_conventions():
 
 
 @pytest.mark.small
+@pytest.mark.skipif(os.name != "nt", reason="the extended-length prefix is a Windows path form")
 def test_the_windows_host_prefixes_a_path_once():
     """Check that the extended-length prefix is added to a path once, and never doubled."""
     host = WindowsHost()
