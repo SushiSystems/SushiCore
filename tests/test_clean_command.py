@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""The shared `clean` command: which trees a filter selects, and that only --sure removes them."""
+"""The shared `clean` command: which trees a filter selects, and that only --yes removes them."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,7 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from sushicore.build_tree import tree_dir
-from sushicore.clean_command import clean_trees, register_clean_command, select_trees
+from sushicore.clean_command import clean_trees, register_clean_command, select_trees, tree_size
 from sushicore.console_memory import RecordingConsole
 
 
@@ -86,19 +86,19 @@ def test_a_tree_that_does_not_exist_is_not_selected(target):
     assert trees == []
 
 
-def test_without_sure_nothing_is_removed_and_the_code_says_so(target):
+def test_without_yes_nothing_is_removed_and_the_code_says_so(target):
     trees = select_trees(target.root, K_NAMES, K_TYPES)
 
-    code = clean_trees(target, trees, sure=False)
+    code = clean_trees(target, trees, yes=False)
 
     assert (code, target.driver.removed) == (2, [])
-    assert target.console.texts("error") == ["Nothing was removed. Add --sure to remove the trees above."]
+    assert target.console.texts("error") == ["Nothing was removed. Add --yes to remove them."]
 
 
-def test_with_sure_every_listed_tree_is_removed(target):
+def test_with_yes_every_listed_tree_is_removed(target):
     trees = select_trees(target.root, K_NAMES, K_TYPES, types=("debug",))
 
-    code = clean_trees(target, trees, sure=True)
+    code = clean_trees(target, trees, yes=True)
 
     assert (code, target.driver.removed) == (0, trees)
 
@@ -106,11 +106,11 @@ def test_with_sure_every_listed_tree_is_removed(target):
 def test_no_tree_is_a_success_that_removes_nothing(tmp_path):
     empty = _Target(tmp_path)
 
-    assert clean_trees(empty, [], sure=False) == 0
+    assert clean_trees(empty, [], yes=False) == 0
     assert empty.console.texts("info") == ["No build tree to remove."]
 
 
-def _app(target: _Target, names=K_NAMES) -> typer.Typer:
+def _app(target: _Target, names=K_NAMES, type_trees=None) -> typer.Typer:
     """An application with the shared clean command over *target*."""
     app = typer.Typer(name="sx", add_completion=False)
 
@@ -119,18 +119,19 @@ def _app(target: _Target, names=K_NAMES) -> typer.Typer:
         """Another command, so `clean` is a command and not the whole application."""
 
     register_clean_command(
-        app, lambda ctx: target, program="sx", panel="Project", names=names, build_types=K_TYPES)
+        app, lambda ctx: target, program="sx", panel="Project", names=names, build_types=K_TYPES,
+        type_trees=type_trees)
     return app
 
 
-def test_the_command_removes_the_selected_tree_with_sure(target):
-    result = CliRunner().invoke(_app(target), ["clean", "--type", "debug", "--sure"])
+def test_the_command_removes_the_selected_tree_with_yes(target):
+    result = CliRunner().invoke(_app(target), ["clean", "--type", "debug", "--yes"])
 
     assert result.exit_code == 0
     assert target.driver.removed == [tree_dir(target.root, "default", "debug")]
 
 
-def test_the_command_without_sure_exits_two_and_removes_nothing(target):
+def test_the_command_without_yes_exits_two_and_removes_nothing(target):
     result = CliRunner().invoke(_app(target), ["clean"])
 
     assert result.exit_code == 2
@@ -138,14 +139,70 @@ def test_the_command_without_sure_exits_two_and_removes_nothing(target):
 
 
 def test_the_command_refuses_a_build_type_the_cli_does_not_build(target):
-    result = CliRunner().invoke(_app(target), ["clean", "--type", "profile", "--sure"])
+    result = CliRunner().invoke(_app(target), ["clean", "--type", "profile", "--yes"])
 
     assert result.exit_code == 2
     assert target.driver.removed == []
 
 
 def test_the_command_takes_the_short_type_flag_and_a_sanitizer(target):
-    result = CliRunner().invoke(_app(target), ["clean", "-t", "release", "--sanitize", "address", "--sure"])
+    result = CliRunner().invoke(_app(target), ["clean", "-t", "release", "--sanitize", "address", "--yes"])
 
     assert result.exit_code == 0
     assert target.driver.removed == [tree_dir(target.root, "asan", "release")]
+
+
+K_ASAN_AS_TYPE = {"asan": "asan-release"}
+
+
+def test_a_type_that_names_a_folder_selects_that_folder(target):
+    trees = select_trees(target.root, {None: "default"}, K_TYPES, types=("asan",),
+                         type_trees=K_ASAN_AS_TYPE)
+
+    assert _names(target.root, trees) == ["asan-release"]
+
+
+def test_no_filter_also_selects_the_folders_that_types_name(target):
+    trees = select_trees(target.root, {None: "default"}, K_TYPES, type_trees=K_ASAN_AS_TYPE)
+
+    assert _names(target.root, trees) == ["asan-release", "default-debug", "default-release"]
+
+
+def test_the_command_removes_the_asan_tree_for_type_asan_and_no_other(target):
+    app = _app(target, names={None: "default"}, type_trees=K_ASAN_AS_TYPE)
+
+    result = CliRunner().invoke(app, ["clean", "--type", "asan", "--yes"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [tree_dir(target.root, "asan", "release")]
+
+
+def test_the_command_takes_the_short_yes_flag(target):
+    result = CliRunner().invoke(_app(target), ["clean", "-t", "debug", "-y"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [tree_dir(target.root, "default", "debug")]
+
+
+def test_the_listing_says_what_would_be_removed_and_how_much_each_tree_holds(target):
+    (tree_dir(target.root, "default", "debug") / "a.bin").write_bytes(b"x" * 2048)
+
+    clean_trees(target, [tree_dir(target.root, "default", "debug")], yes=False)
+
+    lines = target.console.texts("info")
+    assert lines[0] == "These build trees would be removed:"
+    assert lines[1].endswith("default-debug  (2.0 KiB)")
+
+
+def test_the_listing_of_a_removal_says_so(target):
+    clean_trees(target, [tree_dir(target.root, "default", "debug")], yes=True)
+
+    assert target.console.texts("info")[0] == "Removing these build trees:"
+
+
+def test_the_size_counts_the_files_of_every_folder_below_the_tree(tmp_path):
+    (tmp_path / "x" / "y").mkdir(parents=True)
+    (tmp_path / "x" / "y" / "a.bin").write_bytes(b"1" * 10)
+    (tmp_path / "b.bin").write_bytes(b"2" * 5)
+
+    assert tree_size(tmp_path) == 15

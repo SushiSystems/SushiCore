@@ -3,7 +3,7 @@
 ## Unreleased
 
 - 2026-11-21 — tools: Skipped `__pycache__` folders by name in the test mirror checker, so a tree without git ignore data reports no finding for them (RW-115, `check_test_mirror.py`).
-- 2026-11-21 — clean: Added `register_clean_command`, the one `clean` of every CLI, which removes build trees only with `--sure` (RW-135, `f7eae08`).
+- 2026-11-21 — clean: Added `register_clean_command`, the one `clean` of every CLI, which removes build trees only with `--yes` (RW-135, `f7eae08`).
 - 2026-11-21 — discovery: Made the picker choose nothing and say so when its input has ended or Ctrl+C stops it, so a script with no terminal does not hang.
 - 2026-11-21 — run: Added `pick_option`, `list_all_option`, `old_pick_option` and `run_program`, so a `run` command declares and starts a program the same way in every CLI.
 - 2026-11-21 — tools: Ran the pre-commit checks on the files the commit will hold, written from the index to a throwaway folder, so a red file on disk cannot refuse a commit that lacks it (RW-134, `pre_commit.py`).
