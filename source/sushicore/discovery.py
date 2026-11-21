@@ -147,9 +147,16 @@ class ExecutableIndex:
     @staticmethod
     def _offer(console: ConsoleLike, columns: list[str], rows: list[list[str]],
                choices: list[Path], title: str) -> Path | None:
-        """Print *rows* numbered under *columns* and return the choice the user numbers."""
+        """Print *rows* numbered under *columns* and return the choice the user numbers.
+
+        An input that ends, or Ctrl+C, picks nothing and says so, so a scripted run fails at once.
+        """
         console.table(columns, [[str(i), *row] for i, row in enumerate(rows, 1)], title=title)
-        answer = console.prompt("Select a number").strip()
+        try:
+            answer = console.prompt("Select a number").strip()
+        except (EOFError, KeyboardInterrupt):
+            console.error("Nothing selected.")
+            return None
         if not answer.isdigit() or not 1 <= int(answer) <= len(choices):
             console.error(f"'{answer}' is not a number from 1 to {len(choices)}.")
             return None

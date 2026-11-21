@@ -215,3 +215,20 @@ def test_sort_offers_every_program_when_none_of_the_examples_is_built(examples_t
         tree, console, sort=True, examples=ExampleCatalog(tree / "nowhere"))
 
     assert len(_table(console)[1]) == 4
+
+
+class _EndedInput(RecordingConsole):
+    """A console whose prompt finds the input already ended, as a script with no stdin does."""
+
+    def prompt(self, message: str, default: str | None = None) -> str:
+        raise EOFError
+
+
+def test_sort_picks_nothing_and_says_so_when_the_input_has_ended(examples_tree):
+    tree, catalog = examples_tree
+    console = _EndedInput()
+
+    exe = ExecutableIndex().resolve(tree, console, sort=True, examples=catalog)
+
+    assert exe is None
+    assert console.texts("error") == ["Nothing selected."]

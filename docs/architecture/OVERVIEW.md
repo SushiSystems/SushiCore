@@ -350,6 +350,9 @@ builds an `ExecutableIndex`. Nothing else about the search is configurable, on p
 `sr run`, `se run`, `sa run` and `sb run` should not be able to disagree about what counts as
 an executable.
 
+A prompt whose input has ended, or that Ctrl+C stops, picks nothing and says so, so a script
+that runs a CLI with no terminal fails at once and does not wait.
+
 `run --pick` offers the built examples, not every program: a build holds the tests and the
 benchmarks beside them, and `sr test` and `sr bench` run those. A CLI passes
 `ExampleCatalog.in_project(root)` to `resolve`, and `list_all` brings back the whole list.
