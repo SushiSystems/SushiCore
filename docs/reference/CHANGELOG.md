@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.15.0 — 2026-11-21
+
 - 2026-11-21 — documentation: Corrected the manual where two reviewers found a sentence the code contradicts, such as the sub-package count, the `clean` and `run` options, the admission rule and the environment variables (RW-139).
 - 2026-11-21 — shared_tools: Added `GitReader.snapshot`, which `sync` uses to read the tag's tools with one git call and not one per file, so it takes 0.4 s and not 2.7 s (RW-138, `git_reader.py`, `sync_service.py`).
 - 2026-11-21 — tools: Added `check_all.py --skip-history`, which the pre-commit hook passes, and `run_suite.py`, which runs checker tests one process per file, so the hook takes 8 s and not 45; `nightly.yml` fetches full history (RW-137).
@@ -56,10 +58,3 @@
 2026-11-17 — checking: Walked every checker's tree through walk_files and derived folders through one folders_of (RW-85, `ignored_paths.py`).
 - 2026-11-17 — testing: Warned when a slow rerun writes no result file and stopped handing the gate a folder that holds none (RW-63, `slow_rerun.py`).
 - 2026-11-17 — cmake_driver: Gave the driver port and the in-memory driver the `resource_spec_file` argument the disk driver takes (RW-63, `cmake_driver_port.py`).
-
-## v0.14.1 — 2026-11-16
-
-- 2026-11-16 — checking: Pruned git-ignored folders before walking them in the comment and probe checkers, so a large ignored tree costs no time (RW-84, `ignored_paths.py`).
-- 2026-11-16 — shared_tools: Wrote the header the target's settings build on a shared Python file it did not hold, not upstream's open block (RW-83, `header_merger.py`).
-- 2026-11-16 — shared_tools: Left `check_package_layers.py` and `check_config_reads.py`, which read SushiCore's own packages, out of the shared set (RW-82, `sync_service.py`).
-
