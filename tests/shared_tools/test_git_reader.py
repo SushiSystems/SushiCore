@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import inspect
 import tarfile
 from pathlib import Path
 
@@ -80,9 +81,11 @@ def test_snapshot_of_a_tag_git_cannot_archive_raises(upstream):
 def test_extract_unpacks_where_tarfile_has_no_extraction_filter(upstream, tmp_path, monkeypatch):
     """A Python before the extraction filters still unpacks the tag's folder."""
     original = tarfile.TarFile.extractall
+    knows_filters = "filter" in inspect.signature(original).parameters
 
     def without_filter(self, path=".", members=None, *, numeric_owner=False):
-        return original(self, path, members, numeric_owner=numeric_owner, filter="fully_trusted")
+        extra = {"filter": "fully_trusted"} if knows_filters else {}
+        return original(self, path, members, numeric_owner=numeric_owner, **extra)
 
     monkeypatch.setattr(tarfile.TarFile, "extractall", without_filter)
     monkeypatch.delattr(tarfile, "data_filter", raising=False)
