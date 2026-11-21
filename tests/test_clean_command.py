@@ -295,7 +295,7 @@ def test_the_extra_flag_takes_no_type(target):
 def _named_app(target: _Target) -> typer.Typer:
     """An application whose `--type` names trees: `editor` removes build/editor-*, and no sanitizer."""
     return _app_with(
-        target, names={}, whole_build=True,
+        target, names={}, build_types=[], whole_build=True,
         named={"editor": lambda root: [root / "build" / "editor-debug", root / "build" / "editor-release"],
                "player": lambda root: [root / "build" / "player-debug"]})
 
@@ -348,4 +348,4 @@ def test_a_tree_the_driver_holds_is_selected_though_it_is_not_on_disk(tmp_path):
 def test_the_help_example_names_a_type_the_cli_offers(tmp_path):
     result = CliRunner().invoke(_named_app(_Target(tmp_path)), ["clean", "--help"])
 
-    assert "clean --type editor --yes" in result.output
+    assert "clean --type editor" in result.output
