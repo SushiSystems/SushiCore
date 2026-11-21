@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-21 — backlog: Removed `backlog import`, `BacklogImporter`, `ImportResult` and the check for the retired files, which no repository of the workspace still needed (RW-131, `check.py`).
+- 2026-11-21 — tools: Dropped the retired-files branch of `check_backlog.py` and its test, with the command it sent a repository to (RW-131).
 - 2026-11-21 — provisioning: Kept each build unit's last measured peak with its kind, so a kind's reservation follows the units it holds now (RW-130, `unit_peaks.py`).
 - 2026-11-21 — backlog: Registered each command through its own function in `command_read.py` and `command_write.py` around one `CommandContext`, so no function of `commands.py` passes 60 lines (RW-91, `commands.py`).
 - 2026-11-21 — aliases: Added `AliasTable.flag_announcer()`, the callback of a hidden old flag, so a renamed flag is one hidden option that announces its replacement.

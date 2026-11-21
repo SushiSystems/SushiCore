@@ -1,6 +1,6 @@
 # Backlog review: plan
 
-**Status:** Open — J1 to J8 and J10 are done for RW-127, RW-128, RW-129 and RW-91; the removal of `backlog import` and the SushiSkills handoff follow
+**Status:** Open — J1 to J10 are done for RW-127, RW-128, RW-129, RW-91 and RW-131; the trailer grammar, the amend fix and the SushiSkills handoff follow
 
 Applies the findings of `REPORT.md` that this repository can change, in hierarchy order: the
 store's helper first, then the check that reads it, then the commands that print, then the pages.
@@ -19,7 +19,7 @@ last code job.
 | J6 | `docs/backlog/`, `CHANGELOG.md` | J5 | RW-127 is closed in the commit that carries J1 to J5, and the changelog says so | done |
 | J7 | `importer.py`, `renumber.py`, `commands.py`, tests, pages | J6 | RW-128: `renumber.py` holds renumber alone and no file in `backlog/` holds two jobs | done |
 | J8 | `verification.py`, `unverified.py`, tests, the topic | J7 | RW-129: a commit that changes only the backlog never marks an entry | done |
-| J9 | the SushiSkills copy of `check_backlog.py`, then `importer.py` and its tests, `command_write.py`, `check.py`, pages | J7 and SushiSkills | The removal entry: `backlog import` and the retired-files check are gone and no checker expects them | todo |
+| J9 | `check_backlog.py` and its test, `importer.py` and its tests, `command_write.py`, `check.py`, pages | J7 | RW-131: `backlog import` and the retired-files check are gone and no checker expects them | done |
 | J10 | `commands.py`, `command_context.py`, `command_read.py`, `command_write.py`, the layer table | J7 | RW-91: each command has its own registering function and none passes 60 lines | done |
 
 ## Isolation

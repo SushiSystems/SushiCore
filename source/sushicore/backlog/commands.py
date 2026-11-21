@@ -74,7 +74,6 @@ def register_backlog_commands(
     command_write.register_move(backlog_app, context)
     command_write.register_area_merge(area_app, context)
     command_write.register_renumber(backlog_app, context)
-    command_write.register_import(backlog_app, context)
     command_read.register_check(backlog_app, context)
 
     backlog_app.add_typer(add_app, name="add")

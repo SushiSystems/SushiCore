@@ -72,13 +72,9 @@ def test_a_store_after_add_work_and_add_issue_is_clean(memory_editor, memory_sto
 
 
 @pytest.mark.medium
-def test_a_repository_without_a_store_is_clean_unless_it_holds_the_retired_files(tmp_path: Path):
-    """The retired files send a repository to `import`."""
+def test_a_repository_without_a_store_has_nothing_to_check(tmp_path: Path):
+    """A repository with no `docs/backlog/` is clean."""
     assert check_backlog(BacklogStore(tmp_path)) == []
-    retired = tmp_path / "docs" / "design" / "REMAINING_WORK.md"
-    retired.parent.mkdir(parents=True)
-    retired.write_text("# Remaining work\n", encoding="utf-8")
-    assert "backlog import" in _messages(BacklogStore(tmp_path))[0]
 
 
 @pytest.mark.medium

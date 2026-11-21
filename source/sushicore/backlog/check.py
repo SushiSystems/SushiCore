@@ -42,7 +42,6 @@ from .store import (
     render_area,
 )
 
-K_RETIRED = (Path("docs/design/REMAINING_WORK.md"), Path("docs/reference/KNOWN_ISSUES.md"))
 K_STORE_SUFFIXES = (".md", ".toml")
 
 
@@ -115,14 +114,6 @@ class BacklogCheck:
     def ids(self) -> set[str]:
         """Returns the ID of every entry."""
         return {item.entry.ident for item in self.located}
-
-
-def rule_retired_files(check: BacklogCheck) -> Iterator[Fault]:
-    """Yields a fault for each file the store replaced that is still in the repository."""
-    for relative in K_RETIRED:
-        path = check.store.root / relative
-        if check.store.files.is_file(path):
-            yield Fault(path, 1, "the store in docs/backlog/ replaced this file; run `backlog import`")
 
 
 def rule_shape(check: BacklogCheck) -> Iterator[Fault]:
@@ -264,7 +255,6 @@ def rule_design_coverage(check: BacklogCheck) -> Iterator[Fault]:
 
 
 K_RULES: dict[str, Callable[[BacklogCheck], Iterator[Fault]]] = {
-    "retired_files": rule_retired_files,
     "shape": rule_shape,
     "files": rule_files,
     "values": rule_values,
@@ -285,16 +275,15 @@ def check_backlog(
 ) -> list[Fault]:
     """Returns every fault of a repository's backlog; none for a repository without one.
 
-    A repository that still holds the two retired files and no store gets the fault that sends
-    it to `backlog import`. A store that cannot be read gets the faults that say why and no other,
-    since every rule would otherwise report what the unread files hide.
+    A store that cannot be read gets the faults that say why and no other, since every rule
+    would otherwise report what the unread files hide.
     """
-    check = BacklogCheck(store, open_designs)
     if not store.exists():
-        return list(rule_retired_files(check))
+        return []
+    check = BacklogCheck(store, open_designs)
     check.load()
     if not check.loaded:
-        return [*rule_retired_files(check), *check.faults]
+        return list(check.faults)
     found: list[Fault] = []
     for rule in K_RULES.values():
         found += rule(check)

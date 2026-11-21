@@ -25,7 +25,6 @@
 | RW-121 | P3 | open | Give each class in the multi-class files its own file | no file outside ui and help holds more than one public class beside its memory twin or its error |  | `source/sushicore/provision/doctor.py` | 2026-11-17 |
 | RW-122 | P3 | open | Run a type checker over the package in check_all | check_all runs mypy or pyright over source/sushicore and it passes |  | `tools/check_all.py` | 2026-11-17 |
 | RW-123 | P3 | open | Give install_adaptivecpp a parameter object instead of about 20 parameters | install_adaptivecpp takes at most five parameters |  | `source/sushicore/provision/toolchains/adaptivecpp.py` | 2026-11-17 |
-| RW-131 | P2 | blocked | Remove backlog import once the shared check_backlog checker stops expecting it | backlog import, BacklogImporter, ImportResult and the retired-files check are gone and no checker or page names them | external: SushiSkills check_backlog.py and its test still expect the retired-files fault | `docs/design/BACKLOG/README.md` | 2026-11-21 |
 
 ## Known issues
 

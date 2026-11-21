@@ -97,7 +97,6 @@ The pins are at most ten IDs in `backlog.toml`.
 | `backlog pin <ID> [--at n]`, `backlog unpin <ID>` | Changes the pins |
 | `backlog area list`, `backlog area add <AREA>`, `backlog area merge <INTO> <FROM>` | Lists, adds or merges areas |
 | `backlog renumber [--target main]` | Merges both sides of a conflicted `ids.toml`, rewrites the index and gives each entry that shares an ID with a different one the next free number |
-| `backlog import` | Moves the retired files into the store, once |
 | `backlog check [--report]` | Checks every rule below; `--report` also lists the late work |
 
 Every change refuses a value that breaks a rule of its kind, writes the files it touched and
@@ -125,29 +124,12 @@ the index, keeps an ID on the entry the target branch holds, gives the other the
 and prints each change. The prose that cites a renamed ID is the caller's to rewrite. A conflict
 in `backlog.toml` is resolved by hand, and `backlog check` says so.
 
-## Import
-
-`backlog import` reads `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md`, the
-form the store replaced, and deletes them:
-
-- Each `## <Area>` section becomes an area: its words in upper case, small words dropped. The
-  entries of `## Decisions waiting for the owner` go to `GENERAL`.
-- The IDs stay. The counter is the old `Next id:`; every lower number without an entry is closed.
-- The IDs of `## Next` become the pins and take `P1`; every other entry takes `P2`.
-- `Opened` is the date git blames on the entry's heading.
-- An entry whose prose, extra fields or overlong values do not fit its row keeps all of them in
-  `detail/<ID>.md`; the row holds the values cut at a word.
-- An issue of a sibling's origin takes `<repository> KI-<n>` from its `Upstream:`.
-- Every citation of the two files in a Markdown page is rewritten to `docs/backlog/README.md`.
-  A source or build file that names one is listed for its author to change.
-
 ## Check
 
 `backlog check` fails the findings below. A file of the store that holds merge conflict markers, or
 a configuration or counter file that cannot be read, is reported alone, since every other rule
 would report what the unread files hide.
 
-- either retired file still in the repository;
 - a file of the store that holds merge conflict markers, with the remedy;
 - a configuration, a counter file or an area file that cannot be read, and an area file that is
   not in the shape the tool writes;
@@ -164,4 +146,4 @@ would report what the unread files hide.
 - a `README.md` that is not what the entries say;
 - an `Open` design topic, outside `_REVISION/`, that no work entry's `Source` cites.
 
-A repository without `docs/backlog/` and without the retired files has nothing to check.
+A repository without `docs/backlog/` has nothing to check.

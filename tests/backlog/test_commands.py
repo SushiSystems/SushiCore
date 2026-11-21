@@ -21,7 +21,7 @@ def test_the_group_holds_every_command_in_the_order_help_lists_them(store):
     group = typer.main.get_command(app).commands["backlog"]
     assert list(group.commands) == [
         "list", "show", "next", "decisions", "promote", "set", "close", "pin", "unpin", "move",
-        "renumber", "import", "check", "add", "area",
+        "renumber", "check", "add", "area",
     ]
 
 
