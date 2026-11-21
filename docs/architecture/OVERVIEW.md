@@ -406,7 +406,9 @@ The command knows the trees of the CLI, because the CLI hands it the tree name o
 and the build types it builds. `--type debug` selects the plain `default-debug` tree and no other,
 `--sanitize address` selects the trees of that sanitizer, and with neither every tree is
 selected. A CLI whose `--type` also picks a sanitizer, as `sr build --type asan` does, names
-those types in `type_trees`, so `sr clean --type asan` removes `asan-release`. `build` does not delete a tree: removing one is `clean` and nothing else.
+those types in `type_trees`, so `sr clean --type asan` removes `asan-release`. A CLI that keeps more than trees under `build/`
+may offer `--all` with `whole_build`, which selects the whole folder and takes no `--type`.
+`build` does not delete a tree: removing one is `clean` and nothing else.
 
 ### `module_config`
 

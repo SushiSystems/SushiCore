@@ -143,7 +143,7 @@ def _size_text(size: int) -> str:
 def register_clean_command(
     app: "typer.Typer", resolve: Callable[["typer.Context"], CleanTarget], *,
     program: str, panel: str, names: Mapping[Optional[str], str], build_types: Sequence[str],
-    type_trees: Optional[Mapping[str, str]] = None,
+    type_trees: Optional[Mapping[str, str]] = None, whole_build: bool = False,
 ) -> None:
     """Adds ``clean`` to *app*.
 
@@ -156,6 +156,8 @@ def register_clean_command(
         build_types: Every build type the CLI builds, such as ``debug`` and ``release``.
         type_trees: The types that name a folder of `build/` outright, as ``asan`` names
             ``asan-release`` for a CLI whose ``--type`` also picks a sanitizer.
+        whole_build: Offers ``--all``, which selects the whole `build/` folder: every tree, the
+            gate's state and the generated files beside them.
     """
     import enum
 
@@ -183,14 +185,25 @@ def register_clean_command(
         sanitize: Optional[list[sanitizer_choice]] = typer.Option(
             None, "--sanitize", case_sensitive=False, hidden=not sanitizers,
             help="Select the trees of this sanitizer, repeatable."),
+        everything: bool = typer.Option(
+            False, "--all", hidden=not whole_build,
+            help="Select the whole build folder: every tree, the gate's state and the "
+                 "generated files. Takes no --type or --sanitize."),
         yes: bool = typer.Option(
             False, K_YES_FLAG, K_YES_SHORT_FLAG,
             help="Remove the trees. Without it the command only lists them."),
     ) -> None:
         """List the build trees a filter selects, and remove them only with --yes."""
+        if everything and (not whole_build or type or sanitize):
+            raise typer.BadParameter(
+                "--all selects the whole build folder and takes no --type or --sanitize."
+                if whole_build else f"{program} clean has no --all.")
         target = resolve(ctx)
         target.console.header("Project Clean")
-        trees = select_trees(
-            target.root, names, build_types, types=[choice.value for choice in type or ()],
-            sanitizers=[choice.value for choice in sanitize or ()], type_trees=type_trees)
+        if everything:
+            trees = [target.root / "build"] if (target.root / "build").is_dir() else []
+        else:
+            trees = select_trees(
+                target.root, names, build_types, types=[choice.value for choice in type or ()],
+                sanitizers=[choice.value for choice in sanitize or ()], type_trees=type_trees)
         raise typer.Exit(clean_trees(target, trees, yes=yes))

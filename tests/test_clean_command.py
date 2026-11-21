@@ -110,7 +110,7 @@ def test_no_tree_is_a_success_that_removes_nothing(tmp_path):
     assert empty.console.texts("info") == ["No build tree to remove."]
 
 
-def _app(target: _Target, names=K_NAMES, type_trees=None) -> typer.Typer:
+def _app(target: _Target, names=K_NAMES, type_trees=None, whole_build=False) -> typer.Typer:
     """An application with the shared clean command over *target*."""
     app = typer.Typer(name="sx", add_completion=False)
 
@@ -120,7 +120,7 @@ def _app(target: _Target, names=K_NAMES, type_trees=None) -> typer.Typer:
 
     register_clean_command(
         app, lambda ctx: target, program="sx", panel="Project", names=names, build_types=K_TYPES,
-        type_trees=type_trees)
+        type_trees=type_trees, whole_build=whole_build)
     return app
 
 
@@ -206,3 +206,28 @@ def test_the_size_counts_the_files_of_every_folder_below_the_tree(tmp_path):
     (tmp_path / "b.bin").write_bytes(b"2" * 5)
 
     assert tree_size(tmp_path) == 15
+
+
+def test_all_selects_the_whole_build_folder_when_the_cli_offers_it(target):
+    app = _app(target, whole_build=True)
+
+    result = CliRunner().invoke(app, ["clean", "--all", "--yes"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [target.root / "build"]
+
+
+def test_all_takes_no_type(target):
+    app = _app(target, whole_build=True)
+
+    result = CliRunner().invoke(app, ["clean", "--all", "--type", "debug", "--yes"])
+
+    assert result.exit_code == 2
+    assert target.driver.removed == []
+
+
+def test_all_is_refused_by_a_cli_that_does_not_offer_it(target):
+    result = CliRunner().invoke(_app(target), ["clean", "--all", "--yes"])
+
+    assert result.exit_code == 2
+    assert target.driver.removed == []
