@@ -16,6 +16,7 @@ from sushicore.backlog.errors import EntryNotFoundError
 from sushicore.backlog.store import (
     AreaFile,
     IdLedger,
+    conflict_lines,
     format_ranges,
     parse_area,
     parse_ranges,
@@ -86,6 +87,12 @@ def test_merge_conflict_markers_are_dropped_when_tolerated(memory_editor, memory
     parsed, faults = parse_area(path, conflicted, tolerate_conflicts=True)
     assert faults == []
     assert [entry.title for entry in parsed.work] == ["Fix the step", "Fix the join"]
+
+
+def test_conflict_lines_numbers_the_marker_lines_and_no_table_row():
+    """The lines a merge leaves are found by number; a table row is never one."""
+    text = "| RW-1 | P1 |\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> side\n"
+    assert conflict_lines(text) == [2, 4, 6]
 
 
 def test_ledger_takes_numbers_in_order():

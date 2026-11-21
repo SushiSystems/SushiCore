@@ -91,6 +91,39 @@ def test_a_hand_edit_that_changes_the_shape_is_a_fault(editor, store):
 
 
 @pytest.mark.small
+def test_a_file_with_conflict_markers_is_the_only_fault(memory_editor, memory_store):
+    """A conflicted `ids.toml` is one fault with its remedy; no rule reports what the unread files hide."""
+    _work(memory_editor)
+    memory_store.write_detail("RW-1", "# RW-1\n")
+    path = memory_store.folder / "ids.toml"
+    text = memory_store.files.read_text(path)
+    memory_store.files.write_text(path, f"<<<<<<< HEAD\n{text}=======\n{text}>>>>>>> side\n")
+    faults = check_backlog(memory_store)
+    assert [(fault.path.name, fault.line, fault.message) for fault in faults] == [
+        ("ids.toml", 1, "an unresolved merge conflict; run `backlog renumber`, which merges both sides"),
+    ]
+
+
+@pytest.mark.small
+def test_conflict_markers_in_the_configuration_ask_for_a_hand_merge(memory_editor, memory_store):
+    """`renumber` reads the configuration, so a conflict in it cannot be merged by that command."""
+    _work(memory_editor)
+    path = memory_store.folder / "backlog.toml"
+    memory_store.files.write_text(path, "<<<<<<< HEAD\n[backlog]\n=======\n[backlog]\n>>>>>>> side\n")
+    assert _messages(memory_store) == ["an unresolved merge conflict; resolve the areas and the pins by hand"]
+
+
+@pytest.mark.small
+def test_an_unreadable_configuration_is_the_only_fault(memory_editor, memory_store):
+    """A configuration that is not TOML is reported alone, not with a fault for every detail file."""
+    _work(memory_editor)
+    memory_store.write_detail("RW-1", "# RW-1\n")
+    memory_store.files.write_text(memory_store.folder / "backlog.toml", "not toml at all")
+    faults = check_backlog(memory_store)
+    assert [fault.path.name for fault in faults] == ["backlog.toml"]
+
+
+@pytest.mark.small
 def test_a_duplicate_id_is_a_fault(memory_store):
     """Two branches that took one number are sent to `renumber`."""
     found = _faults(

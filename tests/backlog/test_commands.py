@@ -88,6 +88,19 @@ def test_close_prints_the_changelog_line(editor, store):
     assert code == 0 and lines[0].endswith("(RW-1, `abc1234`).")
 
 
+def test_close_without_a_commit_prints_the_line_with_the_id_alone(editor, store):
+    """`close` needs no commit, so it can run in the commit that does the work."""
+    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
+    code, lines = _invoke(store.root, "close", "RW-1")
+    assert code == 0 and lines[0].endswith("(RW-1).")
+
+
+def test_renumber_says_it_rewrote_the_counters_and_the_index_when_no_id_is_shared(store):
+    """With no shared ID the command still rewrites `ids.toml` and the index, and says so."""
+    code, lines = _invoke(store.root, "renumber")
+    assert (code, lines[0], lines[-1].startswith("ids.toml and README.md")) == (0, "no ID is shared", True)
+
+
 def test_check_exits_one_on_a_finding(store):
     """A fault is printed with its file and line and the exit code is 1."""
     (store.folder / "NOTES.md").write_text("# Notes\n", encoding="utf-8")

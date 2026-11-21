@@ -240,3 +240,22 @@ def test_renumber_keeps_the_target_branch_entry_and_moves_the_other(tmp_path: Pa
     assert store.find("RW-9").entry.title == "Main work"
     assert store.find("RW-10").entry.title == "Side work"
     assert check_backlog(store) == []
+
+
+@pytest.mark.medium
+def test_renumber_keeps_the_closes_of_both_sides_of_a_conflicted_ledger_and_rewrites_the_index(editor, store):
+    """Two branches that each closed an entry conflict in `ids.toml` and in the index; `renumber` resolves both."""
+    for title in ("First", "Second", "Third"):
+        editor.add_work(area="PHYSICS", priority="P2", title=title, done_when="it is done")
+    editor.close("RW-1")
+    editor.close("RW-2")
+    ids = store.folder / "ids.toml"
+    merged = ids.read_text(encoding="utf-8")
+    ours, theirs = (merged.replace('closed = "1-2"', f'closed = "{number}"', 1) for number in "12")
+    ids.write_text(f"<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> side\n", encoding="utf-8")
+    index = store.folder / "README.md"
+    index.write_text("<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> side\n", encoding="utf-8")
+    BacklogRenumberer(store, "main").run()
+    assert store.ledger().closed["RW"] == {1, 2}
+    assert "<<<<<<<" not in index.read_text(encoding="utf-8")
+    assert check_backlog(store) == []

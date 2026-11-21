@@ -221,10 +221,15 @@ def register_backlog_commands(
         entry = BacklogEditor(store()).set_value(ident, column, value)
         report(" | ".join(entry.cells()))
 
-    @backlog_app.command("close", epilog=f"{program} backlog close RW-12 --commit 1a2b3c4")
+    @backlog_app.command(
+        "close", epilog=f"{program} backlog close RW-12\n{program} backlog close RW-12 --commit 1a2b3c4",
+    )
     def close(
         ident: str = typer.Argument(..., help="The ID."),
-        commit: str = typer.Option(..., "--commit", help="The commit that closes it."),
+        commit: Optional[str] = typer.Option(
+            None, "--commit",
+            help="The commit that did the work, when it exists; leave it out to close in that commit.",
+        ),
         as_json: bool = json_option,
     ) -> None:
         """Delete an entry and print the changelog line to write."""
@@ -280,6 +285,7 @@ def register_backlog_commands(
         lines = [f"{old} -> {new}" for old, new in result.renames]
         for line in lines or ["no ID is shared"]:
             report(line)
+        report("ids.toml and README.md are rewritten from both sides of any conflict")
 
     @backlog_app.command("import", epilog=f"{program} backlog import")
     def import_command() -> None:

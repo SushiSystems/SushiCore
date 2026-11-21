@@ -135,6 +135,14 @@ class IdLedger:
         return id_number(ident) in self.closed[ident[:2]]
 
 
+def conflict_lines(text: str) -> list[int]:
+    """Returns the numbers of the lines of a file that are merge conflict markers."""
+    return [
+        number for number, line in enumerate(text.splitlines(), start=1)
+        if K_CONFLICT_MARK.match(line)
+    ]
+
+
 def area_title(area: str) -> str:
     """Returns the heading of an area file: `CLI_TOOLS` becomes `Cli tools`."""
     return area.replace("_", " ").capitalize()

@@ -126,6 +126,14 @@ def test_close_returns_the_changelog_line(memory_editor):
 
 
 @pytest.mark.small
+def test_close_without_a_commit_writes_the_id_alone(memory_editor):
+    """A close made in the commit that does the work has no hash to name yet."""
+    _work(memory_editor)
+    closed = memory_editor.close("RW-1")
+    assert closed.changelog_line == "- 2026-10-28 — physics: Fix the step (RW-1)."
+
+
+@pytest.mark.small
 def test_close_records_the_id_and_removes_the_entry(memory_editor, memory_store):
     """A closed ID stays in the ledger and the entry is gone."""
     _work(memory_editor)

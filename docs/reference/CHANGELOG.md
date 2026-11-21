@@ -4,6 +4,7 @@
 
 - 2026-11-21 — provisioning: Kept each build unit's last measured peak with its kind, so a kind's reservation follows the units it holds now (RW-130, `unit_peaks.py`).
 - 2026-11-21 — aliases: Added `AliasTable.flag_announcer()`, the callback of a hidden old flag, so a renamed flag is one hidden option that announces its replacement.
+- 2026-11-21 — backlog: Made --commit optional on close, reported a conflicted or unreadable store as one fault and made renumber say what it rewrote (RW-127, `editor.py`, `check.py`).
 - 2026-11-21 — discovery: Made `run --sort` offer the built examples, each with its description, through `ExampleCatalog` (RW-125, `5f73103`).
 - 2026-11-17 — downloads: Verify shell pipelines and clones (RW-45, `30a7169`).
 - 2026-11-17 — code: Remove hidden module state and apply the class-shape rules (RW-36, `d3f6a0e`).

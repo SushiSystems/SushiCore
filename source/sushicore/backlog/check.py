@@ -36,12 +36,14 @@ from .store import (
     Fault,
     IdLedger,
     Located,
+    conflict_lines,
     is_area_name,
     parse_area,
     render_area,
 )
 
 K_RETIRED = (Path("docs/design/REMAINING_WORK.md"), Path("docs/reference/KNOWN_ISSUES.md"))
+K_STORE_SUFFIXES = (".md", ".toml")
 
 
 @final
@@ -57,9 +59,19 @@ class BacklogCheck:
     located: list[Located] = field(default_factory=list)
     faults: list[Fault] = field(default_factory=list)
 
+    @property
+    def loaded(self) -> bool:
+        """Returns whether the configuration and the counters were read, so the rules have a store to check."""
+        return self.config is not None and self.ledger is not None
+
     def load(self) -> None:
-        """Reads the configuration, the counters and every area file, keeping the faults."""
+        """Reads the configuration, the counters and every area file, keeping the faults.
+
+        A file that holds merge conflict markers is a fault of its own and nothing else is read.
+        """
         folder = self.store.folder
+        if self._find_conflicts():
+            return
         try:
             self.config = self.store.config()
             self.ledger = self.store.ledger()
@@ -81,6 +93,20 @@ class BacklogCheck:
                 Located(entry, path, parsed.lines.get(entry.ident, 1), area)
                 for entry in parsed.entries()
             ]
+
+    def _find_conflicts(self) -> bool:
+        """Records a fault for each file of the store that holds conflict markers; returns whether any does."""
+        for path in sorted(self.store.files.children(self.store.folder)):
+            if path.suffix not in K_STORE_SUFFIXES or not self.store.files.is_file(path):
+                continue
+            marks = conflict_lines(self.store.files.read_text(path))
+            if marks:
+                remedy = (
+                    "resolve the areas and the pins by hand" if path.name == K_CONFIG
+                    else "run `backlog renumber`, which merges both sides"
+                )
+                self.faults.append(Fault(path, marks[0], f"an unresolved merge conflict; {remedy}"))
+        return bool(self.faults)
 
     def work(self) -> list[WorkEntry]:
         """Returns every work entry."""
@@ -260,12 +286,15 @@ def check_backlog(
     """Returns every fault of a repository's backlog; none for a repository without one.
 
     A repository that still holds the two retired files and no store gets the fault that sends
-    it to `backlog import`.
+    it to `backlog import`. A store that cannot be read gets the faults that say why and no other,
+    since every rule would otherwise report what the unread files hide.
     """
     check = BacklogCheck(store, open_designs)
     if not store.exists():
         return list(rule_retired_files(check))
     check.load()
+    if not check.loaded:
+        return [*rule_retired_files(check), *check.faults]
     found: list[Fault] = []
     for rule in K_RULES.values():
         found += rule(check)

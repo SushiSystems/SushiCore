@@ -97,8 +97,11 @@ class BacklogEditor:
         self._save(area)
         return changed
 
-    def close(self, ident: str, *, commit: str) -> Closed:
+    def close(self, ident: str, *, commit: str | None = None) -> Closed:
         """Deletes an entry and its detail, records the ID as closed and returns its changelog line.
+
+        The line names *commit* when there is one. A close made in the commit that does the work
+        has no hash to name yet, and its line names the ID alone.
 
         @throws RefusedChangeError When another open entry cites the ID.
         """
@@ -119,7 +122,8 @@ class BacklogEditor:
         self._save(area)
         entry = located.entry
         title = entry.title if isinstance(entry, WorkEntry) else entry.symptom
-        line = f"- {self.store.today().isoformat()} — {located.area.lower()}: {title} ({ident}, `{commit}`)."
+        where = f"{ident}, `{commit}`" if commit else ident
+        line = f"- {self.store.today().isoformat()} — {located.area.lower()}: {title} ({where})."
         return Closed(entry, located.area, line)
 
     def pin(self, ident: str, position: int | None = None) -> tuple[str, ...]:

@@ -1,6 +1,6 @@
 # Backlog
 
-**Status:** Shipped — 2026-11-17
+**Status:** Shipped — 2026-11-21
 **About:** The backlog commands read the entries and mark an open entry unverified when a commit after the last green check_all run names it.
 **Modules:** `source/sushicore/backlog`
 
@@ -9,6 +9,11 @@
 An entry is closed by a commit that names it in its `Backlog:` line, but the work in that commit
 may never have passed `check_all`. `backlog list` and `backlog next` show such an entry as plainly
 open, so a reader cannot tell committed work that nothing has verified from work not yet done.
+
+Two frictions of the store itself turned up in the review of 2026-11-21. `backlog close` required
+the hash of the commit that closes the entry, which does not exist until that commit does, so one
+commit in eight changed nothing but the backlog and the changelog. A store holding merge conflict
+markers made `backlog check` print a TOML error and one false fault for each detail file.
 
 ## Decision
 
@@ -21,6 +26,14 @@ The owner's ruling of 2026-11-17 (RW-59), taken as written:
 - Without a stamp nothing is marked, and `list` says in one line that no verification stamp exists.
 - The unverified state is derived on every read and never stored.
 
+The owner's order of 2026-11-21 carried out two findings of the review:
+
+- `backlog close` takes the commit as an option. Without it the changelog line names the ID alone,
+  so an entry closes in the commit that does the work. A hash is optional because the changelog
+  format asks for files and symbols and never for a hash.
+- A store that cannot be read is one fault with its remedy. `renumber` stays the one command after
+  a merge and says that it rewrote `ids.toml` and the index.
+
 ## Design
 
 | Piece | Job |
@@ -31,13 +44,28 @@ The owner's ruling of 2026-11-17 (RW-59), taken as written:
 
 The mark never changes an entry's state in the files.
 
+`BacklogCheck.load` scans the files of `docs/backlog/` for conflict markers before it reads any
+of them. A file that holds them is one fault, and `check_backlog` returns the faults of an unread
+store without running the other rules, because each of them would report what the unread files
+hide. Alternatives set aside: a git merge driver for `ids.toml`, which every clone would have to
+register, and hash IDs, which would change every citation of an ID in the other repositories.
+The merges of thirteen repositories show one in a hundred touching the backlog on both sides, so
+neither pays for itself yet.
+
 ## Phases
 
 | Id | Phase | State |
 | --- | --- | --- |
 | B1 | The stamp: check_all writes the verified commit to .git/sushicore/verified after a clean run | built |
 | B2 | The mark: backlog list and next print an open entry unverified when a commit after the stamp names it | built |
+| B3 | The close: backlog close takes no commit, so an entry closes in the commit that does the work | built |
+| B4 | The merge: backlog check reports a conflicted or unreadable store alone, and renumber says what it rewrote | built |
 
 ## Open questions
 
-None.
+- The pre-commit hook runs `check_all` before the commit exists, so the stamp it writes names the
+  parent. The entries the newest commit names show as unverified although the hook just verified
+  that commit, and a commit that only files an entry marks the entry it files. Should the mark skip
+  a commit that changes nothing outside `docs/backlog/`, and should the stamp move to a
+  post-commit step? The stamp is written by `check_all.py`, a copy of the SushiSkills tool, so
+  the second half is that repository's decision too.

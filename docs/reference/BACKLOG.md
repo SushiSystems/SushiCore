@@ -53,6 +53,18 @@ Rows are sorted by ID and a pipe inside a cell is written `\|`, so a change to o
 one-line diff. An own issue with no workaround and a fix in the backlog is work alone: it lives in
 the remaining work table, not in both.
 
+## States
+
+| State | Means |
+| --- | --- |
+| `open` | Work to be done |
+| `blocked` | Waits on the entries or the external reason in `Blocked by` |
+| `unmeasured` | Built work whose acceptance is a run or a measurement rather than a commit |
+| `decision` | Waits on the owner's ruling; never given to an agent |
+
+`unverified` is not a state. It is a mark `list` and `next` derive on each read, described under
+the commands below, and it is told apart from `unmeasured`, which is stored.
+
 ## Priority and order
 
 | Priority | Means | Age limit |
@@ -81,10 +93,10 @@ The pins are at most ten IDs in `backlog.toml`.
 | `backlog promote <KI-n> --priority P --title T --done-when D` | Opens work from an issue and writes its ID into the issue's `Fix` |
 | `backlog set <ID> <column> <value>` | Changes one column |
 | `backlog move <ID> <AREA>` | Moves an entry to another area |
-| `backlog close <ID> --commit <hash>` | Deletes the entry, its detail and its pin, records the ID as closed, and prints its changelog line |
+| `backlog close <ID> [--commit <hash>]` | Deletes the entry, its detail and its pin, records the ID as closed, and prints its changelog line; the line names the commit only when one is given, so the close can be made in the commit that does the work |
 | `backlog pin <ID> [--at n]`, `backlog unpin <ID>` | Changes the pins |
 | `backlog area list`, `backlog area add <AREA>`, `backlog area merge <INTO> <FROM>` | Lists, adds or merges areas |
-| `backlog renumber [--target main]` | Gives each entry that shares an ID with a different one the next free number |
+| `backlog renumber [--target main]` | Merges both sides of a conflicted `ids.toml`, rewrites the index and gives each entry that shares an ID with a different one the next free number |
 | `backlog import` | Moves the retired files into the store, once |
 | `backlog check [--report]` | Checks every rule below; `--report` also lists the late work |
 
@@ -102,10 +114,15 @@ ruling.
 
 ## Two branches, one ID
 
-Two branches that each add an entry take the same number, and the merge conflicts in `ids.toml`
-and in the area file. `backlog renumber` reads both sides of the conflict, keeps the ID on the
-entry the target branch holds, gives the other the next free number and prints each change. The
-prose that cites the renamed ID is the caller's to rewrite.
+Two branches that each add or close an entry can conflict in `ids.toml`, in the index and, when
+both touch one area, in that area's file. Two that each add an entry also take the same number,
+which git merges without a conflict.
+
+After such a merge, `backlog renumber` is the one command to run. It reads both sides of every
+conflict, takes the highest counter and the union of the closed numbers for `ids.toml`, rewrites
+the index, keeps an ID on the entry the target branch holds, gives the other the next free number
+and prints each change. The prose that cites a renamed ID is the caller's to rewrite. A conflict
+in `backlog.toml` is resolved by hand, and `backlog check` says so.
 
 ## Import
 
@@ -125,9 +142,12 @@ form the store replaced, and deletes them:
 
 ## Check
 
-`backlog check` fails:
+`backlog check` fails the findings below. A file of the store that holds merge conflict markers, or
+a configuration or counter file that cannot be read, is reported alone, since every other rule
+would report what the unread files hide.
 
 - either retired file still in the repository;
+- a file of the store that holds merge conflict markers, with the remedy;
 - a configuration, a counter file or an area file that cannot be read, and an area file that is
   not in the shape the tool writes;
 - a file in `docs/backlog/` that is not an area named in `backlog.toml`, and an area name that is
