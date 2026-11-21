@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — code: Checked the staged tree beside the repository, with the ignored files on disk (RW-152, `tools/hooks/pre_commit.py`).
 - 2026-11-21 — releases: Found that v0.14.0 and v0.14.1 were never pushed, so no release workflow ran; the two local tags are deleted and 0.15.0 to 0.15.3 are on PyPI (RW-146).
 ## v0.15.3 — 2026-11-21
 
