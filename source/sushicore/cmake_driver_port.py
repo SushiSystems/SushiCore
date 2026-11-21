@@ -31,6 +31,9 @@ class CMakeDriverPort(Protocol):
     def cached_value(self, build_dir: Path, entry: str) -> str | None:
         """Returns the value the tree's cache holds for *entry*, or None."""
 
+    def configured_generator(self, build_dir: Path) -> str | None:
+        """Returns the generator the tree at *build_dir* was configured with, or None."""
+
     def needs_configure(self, build_dir: Path, generator: str, *,
                         expect: Mapping[str, str] | None = None,
                         root: Path | None = None) -> bool:

@@ -121,6 +121,10 @@ class CMakeDriver:
         """The value the tree's cache holds for *entry*; see :func:`sushicore.cmake_cache.cached_value`."""
         return cached_value(build_dir, entry)
 
+    def configured_generator(self, build_dir: Path) -> str | None:
+        """The generator the tree at *build_dir* was configured with, or None when it has none."""
+        return cached_value(build_dir, "CMAKE_GENERATOR")
+
     def needs_configure(self, build_dir: Path, generator: str, *,
                         expect: Mapping[str, str] | None = None,
                         root: Path | None = None) -> bool:

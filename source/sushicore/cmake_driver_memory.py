@@ -96,6 +96,11 @@ class MemoryCMakeDriver:
         tree = self._trees.get(Path(build_dir))
         return tree.cache.get(entry) if tree else None
 
+    def configured_generator(self, build_dir: Path) -> str | None:
+        """Returns the generator the tree at *build_dir* was configured with, or None."""
+        tree = self._trees.get(Path(build_dir))
+        return tree.generator if tree else None
+
     def needs_configure(self, build_dir: Path, generator: str, *,
                         expect: Mapping[str, str] | None = None,
                         root: Path | None = None) -> bool:

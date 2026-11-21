@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-21 — tree_reuse: Added `refuse_unreusable_tree`, which refuses a tree of another generator or source folder and names `clean`, and `configured_generator` on the driver port.
+
 ## v0.15.0 — 2026-11-21
 
 - 2026-11-21 — documentation: Corrected the manual where two reviewers found a sentence the code contradicts, such as the sub-package count, the `clean` and `run` options, the admission rule and the environment variables (RW-139).

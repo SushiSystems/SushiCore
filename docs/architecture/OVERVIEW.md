@@ -56,7 +56,7 @@ files a CLI hands it; the package re-exports it.
 | `build_env`, `stack_build_config` | The environment a build runs under, with the vcvars snapshot on Windows; `StackBuildConfig`, the config fields it reads |
 | `message_console`, `report_console` | `MessageConsole`, the four message calls a unit that only reports needs; `ReportConsole`, the header, info, error and table calls of a diagnostic report |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
-| `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
+| `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`, `configured_generator`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --pick` offers |
 | `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
@@ -128,6 +128,14 @@ either would recompile the whole tree under the other type's flags while its nam
 `package_build_type` gives the type of the library packages a consumer links: Release for a
 Debug, MinSizeRel or sanitized consumer, which runs against the release runtime and the Release
 packages beneath it, and RelWithDebInfo for its own kind.
+
+### `tree_reuse`
+
+A build never removes a tree. `refuse_unreusable_tree` stops one whose generator is not the one the
+build uses, or that was configured for another source folder, because CMake cannot change either in
+place; the message names `<program> clean`. Every other difference, such as an option or a define,
+is configured in place. The tree is read through the driver, so an in-memory tree is judged the way
+a real one is.
 
 ### `build_admission`
 
