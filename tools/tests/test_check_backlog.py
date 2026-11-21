@@ -46,7 +46,7 @@ class RegistrationTest(unittest.TestCase):
 class WithoutBacklogTest(unittest.TestCase):
     """Covers a repository with nothing to check."""
 
-    def test_reports_nothing_without_a_store(self) -> None:
+    def test_reports_nothing_without_a_store_or_a_retired_file(self) -> None:
         """A repository without a backlog is not asked for the tooling package."""
         with tempfile.TemporaryDirectory() as folder:
             repository = _repository(folder, {"docs/README.md": "# Docs\n"})
@@ -85,6 +85,13 @@ class MissingToolingTest(unittest.TestCase):
 @unittest.skipUnless(K_HAS_TOOLING, "the tooling package is not installed")
 class DelegationTest(unittest.TestCase):
     """Covers the faults `backlog check` returns, read through the checker."""
+
+    def test_reports_a_retired_file(self) -> None:
+        """A repository that still holds REMAINING_WORK.md is sent to `backlog import`."""
+        with tempfile.TemporaryDirectory() as folder:
+            repository = _repository(folder, {"docs/design/REMAINING_WORK.md": "# Remaining work\n"})
+            messages = [issue.message for issue in rule_backlog(repository)]
+        self.assertEqual(messages, ["the store in docs/backlog/ replaced this file; run `backlog import`"])
 
     def test_reports_nothing_for_a_store_the_tool_wrote(self) -> None:
         """A store written by the commands checks clean."""

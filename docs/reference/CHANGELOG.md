@@ -6,8 +6,7 @@
 - 2026-11-21 — tools: Let the `Backlog:` line cite an entry of a sibling repository as `<repository> <ID>`, which the commit-msg hook checks when the sibling is checked out (RW-132, `check_backlog_trailer.py`).
 - 2026-11-21 — tools: Judged `git commit --amend` against the parent of the commit it replaces, so the hook accepts an amend of a commit that closed its entry (RW-132, `commit_msg.py`).
 - 2026-11-21 — backlog: Stopped a sibling's entry and an ID inside a `none (...)` reason from marking an entry unverified here (RW-132, `unverified.py`).
-- 2026-11-21 — backlog: Removed `backlog import`, `BacklogImporter`, `ImportResult` and the check for the retired files, which no repository of the workspace still needed (RW-131, `check.py`).
-- 2026-11-21 — tools: Dropped the retired-files branch of `check_backlog.py` and its test, with the command it sent a repository to (RW-131).
+- 2026-11-21 — backlog: Deprecated `backlog import` and `BacklogImporter` since 0.15.0, after removing them broke the shared tests of the twelve repositories that carry the tools; they go in 0.16.0 (RW-133, `importer.py`).
 - 2026-11-21 — provisioning: Kept each build unit's last measured peak with its kind, so a kind's reservation follows the units it holds now (RW-130, `unit_peaks.py`).
 - 2026-11-21 — backlog: Registered each command through its own function in `command_read.py` and `command_write.py` around one `CommandContext`, so no function of `commands.py` passes 60 lines (RW-91, `commands.py`).
 - 2026-11-21 — aliases: Added `AliasTable.flag_announcer()`, the callback of a hidden old flag, so a renamed flag is one hidden option that announces its replacement.

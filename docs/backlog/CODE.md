@@ -25,6 +25,7 @@
 | RW-121 | P3 | open | Give each class in the multi-class files its own file | no file outside ui and help holds more than one public class beside its memory twin or its error |  | `source/sushicore/provision/doctor.py` | 2026-11-17 |
 | RW-122 | P3 | open | Run a type checker over the package in check_all | check_all runs mypy or pyright over source/sushicore and it passes |  | `tools/check_all.py` | 2026-11-17 |
 | RW-123 | P3 | open | Give install_adaptivecpp a parameter object instead of about 20 parameters | install_adaptivecpp takes at most five parameters |  | `source/sushicore/provision/toolchains/adaptivecpp.py` | 2026-11-17 |
+| RW-133 | P2 | blocked | Remove backlog import after its deprecation release, once the siblings take the tools | backlog import, BacklogImporter, ImportResult and the retired-files check are gone, and the shared tests of the siblings no longer pin them | external: the siblings take the tools of the release that deprecates backlog import | `docs/design/BACKLOG/README.md` | 2026-11-21 |
 
 ## Known issues
 

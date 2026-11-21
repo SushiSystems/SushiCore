@@ -16,6 +16,7 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 | `Commit`, `unverified_ids` | `unverified.py` | Judge which IDs the commits after the stamp, with their paths, leave unverified |
 | `GitVerification` | `verification.py` | Read the stamp in the git directory and the commits after it with their paths |
 | `BacklogEditor`, `Closed` | `editor.py` | Add, promote, set, move, close, pin, and the areas |
+| `BacklogImporter`, `ImportResult` | `importer.py` | `import` from the retired files, deprecated |
 | `BacklogRenumberer`, `RenumberResult` | `renumber.py` | `renumber` after a merge: both sides of every conflict, the counters, the index and clashing IDs |
 | `CommandContext`, `json_option`, `entry_payload`, `entry_line` | `command_context.py` | The repository, the printing and the unverified mark every command shares |
 | `register_list`, `register_show`, `register_next`, `register_decisions`, `register_check` | `command_read.py` | One function per command that reads the store |
@@ -25,11 +26,9 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 
 ## What it depends on
 
-`sushicore.errors`, `sushicore.files`, `sushicore.proc` with `sushicore.quiet_runner` for the git
-calls of `renumber` and the verification stamp, `sushicore.command_groups` and
-`sushicore.renderer`. Each registering function in `command_read.py` and `command_write.py`
-imports Typer inside itself, and `command_read.py` reads the open design topics for the coverage
-rule from `sushicore.design.store` inside the check command. Inside the package a file
+`sushicore.errors`, `sushicore.workspace.read_toml` and `sushicore.citations`. `commands.py`
+imports Typer inside `register_backlog_commands`, and reads the open design topics for the
+coverage rule from `sushicore.design.store` inside the check command. Inside the package a file
 imports only files in a lower layer; `tools/layering/check_package_layers.py` holds the layers.
 
 ## Using it

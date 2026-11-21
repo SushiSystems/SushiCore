@@ -44,7 +44,7 @@ K_LAYERED = (
         name="sushicore.backlog",
         layers={
             "errors": 0, "model": 1, "store": 2, "order": 2,
-            "check": 3, "renumber": 3, "editor": 3, "unverified": 0, "verification": 1,
+            "check": 3, "importer": 3, "renumber": 3, "editor": 3, "unverified": 0, "verification": 1,
             "command_context": 4, "command_read": 5, "command_write": 5, "commands": 6, "__main__": 7,
         },
         strict=True,

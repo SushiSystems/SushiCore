@@ -10,6 +10,7 @@ from .check import check_backlog, late_entries
 from .commands import register_backlog_commands
 from .editor import BacklogEditor, Closed
 from .errors import BacklogError, EntryNotFoundError, RefusedChangeError, RowError
+from .importer import BacklogImporter, ImportResult
 from .model import IssueEntry, WorkEntry
 from .order import decisions, is_late, next_work
 from .renumber import BacklogRenumberer, RenumberResult
@@ -19,12 +20,14 @@ __all__ = [
     "BacklogConfig",
     "BacklogEditor",
     "BacklogError",
+    "BacklogImporter",
     "BacklogRenumberer",
     "BacklogStore",
     "Closed",
     "EntryNotFoundError",
     "Fault",
     "IdLedger",
+    "ImportResult",
     "IssueEntry",
     "RefusedChangeError",
     "RenumberResult",

@@ -1,6 +1,6 @@
 # Backlog
 
-**Status:** Shipped — 2026-11-21
+**Status:** Open — phases B7 to be built
 **About:** The backlog commands read the entries and mark an open entry unverified when a commit after the last green check_all run names it.
 **Modules:** `source/sushicore/backlog`
 
@@ -39,11 +39,13 @@ The owner's order of 2026-11-21 carried out five findings of the review:
   entry. It files, records or closes entries and carries no work, yet the commit that filed an
   entry named it and so marked the entry it had just filed. A commit that lists no path counts as
   work.
-- `backlog import` is removed with `BacklogImporter`, `ImportResult`, the check for the retired
-  files and the shared checker's branch for them. None of the 21 repositories of the workspace
-  holds a retired file, a code search of GitHub finds no use of the names outside the
-  organisation, and the package is before 1.0, so the removal is breaking and has no deprecation
-  release. The 2026-11-21 review chose to remove it after `renumber` left the importer's file.
+- `backlog import` is deprecated, to be removed in 0.16.0, with `BacklogImporter`,
+  `ImportResult`, the check for the retired files and the shared checker's branch for them. None
+  of the 21 repositories of the workspace holds a retired file, but the shared tests of all twelve
+  repositories that carry the tools pin the check for them, and SushiEngine's CLI test lists the
+  command. A removal in one commit made every one of those fail on a machine whose CLIs run the
+  library from its checkout, so the command stays for one release, as `api-stability` says, and
+  the siblings take the tools of that release before it goes.
 
 ## Design
 
@@ -73,7 +75,7 @@ neither pays for itself yet.
 | B4 | The merge: backlog check reports a conflicted or unreadable store alone, and renumber says what it rewrote | built |
 | B5 | The brick: renumber.py holds renumber alone and importer.py holds the import alone | built |
 | B6 | The filter: a commit that changes only the backlog and the changelog never marks an entry unverified | built |
-| B7 | The removal: backlog import and the check for the retired files are gone | built |
+| B7 | The removal: backlog import and the check for the retired files are gone | planned |
 
 ## Open questions
 

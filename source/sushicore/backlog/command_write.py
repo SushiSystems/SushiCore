@@ -2,14 +2,16 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""The `backlog` commands that change the store: add, promote, set, close, pin, move, the areas and renumber."""
+"""The `backlog` commands that change the store: add, promote, set, close, pin, move, the areas, renumber and import."""
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Optional
 
-from .command_context import CommandContext, json_option
+from .command_context import CommandContext, json_option, shown_path
 from .editor import BacklogEditor
+from .importer import K_DEPRECATION, BacklogImporter
 from .renumber import BacklogRenumberer
 
 if TYPE_CHECKING:
@@ -212,3 +214,22 @@ def register_renumber(group: "typer.Typer", context: CommandContext) -> None:
         for line in lines or ["no ID is shared"]:
             context.report(line)
         context.report("ids.toml and README.md are rewritten from both sides of any conflict")
+
+
+def register_import(group: "typer.Typer", context: CommandContext) -> None:
+    """Adds `import`: the retired REMAINING_WORK.md and KNOWN_ISSUES.md moved into the store."""
+
+    @group.command("import", epilog=f"{context.program} backlog import")
+    def import_command() -> None:
+        """Move REMAINING_WORK.md and KNOWN_ISSUES.md into docs/backlog/, once. Deprecated."""
+        context.report(f"deprecated: {K_DEPRECATION}")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = BacklogImporter(context.store()).run()
+        context.report(f"{result.work} work entries, {result.issues} known issues, {result.details} detail files")
+        context.report(f"areas: {', '.join(result.areas)}")
+        context.report(f"pins: {', '.join(result.pins) or 'none'}")
+        context.report(f"citations rewritten: {len(result.rewrites)}")
+        for path in result.left:
+            context.report(
+                f"still names a retired file, for its author to change: {shown_path(path, context.project_root())}")
