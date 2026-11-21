@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 2026-11-21 — provisioning: Kept each build unit's last measured peak with its kind, so a kind's reservation follows the units it holds now (RW-130, `unit_peaks.py`).
+- 2026-11-21 — backlog: Registered each command through its own function in `command_read.py` and `command_write.py` around one `CommandContext`, so no function of `commands.py` passes 60 lines (RW-91, `commands.py`).
 - 2026-11-21 — aliases: Added `AliasTable.flag_announcer()`, the callback of a hidden old flag, so a renamed flag is one hidden option that announces its replacement.
 - 2026-11-21 — backlog: Stopped a commit that changes only the backlog and the changelog from marking the entries it names unverified, reading each commit's paths (RW-129, `unverified.py`, `verification.py`).
 - 2026-11-21 — backlog: Moved `BacklogRenumberer` and `RenumberResult` out of `importer.py` into `renumber.py`, so no file of the package holds two jobs (RW-128, `renumber.py`).

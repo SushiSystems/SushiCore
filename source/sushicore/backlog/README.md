@@ -18,7 +18,10 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 | `BacklogEditor`, `Closed` | `editor.py` | Add, promote, set, move, close, pin, and the areas |
 | `BacklogImporter`, `ImportResult` | `importer.py` | `import` from the retired files |
 | `BacklogRenumberer`, `RenumberResult` | `renumber.py` | `renumber` after a merge: both sides of every conflict, the counters, the index and clashing IDs |
-| `register_backlog_commands` | `commands.py` | Add the `backlog` group to a Typer application |
+| `CommandContext`, `json_option`, `entry_payload`, `entry_line` | `command_context.py` | The repository, the printing and the unverified mark every command shares |
+| `register_list`, `register_show`, `register_next`, `register_decisions`, `register_check` | `command_read.py` | One function per command that reads the store |
+| `register_add_work`, `register_close`, `register_renumber` and one for each other command | `command_write.py` | One function per command that changes the store |
+| `register_backlog_commands` | `commands.py` | Build the groups and the context, call each command's function, and add the `backlog` group to a Typer application |
 | `main` | `__main__.py` | `python -m sushicore.backlog`, for a repository with no CLI |
 
 ## What it depends on

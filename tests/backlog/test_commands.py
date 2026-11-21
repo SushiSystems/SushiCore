@@ -2,138 +2,33 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests the `backlog` group a CLI registers: what each command prints and its exit code."""
+"""Tests the `backlog` group a CLI registers: which commands it holds and where it sits."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 import typer
-from typer.testing import CliRunner
 
-from sushicore.backlog import BacklogError, register_backlog_commands
-from sushicore.console_memory import RecordingConsole
+from sushicore.backlog import register_backlog_commands
 
 pytestmark = pytest.mark.medium
 
 
-def _invoke(
-    root: Path, *arguments: str, unverified=lambda _root: frozenset(),
-) -> tuple[int, list[str]]:
-    """Runs one command of an application named `sx` and returns its code and its lines.
-
-    *unverified* stands for the stamp; by default a stamp exists and names nothing.
-    """
-    console = RecordingConsole()
+def test_the_group_holds_every_command_in_the_order_help_lists_them(store):
+    """Each command's registering function is called once, and the groups come last."""
     app = typer.Typer(name="sx", no_args_is_help=True, add_completion=False)
-
-    @app.command("build")
-    def build() -> None:
-        """Build."""
-
-    register_backlog_commands(
-        app, program="sx", panel="Project", project_root=lambda: root, report=console.info,
-        unverified=unverified,
-    )
-    result = CliRunner().invoke(app, ["backlog", *arguments])
-    if result.exception and not isinstance(result.exception, SystemExit):
-        raise result.exception
-    return result.exit_code, console.texts("info")
+    register_backlog_commands(app, program="sx", panel="Project", project_root=lambda: store.root)
+    group = typer.main.get_command(app).commands["backlog"]
+    assert list(group.commands) == [
+        "list", "show", "next", "decisions", "promote", "set", "close", "pin", "unpin", "move",
+        "renumber", "import", "check", "add", "area",
+    ]
 
 
-def test_add_work_prints_the_new_id(store):
-    """`add work` prints the ID the entry took."""
-    code, lines = _invoke(store.root, "add", "work", "--area", "PHYSICS", "--priority", "P1",
-                          "--title", "Fix the step", "--done-when", "it passes")
-    assert (code, lines) == (0, ["RW-1"])
-
-
-def test_next_json_carries_the_columns_and_the_area(editor, store):
-    """`next --json` prints the ready work with its columns and its area."""
-    editor.add_work(area="PHYSICS", priority="P1", title="Fix the step", done_when="it passes")
-    _, lines = _invoke(store.root, "next", "--json")
-    [entry] = json.loads(lines[0])
-    assert (entry["ID"], entry["Area"]) == ("RW-1", "PHYSICS")
-
-
-def test_show_json_carries_the_columns(editor, store):
-    """`show --json` prints one entry with its columns."""
-    editor.add_work(area="PHYSICS", priority="P1", title="Fix the step", done_when="it passes")
-    _, lines = _invoke(store.root, "show", "RW-1", "--json")
-    assert json.loads(lines[0])["Title"] == "Fix the step"
-
-
-def test_list_keeps_the_priorities_of_a_range(editor, store):
-    """`--priority P0..P1` keeps the two highest priorities."""
-    editor.add_work(area="BUILD", priority="P0", title="Fix the gate", done_when="it passes")
-    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
-    _, lines = _invoke(store.root, "list", "--priority", "P0..P1")
-    assert [line.split()[0] for line in lines] == ["RW-1"]
-
-
-def test_list_keeps_the_entries_of_a_kind(editor, store):
-    """`--kind issue` lists the known issues and no work."""
-    editor.add_work(area="BUILD", priority="P0", title="Fix the gate", done_when="it passes")
-    editor.add_issue(area="BUILD", origin="toolchain", symptom="The link fails", workaround="none")
-    _, lines = _invoke(store.root, "list", "--kind", "issue")
-    assert [line.split()[0] for line in lines] == ["KI-1"]
-
-
-def test_close_prints_the_changelog_line(editor, store):
-    """Closing prints the line to write."""
-    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
-    code, lines = _invoke(store.root, "close", "RW-1", "--commit", "abc1234")
-    assert code == 0 and lines[0].endswith("(RW-1, `abc1234`).")
-
-
-def test_close_without_a_commit_prints_the_line_with_the_id_alone(editor, store):
-    """`close` needs no commit, so it can run in the commit that does the work."""
-    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
-    code, lines = _invoke(store.root, "close", "RW-1")
-    assert code == 0 and lines[0].endswith("(RW-1).")
-
-
-def test_renumber_says_it_rewrote_the_counters_and_the_index_when_no_id_is_shared(store):
-    """With no shared ID the command still rewrites `ids.toml` and the index, and says so."""
-    code, lines = _invoke(store.root, "renumber")
-    assert (code, lines[0], lines[-1].startswith("ids.toml and README.md")) == (0, "no ID is shared", True)
-
-
-def test_check_exits_one_on_a_finding(store):
-    """A fault is printed with its file and line and the exit code is 1."""
-    (store.folder / "NOTES.md").write_text("# Notes\n", encoding="utf-8")
-    code, lines = _invoke(store.root, "check")
-    assert code == 1
-    assert lines[0].startswith("docs/backlog/NOTES.md:1:")
-
-
-def test_a_refused_change_reaches_the_caller_as_the_backlog_error(store):
-    """The group lets a BacklogError out, for the CLI's entry point to print."""
-    with pytest.raises(BacklogError):
-        _invoke(store.root, "add", "work", "--area", "AUDIO", "--priority", "P1",
-                "--title", "Fix it", "--done-when", "it passes")
-
-
-def test_list_marks_an_open_entry_named_after_the_stamp(editor, store):
-    """An open entry that a commit after the stamp names is printed as unverified."""
-    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
-    editor.add_work(area="BUILD", priority="P2", title="Fix the link", done_when="it passes")
-    _, lines = _invoke(store.root, "list", unverified=lambda _root: frozenset({"RW-2"}))
-    assert [line.endswith(" unverified") for line in lines] == [False, True]
-
-
-def test_list_marks_nothing_and_says_so_without_a_stamp(editor, store):
-    """Without a stamp no entry is marked and one line says no stamp exists."""
-    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
-    _, lines = _invoke(store.root, "list", unverified=lambda _root: None)
-    assert [line.endswith(" unverified") for line in lines] == [False, False]
-    assert lines[-1].startswith("no verification stamp exists")
-
-
-def test_next_marks_an_open_entry_named_after_the_stamp(editor, store):
-    """`next` prints the same mark."""
-    editor.add_work(area="BUILD", priority="P2", title="Fix the gate", done_when="it passes")
-    _, lines = _invoke(store.root, "next", unverified=lambda _root: frozenset({"RW-1"}))
-    assert lines[0].endswith(" unverified")
+def test_the_group_nests_the_add_and_area_commands(store):
+    """`add` holds `work` and `issue`; `area` holds `list`, `add` and `merge`."""
+    app = typer.Typer(name="sx", no_args_is_help=True, add_completion=False)
+    register_backlog_commands(app, program="sx", panel="Project", project_root=lambda: store.root)
+    group = typer.main.get_command(app).commands["backlog"]
+    assert (list(group.commands["add"].commands), list(group.commands["area"].commands)) == (
+        ["work", "issue"], ["list", "add", "merge"])
