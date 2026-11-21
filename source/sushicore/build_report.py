@@ -17,16 +17,13 @@ from enum import Enum
 from pathlib import Path
 from typing import final
 
+from .unit_peaks import UnitPeaks
+
 #: The file a report is written to, inside the tree it measures.
 K_REPORT_NAME = "build_report.json"
 
 #: How many of the slowest edges a report lists.
 K_SLOWEST = 20
-
-#: Prefixes of the non-unit keys of `unit_peaks.json`; build_gate.py repeats them and a test keeps them equal.
-K_KIND_PREFIX = "@"
-K_COUNT_PREFIX = "#"
-K_RESERVED_PREFIXES = (K_KIND_PREFIX, K_COUNT_PREFIX)
 
 
 class EdgeKind(str, Enum):
@@ -189,24 +186,19 @@ def read_edges(build_dir: Path, offset: int = 0) -> list[Edge]:
             for (start, end, _), output in seen.items()]
 
 
-def summarise(edges: list[Edge], peaks: dict[str, int], lowest_free_mb: int | None = None
+def summarise(edges: list[Edge], peaks: UnitPeaks, lowest_free_mb: int | None = None
               ) -> BuildReport:
-    """Returns the report of a build that ran *edges*, with the gate's measured *peaks*.
-
-    *peaks* maps each unit to its peak and each kind, as `@<kind>`, to the largest of its units.
-    """
+    """Returns the report of a build that ran *edges*, with the gate's measured *peaks*."""
     report = BuildReport()
     for edge in edges:
         totals = report.kinds.setdefault(edge.kind.value, KindTotals())
         totals.count += 1
         totals.total_seconds += edge.seconds
         totals.longest_seconds = max(totals.longest_seconds, edge.seconds)
-    for key, peak in peaks.items():
-        if key.startswith(K_KIND_PREFIX):
-            report.kinds.setdefault(key[1:], KindTotals()).peak_mb = int(peak)
+    for kind in peaks.kinds():
+        report.kinds.setdefault(kind, KindTotals()).peak_mb = peaks.largest(kind)
     report.lowest_free_mb = lowest_free_mb
-    report.heaviest = sorted(((int(peak), key) for key, peak in peaks.items()
-                              if not key.startswith(K_RESERVED_PREFIXES)), reverse=True)[:K_SLOWEST]
+    report.heaviest = peaks.heaviest(K_SLOWEST)
     if edges:
         report.wall_seconds = (max(e.started + e.seconds for e in edges)
                                - min(e.started for e in edges))
@@ -216,7 +208,7 @@ def summarise(edges: list[Edge], peaks: dict[str, int], lowest_free_mb: int | No
 
 def of_build(build_dir: Path, offset: int, gate_state: Path) -> BuildReport:
     """Returns the report of the build that appended to *build_dir*'s log from *offset* on."""
-    peaks = _read_json(gate_state / "unit_peaks.json")
+    peaks = UnitPeaks.from_json(_read_json(gate_state / "unit_peaks.json"))
     ledger = _read_json(gate_state / "ledger.json")
     return summarise(read_edges(build_dir, offset), peaks, ledger.get("lowest_free"))
 

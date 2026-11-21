@@ -10,6 +10,15 @@ import pytest
 
 from sushicore.build_report import (BuildReport, Edge, EdgeKind, KindTotals, classify,
                                     ninja_log_offset, read_edges, read_report, summarise)
+from sushicore.unit_peaks import UnitPeaks
+
+
+def _peaks(*entries: tuple[str, str, int]) -> UnitPeaks:
+    """Return a table in which each (kind, key, peak) was measured exactly."""
+    table = UnitPeaks()
+    for kind, key, peak in entries:
+        table.record(kind, key, peak, exact=True)
+    return table
 
 
 @pytest.mark.medium
@@ -31,7 +40,7 @@ def test_edges_are_read_from_the_offset_once_per_command(tmp_path):
 def test_a_summary_totals_each_kind_and_lists_the_heaviest_units():
     edges = [Edge("a.obj", EdgeKind.device_compile, 5.0, 0.0),
              Edge("t.exe", EdgeKind.device_link, 2.0, 0.1)]
-    report = summarise(edges, {"a.cpp": 4000, "@device_compile": 4000}, 2500)
+    report = summarise(edges, _peaks(("device_compile", "a.cpp", 4000)), 2500)
     assert report.kinds["device_compile"].total_seconds == 5.0
     assert report.kinds["device_compile"].peak_mb == 4000
     assert report.heaviest == [(4000, "a.cpp")] and report.lowest_free_mb == 2500
@@ -40,7 +49,7 @@ def test_a_summary_totals_each_kind_and_lists_the_heaviest_units():
 @pytest.mark.medium
 def test_a_report_reads_back_as_it_was_written(tmp_path):
     edges = [Edge("a.obj", EdgeKind.device_compile, 5.0, 0.0)]
-    report = summarise(edges, {"a.cpp": 4000, "@device_compile": 4000}, 2500)
+    report = summarise(edges, _peaks(("device_compile", "a.cpp", 4000)), 2500)
     report.write(tmp_path)
     assert read_report(tmp_path).heaviest == [(4000, "a.cpp")]
 
@@ -55,18 +64,9 @@ def test_link_outputs_and_stamps_are_told_apart(output, expected):
 
 
 @pytest.mark.small
-def test_the_count_of_a_kinds_units_is_neither_a_unit_nor_a_kind():
-    report = summarise([], {"a.cpp": 400, "@device_compile": 400, "#device_compile": 9}, 2500)
-    assert report.heaviest == [(400, "a.cpp")]
-    assert set(report.kinds) == {"device_compile"}
-
-
-@pytest.mark.small
-def test_the_reserved_prefixes_equal_those_of_the_gate():
-    from sushicore import build_gate, build_report
-
-    assert (build_report.K_KIND_PREFIX, build_report.K_COUNT_PREFIX) == (
-        build_gate.K_KIND_PREFIX, build_gate.K_COUNT_PREFIX)
+def test_a_kinds_peak_is_the_largest_of_its_units():
+    report = summarise([], _peaks(("device_compile", "a.cpp", 400), ("device_compile", "b.cpp", 900)))
+    assert report.kinds["device_compile"].peak_mb == 900
 
 
 @pytest.mark.medium

@@ -15,6 +15,7 @@ import pytest
 from sushicore import build_gate, memory_reading
 from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
+from sushicore.unit_peaks import UnitPeaks
 
 K_STATE = Path("tree") / "build_gate"
 
@@ -57,21 +58,17 @@ def _ledger_with_a_heavy_head_waiting() -> dict:
     return ledger
 
 
-def _measured(kind, units, largest):
-    """Returns a peaks table in which *units* units of *kind* are measured, the heaviest at *largest*."""
-    peaks = {f"u{index}.cpp": 100 for index in range(units)}
-    peaks[f"u{units}.cpp"] = largest
-    peaks["@" + kind] = largest
-    peaks["#" + kind] = units + 1
-    return peaks
+def _measured(kind, units, largest, *extra: tuple[str, int]) -> UnitPeaks:
+    """Returns a peaks table in which *units* units of *kind* are measured, the heaviest at *largest*.
 
-
-def _recorded_peaks() -> dict:
-    """Return the peaks after unit a.cpp measured at 300 and 500 and unit b.cpp at 200."""
-    peaks: dict = {}
-    build_gate.record_peak(peaks, "host_compile", "a.cpp", 300)
-    build_gate.record_peak(peaks, "host_compile", "a.cpp", 500)
-    build_gate.record_peak(peaks, "host_compile", "b.cpp", 200)
+    Each (key, peak) of *extra* is one more unit of *kind*.
+    """
+    peaks = UnitPeaks()
+    for index in range(units):
+        peaks.record(kind, f"u{index}.cpp", 100, exact=True)
+    peaks.record(kind, f"u{units}.cpp", largest, exact=True)
+    for key, peak in extra:
+        peaks.record(kind, key, peak, exact=True)
     return peaks
 
 
@@ -134,15 +131,15 @@ def test_edges_are_told_apart_and_keyed_by_source_or_output(command, expected):
 
 @pytest.mark.small
 def test_a_unit_measured_before_keeps_its_own_peak_whatever_the_kind_shows():
-    peaks = _measured("device_compile", K_ENOUGH, 9000)
-    assert build_gate.expected_peak({**peaks, "a.cpp": 700}, "device_compile", "a.cpp") == 700
+    peaks = _measured("device_compile", K_ENOUGH, 9000, ("a.cpp", 700))
+    assert build_gate.expected_peak(peaks, "device_compile", "a.cpp") == 700
 
 
 @pytest.mark.small
 @pytest.mark.parametrize(("peaks", "kind", "expected"), [
     (_measured("device_compile", K_FEW - 1, 251), "device_compile", K_DEVICE_DEFAULT),
-    ({"@device_compile": K_DEVICE_DEFAULT + 1}, "device_compile", K_DEVICE_DEFAULT + 1),
-    ({}, "host_link", build_gate.K_DEFAULT_PEAK_MB["host_link"]),
+    (_measured("device_compile", 0, K_DEVICE_DEFAULT + 1), "device_compile", K_DEVICE_DEFAULT + 1),
+    (UnitPeaks(), "host_link", build_gate.K_DEFAULT_PEAK_MB["host_link"]),
 ])
 def test_a_new_unit_is_reserved_at_the_larger_of_its_kinds_default_and_largest_peak_while_few_are_measured(
     peaks, kind, expected,
@@ -172,14 +169,10 @@ def test_headroom_never_exceeds_the_default_and_never_falls_below_the_largest_pe
 
 
 @pytest.mark.small
-def test_a_peak_counts_its_unit_once():
-    assert _recorded_peaks()["#host_compile"] == 2
-
-
-@pytest.mark.small
-def test_a_peak_keeps_the_largest_for_its_unit_and_its_kind():
-    peaks = _recorded_peaks()
-    assert (peaks["a.cpp"], peaks["b.cpp"], peaks["@host_compile"]) == (500, 200, 500)
+def test_a_new_unit_is_reserved_against_the_kinds_units_now_not_a_peak_they_left_behind():
+    peaks = _measured("device_compile", K_ENOUGH, 9400)
+    peaks.record("device_compile", f"u{K_ENOUGH}.cpp", 100, exact=True)
+    assert build_gate.expected_peak(peaks, "device_compile", "new.cpp") == K_FLOOR
 
 
 @pytest.mark.medium
@@ -195,7 +188,7 @@ def test_a_gated_command_returns_its_code_and_leaves_the_ledger_empty(tmp_path):
 def test_a_gated_command_records_a_peak(tmp_path):
     state = tmp_path / "gate"
     build_gate.main(["gate", str(state), "--", sys.executable, "-c", "raise SystemExit(0)"])
-    assert build_gate.read_state(state / build_gate.K_PEAKS, {})["@host_compile"] > 0
+    assert build_gate.read_peaks(state).largest("host_compile") > 0
 
 
 @pytest.mark.small

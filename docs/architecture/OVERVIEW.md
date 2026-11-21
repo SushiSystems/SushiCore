@@ -64,6 +64,7 @@ files a CLI hands it; the package re-exports it.
 | `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
 | `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
 | `memory_reading` | The physical memory free now, and the share kept back from every user of it; read by `build_gate` and by the test job count |
+| `unit_peaks` | `UnitPeaks`, the peak each build unit was last measured at and its kind, from which a kind's largest peak and unit count are read; written by `build_gate` and read by `build_report`, and it imports nothing from the package so `build_gate` loads it by path |
 | `build_report` | What each kind of edge of one build cost in time and peak memory |
 | `build_trace` | What the clang time traces of a build say: the costliest headers and templates, and each unit's frontend and backend time |
 
@@ -148,12 +149,16 @@ heavy unit is never starved and Ninja can run at the hardware thread count witho
 for the worst unit.
 
 Each edge's peak is measured as it runs, through a job object on Windows and the children's peak
-resident set on Linux, and the largest is kept per unit and optimisation level in
-`unit_peaks.json`. A unit not seen before is reserved at the larger of its kind's default and the
-largest peak of its kind, so light units measured first never let two unmeasured heavy ones in
-together. Once ten units of a kind are measured, it is reserved at twice the largest peak instead,
-no lower than a quarter of the default and no higher than the default; the file keeps the count of a
-kind's units beside its largest peak, and a file written before the count counts again from zero. While `stop` exists, each waiting or new edge fails and the running ones finish, which
+resident set on Linux, and kept per unit and optimisation level, with the unit's kind, in
+`unit_peaks.json`. A measurement the compiler ran for in full replaces the unit's peak, so a unit
+that grew lighter is reserved at what it needs now. A host compile may be answered by ccache, which
+costs almost nothing, so its measurement only raises the peak. A kind's largest peak and its unit
+count are read from the units held now, never stored apart, so a heavy unit that grew lighter or left
+the kind stops weighing on it. A unit not seen before is reserved at the larger of its kind's default
+and the largest peak of its kind, so light units measured first never let two unmeasured heavy ones
+in together. Once ten units of a kind are measured, it is reserved at twice the largest peak instead,
+no lower than a quarter of the default and no higher than the default. A file of another form holds
+no unit, and the next build measures them again. While `stop` exists, each waiting or new edge fails and the running ones finish, which
 stops a build without killing a process.
 
 With `--cache`, a host compile runs through ccache, capped at 5 GB in `build/ccache` and checking

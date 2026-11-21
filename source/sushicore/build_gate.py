@@ -43,16 +43,13 @@ def _load_sibling(name: str) -> ModuleType:
 _memory = _load_sibling("memory_reading")
 _proc = _load_sibling("proc")
 _quiet_console = _load_sibling("quiet_console")
+UnitPeaks = _load_sibling("unit_peaks").UnitPeaks
 K_RESERVE_MB = _memory.K_RESERVE_MB
 free_memory_mb = _memory.free_memory_mb
 
 #: Peaks assumed for an edge of a kind no build has measured, in megabytes.
 K_DEFAULT_PEAK_MB = {"device_compile": 8400, "host_compile": 1000,
                      "device_link": 1500, "host_link": 1500}
-
-#: Prefix of the key that holds the largest peak a kind has shown, and of the one that counts its units.
-K_KIND_PREFIX = "@"
-K_COUNT_PREFIX = "#"
 
 #: Units of a kind that must be measured before its measurements bound a unit not seen yet.
 K_ENOUGH_UNITS = 10
@@ -182,7 +179,7 @@ def _write(path: Path, data: dict) -> None:
     os.replace(temporary, path)
 
 
-def expected_peak(peaks: dict, kind: str, key: str) -> int:
+def expected_peak(peaks: UnitPeaks, kind: str, key: str) -> int:
     """Returns the peak to reserve for the edge *key* of *kind*.
 
     A unit measured before is reserved at its own peak. A unit not seen yet is reserved at the
@@ -192,24 +189,20 @@ def expected_peak(peaks: dict, kind: str, key: str) -> int:
     kind: the reservation falls to K_HEADROOM times the largest peak, never below K_FLOOR_SHARE of
     the default, never above the default and never below the largest peak seen.
     """
-    if key in peaks:
-        return int(peaks[key])
+    own = peaks.peak_of(key)
+    if own is not None:
+        return own
     default = K_DEFAULT_PEAK_MB[kind]
-    largest = int(peaks.get(K_KIND_PREFIX + kind, 0))
-    if int(peaks.get(K_COUNT_PREFIX + kind, 0)) < K_ENOUGH_UNITS:
+    largest = peaks.largest(kind)
+    if peaks.count(kind) < K_ENOUGH_UNITS:
         return max(default, largest)
     headroom = max(K_HEADROOM * largest, K_FLOOR_SHARE * default)
     return max(largest, int(min(default, headroom)))
 
 
-def record_peak(peaks: dict, kind: str, key: str, peak: int) -> None:
-    """Records the peak of one edge in *peaks*: the largest for its unit, the largest for its kind
-    and, the first time the unit is seen, one more unit of the kind."""
-    if key not in peaks:
-        peaks[K_COUNT_PREFIX + kind] = int(peaks.get(K_COUNT_PREFIX + kind, 0)) + 1
-    # The largest seen across build types: a unit's host pass is heavier at -O3.
-    peaks[key] = max(peak, int(peaks.get(key, 0)))
-    peaks[K_KIND_PREFIX + kind] = max(peak, int(peaks.get(K_KIND_PREFIX + kind, 0)))
+def read_peaks(state: Path) -> UnitPeaks:
+    """Returns the peaks the state folder holds, an empty table when it holds none it can read."""
+    return UnitPeaks.from_json(read_state(state / K_PEAKS, {}))
 
 
 def admit(
@@ -425,7 +418,7 @@ def run(
     kind, key = edge_of(command)
     me = os.getpid()
     with Locked(state):
-        expected = expected_peak(read_state(state / K_PEAKS, {}), kind, key)
+        expected = expected_peak(read_peaks(state), kind, key)
     while True:
         if (state / K_STOP).exists():
             print(f"build_gate: {state / K_STOP} exists; not starting {key}", file=sys.stderr)
@@ -464,9 +457,10 @@ def run(
             ledger.get("running", {}).pop(str(me), None)
             _write(state / K_LEDGER, ledger)
             if peak:
-                peaks = read_state(state / K_PEAKS, {})
-                record_peak(peaks, kind, key, peak)
-                _write(state / K_PEAKS, peaks)
+                peaks = read_peaks(state)
+                # Only a host compile can be answered by the cache; see UnitPeaks.record.
+                peaks.record(kind, key, peak, exact=env is None)
+                _write(state / K_PEAKS, peaks.to_json())
     return code
 
 
