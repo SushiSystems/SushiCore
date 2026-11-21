@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — discovery: Made `run --sort` offer the built examples, each with its description, through `ExampleCatalog` (RW-125, `5f73103`).
 - 2026-11-17 — downloads: Verify shell pipelines and clones (RW-45, `30a7169`).
 - 2026-11-17 — code: Remove hidden module state and apply the class-shape rules (RW-36, `d3f6a0e`).
 - 2026-11-17 — tests: Reached code only through public names, making the direct-download installers and build_gate's read_state public (RW-35, `03bb347`).
