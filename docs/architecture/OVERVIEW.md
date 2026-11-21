@@ -412,7 +412,8 @@ may offer `--all` with `whole_build`, which selects the whole folder and takes n
 assembled package folder, and `extra` offers one more flag that selects its own folders instead
 of the trees, such as evaluation output that a clean of the build must never take. A CLI whose
 `--type` names a tree and not a build type, as `se clean --type editor` does, hands `named` the
-folders each name selects.
+folders each name selects. A tree exists when the driver says so through `tree_exists`, which the
+in-memory driver answers from memory, and otherwise when the disk holds it.
 `build` does not delete a tree: removing one is `clean` and nothing else.
 
 ### `module_config`

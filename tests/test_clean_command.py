@@ -322,3 +322,24 @@ def test_no_filter_selects_every_named_selection_that_exists(tmp_path):
     assert result.exit_code == 0
     assert target.driver.removed == [tmp_path / "build" / "editor-debug",
                                      tmp_path / "build" / "player-debug"]
+
+
+class _MemoryDriver(_Driver):
+    """A driver that holds trees in memory, as the in-memory CMake driver does, and not on disk."""
+
+    def __init__(self, held) -> None:
+        super().__init__()
+        self._held = set(held)
+
+    def tree_exists(self, build_dir: Path) -> bool:
+        return build_dir in self._held
+
+
+def test_a_tree_the_driver_holds_is_selected_though_it_is_not_on_disk(tmp_path):
+    held = tmp_path / "build" / "default-debug"
+    target = _Target(tmp_path, driver=_MemoryDriver({held}))
+
+    result = CliRunner().invoke(_app(target), ["clean", "--type", "debug", "--yes"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [held]

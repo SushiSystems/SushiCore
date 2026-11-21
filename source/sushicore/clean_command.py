@@ -38,7 +38,7 @@ class CleanConsole(Protocol):
 
 
 class CleanDriver(Protocol):
-    """What removes one build tree."""
+    """What removes one build tree; it may also tell, as `tree_exists`, whether a tree is there."""
 
     def clean_tree(self, build_dir: Path) -> None:
         """Removes *build_dir*, or raises when something of it remains."""
@@ -72,6 +72,7 @@ def select_trees(
     types: Sequence[str] = (), sanitizers: Sequence[str] = (),
     type_trees: Optional[Mapping[str, str]] = None,
     named: Optional[Mapping[str, Callable[[Path], Sequence[Path]]]] = None,
+    exists: Callable[[Path], bool] = Path.is_dir,
 ) -> list[Path]:
     """Returns the existing build trees under *root* that the filters select.
 
@@ -89,6 +90,7 @@ def select_trees(
             builds in `asan-release`.
         named: The folders each named type selects, from the checkout's root, for a CLI whose
             `--type` names a tree and not a build type.
+        exists: Tells whether a tree is there; the disk unless the driver knows trees of its own.
     """
     type_trees = type_trees or {}
     named = named or {}
@@ -113,9 +115,15 @@ def select_trees(
         candidates += [folder for selection in named.values() for folder in selection(root)]
     found: list[Path] = []
     for tree in candidates:
-        if tree.is_dir() and tree not in found:
+        if exists(tree) and tree not in found:
             found.append(tree)
     return found
+
+
+def _exists_of(driver: CleanDriver) -> Callable[[Path], bool]:
+    """Returns the driver's own `tree_exists` when it has one, else a look at the disk."""
+    probe = getattr(driver, "tree_exists", None)
+    return probe if callable(probe) else Path.is_dir
 
 
 def clean_trees(target: CleanTarget, trees: Sequence[Path], *, yes: bool) -> int:
@@ -244,16 +252,17 @@ def register_clean_command(
                 else f"{program} clean has no such flag.")
         target = resolve(ctx)
         target.console.header("Project Clean")
+        present = _exists_of(target.driver)
         if selected_extra:
-            trees = [folder for folder in extra.folders(target) if folder.exists()]
+            trees = [folder for folder in extra.folders(target) if present(folder)]
         elif everything:
-            trees = [target.root / "build"] if (target.root / "build").is_dir() else []
+            trees = [target.root / "build"] if present(target.root / "build") else []
         else:
             trees = select_trees(
                 target.root, names, build_types, types=[choice.value for choice in type or ()],
                 sanitizers=[choice.value for choice in sanitize or ()], type_trees=type_trees,
-                named=named)
+                named=named, exists=present)
             if with_all is not None and not type and not sanitize:
                 trees += [folder for folder in with_all(target)
-                          if folder.exists() and folder not in trees]
+                          if present(folder) and folder not in trees]
         raise typer.Exit(clean_trees(target, trees, yes=yes))
