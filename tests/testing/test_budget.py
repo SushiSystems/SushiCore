@@ -162,7 +162,15 @@ def test_a_run_without_a_junit_file_is_not_judged():
 
 def test_the_failed_tests_rerun_alone_join_the_gate_as_times_alone():
     console = RecordingConsole()
-    files = MemoryFiles({K_READER: "", K_JUNIT: "<testsuite/>"})
+    files = MemoryFiles({K_READER: "", K_JUNIT: "<testsuite/>", K_TREE / "rerun" / "core.xml": "<testsuite/>"})
     reader = _Reader(files, over=(), codes=(0, 0))
     _judge(files, reader, console, rerun=K_TREE / "rerun")
     assert reader.commands[1][reader.commands[1].index("--rerun") + 1] == str(K_TREE / "rerun")
+
+
+def test_a_rerun_result_that_was_never_written_is_left_out_of_the_reader_command():
+    console = RecordingConsole()
+    files = MemoryFiles({K_READER: "", K_JUNIT: "<testsuite/>"})
+    reader = _Reader(files, over=(), codes=(0, 0))
+    _judge(files, reader, console, rerun=K_TREE / "rerun")
+    assert "--rerun" not in reader.commands[1]

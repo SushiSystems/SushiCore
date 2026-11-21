@@ -135,7 +135,7 @@ def judge_run(module: ModuleTests, tree: Path, junit: Path, scope: str, wall_sec
         files.write_text(programs, json.dumps(program_map(present, files), indent=2, sort_keys=True) + "\n")
     over_file = tree / "Testing" / "over_limit.txt"
     files.remove(over_file)
-    failed_alone = (rerun,) if rerun is not None else ()
+    failed_alone = (rerun,) if rerun is not None and (files.is_dir(rerun) or files.is_file(rerun)) else ()
     listing = reader_command(root, junit, scope, wall_seconds, rebuilt, files=files, cases=present,
                              programs=programs, reruns=failed_alone, list_over=over_file)
     code = module.run(listing, root)

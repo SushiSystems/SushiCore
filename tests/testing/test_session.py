@@ -75,6 +75,9 @@ class _Module:
 
     def program(self, name, arguments):
         self.programs.append((name, arguments))
+        for argument in arguments:
+            if argument.startswith("--gtest_output=xml:"):
+                self.files.files[Path(argument.removeprefix("--gtest_output=xml:"))] = K_ONE_FAILING_CASE
         return 0
 
 
