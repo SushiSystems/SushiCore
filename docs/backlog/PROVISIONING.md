@@ -14,6 +14,8 @@
 | RW-101 | P2 | open | Carry licence consent through the CUDA install chain instead of the GpuStage gate | the toolkit locator and vendor take the consent and RedistToolkitInstaller refuses without it |  | `source/sushicore/provision/gpu_stage.py` | 2026-11-17 |
 | RW-104 | P3 | open | Preview the transitively pinned libraries in a setup dry run | setup --dry-run lists a library pinned only by an unfetched library, read from its remote tag without cloning |  | `source/sushicore/provision/sushi_setup.py` | 2026-11-17 |
 | RW-126 | P1 | decision | Rebuild a consumer's objects when a package link moves to another digest | After a pin bump retargets a consumer's @link, every object that includes a header under it is recompiled on the next build |  | `source/sushicore/provision/sushi_packages/stable_link.py` | 2026-11-21 |
+| RW-140 | P2 | open | Resolve the workspace of link and unlink with the pointer ModuleConfig and StackConfig use | link, unlink, ModuleConfig and StackConfig resolve one workspace through one function |  | `source/sushicore/provision/link_command.py` | 2026-11-21 |
+| RW-141 | P2 | open | Read a dependency's fragment through the module's fragment key, not only the default path | pin_chain and closure_walk read the fragment path module_manifest names |  | `source/sushicore/provision/pin_chain.py` | 2026-11-21 |
 
 ## Known issues
 

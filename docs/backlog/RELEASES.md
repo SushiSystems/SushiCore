@@ -8,6 +8,7 @@
 | RW-117 | P1 | open | Move SushiRuntime's CLI off the deprecated package_install command helpers | sushiruntime cli imports no CapturedRun, capture_command or run_command from package_install and its suite passes |  | `source/sushicore/provision/captured_run.py` | 2026-11-17 |
 | RW-118 | P1 | open | Move SushiDSP's CLI off sushicore.provision.steps | sushidsp cli imports MachineActions from sushicore.provision.machine_actions and its suite passes |  | `source/sushicore/provision/machine_actions.py` | 2026-11-17 |
 | RW-119 | P1 | open | Move SushiStack off the removed and private sushicore provision names | sushistack cli imports no provision.steps, prime_sudo, packages.run, gh_latest name, adapter runner alias or underscore name; its suite passes |  | `source/sushicore/provision/packages/__init__.py` | 2026-11-17 |
+| RW-146 | P2 | open | Find why v0.14.0 and v0.14.1 are not on PyPI, where the latest is 0.13.5 | every tag that passes the gate is on PyPI, or the page says which are not |  | `.github/workflows/release.yml` | 2026-11-21 |
 
 ## Known issues
 
