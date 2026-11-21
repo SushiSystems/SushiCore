@@ -181,7 +181,8 @@ class HookTest(unittest.TestCase):
         amend = self._close_ab1_in_a_commit()
         self.repo.git("add", "-A")
         later = float(amend["GIT_AUTHOR_DATE"].lstrip("@").split()[0]) + 60
-        self.assertEqual(self._run("fix: close it, reworded\n\nBacklog: AB-1\n", amend, later), (0, ""))
+        message = "fix: close it, reworded\n\nTests: none (the hook test)\nBacklog: AB-1\n"
+        self.assertEqual(self._run(message, amend, later), (0, ""))
 
     def test_a_new_commit_in_the_second_of_its_parent_is_not_an_amend(self) -> None:
         same_second = self._close_ab1_in_a_commit()

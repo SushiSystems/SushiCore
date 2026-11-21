@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — tools: Gave the amend test of the commit-msg hook a `Tests:` line, so the shared test passes in a repository that sets `K_TESTS_LINE` (`test_commit_msg.py`).
 - 2026-11-21 — tree_reuse: Added `refuse_unreusable_tree`, which refuses a tree of another generator or source folder and names `clean`, and `configured_generator` on the driver port.
 
 ## v0.15.0 — 2026-11-21
