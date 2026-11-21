@@ -264,6 +264,15 @@ class TestMirrorCommand(unittest.TestCase):
             "mirrors no header or source file; rename it or move it to its unit's mirror",
         ]))
 
+    def test_command_skips_pycache_folders_outside_git(self) -> None:
+        code, lines = self.command({
+            "modules/physics/rigid_body/include/Acme/rigid_body/physics_world.hpp": "",
+            "tests/physics/rigid_body/test_physics_world.cpp": "",
+            "tests/physics/rigid_body/__pycache__/helper.cpython-311.pyc": "",
+            "tests/__pycache__/conftest.cpython-311.pyc": "",
+        })
+        self.assertEqual((code, lines), (0, []))
+
 
 if __name__ == "__main__":
     unittest.main()

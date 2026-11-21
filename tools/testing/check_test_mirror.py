@@ -27,6 +27,7 @@ from checking.ignored_paths import folders_of, walk_files  # noqa: E402
 from checking.source_file import SourceFile, read_files  # noqa: E402
 
 K_DATA_FOLDERS = frozenset({"fixtures", "goldens", "Fixtures", "Goldens"})
+K_GENERATED_FOLDERS = frozenset({"__pycache__"})
 K_UNITY_MARKER = "ProjectSettings"
 K_UNITY_TESTS = "Tests"
 K_UNITY_TEST_SUFFIX = "Tests.cs"
@@ -275,6 +276,11 @@ def _every(path: Path) -> bool:
     return True
 
 
+def _generated(path: Path, top: Path) -> bool:
+    """Returns True when a file sits below a folder that a tool generates, such as __pycache__."""
+    return any(part in K_GENERATED_FOLDERS for part in path.relative_to(top).parts)
+
+
 def _entries_of(root: Path) -> Entries:
     """Reads the files and folders a mirror is built from, and the text of each C++ file below tests/."""
     found: set[Path] = set()
@@ -282,7 +288,7 @@ def _entries_of(root: Path) -> Entries:
         top = root / name
         if top.is_dir():
             found.add(top)
-            below = walk_files(top)
+            below = [path for path in walk_files(top) if not _generated(path, top)]
             found.update(below)
             found.update(folders_of(below, top))
     files = frozenset(path for path in found if path.is_file())
