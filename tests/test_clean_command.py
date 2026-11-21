@@ -243,8 +243,8 @@ def _app_with(target: _Target, **options) -> typer.Typer:
         """Another command, so `clean` is a command and not the whole application."""
 
     register_clean_command(
-        app, lambda ctx: target, program="sx", panel="Project", names=K_NAMES,
-        build_types=K_TYPES, **options)
+        app, lambda ctx: target, program="sx", panel="Project",
+        **{"names": K_NAMES, "build_types": K_TYPES, **options})
     return app
 
 
@@ -290,3 +290,35 @@ def test_the_extra_flag_takes_no_type(target):
 
     assert result.exit_code == 2
     assert target.driver.removed == []
+
+
+def _named_app(target: _Target) -> typer.Typer:
+    """An application whose `--type` names trees: `editor` removes build/editor-*, and no sanitizer."""
+    return _app_with(
+        target, names={}, whole_build=True,
+        named={"editor": lambda root: [root / "build" / "editor-debug", root / "build" / "editor-release"],
+               "player": lambda root: [root / "build" / "player-debug"]})
+
+
+def test_a_named_type_selects_the_folders_its_function_returns(tmp_path):
+    for folder in ("editor-debug", "editor-release", "player-debug"):
+        (tmp_path / "build" / folder).mkdir(parents=True)
+    target = _Target(tmp_path)
+
+    result = CliRunner().invoke(_named_app(target), ["clean", "--type", "editor", "--yes"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [tmp_path / "build" / "editor-debug",
+                                     tmp_path / "build" / "editor-release"]
+
+
+def test_no_filter_selects_every_named_selection_that_exists(tmp_path):
+    for folder in ("editor-debug", "player-debug"):
+        (tmp_path / "build" / folder).mkdir(parents=True)
+    target = _Target(tmp_path)
+
+    result = CliRunner().invoke(_named_app(target), ["clean", "--yes"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [tmp_path / "build" / "editor-debug",
+                                     tmp_path / "build" / "player-debug"]

@@ -410,7 +410,9 @@ those types in `type_trees`, so `sr clean --type asan` removes `asan-release`. A
 may offer `--all` with `whole_build`, which selects the whole folder and takes no `--type`.
 `with_all` names the folders a clean that no filter narrows removes beside the trees, such as an
 assembled package folder, and `extra` offers one more flag that selects its own folders instead
-of the trees, such as evaluation output that a clean of the build must never take.
+of the trees, such as evaluation output that a clean of the build must never take. A CLI whose
+`--type` names a tree and not a build type, as `se clean --type editor` does, hands `named` the
+folders each name selects.
 `build` does not delete a tree: removing one is `clean` and nothing else.
 
 ### `module_config`

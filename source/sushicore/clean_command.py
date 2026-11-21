@@ -71,12 +71,14 @@ def select_trees(
     root: Path, names: Mapping[Optional[str], str], build_types: Sequence[str], *,
     types: Sequence[str] = (), sanitizers: Sequence[str] = (),
     type_trees: Optional[Mapping[str, str]] = None,
+    named: Optional[Mapping[str, Callable[[Path], Sequence[Path]]]] = None,
 ) -> list[Path]:
     """Returns the existing build trees under *root* that the filters select.
 
     A tree is `build/<name>-<type>`. *types* picks build types of the plain tree, *sanitizers*
     picks the trees of those sanitizers in every build type or in *types*, and no filter picks
-    every tree. A type of *type_trees* names one folder of `build/` outright.
+    every tree. A type of *type_trees* names one folder of `build/` outright, and a type of
+    *named* names the folders its function returns.
 
     Args:
         names: The tree name of each sanitizer, ``None`` for the plain tree.
@@ -85,8 +87,11 @@ def select_trees(
         sanitizers: Sanitizers to select; the plain tree when only *types* is given.
         type_trees: The folder of `build/` that a type names outright, such as an ASan type that
             builds in `asan-release`.
+        named: The folders each named type selects, from the checkout's root, for a CLI whose
+            `--type` names a tree and not a build type.
     """
     type_trees = type_trees or {}
+    named = named or {}
     lowered = [name.lower() for name in types]
     candidates: list[Path] = []
     if sanitizers:
@@ -95,12 +100,17 @@ def select_trees(
                       for key in sanitizers for build_type in chosen]
     elif lowered:
         for name in lowered:
-            candidates.append(root / "build" / type_trees[name] if name in type_trees
-                              else tree_dir(root, names[None], name))
+            if name in named:
+                candidates += named[name](root)
+            elif name in type_trees:
+                candidates.append(root / "build" / type_trees[name])
+            else:
+                candidates.append(tree_dir(root, names[None], name))
     else:
         candidates = [tree_dir(root, tree, build_type)
                       for tree in names.values() for build_type in build_types]
         candidates += [root / "build" / folder for folder in type_trees.values()]
+        candidates += [folder for selection in named.values() for folder in selection(root)]
     found: list[Path] = []
     for tree in candidates:
         if tree.is_dir() and tree not in found:
@@ -162,6 +172,7 @@ def register_clean_command(
     type_trees: Optional[Mapping[str, str]] = None, whole_build: bool = False,
     with_all: Optional[Callable[[CleanTarget], Sequence[Path]]] = None,
     extra: Optional[CleanExtra] = None,
+    named: Optional[Mapping[str, Callable[[Path], Sequence[Path]]]] = None,
 ) -> None:
     """Adds ``clean`` to *app*.
 
@@ -180,6 +191,8 @@ def register_clean_command(
             such as an assembled package folder outside `build/`.
         extra: Offers one more flag, which selects its own folders instead of the trees, such as
             the evaluation output a clean of the build must never take.
+        named: The types that name a tree and not a build type, each with the folders it selects
+            from the checkout's root, for a CLI whose ``--type`` picks a tree.
     """
     import enum
 
@@ -188,8 +201,9 @@ def register_clean_command(
     type_trees = dict(type_trees or {})
     sanitizers = [key for key in names if key is not None]
     # Typer offers an enum as a choice, so no click import is needed: `--label` does the same.
+    named = dict(named or {})
     type_choice = enum.Enum(
-        "BuildTypeChoice", {name: name for name in [*build_types, *type_trees]}, type=str)
+        "BuildTypeChoice", {name: name for name in [*build_types, *type_trees, *named]}, type=str)
     sanitizer_choice = enum.Enum("SanitizerChoice", {name: name for name in sanitizers}, type=str)
 
     @app.command(
@@ -237,7 +251,8 @@ def register_clean_command(
         else:
             trees = select_trees(
                 target.root, names, build_types, types=[choice.value for choice in type or ()],
-                sanitizers=[choice.value for choice in sanitize or ()], type_trees=type_trees)
+                sanitizers=[choice.value for choice in sanitize or ()], type_trees=type_trees,
+                named=named)
             if with_all is not None and not type and not sanitize:
                 trees += [folder for folder in with_all(target)
                           if folder.exists() and folder not in trees]
