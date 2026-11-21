@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — shared_tools: Added `GitReader.snapshot`, which `sync` uses to read the tag's tools with one git call and not one per file, so it takes 0.4 s and not 2.7 s (RW-138, `git_reader.py`, `sync_service.py`).
 - 2026-11-21 — tools: Added `check_all.py --skip-history`, which the pre-commit hook passes, and `run_suite.py`, which runs checker tests one process per file, so the hook takes 8 s and not 45; `nightly.yml` fetches full history (RW-137).
 - 2026-11-21 — tools: Printed a pre-commit cleanup that fails instead of hiding it, and split the hook's `run` so the environment of the checks is tested alone (RW-136, `pre_commit.py`).
 - 2026-11-21 — tools: Skipped `__pycache__` folders by name in the test mirror checker, so a tree without git ignore data reports no finding for them (RW-115, `check_test_mirror.py`).

@@ -42,6 +42,24 @@ class GitReader:
         shown = self._run("show", f"{tag}:{path}")
         return None if shown is None else shown.replace("\r\n", "\n")
 
+    def snapshot(self, tag: str, *prefixes: str) -> dict[str, str]:
+        """Returns each file of the tag whose path starts with a prefix, read with one git call.
+
+        A text is what `show` returns for the same path; a tag that cannot be archived raises
+        SharedToolsError.
+        """
+        code, packed, _ = self._runner.capture_bytes(
+            ["git", "-C", str(self._checkout), "archive", "--format=tar", tag])
+        if code != 0:
+            raise SharedToolsError(f"git archive {tag} failed in {self._checkout}")
+        texts: dict[str, str] = {}
+        with tarfile.open(fileobj=io.BytesIO(packed)) as archive:
+            for member in archive:
+                content = archive.extractfile(member) if member.isfile() else None
+                if content is not None and member.name.startswith(prefixes):
+                    texts[member.name] = content.read().decode("utf-8").replace("\r\n", "\n")
+        return texts
+
     def history(self, tag: str, path: str) -> list[str]:
         """Returns every text the file held in a commit reachable from the tag, newest first."""
         revisions = (self._run("log", "--format=%H", tag, "--", path) or "").split()

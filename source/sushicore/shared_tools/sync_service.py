@@ -93,6 +93,7 @@ class SharedToolsSync:
         self._merge_readme = merge_readme
         self._missing_settings = missing_settings
         self._pre_move = pre_move
+        self._texts: dict[str, str] = {}
 
     def run(self) -> SyncResult:
         """Writes every shared file that differs, then the lock; a dry run writes neither.
@@ -100,6 +101,7 @@ class SharedToolsSync:
         Raises LocalEditsError, with nothing written, when a file holds a local edit and force is off.
         """
         commit = self._reader.commit(self._tag)
+        self._texts = self._reader.snapshot(self._tag, K_TOOLS, *K_COMMUNITY)
         everything = self._shared(self._reader.files(self._tag, K_TOOLS, *K_COMMUNITY))
         copied = [path for path in everything if path not in self._keep]
         dropped = self._dropped(everything)
@@ -135,7 +137,7 @@ class SharedToolsSync:
     def _wanted(self, merger: HeaderMerger, path: str) -> str | None:
         """Returns the text the repository should hold for a file, or None when it already does."""
         current = _read(self._root / path)
-        text = self._reader.show(self._tag, path) or ""
+        text = self._texts.get(path, "")
         year = first_year(date.today().year, current, text)
         text = merger.merged(path, text, current, year)
         return None if text == current else text
@@ -157,7 +159,7 @@ class SharedToolsSync:
 
     def _readme(self, shared: list[str]) -> str | None:
         """Returns the README text with the shared rows, or None when no write is needed."""
-        source = self._reader.show(self._tag, K_README)
+        source = self._texts.get(K_README)
         if source is None or K_README in self._keep:
             return None
         current = _read(self._root / K_README)
@@ -167,8 +169,8 @@ class SharedToolsSync:
     def _settings_lacking(self, copied: list[str]) -> dict[str, str | None]:
         """Returns the settings the copied Python tools read that the repository does not define."""
         python = [path for path in copied if path.endswith(".py")]
-        texts = (self._reader.show(self._tag, path) or "" for path in python)
-        core = self._reader.show(self._tag, K_SETTINGS)
+        texts = (self._texts.get(path, "") for path in python)
+        core = self._texts.get(K_SETTINGS)
         return self._missing_settings(texts, _read(self._root / K_SETTINGS), core)
 
     def _write(self, pending: list[str], wanted: dict[str, str | None]) -> None:
