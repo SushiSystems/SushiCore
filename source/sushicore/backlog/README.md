@@ -16,7 +16,8 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 | `unverified_ids` | `unverified.py` | Judge which IDs the commits after the stamp leave unverified |
 | `GitVerification` | `verification.py` | Read the stamp in the git directory and the commits after it |
 | `BacklogEditor`, `Closed` | `editor.py` | Add, promote, set, move, close, pin, and the areas |
-| `BacklogImporter`, `BacklogRenumberer` | `importer.py` | `import` from the retired files and `renumber` after a merge |
+| `BacklogImporter`, `ImportResult` | `importer.py` | `import` from the retired files |
+| `BacklogRenumberer`, `RenumberResult` | `renumber.py` | `renumber` after a merge: both sides of every conflict, the counters, the index and clashing IDs |
 | `register_backlog_commands` | `commands.py` | Add the `backlog` group to a Typer application |
 | `main` | `__main__.py` | `python -m sushicore.backlog`, for a repository with no CLI |
 

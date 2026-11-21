@@ -1,6 +1,6 @@
 # Backlog review: plan
 
-**Status:** Open — J1 to J6 are done for RW-127; RW-128, RW-129 and the SushiSkills handoff follow
+**Status:** Open — J1 to J7 are done for RW-127 and RW-128; RW-129, RW-131 and the SushiSkills handoff follow
 
 Applies the findings of `REPORT.md` that this repository can change, in hierarchy order: the
 store's helper first, then the check that reads it, then the commands that print, then the pages.
@@ -17,8 +17,9 @@ last code job.
 | J4 | `commands.py`, `importer.py` tests | J1 | `backlog renumber` says it rewrote `ids.toml` and the index, and keeps the closes of both sides of a conflict | done |
 | J5 | `docs/reference/BACKLOG.md`, `docs/design/BACKLOG/README.md` | J2, J3, J4 | The reference defines the four states, the post-merge steps and the close line; the topic holds phases B3 and B4 | done |
 | J6 | `docs/backlog/`, `CHANGELOG.md` | J5 | RW-127 is closed in the commit that carries J1 to J5, and the changelog says so | done |
-| J7 | `importer.py`, `renumber.py`, `commands.py`, `check.py`, tests, pages | J6 | RW-128: no file in `backlog/` holds two kinds of class and `backlog import` is gone | todo |
+| J7 | `importer.py`, `renumber.py`, `commands.py`, tests, pages | J6 | RW-128: `renumber.py` holds renumber alone and no file in `backlog/` holds two jobs | done |
 | J8 | `verification.py`, `unverified.py`, tests, the topic | J7 | RW-129: a commit that changes only the backlog never marks an entry | todo |
+| J9 | the SushiSkills copy of `check_backlog.py`, then `importer.py` and its tests, `commands.py`, `check.py`, pages | J7 and SushiSkills | RW-131: `backlog import` and the retired-files check are gone and no checker expects them | todo |
 
 ## Isolation
 

@@ -26,13 +26,15 @@ The owner's ruling of 2026-11-17 (RW-59), taken as written:
 - Without a stamp nothing is marked, and `list` says in one line that no verification stamp exists.
 - The unverified state is derived on every read and never stored.
 
-The owner's order of 2026-11-21 carried out two findings of the review:
+The owner's order of 2026-11-21 carried out three findings of the review:
 
 - `backlog close` takes the commit as an option. Without it the changelog line names the ID alone,
   so an entry closes in the commit that does the work. A hash is optional because the changelog
   format asks for files and symbols and never for a hash.
 - A store that cannot be read is one fault with its remedy. `renumber` stays the one command after
   a merge and says that it rewrote `ids.toml` and the index.
+- `renumber` lives in `renumber.py`. The importer's file held five classes and two unrelated
+  jobs, so a change to `renumber` was a change to the importer.
 
 ## Design
 
@@ -60,6 +62,7 @@ neither pays for itself yet.
 | B2 | The mark: backlog list and next print an open entry unverified when a commit after the stamp names it | built |
 | B3 | The close: backlog close takes no commit, so an entry closes in the commit that does the work | built |
 | B4 | The merge: backlog check reports a conflicted or unreadable store alone, and renumber says what it rewrote | built |
+| B5 | The brick: renumber.py holds renumber alone and importer.py holds the import alone | built |
 
 ## Open questions
 

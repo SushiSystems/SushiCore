@@ -2,11 +2,10 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Moves a repository's backlog into the store once, and gives clashing IDs new numbers.
+"""Moves a repository's backlog into the store once.
 
 `import` reads `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md`, the form
-the store replaced, writes `docs/backlog/` and deletes both files. `renumber` resolves two
-branches that took the same ID. Both rewrite the citations they change.
+the store replaced, writes `docs/backlog/` and deletes both files, rewriting the citations of them.
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ from __future__ import annotations
 import datetime
 import posixpath
 import re
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import final
 
@@ -41,7 +40,6 @@ from .model import (
 )
 from .store import (
     K_FOLDER,
-    K_IDS,
     K_INDEX,
     K_PIN_CEILING,
     AnyEntry,
@@ -49,8 +47,6 @@ from .store import (
     BacklogConfig,
     BacklogStore,
     IdLedger,
-    parse_area,
-    parse_ranges,
 )
 
 K_LEGACY_WORK = Path("docs/design/REMAINING_WORK.md")
@@ -108,14 +104,6 @@ class ImportResult:
     areas: tuple[str, ...]
     rewrites: tuple[Rewrite, ...]
     left: tuple[Path, ...] = ()
-
-
-@final
-@dataclass(frozen=True, slots=True)
-class RenumberResult:
-    """What `renumber` changed: each old ID with its new one, for the caller to cite."""
-
-    renames: tuple[tuple[str, str], ...]
 
 
 def read_legacy(path: Path) -> tuple[int, list[LegacyEntry], list[str]]:
@@ -261,7 +249,7 @@ class BacklogImporter:
         if has_detail:
             self.store.write_detail(item.ident, _detail_text(item, self.store.relative(entry_path(self.store, item))))
         if source:
-            entry = entry.__class__(**{**_fields(entry), "source": source})
+            entry = replace(entry, source=source)
         return entry, has_detail
 
     def _work(
@@ -320,85 +308,6 @@ def entry_path(store: BacklogStore, item: LegacyEntry) -> Path:
     return store.area_path(key)
 
 
-@final
-class BacklogRenumberer:
-    """Gives each entry that shares an ID with a different entry the next free number."""
-
-    def __init__(self, store: BacklogStore, target: str = "main",
-                 runner: CommandRunner | None = None) -> None:
-        """Keeps the store, the branch whose entries keep their IDs and the runner that asks git."""
-        self.store = store
-        self.target = target
-        self._runner = runner if runner is not None else quiet_runner()
-
-    def run(self) -> RenumberResult:
-        """Reads every area file across merge conflicts, renumbers, and writes the store back.
-
-        The entry the target branch holds keeps its ID; the other takes the next free number.
-        """
-        target_rows = self._target_rows()
-        ledger = self._merged_ledger()
-        areas: list[AreaFile] = []
-        holders: dict[str, list[tuple[AreaFile, AnyEntry]]] = {}
-        for name in self.store.config().areas:
-            path = self.store.area_path(name)
-            area = AreaFile(name)
-            areas.append(area)
-            if not path.is_file():
-                continue
-            parsed, _ = parse_area(path, path.read_text(encoding="utf-8"), tolerate_conflicts=True)
-            for entry in parsed.entries():
-                found = holders.setdefault(entry.ident, [])
-                if all(other != entry for _, other in found):
-                    found.append((area, entry))
-        for ident in holders:
-            ledger.next[ident[:2]] = max(ledger.next[ident[:2]], id_number(ident) + 1)
-        renames: list[tuple[str, str]] = []
-        for ident, found in sorted(holders.items(), key=lambda item: (item[0][:2], id_number(item[0]))):
-            kept = next(
-                (index for index, (_, entry) in enumerate(found) if entry.cells() == target_rows.get(ident)),
-                0,
-            )
-            for index, (area, entry) in enumerate(found):
-                if index == kept:
-                    area.put(entry)
-                    continue
-                new = ledger.take(ident[:2])
-                renames.append((ident, new))
-                area.put(entry.__class__(**{**_fields(entry), "ident": new}))
-        for area in areas:
-            self.store.write_area(area)
-        self.store.write_ledger(ledger)
-        self.store.write_index()
-        return RenumberResult(tuple(renames))
-
-    def _target_rows(self) -> dict[str, list[str]]:
-        """Returns the cells of every row the target branch holds, by ID."""
-        found: dict[str, list[str]] = {}
-        for name in self.store.config().areas:
-            relative = self.store.relative(self.store.area_path(name))
-            text = _git_show(self.store.root, f"{self.target}:{relative}", self._runner)
-            if text:
-                parsed, _ = parse_area(self.store.area_path(name), text, tolerate_conflicts=True)
-                found.update({entry.ident: entry.cells() for entry in parsed.entries()})
-        return found
-
-    def _merged_ledger(self) -> IdLedger:
-        """Returns the counters with every side of a conflict in `ids.toml` taken at its highest."""
-        path = self.store.folder / K_IDS
-        ledger = IdLedger()
-        prefix = K_WORK_PREFIX
-        for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
-            name, _, value = (part.strip() for part in line.partition("="))
-            if line.startswith("["):
-                prefix = K_WORK_PREFIX if line.strip() == "[work]" else K_ISSUE_PREFIX
-            elif name == "next":
-                ledger.next[prefix] = max(ledger.next[prefix], int(value))
-            elif name == "closed":
-                ledger.closed[prefix] |= parse_ranges(value.strip('"'))
-        return ledger
-
-
 def _fit(text: str, ceiling: int, overflow: list[str]) -> str:
     """Returns the text cut at a word to fit the ceiling, recording the cut in *overflow*."""
     text = " ".join(text.split())
@@ -407,11 +316,6 @@ def _fit(text: str, ceiling: int, overflow: list[str]) -> str:
     overflow.append("length")
     cut = text[: ceiling - 1].rsplit(" ", 1)[0].rstrip(",;:")
     return f"{cut}{K_ELLIPSIS}"
-
-
-def _fields(entry: AnyEntry) -> dict[str, object]:
-    """Returns the fields of an entry by name."""
-    return {item.name: getattr(entry, item.name) for item in fields(entry)}
 
 
 def _detail_text(item: LegacyEntry, area: str) -> str:
@@ -467,12 +371,3 @@ def _blame_dates(path: Path, runner: CommandRunner) -> dict[int, datetime.date]:
         elif text.startswith("\t"):
             dates[line] = datetime.date.fromtimestamp(stamp)
     return dates
-
-
-def _git_show(root: Path, spec: str, runner: CommandRunner) -> str:
-    """Returns a file of another revision, or an empty string when git cannot show it."""
-    try:
-        code, stdout, _ = runner.capture(["git", "-C", str(root), "show", spec], encoding="utf-8")
-    except OSError:
-        return ""
-    return stdout if code == 0 else ""

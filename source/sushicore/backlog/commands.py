@@ -17,9 +17,10 @@ from typing import TYPE_CHECKING, Callable, Optional
 from ..command_groups import K_BACKLOG
 from .check import check_backlog, late_entries
 from .editor import BacklogEditor
-from .importer import BacklogImporter, BacklogRenumberer
+from .importer import BacklogImporter
 from .model import K_PRIORITIES, IssueEntry, WorkEntry
 from .order import age, decisions, is_late, next_work
+from .renumber import BacklogRenumberer
 from .store import AnyEntry, BacklogStore, Located
 from .verification import GitVerification
 
