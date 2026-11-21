@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — run: Added `pick_option`, `list_all_option`, `old_pick_option` and `run_program`, so a `run` command declares and starts a program the same way in every CLI.
 - 2026-11-21 — tools: Let the `Backlog:` line cite an entry of a sibling repository as `<repository> <ID>`, which the commit-msg hook checks when the sibling is checked out (RW-132, `check_backlog_trailer.py`).
 - 2026-11-21 — tools: Judged `git commit --amend` against the parent of the commit it replaces, so the hook accepts an amend of a commit that closed its entry (RW-132, `commit_msg.py`).
 - 2026-11-21 — backlog: Stopped a sibling's entry and an ID inside a `none (...)` reason from marking an entry unverified here (RW-132, `unverified.py`).

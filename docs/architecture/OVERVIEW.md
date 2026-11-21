@@ -60,6 +60,8 @@ files a CLI hands it; the package re-exports it.
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --sort` offers |
 | `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
+| `run_options` | `pick_option`, `list_all_option` and `old_pick_option`: the `--pick`, `--all` and old `--sort` options of a `run` command, declared once |
+| `run_program` | `run_program`: resolves a program under a build tree through an `ExecutableIndex` and runs it from the project root |
 | `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |
 | `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
 | `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
@@ -348,11 +350,17 @@ builds an `ExecutableIndex`. Nothing else about the search is configurable, on p
 `sr run`, `se run`, `sa run` and `sb run` should not be able to disagree about what counts as
 an executable.
 
-`run --sort` offers the built examples, not every program: a build holds the tests and the
+`run --pick` offers the built examples, not every program: a build holds the tests and the
 benchmarks beside them, and `sr test` and `sr bench` run those. A CLI passes
 `ExampleCatalog.in_project(root)` to `resolve`, and `list_all` brings back the whole list.
 A build with no registered example lists every program, so a repository without examples
 changes nothing.
+
+Shared objects on Linux come as `*.so` and as versioned names such as `*.so.1`. The suffix
+check misses the versioned ones, so the walk matches the substring `.so`.
+
+`ExecutableIndex.select` imports Rich's prompt and table inside the method. `find` and `match`
+run on every `run` and must not pay for importing Rich's table machinery.
 
 ### `example_catalog`
 
@@ -367,11 +375,21 @@ wrapper's own body and is skipped, and so is a call in a comment.
 The description is the `@brief` of the source the target is named after, or of its first
 source. A target with no readable source has an empty description.
 
-Shared objects on Linux come as `*.so` and as versioned names such as `*.so.1`. The suffix
-check misses the versioned ones, so the walk matches the substring `.so`.
+### `run_options`
 
-`ExecutableIndex.select` imports Rich's prompt and table inside the method. `find` and `match`
-run on every `run` and must not pay for importing Rich's table machinery.
+Every `run` command that picks a program declared the same three options, `--pick`, `--all`
+and the hidden old `--sort`, and each CLI spelled them out again. They are declared once, as
+`testing.options` declares `--label` and `--filter`: `pick_option()`, `list_all_option()` and
+`old_pick_option(table, old, *names)`. A CLI that never had `--sort` passes no old option; one
+whose old flag had another name, such as `--select`, gives its names.
+
+### `run_program`
+
+Resolving a program and starting it is the same few lines in every CLI: resolve the target, the
+pick or the default through `ExecutableIndex`, name the program, then run it from the project
+root under the tree's environment. `run_program` is those lines. A CLI keeps what is its own
+around the call, such as a build before the run or a memory limit, and hands over the tree, the
+environment and the runner it already has.
 
 ### `module_config`
 
