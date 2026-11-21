@@ -13,8 +13,8 @@ pip install "sushicore[typer]"   # the same, plus Typer
 Typer is an optional extra. A CLI that uses `help_group`, the root options, the diagnostic
 commands or the provisioning commands needs it; `import sushicore` alone does not.
 
-PyPI carries 0.1.0 to 0.4.0, 0.7.0, 0.8.0, 0.8.1, 0.9.0, 0.9.1, 0.9.2 and 0.9.5. Versions 0.5.0 and 0.6.0 were never tagged, and the CI gate stopped 0.9.3 and 0.9.4, so the
-release workflow never published them. All seven Sushi CLIs require `sushicore>=0.7.0`.
+PyPI carries the tags the release workflow published, not every tag; `pip index versions sushicore`
+lists them. All seven Sushi CLIs require `sushicore>=0.7.0`.
 
 ## From a checkout
 
@@ -31,8 +31,6 @@ to make the CLI use it:
 pipx inject --editable <cli-package> /path/to/SushiCore
 ```
 
-Because the install is editable, an edit to the checkout applies to the CLI without a reinstall.
-
 ## Running the tests
 
 ```bash
@@ -42,11 +40,11 @@ python -m pytest tests -q
 
 The `test` extra adds pytest, pytest-timeout, Typer and Click. CI runs the tests job,
 `python -m pytest -q -m "(small or medium) and not quarantined"`, on Ubuntu and Windows with Python 3.10 and 3.11,
-and the checkers job, `python tools/check_all.py .`, on Python 3.11 (`.github/workflows/ci.yml`).
+and the `checks` job, `python tools/check_all.py .`, on Ubuntu and Windows with Python 3.11 (`.github/workflows/ci.yml`).
 
 ## Running the checkers
 
-The checkers under `tools/` read the repository and change nothing. They need Python 3.11.
+The checkers under `tools/` read the repository and change no file of it; after a clean run `check_all.py` writes the commit it checked to `.git/sushicore/verified`. They need Python 3.11.
 
 ```bash
 python tools/documentation/check_docs_layout.py .

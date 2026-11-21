@@ -53,7 +53,7 @@ commit  = "<the 40-hex hash the tag points at>"
 
 A module that other modules consume as a package names its CLI in `cli`; without it a missing
 package cannot be built and the consumer's `setup` stops naming the key to add. The reader raises
-`ValueError` naming the file when `cli` is not a string or `package_exclude` is not a list of strings.
+`ConfigError` naming the file when `cli` is not a string or `package_exclude` is not a list of strings.
 
 ```toml
 [module]
@@ -61,7 +61,7 @@ cli             = "sr"
 package_exclude = ["bench/"]
 ```
 
-The reader raises `ValueError` and names the file in four cases: a pin names a module
+The reader raises `ConfigError` and names the file in four cases: a pin names a module
 `depends_on` does not, `version` is empty, `commit` is not 40 hex digits, or the file holds pins
 under both `[sushisystems.<name>]` and the deprecated `[sushi.<name>]`. A file with only
 `[sushi.<name>]` tables reads the same pins and raises a `DeprecationWarning` naming the file.
@@ -73,7 +73,7 @@ these that exists:
 2. the sibling checkout `../<name>`;
 3. the copy `setup` fetched, `<home>/sources/<name>/<version>/`.
 
-`setup` first walks the pins through each resolved library's own fragment. When one library
+`setup` first walks the pins through the default fragment, `cli/sushistack.deps.toml`, of each resolved library. When one library
 is pinned at two versions it stops and names both pinning repositories and both versions.
 
 Then it takes each pin with neither a directory nor a sibling, and clones the tag of
@@ -108,7 +108,7 @@ url     = { windows = "https://github.com/Kitware/CMake/releases/download/v4.5.0
 sha256  = { windows = "<64 hex digits>" }
 ```
 
-The reader raises `ValueError`, naming the file and the entry, when an entry declares one or two
+The reader raises `ConfigError`, naming the file and the entry, when an entry declares one or two
 of the three keys, when `url` and `sha256` name different platforms, when a key is not the shape
 above, or when a digest is not 64 hex digits. An entry that declares none of the three pins
 nothing.
@@ -169,7 +169,7 @@ with or without spaces. The installer downloads the key to a file, reads its pri
 fingerprints with `gpg --show-keys --with-colons`, and installs the key only when one of them is
 the pin; otherwise it reports one error and installs nothing. A subkey does not count.
 
-The reader raises `ValueError`, naming the file and the entry, when `commit` or `fingerprint` is
+The reader raises `ConfigError`, naming the file and the entry, when `commit` or `fingerprint` is
 not 40 hex digits, or when only one of `ref` and `commit` is declared. When two fragments declare
 one entry with different values of these keys, the first read wins and the merge prints a warning.
 
@@ -187,11 +187,7 @@ fingerprint from Intel.
 
 ## Format version
 
-A fragment carries no `format_version`. `sha256` was added on 2026-10-05 as an optional key; a
-fragment without it reads as before, and a `sushicore` older than the key ignores it. `version`
-and `url` were added with it as a rule: an entry with a `sha256` and no `version` or `url` is now
-refused, where it was read before.
-`cli` and `package_exclude` are optional keys of `[module]` that a reader without them ignores.
-The pin tables are `[sushisystems.<name>]` from 0.9.3, and `[sushi.<name>]` from 0.9.1 to 0.9.2.
-A reader from 0.9.3 still reads `[sushi.<name>]`, with a `DeprecationWarning`. A reader older than
-0.9.3 reads `[sushisystems]` as a dependency named `sushisystems`.
+A fragment carries no `format_version`. An entry with a `sha256` also names its `version` and
+`url`, and the reader refuses one that does not. `cli` and `package_exclude` are optional keys of
+`[module]`. The pin tables are `[sushisystems.<name>]`; `[sushi.<name>]` is still read, with a
+`DeprecationWarning`.

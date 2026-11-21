@@ -1,6 +1,6 @@
 # Architecture overview
 
-SushiCore is one Python package, `sushicore`, with six sub-packages. Seven CLIs import it:
+SushiCore is one Python package, `sushicore`, with eight sub-packages. Seven CLIs import it:
 `hub`, `sr`, `se`, `sa`, `sb`, `sd` and `st`. It registers commands on their Typer applications
 and has no application of its own.
 
@@ -20,7 +20,7 @@ and has no application of its own.
 | `stack_config` | `StackConfig`: the compiler and vcpkg of a module that consumes a dependency root, and `locate_sibling` |
 | `profile` | `ModuleProfile`: what one CLI says about itself, such as its name, command, environment prefix and root marker |
 | `deps_fragment` | The one reader of a `sushistack.deps.toml` fragment |
-| `errors` | `SushiCoreError`, the one base every exception class the package defines derives from, so a caller catches one type; `ConfigError`, `DigestMismatchError` and `ProjectRootNotFoundError`, the failures an entry point prints as one line. Where a class also derived from a built-in, it keeps that built-in as a second base |
+| `errors` | `SushiCoreError`, the one base every exception class the package defines derives from, so a caller catches one type; `ConfigError`, `DigestMismatchError`, `ProjectRootNotFoundError`, `CommitMismatchError` and `KeyFingerprintMismatchError`, the failures an entry point prints as one line. Where a class also derived from a built-in, it keeps that built-in as a second base |
 | `deprecated_name`, `moved_name` | `warn_deprecated`, the `DeprecationWarning` every restored name raises, naming its replacement and pointing at the caller; `moved_attribute`, what a module's `__getattr__` calls to answer a name that moved to another module |
 
 ### Printing
@@ -52,13 +52,13 @@ files a CLI hands it; the package re-exports it.
 
 | Module | Owns |
 | --- | --- |
-| `proc`, `proc_memory`, `quiet_console`, `quiet_runner` | `CommandRunner`, the surface callers run commands through: `run` (with an optional `timeout`), `run_drained`, `run_quiet` (shows only the tail of a failure), `capture` (takes a list or a string command, an optional `timeout`, `input_text` for stdin and an `encoding`) and `capture_bytes` (undecoded output); in machine mode a child's output reaches the console as `line` events, never stdout. `Runner` spawns a child process for a CLI; `RecordingRunner` records the commands and answers scripted results. `QuietConsole` (`quiet_console`) is the console that drops all output but errors, and `quiet_runner` (`quiet_runner`) returns a `Runner` over it, for a caller that reads results and shows nothing; `quiet_console` imports nothing from the package so `build_gate` loads it by path |
+| `proc`, `proc_memory`, `quiet_console`, `quiet_runner` | `CommandRunner`, the surface callers run commands through: `run` (with an optional `timeout` and `stdin`), `run_drained`, `run_quiet` (shows only the tail of a failure), `capture` (takes a list or a string command, an optional `timeout`, `input_text` for stdin and an `encoding`) and `capture_bytes` (undecoded output); in machine mode a child's output reaches the console as `line` events, never stdout. `Runner` spawns a child process for a CLI; `RecordingRunner` records the commands and answers scripted results. `QuietConsole` (`quiet_console`) is the console that drops all output but errors, and `quiet_runner` (`quiet_runner`) returns a `Runner` over it, for a caller that reads results and shows nothing; `build_gate` loads `quiet_console`, `proc`, `memory_reading` and `unit_peaks` by path, so none of them imports the package |
 | `build_env`, `stack_build_config` | The environment a build runs under, with the vcvars snapshot on Windows; `StackBuildConfig`, the config fields it reads |
 | `message_console`, `report_console` | `MessageConsole`, the four message calls a unit that only reports needs; `ReportConsole`, the header, info, error and table calls of a diagnostic report |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
 | `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
-| `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --sort` offers |
+| `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --pick` offers |
 | `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
 | `run_options` | `pick_option`, `list_all_option` and `old_pick_option`: the `--pick`, `--all` and old `--sort` options of a `run` command, declared once |
 | `run_program` | `run_program`: resolves a program under a build tree through an `ExecutableIndex` and runs it from the project root |
@@ -82,30 +82,30 @@ files a CLI hands it; the package re-exports it.
 | `entry` | `run`, the entry point that turns a `SushiCoreError` into one line and exit code 1 |
 | [`provision`](../../source/sushicore/provision/README.md) | The dependency root, the registry, the doctor and the commands `setup`, `doctor`, `link`, `unlink` |
 | [`docs_bundle`](../../source/sushicore/docs_bundle/README.md) | The `docs` command group and the documentation bundle `docs bundle` writes |
+| [`testing`](../../source/sushicore/testing/README.md) | `register_test_command`, the `test` command of every CLI with CTest tests, and the pieces it is built from |
+| [`backlog`](../../source/sushicore/backlog/README.md), [`design`](../../source/sushicore/design/README.md) | The `backlog` and `design` command groups, and the stores of `docs/backlog/` and `docs/design/` they read and write |
+| `command_groups` | The names of the groups a CLI adds beside its own commands, and the check that it exposes them |
+| [`shared_tools`](../../source/sushicore/shared_tools/README.md) | The `sync` and `check` commands that copy the shared `tools/` of a release tag into a repository |
 
 ## Rules the code keeps
 
-- `Console` talks to the `Renderer` protocol and never to Rich. A renderer is any object with
-  the protocol's eight methods (`line`, `command`, `header`, `panel`, `table`, `progress`,
-  `result`, `prompt`) and its `raw` property.
+- `Console` talks to the `Renderer` protocol. A renderer is any object with the protocol's eight
+  methods (`line`, `command`, `header`, `panel`, `table`, `progress`, `result`, `prompt`) and its
+  `raw` property, which `Console.console` hands out as the Rich console. `Console.is_machine` asks
+  whether the renderer is a `JsonRenderer`.
 - `Theme` and `IconSet` are data. A new preset is registered on a `ThemeRegistry` or
   `IconRegistry` the caller passes to `build_console`; no other module changes. `register_theme` and
   `register_icon_set` stay one release as deprecated shims over the default registries.
-- A component in `ui` reads `Theme` and `brand` and nothing else. `tools/layering/check_package_layers.py`
-  reports one that imports more.
+- A component in `ui` imports `Theme`, `brand`, `markup`, the component base and Rich, and nothing
+  else. `tools/layering/check_package_layers.py` reports one that imports more.
 - `typer_help` is the only module that imports Typer when it is loaded. `typer_theme`,
   `root_options`, `diag_commands`, `provision/commands.py` and `docs_bundle/commands.py` import it
   inside the function that needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`
   works without the `typer` extra.
-- Inside `provision`, lower layers do not import higher ones; the layer table is in
-  [`docs/design/PROVISION/README.md`](../design/PROVISION/README.md).
-
-The import cycles that break these rules today are listed in
-[Known issues](../backlog/README.md).
+- Inside `provision`, lower layers do not import higher ones; the layer table is `K_LAYERED` in
+  `tools/layering/check_package_layers.py`, which fails an import that breaks it.
 
 ## Why each module is shaped as it is
-
-The source files cite this section instead of carrying the reasoning themselves.
 
 ### The package
 
@@ -115,8 +115,7 @@ assembles a `Console` from layered TOML config and the environment, using the `t
 reaches a compiler in five of the consuming repositories: `proc.Runner` spawns, `cmake_cache`
 reads `CMakeCache.txt`, `cmake_driver.CMakeDriver` writes the cmake and ctest invocations, and
 `toolchain_args` derives the compiler and the vcpkg prefix. Each consumer's own
-`services/project.py` keeps its build policy and calls into these. Each piece can be
-registered, overridden or swapped on its own.
+`services/project.py` keeps its build policy and calls into these.
 
 ### `build_tree`
 
@@ -143,10 +142,11 @@ when the setting is empty; a configured path that does not exist gives none.
 
 ### `build_gate`
 
-The gate runs on its own, with the standard library only, and loads its sibling `memory_reading.py` by path: it starts once per edge, and importing
+The gate runs on its own, with the standard library only, and loads its siblings by path: it starts once per edge, and importing
 the package would cost more than most host compiles. It admits an edge when the edge's measured
 peak, added to the peaks reserved by the edges already running, fits in the larger of the memory
-free when the build started and the memory free now, each less 1.5 GB. Edges are admitted in
+free when the gate was last idle and the memory free now, each less 1.5 GB, and at least 1.5 GB is
+free. An edge that finds nothing running is always admitted. Edges are admitted in
 arrival order. A lighter edge may pass a waiting one for up to 10 s, then the queue drains, so a
 heavy unit is never starved and Ninja can run at the hardware thread count without a pool sized
 for the worst unit.
@@ -160,7 +160,7 @@ count are read from the units held now, never stored apart, so a heavy unit that
 the kind stops weighing on it. A unit not seen before is reserved at the larger of its kind's default
 and the largest peak of its kind, so light units measured first never let two unmeasured heavy ones
 in together. Once ten units of a kind are measured, it is reserved at twice the largest peak instead,
-no lower than a quarter of the default and no higher than the default. A file of another form holds
+no lower than a quarter of the default, no higher than the default and no lower than the largest peak seen. A file of another form holds
 no unit, and the next build measures them again. While `stop` exists, each waiting or new edge fails and the running ones finish, which
 stops a build without killing a process.
 
@@ -209,7 +209,6 @@ dumped and parsed, and that dictionary is handed to every cmake and ctest subpro
 snapshot is cached on disk, keyed by the configuration that produced it, so an unchanged config
 skips the shell.
 
-The primitives in the file are the parts that are the same wherever this is done.
 `StackBuildEnv` composes them the way a module that consumes the shared toolchain needs.
 SushiRuntime selects a toolchain instead of consuming one, and composes the primitives itself.
 
@@ -243,8 +242,7 @@ with no project at all: `--help`, and `sr toolchain`.
 
 Four of the five CLIs had found that out, and each fixed it with its own copy of the same
 PEP 562 module-level `__getattr__`. sushiengine's copy never received the fix, so `se --help`
-outside a checkout still failed while the other four worked. That is the argument for the
-module: with one console lifecycle, no CLI can be the one that missed it.
+outside a checkout still failed while the other four worked.
 
 ### `cmake_driver`
 
@@ -297,8 +295,7 @@ helpers.
 
 The module knows nothing about SYCL, toolchains or any module's compute schema. A CLI that
 provisions a SYCL toolchain subclasses `ToolConfig` and adds those fields in its own
-repository. The split keeps the shared seam free of any domain and removes the tool-path
-duplication the three repositories had.
+repository.
 
 Three of the fields exist because of where Windows installs the tools:
 
@@ -347,7 +344,8 @@ copies drifted in one place: which sibling directories to skip, because a module
 dependency in-tree must not offer that dependency's executables as its own.
 
 So the walk lives in `discovery` and the skip list is the caller's, supplied once when it
-builds an `ExecutableIndex`. Nothing else about the search is configurable, on purpose:
+builds an `ExecutableIndex`, beside the search depth. Nothing else about the search is
+configurable, on purpose:
 `sr run`, `se run`, `sa run` and `sb run` should not be able to disagree about what counts as
 an executable.
 
@@ -355,7 +353,7 @@ A prompt whose input has ended, or that Ctrl+C stops, picks nothing and says so,
 that runs a CLI with no terminal fails at once and does not wait.
 
 `run --pick` offers the built examples, not every program: a build holds the tests and the
-benchmarks beside them, and `sr test` and `sr bench` run those. A CLI passes
+benchmarks beside them, and `sr test` and `sr bench` run those. `run_program` passes
 `ExampleCatalog.in_project(root)` to `resolve`, and `list_all` brings back the whole list.
 A build with no registered example lists every program, so a repository without examples
 changes nothing.
@@ -363,8 +361,8 @@ changes nothing.
 Shared objects on Linux come as `*.so` and as versioned names such as `*.so.1`. The suffix
 check misses the versioned ones, so the walk matches the substring `.so`.
 
-`ExecutableIndex.select` imports Rich's prompt and table inside the method. `find` and `match`
-run on every `run` and must not pay for importing Rich's table machinery.
+`ExecutableIndex` imports nothing from Rich: `select` prints through the `table` and `prompt` of
+the console it is given, and `find` and `match` run on every `run`.
 
 ### `example_catalog`
 
@@ -435,7 +433,7 @@ such as the console or `--help`, catches it.
 
 ### `profile`
 
-The CLIs (hub, sr, se, sa, sb and sd) differ from each other in a handful of facts: a display
+The CLIs (hub, sr, se, sa, sb, sd and st) differ from each other in a handful of facts: a display
 name, the command a user types, the prefix on their environment overrides, the file that marks
 a project root, and which sibling checkouts they build in-tree. Everything else about locating
 a project, layering config, listing executables and reporting diagnostics is the same work.
@@ -515,7 +513,7 @@ The preset registered as `default` and `sushiweb` is lifted from the palette in 
 near-monochrome, grey text on near-black or near-white, with a single amber accent (`#f0a500`)
 in place of the many hues of a terminal default. The semantic colours are desaturated to sit
 beside that accent instead of competing with it. The accent is reused for header rules and for
-inline commands, as the site uses one accent for everything.
+inline commands.
 
 ### `toolchain_args`
 

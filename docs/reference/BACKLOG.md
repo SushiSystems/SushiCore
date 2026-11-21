@@ -88,14 +88,14 @@ The pins are at most ten IDs in `backlog.toml`.
 | `backlog show <ID> [--json]` | Prints an entry and its detail file |
 | `backlog next [--count n] [--json]` | Prints the work to take, first to last |
 | `backlog decisions [--json]` | Lists the entries waiting for the owner |
-| `backlog add work --area A --priority P --title T --done-when D [--source S] [--blocked-by IDS] [--decision]` | Adds work and prints its ID |
-| `backlog add issue --area A --origin O --symptom T --workaround W [--fix F] [--source S]` | Adds a known issue and prints its ID |
-| `backlog promote <KI-n> --priority P --title T --done-when D` | Opens work from an issue and writes its ID into the issue's `Fix` |
+| `backlog add work --area A --priority P --title T --done-when D [--source S] [--blocked-by IDS] [--decision] [--json]` | Adds work and prints its ID |
+| `backlog add issue --area A --origin O --symptom T --workaround W [--fix F] [--source S] [--json]` | Adds a known issue and prints its ID |
+| `backlog promote <KI-n> --priority P --title T --done-when D [--json]` | Opens work from an issue and writes its ID into the issue's `Fix` |
 | `backlog set <ID> <column> <value>` | Changes one column |
 | `backlog move <ID> <AREA>` | Moves an entry to another area |
-| `backlog close <ID> [--commit <hash>]` | Deletes the entry, its detail and its pin, records the ID as closed, and prints its changelog line; the line names the commit only when one is given, so the close can be made in the commit that does the work |
+| `backlog close <ID> [--commit <hash>] [--json]` | Deletes the entry, its detail and its pin, records the ID as closed, and prints its changelog line; the line names the commit only when one is given, so the close can be made in the commit that does the work |
 | `backlog pin <ID> [--at n]`, `backlog unpin <ID>` | Changes the pins |
-| `backlog area list`, `backlog area add <AREA>`, `backlog area merge <INTO> <FROM>` | Lists, adds or merges areas |
+| `backlog area list [--json]`, `backlog area add <AREA>`, `backlog area merge <INTO> <FROM>` | Lists, adds or merges areas |
 | `backlog renumber [--target main]` | Merges both sides of a conflicted `ids.toml`, rewrites the index and gives each entry that shares an ID with a different one the next free number |
 | `backlog import` | Moves the retired files into the store, once; deprecated, to be removed in 0.16.0 |
 | `backlog check [--report]` | Checks every rule below; `--report` also lists the late work |
@@ -107,7 +107,7 @@ regenerates `README.md`. `close` refuses an ID another open entry cites in `Bloc
 
 `list` and `next` mark an open work entry `unverified` when a commit after the last green
 `tools/check_all.py` run names it in its `Backlog:` line; their JSON carries it as
-`"Unverified"`. A commit that changes nothing but `docs/backlog/` and the changelog files,
+`"Unverified"`. A commit that changes nothing but `docs/backlog/` and `docs/reference/CHANGELOG.md`,
 closes or records entries and carries no work, so it marks nothing. That run writes the commit it checked to `.git/sushicore/verified`, a stamp that is
 never committed. Without a stamp nothing is marked and the text output ends with one line saying
 so. The state is derived on each read and never stored; `docs/design/BACKLOG/README.md` holds the

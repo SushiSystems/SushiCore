@@ -26,8 +26,8 @@ Source: not compiled
 
 Other modules of the CLI then write `from . import console` and call `console.info(...)`,
 `console.error(...)`, `console.table(...)` and the rest of the facade. `lazy.get()` returns the
-`Console` object itself. Outside a checkout the console is built with no config files and uses
-the defaults.
+`Console` object itself. Outside a checkout the console is built from the `extra_sources` the CLI
+passed to `LazyConsole`, none by default, and uses the defaults for the rest.
 
 `LazyConsole` hands the console the files `config.toml` and `config.local.toml` from that
 directory. `build_console` reads only their `[cli]` table, so the same files can hold the
@@ -68,7 +68,7 @@ Every Sushi CLI registers the same surfaces, each with one call.
 
 A CLI whose `test` must also build first, or take options of its own such as `--type`, `--clean` or
 `--package`, keeps its own command. It takes the shared options from `sushicore.testing` (`label_option`,
-`filter_option`, `repeat_option`, `jobs_option` and `all_option`), so they are spelled alike in every CLI, builds
+`filter_option`, `repeat_option`, `jobs_option`, `all_option`, `shuffle_option` and `seed_option`), so they are spelled alike in every CLI, builds
 what it needs, and ends with `run_tests(module, selection, ...)`, which refuses an unfiltered `large` run, writes
 the JUnit file and, where the repository carries the budget reader, prints the budget line. Only the shared
 options are guaranteed identical across CLIs.

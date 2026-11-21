@@ -10,7 +10,7 @@ machine-local and not committed. Only the `[cli]` table is read for appearance.
 
 ```toml
 [cli]
-theme = "default"      # default | mono | muted, or a name registered on the ThemeRegistry given to build_console
+theme = "default"      # default | sushiweb | mono | muted, or a name registered on the ThemeRegistry given to build_console
 icons = "text"         # text | emoji | minimal | none, or a name registered on the IconRegistry given to build_console
 color = "auto"         # auto | always | never
 background = "auto"    # auto | dark | light
@@ -34,7 +34,7 @@ The platform table is named after `platform.system()` in lower case: `windows`, 
 
 | Key | Effect |
 | --- | --- |
-| `theme` | The style tokens: `info`, `success`, `warn`, `error`, `cmd`, `header`, `panel_border`, `muted` |
+| `theme` | The style tokens: `info`, `success`, `warn`, `error`, `cmd`, `header`, `panel_border`, `rule_line`, `muted` |
 | `icons` | The prefix before a line, such as `[INFO]` in the `text` set |
 | `color` | `auto` colours a TTY and nothing else |
 | `background` | Whether the logo gets its white glow; `auto` reads `COLORFGBG` and otherwise leaves the glow off |
@@ -66,12 +66,15 @@ Low to high:
 | `SUSHISYSTEMS_HOME` | `provision/home.py` | Names the dependency root; the default is `~/.sushisystems` |
 | `SUSHISTACK_DEPS_DIR` | `provision/home.py`, `stack_config.py` | Names a legacy dependency tree to read; for a build it is the only dependency root while set |
 | `<NAME>_DIR` | `provision/sushi_sources.py`, `stack_config.py` | Names the checkout of the Sushi library `<name>`, pinned or not, such as `SUSHILOG_DIR`; wins over the sibling and the fetched copy when the folder exists |
-| `SUSHISTACK_PACKAGE_KEEP` | `provision/sushi_packages/default_resolver.py` | How many built packages of one Sushi library the store keeps; wins over the `package_keep` config field, whose default is 3. A value below 1 is refused |
+| `SUSHISTACK_PACKAGE_KEEP` | `provision/sushi_packages/default_resolver.py` | How many built packages of one Sushi library the store keeps; wins over the `package_keep` config field, whose default is 3. A value that is not a whole number, or is below 1, is refused |
 | `SUSHISTACK_PACKAGE_NESTED` | `provision/sushi_packages/package_environment.py` | Set to `1` by sushicore in the environment of a library build it runs; a `<NAME>_PACKAGE` variable is honoured only beside it |
 | `<NAME>_PACKAGE` | `provision/sushi_packages/forced_packages.py` | The install prefix of the built package of the Sushi library `<name>`, handed to a nested library build; ignored with a warning without `SUSHISTACK_PACKAGE_NESTED` |
 | `SUSHISTACK_CXX` | `provision/sushi_packages/package_environment.py` | The consumer's compiler, handed to a library CLI that builds a package; the CLI uses it in place of its configured compiler |
-| `<PREFIX>_<TOOL>` | `profile.py` | Overrides one tool path of one CLI, such as `SR_CMAKE`; the prefix is `ModuleProfile.env_prefix` |
+| `<PREFIX>_<TOOL>` | `profile.py` | Overrides one tool path or build setting of one CLI, such as `SR_CMAKE`; the prefix is `ModuleProfile.env_prefix` |
+| `CMAKE_BUILD_PARALLEL_LEVEL` | `build_admission.py` | The job count of a build, when it is a whole number above 0; otherwise the hardware threads |
+| `VSINSTALLDIR` | `provision/target/windows.py` | Set in a Visual Studio developer shell; the Windows target takes MSVC from it |
+| `ProgramFiles`, `ProgramFiles(x86)` | `provision/vs_locator.py` | Where the Visual Studio locator looks for an installation |
 | `<PROGRAM>_NO_DEPRECATION_NOTICE` | `aliases.py` | Set to `1`, silences the notice an old command spelling prints |
 | `CUDA_PATH`, `ROCM_PATH` | `provision/gpu/` | Where the CUDA and ROCm locators look first; each install writes its variable to the user's variables |
 | `SUSHISYSTEMS_ROCM_RELEASE` | `provision/gpu/rocm_vendor.py` | Installs this ROCm release, a prefix such as `7.12`, or a full label such as `7.12.0-gfx110X-all`, in place of the one chosen from the hardware |
-| `SUSHISYSTEMS_CUDA_RELEASE` | `provision/gpu/cuda.py` | Installs this CUDA release, or the newest one it prefixes such as `12.6`, in place of the one chosen from the hardware |
+| `SUSHISYSTEMS_CUDA_RELEASE` | `provision/gpu/cuda_vendor.py` | Installs this CUDA release, or the newest one it prefixes such as `12.6`, in place of the one chosen from the hardware |

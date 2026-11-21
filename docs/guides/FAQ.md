@@ -14,8 +14,8 @@ draw their help screens, drive cmake and ctest, and install and check what a rep
 build.
 
 It is a library for those CLIs. It installs no console script, and it registers commands on
-their Typer applications without having an application of its own. It knows nothing about SYCL,
-a renderer, or any one module's schema. The [architecture overview](../architecture/OVERVIEW.md)
+their Typer applications without having an application of its own. It reads no one module's
+schema; each CLI keeps its own. The [architecture overview](../architecture/OVERVIEW.md)
 lists what each module of the package owns.
 
 ## How do I install SushiCore?
@@ -61,10 +61,13 @@ Every Sushi CLI then registers the same surfaces, each with one call:
 - `register_root_options` gives `--version` and `--describe`, the command catalogue as JSON.
 - `register_diagnostic_commands` gives `config` and `env`.
 - `register_provision_commands` gives `setup`, `doctor`, `link` and `unlink`.
+- `register_package_command` gives `package`, `register_test_command` gives `test` and
+  `register_clean_command` gives `clean`.
 - `AliasTable` keeps old command spellings running, hidden, and names their replacement.
 
-`build`, `test`, `run` and `clean` stay in each CLI. [CLI integration](CLI_INTEGRATION.md) has
-the code for each step.
+`build` and `run` stay in each CLI; `run_program` and the `run` options hold what a `run` command
+shares. The `backlog` and `design` command groups come from SushiCore too.
+[CLI integration](CLI_INTEGRATION.md) has the code for each step.
 
 ## How does configuration work, and which source wins?
 
@@ -122,7 +125,7 @@ without it.
 `doctor` is a read-only report. It checks the build tools, the checkouts of the modules this
 one builds on, the toolchain capabilities, the fragments, the toolchain stamps and the download
 digests, then the module's own checks. `--for GROUP` restricts the report to one group: `build`,
-`test`, `infer` or `eval`. It exits with code 1 when a required check fails.
+`test`, `infer`, `eval` or a group the module adds. It exits with code 1 when a required check fails.
 
 No module needs `hub` installed to use either command. The options and exit codes are in
 [`sushicore/provision/README.md`](../../source/sushicore/provision/README.md).
@@ -163,21 +166,16 @@ SushiCore is open source under the Apache License 2.0, and [`LICENSE`](../../LIC
 binding text. Any use is allowed, commercial use included, as long as the licence and the notices
 travel with the code.
 
-Versions 0.1.0 to 0.4.0 were published under the Apache License 2.0 and stay available under
-it; 0.7.0 is the first version under the licence above. The [README](../../README.md) gives the
-commit boundary, and `NOTICE.md` lists the third-party software.
+Every earlier version is under the Apache License 2.0 as well. `NOTICE.md` lists the third-party
+software.
 
 ## What is known not to work?
 
-[Known issues](../backlog/README.md) records the open defects. Those a user of a CLI
-meets first:
+The open defects a user can meet are read with `python -m sushicore.backlog list --kind issue`,
+and `show <ID>` gives each one's symptom and workaround. Beside them:
 
-- With the `emoji`, `minimal` or `none` icon set, every warning and error in the JSON stream is
-  reported with `level` `info`.
-- A child process inherits stdout, so in machine mode stdout carries more than events.
-- `config` and `env` emit no `table` or `prompt` event.
-- No fragment entry pins a `sha256` yet, so every download is extracted or run unverified, with
-  a warning. Downloads inside a shell pipeline and git clones of third-party code are not verified at
+- A fragment entry without a `sha256` is downloaded and extracted or run unverified, and `doctor`
+  names it. Downloads inside a shell pipeline and git clones of third-party code are not verified at
   all; the clone of a pinned Sushi library is checked against its commit.
 - The CUDA toolkit is unpacked from NVIDIA's archives, the oneAPI installer runs with
   `--eula accept`, and winget runs with `--accept-package-agreements`, each on the user's behalf.

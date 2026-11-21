@@ -22,8 +22,9 @@ own runs the commands as `python -m sushicore.shared_tools`.
 ## Where the files come from
 
 The files are read from one `git archive` of the tag, never from a working tree and never at `HEAD`.
-The checkout is `--from PATH`, else the sibling `../sushicore` of `ROOT`, else the copy that `setup`
-keeps under `sources/sushicore/<version>/`. The shared set is every file under `tools/` and the
+The checkout is `--from PATH`, else the folder `SUSHICORE_DIR` names (the config field, then the
+environment variable), else the sibling `../sushicore` of `ROOT`, else the copy that `setup` keeps
+under `sources/sushicore/<version>/`, looked for under the tag and under the tag without its `v`. The shared set is every file under `tools/` and the
 community files `.github/CODE_OF_CONDUCT.md` and `.github/SECURITY.md`, except `tools/settings.py`,
 `tools/README.md` and `tools/known_findings.toml`, which belong to each repository (the README
 takes the shared rows, below), and

@@ -47,9 +47,9 @@ line returns the default, and so does end of input.
 
 Anything printed through `console.console`, the raw Rich console, goes to stderr without colour.
 
-Two defects break the contract today, and each is listed in
-[Known issues](../backlog/README.md): the `level` of a `line` event is read from the icon prefix, and a
-child process inherits stdout.
+In machine mode the output of a child process is drained and re-emitted as `line` events, so
+stdout carries events only. The `level` of a `line` event is the one the call names, whatever the
+icon set prints.
 
 ## Where the design is
 

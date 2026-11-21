@@ -76,8 +76,6 @@ page's `source`: with a `source_url` it becomes `<source_url>/blob/<commit>/<pat
 
 ## `docs/publish.toml`
 
-The repository says what leaves it.
-
 ```toml
 name = "sushiruntime"
 title = "SushiRuntime"
@@ -120,8 +118,8 @@ is written with a backslash.
 | `<cli> docs bundle` | Exit code 2: `--release` is required | The same |
 
 `--out` names the folder the archive is written to. The default is `build/docs/bundle` under
-the repository root. The command prints the archive's path with its page count, then
-`sha256` and the digest. It stages the files in `.docs-bundle-staging` inside the output folder
+the repository root. `<cli> docs bundle` prints the archive's path with its page count, then
+`sha256` and the digest; `python -m sushicore.docs_bundle` prints the path, then `sha256` and the digest. It stages the files in `.docs-bundle-staging` inside the output folder
 and replaces that folder on every run.
 
 A repository with no CLI runs `python -m sushicore.docs_bundle --release 1.2.3`, with `--root`

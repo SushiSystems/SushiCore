@@ -1,10 +1,10 @@
 # Command surface
 
-**Describes:** `source/sushicore/provision/commands.py`, `source/sushicore/provision/package_command.py`, `source/sushicore/diag_commands.py`, `source/sushicore/root_options.py`, `source/sushicore/command_groups.py`, `source/sushicore/testing/commands.py`, `source/sushicore/testing/session.py`
+**Describes:** `source/sushicore/provision/commands.py`, `source/sushicore/provision/package_command.py`, `source/sushicore/diag_commands.py`, `source/sushicore/root_options.py`, `source/sushicore/command_groups.py`, `source/sushicore/testing/commands.py`, `source/sushicore/testing/session.py`, `source/sushicore/clean_command.py`, `source/sushicore/run_options.py`
 
-Every command line built on this package answers to the commands below. A module's own commands, such
-as `build` and `test`, are declared by the module and are not listed here. `--describe` prints the
-whole surface of a CLI, its own commands included, as one JSON document.
+The commands below are the ones this package declares for a CLI. A module's own commands, such
+as `build`, are declared by the module and are not listed here. `--describe` prints the surface of a
+CLI, its own commands included and its hidden ones left out, as one JSON document.
 
 ## Exit codes
 
@@ -13,6 +13,7 @@ whole surface of a CLI, its own commands included, as one JSON document.
 | `0` | The command did what it was asked to do |
 | `1` | The command ran and failed: a step failed, a check found a fault, a file could not be written |
 | `2` | The command could not act on the request: an unknown group, an unknown toolchain, no workspace, a path that is not a workspace, a missing module |
+| `127` | `package` found no cmake or CPack |
 
 `setup`, `link`, `unlink` and `doctor` end with one `result` event in machine mode, whatever their code, except
 `doctor` with a `--for` group it does not know, which exits `2` without one. `package` emits no `result` event; its
@@ -33,7 +34,7 @@ exit code is the installer's.
 | Command | Options | Does |
 | --- | --- | --- |
 | `setup` | `--dry-run`, `--yes` or `-y`, `--toolchain` (repeatable), `--no-gpu`, `--accept-licences` | Provisions what the module needs to build, then runs `doctor` |
-| `doctor` | `--for GROUP` | Reports the checks of the module; `GROUP` is `build`, `test`, `infer`, `eval` or a group the module adds. Exits `1` when a required check fails |
+| `doctor` | `--for GROUP` | Reports the checks of the module; `GROUP` is `build`, `test`, `infer`, `eval` or a group the module adds, and every check of the group is required. Exits `1` when a required check fails |
 | `link` | `--workspace PATH` | Records the module in a workspace, which must carry its marker, as one operation |
 | `unlink` | `--workspace PATH` | Removes the module's entry and its link |
 | `package` | `--build-dir`, `--prefix`, `--no-archive`, `--force` | Installs a built tree to a prefix and archives it with CPack |
@@ -61,7 +62,7 @@ command prints; it reaches the GoogleTest programs as `GTEST_SHUFFLE` and `GTEST
 to each test. `--cli` does not shuffle. A module whose CTest call neither names `shuffle_seed` nor takes `**keywords` runs in the
 given order, and the command warns.
 
-A build can register the cases of a program in shards, CTest tests named `<program>.<size>_shard_<i>of<N>` that each
+A build can register the cases of a program in shards, CTest tests named `<program>.<size>_shard_<i>of<N>`, or `<program>.<size>_quarantined`, that each
 write GoogleTest XML to `test_results/gtest/<name>.xml` in the tree. The command empties that folder before a run, and
 the budget reader gets it as `--cases` when the run left files there. Over such a build `--filter` is a GoogleTest
 filter, and CTest cannot narrow a shard that names its own `--gtest_filter`, which GoogleTest ranks above the
@@ -90,9 +91,19 @@ stays CTest's. A run the module does not report as current (a sanitizer run alwa
 "(not rebuilt)" and never gates; the repository's budget exemption file, `budget_exemptions.toml` in its tests folder
 when present, is handed to the reader.
 
-CTest gets `resources.json` in the tree's `Testing` folder as its resource file: one slot on each accelerator, so the
-shards that declare `RESOURCE_GROUPS gpus:1` run one at a time. A filtered run over shards runs those shards one after
-another for the same reason.
+CTest gets `resources.json` in the tree's `Testing` folder as its resource file: one `gpus` slot, the accelerator the
+machines that run the tests carry, so the shards that declare `RESOURCE_GROUPS gpus:1` run one at a time. A filtered run
+over shards runs the shards that need an accelerator one after another for the same reason, and the others `--jobs` at
+once.
+
+## Cleaning and running
+
+`clean` is declared once by `register_clean_command`, and the options of a `run` command by `run_options`.
+
+| Command | Options | Does |
+| --- | --- | --- |
+| `clean` | `--type` or `-t` (repeatable), `--sanitize` (repeatable), `--all`, the extra flag a CLI names, `--yes` or `-y` | Lists the build trees the selection holds and removes them only with `--yes`; without it nothing is removed and the exit code is `2`. `--all` selects the whole build folder and takes no `--type` or `--sanitize` |
+| `run` | `--pick`, `--all` | `--pick` offers the built examples to choose from, and `--all` with it also lists the test and benchmark programs. `--sort`, the old spelling of `--pick`, is hidden and names its replacement |
 
 ## Diagnostics
 
@@ -106,9 +117,9 @@ another for the same reason.
 `backlog` and `design` are named once in `command_groups`, and a test checks a CLI carries them with
 `missing_groups`. `docs bundle` is declared by `docs_bundle/commands.py`.
 
-| Group | Does | Reference |
+| Group or command | Does | Reference |
 | --- | --- | --- |
 | `backlog` | Reads and changes the backlog; `check` exits `1` on a finding | [Backlog](BACKLOG.md) |
 | `design` | Reads and changes the design topics; `check` exits `1` on a finding | [Design topics](DESIGN.md) |
-| `shared_tools` | Copies the shared tools from a SushiCore tag and checks them against the lock; `python -m sushicore.shared_tools` only | [Shared tools](SHARED_TOOLS.md) |
+| `sync`, `check` | Copies the shared tools from a SushiCore tag and checks them against the lock; `register_shared_tools_commands` adds them to an app, and `python -m sushicore.shared_tools` runs them with no CLI | [Shared tools](SHARED_TOOLS.md) |
 | `docs bundle` | Bundles the published documentation for a release | [Documentation bundle](DOCS_BUNDLE.md) |
