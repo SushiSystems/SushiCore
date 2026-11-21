@@ -24,6 +24,8 @@ K_CHECK_ALL = Path("tools") / "check_all.py"
 K_EXIT_REFUSED = 1
 K_PREFIX = "pre-commit-"
 K_SKIP_HISTORY = "--skip-history"
+K_GITLINK_MODE = "160000"
+K_BYTES_AS_STORED = ("-c", "core.autocrlf=false", "-c", "core.eol=lf")
 
 
 def absolute_git_dir(root: Path, environ: Mapping[str, str]) -> Path | None:
@@ -56,12 +58,60 @@ def checked_environment(git_dir: Path, tree: Path, environ: Mapping[str, str]) -
 
 
 def checkout_index(root: Path, tree: Path, environ: Mapping[str, str]) -> str | None:
-    """Writes every file of the index below *tree*; returns git's error, or None on success."""
+    """Writes every file of the index below *tree*, byte for byte as the index holds it.
+
+    Returns git's error, or None on success. The line endings are not converted, because the lock
+    of the shared tools hashes the bytes the index holds.
+    """
     prefix = tree.as_posix().rstrip("/") + "/"
     done = subprocess.run(
-        ["git", "-C", str(root), "checkout-index", "--all", "--force", f"--prefix={prefix}"],
+        ["git", "-C", str(root), *K_BYTES_AS_STORED, "checkout-index", "--all", "--force",
+         f"--prefix={prefix}"],
         capture_output=True, text=True, env=dict(environ), check=False)
     return None if done.returncode == 0 else done.stderr.strip() or "git failed"
+
+
+def submodule_paths(root: Path, environ: Mapping[str, str]) -> list[str]:
+    """Returns the paths of the submodules the index names."""
+    done = subprocess.run(["git", "-C", str(root), "ls-files", "--stage", "-z"],
+                          capture_output=True, text=True, env=dict(environ), check=False)
+    entries = [entry.partition("\t") for entry in done.stdout.split("\0") if entry]
+    return [path for meta, _, path in entries if meta.startswith(K_GITLINK_MODE)]
+
+
+def link_submodule(source: Path, target: Path) -> str | None:
+    """Makes *target* a link to the checked-out submodule *source*; returns the error, or None.
+
+    A submodule that is not checked out has nothing to read and is left empty.
+    """
+    if not source.is_dir():
+        return None
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_dir() and not any(target.iterdir()):
+        target.rmdir()
+    try:
+        os.symlink(source, target, target_is_directory=True)
+        return None
+    except OSError as error:
+        if os.name != "nt":
+            return str(error)
+    try:
+        import _winapi
+        _winapi.CreateJunction(str(source), str(target))
+        return None
+    except OSError as error:
+        return str(error)
+
+
+def unlink_submodule(target: Path) -> None:
+    """Removes the link *target* and nothing behind it; a path that is no link is left alone."""
+    try:
+        target.unlink()
+    except OSError:
+        try:
+            os.rmdir(target)
+        except OSError:
+            return
 
 
 def check_index(root: Path, git_dir: Path, tree: Path, environ: Mapping[str, str]) -> int:
@@ -74,9 +124,18 @@ def check_index(root: Path, git_dir: Path, tree: Path, environ: Mapping[str, str
     if not entry.is_file():
         print(f"pre-commit: the index holds no {K_CHECK_ALL.as_posix()}", file=sys.stderr)
         return K_EXIT_REFUSED
+    modules = submodule_paths(root, environ)
+    for path in modules:
+        problem = link_submodule(root / path, tree / path)
+        if problem is not None:
+            print(f"pre-commit: cannot link the submodule {path}: {problem}", file=sys.stderr)
     env = checked_environment(git_dir, tree, environ)
-    return subprocess.run([sys.executable, str(entry), str(tree), K_SKIP_HISTORY], env=env,
-                          check=False).returncode
+    try:
+        return subprocess.run([sys.executable, str(entry), str(tree), K_SKIP_HISTORY], env=env,
+                              check=False).returncode
+    finally:
+        for path in modules:
+            unlink_submodule(tree / path)
 
 
 def remove_folder(folder: Path) -> None:

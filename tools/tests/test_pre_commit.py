@@ -28,7 +28,12 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-fields = [str(root), os.environ.get("GIT_INDEX_FILE", ""), " ".join(sys.argv[2:])]
+seen = []
+if b"\\r\\n" in (root / "src" / "a.py").read_bytes():
+    seen.append("crlf")
+if (root / "third_party" / "sub" / "marker.txt").is_file():
+    seen.append("submodule")
+fields = [str(root), os.environ.get("GIT_INDEX_FILE", ""), " ".join(sys.argv[2:]), ",".join(seen)]
 with open(os.environ["PRE_COMMIT_TEST_LOG"], "a", encoding="utf-8") as log:
     log.write("\\t".join(fields) + "\\n")
 sys.exit(1 if (root / "bad.txt").exists() else 0)
@@ -67,6 +72,10 @@ class PreCommitTest(unittest.TestCase):
         lines = self.log.read_text(encoding="utf-8").splitlines()
         return [line.split("\t")[2] for line in lines]
 
+    def _logged_sightings(self) -> list[str]:
+        lines = self.log.read_text(encoding="utf-8").splitlines()
+        return [line.split("\t")[3] for line in lines]
+
     def _git_dir(self) -> Path:
         return Path(self.repo.git("rev-parse", "--absolute-git-dir").strip())
 
@@ -92,6 +101,25 @@ class PreCommitTest(unittest.TestCase):
         self._run()
         [(folder, _)] = self._logged()
         self.assertNotEqual(folder, self.repo.root)
+
+    def test_a_file_is_written_with_the_line_endings_the_index_holds(self) -> None:
+        self.repo.write(".gitattributes", "* text=auto\n")
+        self.repo.git("config", "core.autocrlf", "true")
+        self.repo.git("config", "core.eol", "crlf")
+        self.repo.git("add", "--renormalize", ".")
+        self._run()
+        self.assertEqual(self._logged_sightings(), [""])
+
+    def test_a_submodule_the_index_names_is_present_in_the_checked_tree(self) -> None:
+        sub = Repo()
+        self.addCleanup(sub.close)
+        sub.write("marker.txt", "x\n")
+        sub.commit("marker")
+        self.repo.git("-c", "protocol.file.allow=always", "submodule", "add", "-q",
+                      str(sub.root), "third_party/sub")
+        self._run()
+        kept = (self.repo.root / "third_party" / "sub" / "marker.txt").is_file()
+        self.assertEqual((self._logged_sightings(), kept), (["submodule"], True))
 
     def test_the_checkers_that_read_the_history_are_left_out(self) -> None:
         self._run()
