@@ -14,6 +14,8 @@ import platform
 from pathlib import Path
 from typing import Protocol, final
 
+from .example_catalog import Example, ExampleCatalog
+
 _DEFAULT_MAX_DEPTH = 4
 
 # Build-system bookkeeping, never a program the user asked for.
@@ -111,35 +113,60 @@ class ExecutableIndex:
                 return exe
         return None
 
-    def select(self, build_root: Path, console: ConsoleLike) -> Path | None:
-        """Print a table of executables and prompt for one. None if there are none."""
+    def select(self, build_root: Path, console: ConsoleLike, *,
+               examples: ExampleCatalog | None = None) -> Path | None:
+        """Print a table of executables and prompt for one. None if there are none.
+
+        With *examples* the table lists the built examples, each with its brief, in the order
+        the repository registers them. A build that has none lists every executable instead.
+        """
         exes = self.find(build_root)
         if not exes:
             console.error("No executables found. Build the project first.")
             return None
 
-        console.table(
-            ["#", "Name", "Path"],
-            [[str(i), exe.name, str(exe.relative_to(build_root.parent))]
-             for i, exe in enumerate(exes, 1)],
-            title="Available executables",
-        )
+        built = self._built_examples(exes, examples) if examples is not None else []
+        if built:
+            return self._offer(
+                console, ["#", "Name", "What it does"],
+                [[example.name, example.brief] for example, _ in built],
+                [path for _, path in built],
+                f"Examples ({len(built)} of {len(exes)} programs)")
+        return self._offer(
+            console, ["#", "Name", "Path"],
+            [[exe.name, str(exe.relative_to(build_root.parent))] for exe in exes],
+            exes, "Available executables")
+
+    @staticmethod
+    def _built_examples(exes: list[Path], examples: ExampleCatalog) -> list[tuple[Example, Path]]:
+        """Return each registered example that has a built executable, in registration order."""
+        paths = {exe.stem: exe for exe in exes}
+        return [(example, paths[example.name])
+                for example in examples.entries() if example.name in paths]
+
+    @staticmethod
+    def _offer(console: ConsoleLike, columns: list[str], rows: list[list[str]],
+               choices: list[Path], title: str) -> Path | None:
+        """Print *rows* numbered under *columns* and return the choice the user numbers."""
+        console.table(columns, [[str(i), *row] for i, row in enumerate(rows, 1)], title=title)
         answer = console.prompt("Select a number").strip()
-        if not answer.isdigit() or not 1 <= int(answer) <= len(exes):
-            console.error(f"'{answer}' is not a number from 1 to {len(exes)}.")
+        if not answer.isdigit() or not 1 <= int(answer) <= len(choices):
+            console.error(f"'{answer}' is not a number from 1 to {len(choices)}.")
             return None
-        return exes[int(answer) - 1]
+        return choices[int(answer) - 1]
 
     def resolve(self, build_root: Path, console: ConsoleLike, *, target: str | None = None,
-                sort: bool = False, default: str = "") -> Path | None:
+                sort: bool = False, default: str = "",
+                examples: ExampleCatalog | None = None, list_all: bool = False) -> Path | None:
         """The executable a `run` command should launch, or None with the reason printed.
 
         *sort* means "let me pick", an explicit *target* wins over everything else, and *default*,
-        a CLI's configured ``target_bin``, runs when neither was given. Every failing path prints
-        one message and returns None.
+        a CLI's configured ``target_bin``, runs when neither was given. When picking, *examples*
+        limits the choice to the built examples and *list_all* offers every executable anyway.
+        Every failing path prints one message and returns None.
         """
         if sort:
-            return self.select(build_root, console)
+            return self.select(build_root, console, examples=None if list_all else examples)
 
         if target:
             exe = self.match(build_root, target)

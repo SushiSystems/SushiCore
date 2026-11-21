@@ -58,7 +58,8 @@ files a CLI hands it; the package re-exports it.
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
 | `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
-| `discovery` | `ExecutableIndex`, the built executables under a build tree |
+| `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --sort` offers |
+| `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
 | `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |
 | `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
 | `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
@@ -341,6 +342,25 @@ So the walk lives in `discovery` and the skip list is the caller's, supplied onc
 builds an `ExecutableIndex`. Nothing else about the search is configurable, on purpose:
 `sr run`, `se run`, `sa run` and `sb run` should not be able to disagree about what counts as
 an executable.
+
+`run --sort` offers the built examples, not every program: a build holds the tests and the
+benchmarks beside them, and `sr test` and `sr bench` run those. A CLI passes
+`ExampleCatalog.in_project(root)` to `resolve`, and `list_all` brings back the whole list.
+A build with no registered example lists every program, so a repository without examples
+changes nothing.
+
+### `example_catalog`
+
+The repositories register their examples in different ways: a wrapper function named after the
+repository, a bare `add_executable`, a `CMakeLists.txt` in a folder of its own.
+The catalog reads all of them, so the list of examples is the repository's own registration and
+no second list exists to drift from it. It reads every `CMakeLists.txt` under the folder,
+the folder's own first, and takes each call to `add_executable` or to a function ending in
+`add_example` whose first argument is a literal name. A name built from a variable is the
+wrapper's own body and is skipped, and so is a call in a comment.
+
+The description is the `@brief` of the source the target is named after, or of its first
+source. A target with no readable source has an empty description.
 
 Shared objects on Linux come as `*.so` and as versioned names such as `*.so.1`. The suffix
 check misses the versioned ones, so the walk matches the substring `.so`.

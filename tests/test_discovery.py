@@ -12,6 +12,7 @@ import pytest
 
 from sushicore.console_memory import RecordingConsole
 from sushicore.discovery import ExecutableIndex
+from sushicore.example_catalog import ExampleCatalog
 
 
 pytestmark = pytest.mark.medium
@@ -140,3 +141,77 @@ def test_find_stops_descending_at_max_depth(tmp_path):
     _tree(tmp_path, ["top.exe", "a/mid.exe", "a/b/deep.exe"])
     found = ExecutableIndex(max_depth=1).find(tmp_path)
     assert _names(found) == ["mid.exe", "top.exe"]
+
+
+def _table(console: RecordingConsole) -> tuple[list[str], list[list[str]], str]:
+    """Return the columns, rows and title of the one table the console was asked to print."""
+    tables = [call.args for call in console.calls if call.kind == "table"]
+    assert len(tables) == 1
+    columns, rows, title, _ = tables[0]
+    return list(columns), [list(row) for row in rows], title
+
+
+@pytest.fixture
+def examples_tree(tmp_path):
+    """Return a build tree of two built examples and two other programs, and the catalog."""
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "CMakeLists.txt").write_text(
+        "add_executable(beta_demo beta_demo.cpp)\n"
+        "add_executable(alpha_demo alpha_demo.cpp)\n"
+        "add_executable(unbuilt_demo unbuilt_demo.cpp)\n", encoding="utf-8")
+    (source / "beta_demo.cpp").write_text("/**\n * @brief Runs beta.\n */\n", encoding="utf-8")
+    tree = tmp_path / "build" / "tree"
+    _tree(tree, ["examples/beta_demo.exe", "examples/alpha_demo.exe",
+                 "tests/unit_tests.exe", "tests/bench.exe"])
+    return tree, ExampleCatalog(source)
+
+
+def test_sort_with_examples_offers_the_built_ones_in_registration_order(examples_tree):
+    tree, catalog = examples_tree
+    console = RecordingConsole(answer="1")
+
+    ExecutableIndex().resolve(tree, console, sort=True, examples=catalog)
+
+    columns, rows, title = _table(console)
+    assert columns == ["#", "Name", "What it does"]
+    assert rows == [["1", "beta_demo", "Runs beta."], ["2", "alpha_demo", ""]]
+    assert title == "Examples (2 of 4 programs)"
+
+
+def test_sort_with_examples_returns_the_example_the_number_names(examples_tree):
+    tree, catalog = examples_tree
+
+    exe = ExecutableIndex().resolve(tree, RecordingConsole(answer="2"), sort=True, examples=catalog)
+
+    assert exe is not None and exe.stem == "alpha_demo"
+
+
+def test_sort_with_examples_refuses_a_number_outside_the_examples(examples_tree):
+    tree, catalog = examples_tree
+    console = RecordingConsole(answer="3")
+
+    exe = ExecutableIndex().resolve(tree, console, sort=True, examples=catalog)
+
+    assert exe is None
+    assert console.texts("error") == ["'3' is not a number from 1 to 2."]
+
+
+def test_sort_with_list_all_offers_every_program_though_examples_are_given(examples_tree):
+    tree, catalog = examples_tree
+    console = RecordingConsole(answer="1")
+
+    ExecutableIndex().resolve(tree, console, sort=True, examples=catalog, list_all=True)
+
+    columns, rows, title = _table(console)
+    assert (columns, len(rows), title) == (["#", "Name", "Path"], 4, "Available executables")
+
+
+def test_sort_offers_every_program_when_none_of_the_examples_is_built(examples_tree):
+    tree, _ = examples_tree
+    console = RecordingConsole(answer="1")
+
+    ExecutableIndex().resolve(
+        tree, console, sort=True, examples=ExampleCatalog(tree / "nowhere"))
+
+    assert len(_table(console)[1]) == 4

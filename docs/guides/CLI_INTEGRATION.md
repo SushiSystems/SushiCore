@@ -141,7 +141,10 @@ stays a traceback.
 `build`, `test`, `run` and `clean` stay in each CLI. SushiCore supplies what they call:
 `proc.Runner` to spawn a child, `cmake_driver.CMakeDriver` for the cmake and ctest command
 lines, `build_env` for the environment they run under and `discovery.ExecutableIndex` to list
-what a build produced.
+what a build produced. A `run` command that takes `--sort` passes
+`example_catalog.ExampleCatalog.in_project(root)` as `examples=` and a `--all` flag as
+`list_all=`, so every CLI offers the built examples, each described, and `--all` lists every
+program.
 
 ## Testing a CLI
 
