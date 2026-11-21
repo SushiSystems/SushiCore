@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — shared_tools: Hashed each file of the lock with CRLF read as LF, in `digest` and in `check_shared_tools.py`, so a checkout that converts line endings still matches the lock (RW-150).
 ## v0.15.1 — 2026-11-21
 
 - 2026-11-21 — tools: Wrote the index to the pre-commit folder byte for byte, without line-ending conversion, so a repository with `core.autocrlf` matches the lock of the shared tools (RW-149, `pre_commit.py`).

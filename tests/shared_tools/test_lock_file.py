@@ -21,6 +21,11 @@ def test_a_written_lock_reads_back_the_same(tmp_path):
     assert read_lock(tmp_path) == lock
 
 
+def test_a_digest_reads_each_crlf_as_lf():
+    """The same text hashes alike whatever line endings a checkout wrote."""
+    assert digest(b"a\r\nb\n") == digest(b"a\nb\n")
+
+
 def test_differing_names_a_changed_and_a_missing_file(tmp_path):
     """A file with other bytes and a file that is gone are both named, in path order."""
     (tmp_path / "tools").mkdir()

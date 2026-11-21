@@ -11,7 +11,7 @@ own runs the commands as `python -m sushicore.shared_tools`.
 | Command | Options | Does |
 | --- | --- | --- |
 | `sync ROOT` | `--tag vX.Y.Z` (required), `--from PATH`, `--force`, `--keep PATH` (repeatable), `--dry-run` | Copies the shared files of the tag into `ROOT` and writes the lock |
-| `check ROOT` | none | Names each locked file that is missing or whose bytes differ from the lock |
+| `check ROOT` | none | Names each locked file that is missing or whose text differs from the lock |
 
 | Code | Means |
 | --- | --- |
@@ -51,7 +51,8 @@ which read SushiCore's own packages.
 ## The lock
 
 The lock is TOML: the `tag`, the `commit` it names, and a `[files]` table from
-each path to the SHA-256 of the bytes the repository holds after the sync.
+each path to the SHA-256 of the file the repository holds after the sync, with each CRLF read as
+LF, so a checkout that converts line endings still matches.
 
 ```toml
 tag = "v0.14.1"

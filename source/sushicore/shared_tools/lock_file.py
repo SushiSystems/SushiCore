@@ -19,8 +19,12 @@ K_LOCK_PATH = "tools/shared_tools.lock"
 
 
 def digest(content: bytes) -> str:
-    """Returns the SHA-256 of some bytes as hex."""
-    return hashlib.sha256(content).hexdigest()
+    """Returns the SHA-256 of some bytes as hex, with each CRLF read as LF.
+
+    A checkout converts line endings on some machines and not on others, so the lock hashes the
+    text, not the line endings a machine writes.
+    """
+    return hashlib.sha256(content.replace(b"\r\n", b"\n")).hexdigest()
 
 
 @final
