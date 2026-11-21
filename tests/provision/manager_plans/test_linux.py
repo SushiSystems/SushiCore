@@ -10,6 +10,7 @@ import pytest
 
 from sushicore.provision.config import ProvisionSettings
 from sushicore.provision.manager_plans.linux import LinuxManagerPlan
+from sushicore.provision.module_plan import managers_for
 from sushicore.provision.output_memory import MemoryConsole
 
 
@@ -20,6 +21,14 @@ def test_linux_provisions_through_every_distro_manager_and_vcpkg_last():
         ProvisionSettings(platform="linux"), None, MemoryConsole())
 
     assert [manager.name for manager in managers] == ["apt", "dnf", "yum", "pacman", "zypper", "vcpkg"]
+
+
+@pytest.mark.small
+def test_linux_plan_is_built_when_the_run_hands_it_a_download_verifier():
+    """Check that a verifier, which Windows uses, does not stop the Linux managers being built."""
+    managers = managers_for(ProvisionSettings(platform="linux"), MemoryConsole(), verifier=object())
+
+    assert [manager.name for manager in managers][-1] == "vcpkg"
 
 
 @pytest.mark.small

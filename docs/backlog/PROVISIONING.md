@@ -17,7 +17,6 @@
 | RW-140 | P2 | open | Resolve the workspace of link and unlink with the pointer ModuleConfig and StackConfig use | link, unlink, ModuleConfig and StackConfig resolve one workspace through one function |  | `source/sushicore/provision/link_command.py` | 2026-11-21 |
 | RW-141 | P2 | open | Read a dependency's fragment through the module's fragment key, not only the default path | pin_chain and closure_walk read the fragment path module_manifest names |  | `source/sushicore/provision/pin_chain.py` | 2026-11-21 |
 | RW-147 | P1 | open | Hash only the files a library's package installs into its source key | A commit that changes only a library's cli/ or tests/ leaves its package digest unchanged, so a consumer rebuilds nothing |  | `source/sushicore/provision/sushi_packages/source_state.py` | 2026-11-21 |
-| RW-153 | P1 | open | Build the Linux manager plan when a download verifier is given | managers_for on Linux with a verifier returns the distro managers and vcpkg, and sushitrack's Linux CI reaches its build |  | `source/sushicore/provision/manager_plans/linux.py` | 2026-11-21 |
 
 ## Known issues
 

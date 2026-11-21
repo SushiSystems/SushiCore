@@ -10,6 +10,7 @@ from typing import Any, final
 
 from ..config import ProvisionConfig
 from ..dependency_home import DEFAULT_HOME, DependencyHome
+from ..download_checking import DownloadChecking
 from ..licence_consent import LicenceConsent
 from ..manager_plan import MANAGER_PLANS, IManagerPlan
 from ..packages import (
@@ -28,11 +29,14 @@ from ..target import K_LINUX
 class LinuxManagerPlan(IManagerPlan):
     """Provisions through the distro managers and vcpkg."""
 
-    def __init__(self, *, home: DependencyHome = DEFAULT_HOME) -> None:
+    def __init__(self, *, home: DependencyHome = DEFAULT_HOME,
+                 verifier: DownloadChecking | None = None) -> None:
         """Bind the home the managers it builds read.
 
         Args:
             home: The home whose root the managers use; the deprecated default home when omitted.
+            verifier: Accepted so every target's plan is built with the same keywords; no Linux
+                manager downloads a file it would check.
         """
         self._home = home
 
