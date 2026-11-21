@@ -1,6 +1,6 @@
 # Backlog review: plan
 
-**Status:** Open — J1 to J12 are done for RW-127, RW-128, RW-129, RW-91, RW-132 and RW-134; the SushiSkills handoff follows
+**Status:** Open — every job is done; RW-133 removes `backlog import` once the siblings take the tools of the release that deprecates it, and the owner deletes this folder then
 
 Applies the findings of `REPORT.md` that this repository can change, in hierarchy order: the
 store's helper first, then the check that reads it, then the commands that print, then the pages.
@@ -28,6 +28,6 @@ last code job.
 ## Isolation
 
 Another session edited this checkout while the review ran, and the pre-commit hook, which checked
-the working tree and not the index, refused four commits over that session's unfinished files. The
+the working tree and not the index, refused two commits over that session's unfinished files. The
 review's commits were made in a worktree of their own and reached `main` by a fast-forward; since
 RW-134 the hook checks the index, so a shared checkout no longer needs the worktree for this.

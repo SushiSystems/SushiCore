@@ -2,7 +2,8 @@
 
 ## Backlog and design
 
-1. Session start: `python -m sushicore.backlog next`. Take what it gives.
+1. Session start, when the owner gave no task: `python -m sushicore.backlog next`. Take what it gives.
+   A task from the owner comes first.
 2. A defect or limitation turns up: `python -m sushicore.backlog add issue ...` or `python -m sushicore.backlog add work ...`
    at once.
 3. Before changing a module: `python -m sushicore.design owner <path>`.

@@ -110,6 +110,8 @@ and P3 limits have no data to be judged against yet.
 | Closing in a later commit is the RW-59 workflow | The share of closing commits is the same before and after RW-59 |
 | `unmeasured` is not defined | It is defined in the SushiSkills format page, and missing from this repository's reference |
 | README conflicts will hurt parallel agents | They are real and measured, and rare: 1 merge in 102 |
+| `backlog import` can go, since no repository holds the retired files | That was the wrong measure. The shared test of the check sits in the tools of twelve repositories and SushiEngine's CLI test lists the command; removing it failed all of them within the hour, so it was put back as a deprecation (RW-133) |
+| The hooks are copied from SushiSkills | Their source is SushiCore's `tools/` at a release tag; SushiSkills holds the skills and the dispatch block |
 
 ## Literature
 
@@ -129,38 +131,45 @@ and P3 limits have no data to be judged against yet.
 
 ## What each finding became
 
-| Finding | Verdict | Action |
-| --- | --- | --- |
-| Closing needs a hash that does not exist yet | Real, one commit in eight | `close --commit` optional; the line names the ID alone (done) |
-| A conflicted or unreadable store gives a cascade of false faults | Real | One fault with its remedy, nothing else (done) |
-| `renumber` hides what it rewrote | Real, small | It says so (done) |
-| The reference lacks the state meanings and the post-merge steps | Real | Added to `docs/reference/BACKLOG.md` (done) |
-| The mark marks a filed entry and lags the hook by one commit | Real | The owner decides; it is an open question of the `BACKLOG` topic |
-| `backlog import` has no remaining caller | Measured in 21 local repositories only | The owner decides whether to delete it |
-| The trailer cannot cite another repository's entry, and plan jobs are no entries | Real, 43 commits | SushiSkills' checker and skills; handed over below |
-| "Take what it gives" is unconditional | Real, read from the text | SushiSkills' template and skill; handed over below |
-| Merge conflicts, hash IDs, a merge driver | Rare, 1 in 102 | Not worth a format change; revisit when parallel agents merge daily |
-| Age limits | No data | Recalibrate later |
+| Finding | Verdict | Action | Commit |
+| --- | --- | --- | --- |
+| Closing needs a hash that does not exist yet | Real, one commit in eight | `close --commit` is optional; the line names the ID alone (RW-127) | `d0f0b7d` |
+| A conflicted or unreadable store gives a cascade of false faults | Real | One fault with its remedy, nothing else (RW-127) | `d0f0b7d` |
+| `renumber` hides what it rewrote | Real, small | It says so (RW-127) | `d0f0b7d` |
+| The reference lacks the state meanings and the post-merge steps | Real | Added to `docs/reference/BACKLOG.md` (RW-127) | `d0f0b7d` |
+| `importer.py` holds five classes and two jobs | A SOLID breach | `renumber.py` holds renumber alone (RW-128) | `e58fe9c` |
+| `register_backlog_commands` is one 290-line function | A SOLID breach, RW-91 | One registering function per command around a `CommandContext` (RW-91) | `d103607` |
+| The mark marks an entry the commit only files | Real | A commit that changes only the backlog and the changelog marks nothing (RW-129) | `240673b` |
+| A sibling's entry and an ID in a `none` reason mark local entries | Real, found while fixing the above | An item is an ID only when it is one (RW-132) | `0ecafcb` |
+| The trailer cannot cite another repository's entry | Real, 9 commits | `Backlog: <repository> <ID>`, asked of the sibling when it is checked out (RW-132) | `0ecafcb` |
+| The hook refuses an amend of a commit that closed its entry | Real, met once in the work | An amend is judged against the parent of the commit it replaces (RW-132) | `0ecafcb` |
+| The pre-commit hook checks the disk, not the commit | Real, met twice in the work, refused by another session's unfinished files | The index is written to a throwaway folder and checked there (RW-134) | `3902bca` |
+| `backlog import` has no remaining caller | Wrong; see the corrections | Deprecated for one release; the removal waits for the siblings (RW-133) | `4c12aeb` |
+| Merge conflicts, hash IDs, a merge driver | Rare, 1 in 102 | Not worth a format change; revisit when parallel agents merge daily | none |
+| Age limits | No data | Recalibrate once the backlog is older | none |
+| "Take what it gives" is unconditional; a plan's job has no entry; a worker has no heading for its findings; the priority table is written three times | Real | The skills, the template and the dispatch block say it once each (SushiSkills RW-64) | `263cbf6` of SushiSkills |
 
-## Handed to SushiSkills
+## Measured after the first write
 
-These live in files that repository owns, and this repository holds copies of some. None was
-changed here.
+| Question | Measured |
+| --- | --- |
+| Do agents skip `backlog next` when the owner gives a task? | In 65 other sessions on this machine, 40 edited files and 29 of those never ran `backlog next`. The unconditional line is not obeyed, so it misleads more than it drags |
+| Do agents leave a found defect unfiled? | In 12 sessions whose text names a defect or limitation, 3 ran no `backlog add`. The regular expression is loose, so this is an upper bound on a small count |
+| What do the rules cost a session? | 44 sessions loaded skills: a median of 12 skill bodies and 67 KB, 4.1 percent of the text of the session at the median and 33.5 percent at most; this one loaded 28 bodies and 96 KB, 8.1 percent |
+| Does the cost lower task success? | Not measurable here. It needs paired runs of one task with and without the rules, and the AGENTS.md study measured other repositories |
+| Does anyone outside the workspace use the package? | The repository is public with no forks or stars, PyPI shows 4,654 downloads in a month, and a code search finds no use of `sushicore.backlog` outside the organisation. The downloads cannot be told from the machines of the organisation |
+| How long does the new pre-commit hook take to prepare? | The index is written in 0.4 s here, 2.5 s for SushiEngine's 7,082 files, 1.1 s for SushiRuntime's 1,975 |
 
-1. `check_backlog_trailer.py`: let `Backlog:` cite `<repository> RW-<n>`, the form `Blocked by`
-   already uses.
-2. The `multi-agent-work` and `backlog` skills: say whether a plan job is a backlog entry. Today
-   a third of the `none` commits are plan jobs.
-3. `CLAUDE_TEMPLATE.md` and the `backlog` skill: "Session start, when the owner gave no task".
-4. `DISPATCH.md`, rule 13: a report heading "Backlog findings", since a worker may not write
-   entries and the dispatch names no place for what it found.
-5. The priority table is written three times, in the skill, `BACKLOG_FORMAT.md` and this
-   repository's reference, in three wordings.
-6. `check_all.py` and the hooks: the stamp moves to a post-commit step, if the owner rules so.
+Sessions: other sessions of the machine were read for counts only; no text of them is kept.
 
-## Not measured
+## What is left
 
-- Whether agents file entries less often than they should. The history shows entries named, not
-  entries missed.
-- The cost of the 75 KB of rules on task success. The studies above measure other repositories.
-- Anything outside the thirteen repositories of the workspace.
+One entry stays open on purpose. RW-133 removes `backlog import` after the siblings take the tools
+of the release that deprecates it; closing it earlier repeats the failure the corrections table
+describes. This folder is deleted when RW-133 closes, the report staying in the history.
+
+The twelve repositories carry the old session-start line in their `CLAUDE.md`. The template and the
+skill say it once the new way; each repository changes its own line when it next takes the block.
+
+The commit message of the pre-commit change says the old hook refused four commits. It refused two,
+both over another session's unfinished files; the other two were refused for the work's own faults.
