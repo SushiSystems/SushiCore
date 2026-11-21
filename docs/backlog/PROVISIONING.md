@@ -16,6 +16,7 @@
 | RW-126 | P1 | decision | Rebuild a consumer's objects when a package link moves to another digest | After a pin bump retargets a consumer's @link, every object that includes a header under it is recompiled on the next build |  | `source/sushicore/provision/sushi_packages/stable_link.py` | 2026-11-21 |
 | RW-140 | P2 | open | Resolve the workspace of link and unlink with the pointer ModuleConfig and StackConfig use | link, unlink, ModuleConfig and StackConfig resolve one workspace through one function |  | `source/sushicore/provision/link_command.py` | 2026-11-21 |
 | RW-141 | P2 | open | Read a dependency's fragment through the module's fragment key, not only the default path | pin_chain and closure_walk read the fragment path module_manifest names |  | `source/sushicore/provision/pin_chain.py` | 2026-11-21 |
+| RW-147 | P1 | open | Hash only the files a library's package installs into its source key | A commit that changes only a library's cli/ or tests/ leaves its package digest unchanged, so a consumer rebuilds nothing |  | `source/sushicore/provision/sushi_packages/source_state.py` | 2026-11-21 |
 
 ## Known issues
 
