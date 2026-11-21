@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import final
 
 K_TRAILER = re.compile(r"^Backlog:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
-K_ID = re.compile(r"\b[A-Z]+-\d+\b")
+K_ID = re.compile(r"[A-Z]+-\d+")
 K_BOOKKEEPING = ("docs/backlog/", "docs/reference/CHANGELOG.md")
 
 
@@ -39,6 +39,9 @@ class Commit:
 def unverified_ids(commits: Iterable[Commit]) -> frozenset[str]:
     """Returns the IDs that the `Backlog:` lines of the commits that carry work name.
 
+    An item is an ID when it is one and nothing else: an entry of a sibling, written with its
+    repository, and an ID inside the reason of `none (...)` name no entry here.
+
     Args:
         commits: The commits after the verified commit.
     """
@@ -47,5 +50,6 @@ def unverified_ids(commits: Iterable[Commit]) -> frozenset[str]:
         for commit in commits
         if not commit.is_bookkeeping()
         for line in K_TRAILER.findall(commit.message)
-        for ident in K_ID.findall(line)
+        for ident in (item.strip() for item in line.split(","))
+        if K_ID.fullmatch(ident)
     )

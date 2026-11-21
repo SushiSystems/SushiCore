@@ -57,3 +57,15 @@ def test_a_commit_that_changes_the_backlog_and_a_source_file_still_marks_its_ent
 def test_a_commit_that_lists_no_path_counts_as_work():
     """An empty change set is not known to be bookkeeping."""
     assert unverified_ids([Commit("feat: do it\n\nBacklog: RW-7\n")]) == {"RW-7"}
+
+
+def test_an_entry_of_a_sibling_marks_no_entry_here():
+    """`Backlog: Other RW-5` names the sibling's RW-5, not this repository's."""
+    commit = Commit("feat: do it\n\nBacklog: Other RW-5, RW-6\n", ("source/a.py",))
+    assert unverified_ids([commit]) == {"RW-6"}
+
+
+def test_an_id_inside_the_reason_of_none_marks_no_entry():
+    """The reason of `none (...)` may cite an ID without serving it."""
+    commit = Commit("feat: do it\n\nBacklog: none (RW-5 lives in the SushiSkills backlog)\n", ("source/a.py",))
+    assert unverified_ids([commit]) == frozenset()
