@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Mapping, Sequence
 
 from .cmake_cache import cached_value, compiler_changed, generator_sentinel, is_stale
 from .cmake_tool_config import CMakeToolConfig
 from .errors import SushiCoreError
+from .lld_linker import K_LLD_PROBE, lld_compiler, lld_definitions, lld_is_found
 from .message_console import MessageConsole
 from .proc import CommandRunner
 
@@ -75,13 +77,16 @@ class CMakeDriver:
 
     @param console A CLI's console module.
     @param runner  A :class:`sushicore.proc.CommandRunner`, such as :class:`sushicore.proc.Runner`.
+    @param platform ``sys.platform`` of the machine; a configure on Linux links with lld when it can.
     """
 
-    __slots__ = ("_console", "_runner")
+    __slots__ = ("_console", "_runner", "_platform")
 
-    def __init__(self, console: MessageConsole, runner: CommandRunner) -> None:
+    def __init__(self, console: MessageConsole, runner: CommandRunner, *,
+                 platform: str = sys.platform) -> None:
         self._console = console
         self._runner = runner
+        self._platform = platform
 
     def cmake(self, cfg: CMakeToolConfig) -> str:
         """The cmake executable: the configured path if set, else 'cmake'."""
@@ -157,8 +162,20 @@ class CMakeDriver:
         A cache configured with a compiler at another path is deleted first; the reason is
         in docs/architecture/OVERVIEW.md, under `cmake_driver`.
         """
-        self._drop_cache_of_another_compiler(list(args))
-        return self._runner.run(list(args), cwd, env)
+        argv = self._linked_with_lld(list(args), cwd, env)
+        self._drop_cache_of_another_compiler(argv)
+        return self._runner.run(argv, cwd, env)
+
+    def _linked_with_lld(self, args: list[str], cwd: Path, env: Mapping[str, str] | None) -> list[str]:
+        """Return *args* with the entries that link with lld when the compiler has it, else *args*."""
+        compiler = lld_compiler(args, _definition(args, "CMAKE_CXX_COMPILER"), self._platform)
+        if compiler is None:
+            return args
+        code, found, _ = self._runner.capture([compiler, K_LLD_PROBE], cwd, env)
+        if code != 0 or not lld_is_found(found):
+            return args
+        self._console.info("Linking with lld.")
+        return [*args, *lld_definitions()]
 
     def _drop_cache_of_another_compiler(self, args: list[str]) -> None:
         """Delete the cache of the tree *args* configures when its compiler path differs."""

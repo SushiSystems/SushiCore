@@ -56,6 +56,7 @@ files a CLI hands it; the package re-exports it.
 | `build_env`, `stack_build_config` | The environment a build runs under, with the vcvars snapshot on Windows; `StackBuildConfig`, the config fields it reads |
 | `message_console`, `report_console` | `MessageConsole`, the four message calls a unit that only reports needs; `ReportConsole`, the header, info, error and table calls of a diagnostic report |
 | `cmake_cache` | What a `CMakeCache.txt` says about how its tree was configured |
+| `lld_linker` | The test that a Linux configure links with lld: the clang drivers, the compiler's answer for `ld.lld` and the three linker-flag entries it sets |
 | `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`, `configured_generator`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --pick` offers |
@@ -251,6 +252,21 @@ with no project at all: `--help`, and `sr toolchain`.
 Four of the five CLIs had found that out, and each fixed it with its own copy of the same
 PEP 562 module-level `__getattr__`. sushiengine's copy never received the fix, so `se --help`
 outside a checkout still failed while the other four worked.
+
+### `lld_linker`
+
+`CMakeDriver.configure` links a tree with lld on Linux so no project names the linker. The
+default `ld.bfd` links on one thread and lld links in parallel. The three `CMAKE_*_LINKER_FLAGS_INIT` entries carry
+`-fuse-ld=lld` rather than `CMAKE_LINKER_TYPE`, which only CMake 3.29 reads, and as initial
+values, so a project's own linker flags are added to them.
+
+The driver asks the compiler, `clang++ -print-prog-name=ld.lld`, because a clang found through a
+symlink looks for lld beside its real path, which the PATH does not show. A bare answer means the
+compiler has no lld, and the configure keeps the linker it has. A configure that names a linker
+itself, through a flag or `CMAKE_LINKER_TYPE`, keeps that one. Only the clang drivers (`clang++`,
+`clang`, `icpx`, `icx`) take the flag; Windows and macOS keep their linkers. The entries are
+initial values, so a tree already configured keeps its linker until it is configured again from an
+empty cache.
 
 ### `cmake_driver`
 

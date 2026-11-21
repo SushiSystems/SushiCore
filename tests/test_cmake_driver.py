@@ -38,9 +38,9 @@ def _runner():
     return RecordingRunner(RecordingConsole())
 
 
-def _driver():
+def _driver(platform="win32"):
     runner = _runner()
-    return CMakeDriver(RecordingConsole(), runner), runner
+    return CMakeDriver(RecordingConsole(), runner, platform=platform), runner
 
 
 @pytest.mark.small
@@ -465,3 +465,55 @@ def test_a_dry_run_asks_only_of_the_targets_given(tmp_path):
     assert driver.tree_is_current(_cfg(), _ninja_tree(tmp_path), targets=("a", "b")) is True
     assert list(runner.commands[1].argv) == ["cmake", "--build", str(tmp_path), "--target", "a", "--target", "b",
                                              "--", "-n"]
+
+
+K_CLANG_ARGV = ["cmake", "-B", "tree", "-DCMAKE_CXX_COMPILER=/opt/llvm/bin/clang++"]
+
+
+@pytest.mark.small
+def test_a_linux_configure_with_a_compiler_that_has_lld_links_with_it(tmp_path):
+    lld = tmp_path / "ld.lld"
+    lld.write_text("", encoding="utf-8")
+    driver, runner = _driver("linux")
+    runner.script(0, (str(lld),))
+    driver.configure(K_CLANG_ARGV, tmp_path)
+    assert _calls(runner)[-1][1] == [
+        *K_CLANG_ARGV,
+        "-DCMAKE_EXE_LINKER_FLAGS_INIT=-fuse-ld=lld",
+        "-DCMAKE_SHARED_LINKER_FLAGS_INIT=-fuse-ld=lld",
+        "-DCMAKE_MODULE_LINKER_FLAGS_INIT=-fuse-ld=lld",
+    ]
+
+
+@pytest.mark.small
+def test_a_linux_configure_says_it_links_with_lld(tmp_path):
+    lld = tmp_path / "ld.lld"
+    lld.write_text("", encoding="utf-8")
+    console = RecordingConsole()
+    runner = RecordingRunner(console)
+    runner.script(0, (str(lld),))
+    CMakeDriver(console, runner, platform="linux").configure(K_CLANG_ARGV, tmp_path)
+    assert "Linking with lld." in _lines(console)
+
+
+@pytest.mark.small
+def test_a_compiler_that_answers_with_the_bare_name_keeps_the_default_linker(tmp_path):
+    driver, runner = _driver("linux")
+    runner.script(0, ("ld.lld",))
+    driver.configure(K_CLANG_ARGV, tmp_path)
+    assert _calls(runner)[-1][1] == K_CLANG_ARGV
+
+
+@pytest.mark.small
+def test_a_configure_on_windows_never_asks_the_compiler(tmp_path):
+    driver, runner = _driver("win32")
+    driver.configure(K_CLANG_ARGV, tmp_path)
+    assert _calls(runner) == [("run", K_CLANG_ARGV, str(tmp_path))]
+
+
+@pytest.mark.small
+def test_a_configure_that_chose_a_linker_keeps_it(tmp_path):
+    argv = [*K_CLANG_ARGV, "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=gold"]
+    driver, runner = _driver("linux")
+    driver.configure(argv, tmp_path)
+    assert _calls(runner) == [("run", argv, str(tmp_path))]
