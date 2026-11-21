@@ -13,8 +13,8 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 | `BacklogStore`, `BacklogConfig`, `IdLedger`, `Fault` | `store.py` | Read and write the area files, `ids.toml`, `backlog.toml`, the details and the index |
 | `next_work`, `decisions`, `is_late` | `order.py` | The age limits and the order of `next` |
 | `check_backlog`, `late_entries` | `check.py` | Every rule of `backlog check` |
-| `unverified_ids` | `unverified.py` | Judge which IDs the commits after the stamp leave unverified |
-| `GitVerification` | `verification.py` | Read the stamp in the git directory and the commits after it |
+| `Commit`, `unverified_ids` | `unverified.py` | Judge which IDs the commits after the stamp, with their paths, leave unverified |
+| `GitVerification` | `verification.py` | Read the stamp in the git directory and the commits after it with their paths |
 | `BacklogEditor`, `Closed` | `editor.py` | Add, promote, set, move, close, pin, and the areas |
 | `BacklogImporter`, `ImportResult` | `importer.py` | `import` from the retired files |
 | `BacklogRenumberer`, `RenumberResult` | `renumber.py` | `renumber` after a merge: both sides of every conflict, the counters, the index and clashing IDs |

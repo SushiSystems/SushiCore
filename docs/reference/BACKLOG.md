@@ -107,7 +107,8 @@ regenerates `README.md`. `close` refuses an ID another open entry cites in `Bloc
 
 `list` and `next` mark an open work entry `unverified` when a commit after the last green
 `tools/check_all.py` run names it in its `Backlog:` line; their JSON carries it as
-`"Unverified"`. That run writes the commit it checked to `.git/sushicore/verified`, a stamp that is
+`"Unverified"`. A commit that changes nothing but `docs/backlog/` and the changelog files,
+closes or records entries and carries no work, so it marks nothing. That run writes the commit it checked to `.git/sushicore/verified`, a stamp that is
 never committed. Without a stamp nothing is marked and the text output ends with one line saying
 so. The state is derived on each read and never stored; `docs/design/BACKLOG/README.md` holds the
 ruling.

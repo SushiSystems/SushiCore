@@ -26,7 +26,7 @@ The owner's ruling of 2026-11-17 (RW-59), taken as written:
 - Without a stamp nothing is marked, and `list` says in one line that no verification stamp exists.
 - The unverified state is derived on every read and never stored.
 
-The owner's order of 2026-11-21 carried out three findings of the review:
+The owner's order of 2026-11-21 carried out four findings of the review:
 
 - `backlog close` takes the commit as an option. Without it the changelog line names the ID alone,
   so an entry closes in the commit that does the work. A hash is optional because the changelog
@@ -35,14 +35,18 @@ The owner's order of 2026-11-21 carried out three findings of the review:
   a merge and says that it rewrote `ids.toml` and the index.
 - `renumber` lives in `renumber.py`. The importer's file held five classes and two unrelated
   jobs, so a change to `renumber` was a change to the importer.
+- A commit that changes nothing but `docs/backlog/` and `docs/reference/CHANGELOG.md` marks no
+  entry. It files, records or closes entries and carries no work, yet the commit that filed an
+  entry named it and so marked the entry it had just filed. A commit that lists no path counts as
+  work.
 
 ## Design
 
 | Piece | Job |
 | --- | --- |
 | `check_all.py` | After a clean run, writes `HEAD` to `<git dir>/sushicore/verified`. The git directory comes from `git rev-parse --git-dir`, so a worktree has its own stamp. Outside a git checkout it writes nothing. |
-| Shell of the backlog | Reads the stamp and `git log <stamp>..HEAD`, and hands the commit messages to the pure function. |
-| Pure function | Takes the commit messages after the stamp and returns the IDs they name in a `Backlog:` line; `list` and `next` mark the open entries among them unverified. |
+| Shell of the backlog | Reads the stamp and `git log --name-only <stamp>..HEAD`, and hands each commit's message and paths to the pure function. |
+| Pure function | Takes the commits after the stamp, drops those that only change the backlog and the changelog, and returns the IDs the rest name in a `Backlog:` line; `list` and `next` mark the open entries among them unverified. |
 
 The mark never changes an entry's state in the files.
 
@@ -63,12 +67,11 @@ neither pays for itself yet.
 | B3 | The close: backlog close takes no commit, so an entry closes in the commit that does the work | built |
 | B4 | The merge: backlog check reports a conflicted or unreadable store alone, and renumber says what it rewrote | built |
 | B5 | The brick: renumber.py holds renumber alone and importer.py holds the import alone | built |
+| B6 | The filter: a commit that changes only the backlog and the changelog never marks an entry unverified | built |
 
 ## Open questions
 
 - The pre-commit hook runs `check_all` before the commit exists, so the stamp it writes names the
   parent. The entries the newest commit names show as unverified although the hook just verified
-  that commit, and a commit that only files an entry marks the entry it files. Should the mark skip
-  a commit that changes nothing outside `docs/backlog/`, and should the stamp move to a
-  post-commit step? The stamp is written by `check_all.py`, a copy of the SushiSkills tool, so
-  the second half is that repository's decision too.
+  that commit. The stamp is written by `check_all.py`, a copy of the SushiSkills tool, so a stamp
+  that names the verified tree and not the parent commit is a change to that repository.

@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Reads the verification stamp and the commits after it from git.
+"""Reads the verification stamp and the commits after it, with their paths, from git.
 
 The judgement of which IDs those commits leave unverified is `unverified.py`.
 """
@@ -15,11 +15,21 @@ from typing import final
 
 from ..proc import CommandRunner
 from ..quiet_runner import quiet_runner
-from .unverified import unverified_ids
+from .unverified import Commit, unverified_ids
 
 K_STAMP_PATH = ("sushicore", "verified")
-K_LOG_SEPARATOR = "%x00"
-K_SEPARATOR = "\x00"
+K_LOG_FORMAT = "--format=%x01%B%x02"
+K_COMMIT_MARK = "\x01"
+K_MESSAGE_END = "\x02"
+
+
+def parse_log(log: str) -> list[Commit]:
+    """Returns the commits of a `git log --name-only` run with the format `K_LOG_FORMAT`."""
+    commits = []
+    for record in log.split(K_COMMIT_MARK)[1:]:
+        message, _, listing = record.partition(K_MESSAGE_END)
+        commits.append(Commit(message, tuple(line.strip() for line in listing.splitlines() if line.strip())))
+    return commits
 
 
 def run_git(root: Path, *arguments: str, runner: CommandRunner | None = None) -> str | None:
@@ -52,7 +62,7 @@ class GitVerification:
         if not stamp_file.is_file():
             return None
         stamp = stamp_file.read_text(encoding="utf-8").strip()
-        log = self._git(root, "log", f"--format=%B{K_LOG_SEPARATOR}", f"{stamp}..HEAD")
+        log = self._git(root, "log", "--name-only", K_LOG_FORMAT, f"{stamp}..HEAD")
         if log is None:
             return None
-        return unverified_ids(log.split(K_SEPARATOR))
+        return unverified_ids(parse_log(log))

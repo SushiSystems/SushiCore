@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Judges which backlog IDs are unverified, from the messages of the commits after the stamp.
+"""Judges which backlog IDs are unverified, from the commits after the stamp.
 
 The rule is in `docs/design/BACKLOG/README.md`.
 """
@@ -11,20 +11,41 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
+from typing import final
 
 K_TRAILER = re.compile(r"^Backlog:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 K_ID = re.compile(r"\b[A-Z]+-\d+\b")
+K_BOOKKEEPING = ("docs/backlog/", "docs/reference/CHANGELOG.md")
 
 
-def unverified_ids(messages: Iterable[str]) -> frozenset[str]:
-    """Returns the IDs that the `Backlog:` lines of the given commit messages name.
+@final
+@dataclass(frozen=True, slots=True)
+class Commit:
+    """A commit after the stamp: its message and the paths it changed."""
+
+    message: str
+    files: tuple[str, ...] = ()
+
+    def is_bookkeeping(self) -> bool:
+        """Returns whether the commit changed nothing but the backlog and the changelog.
+
+        Such a commit files, records or closes entries and carries no work to verify. A commit
+        that lists no path counts as work.
+        """
+        return bool(self.files) and all(path.startswith(K_BOOKKEEPING) for path in self.files)
+
+
+def unverified_ids(commits: Iterable[Commit]) -> frozenset[str]:
+    """Returns the IDs that the `Backlog:` lines of the commits that carry work name.
 
     Args:
-        messages: The messages of the commits after the verified commit.
+        commits: The commits after the verified commit.
     """
     return frozenset(
         ident
-        for message in messages
-        for line in K_TRAILER.findall(message)
+        for commit in commits
+        if not commit.is_bookkeeping()
+        for line in K_TRAILER.findall(commit.message)
         for ident in K_ID.findall(line)
     )

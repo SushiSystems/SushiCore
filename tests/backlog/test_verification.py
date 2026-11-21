@@ -28,6 +28,7 @@ def _git(root: Path, *arguments: str) -> str:
 
 def _commit(root: Path, name: str, message: str) -> None:
     """Commits one new file with a message."""
+    (root / name).parent.mkdir(parents=True, exist_ok=True)
     (root / name).write_text(name, encoding="utf-8")
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", message)
@@ -63,6 +64,14 @@ def test_an_id_named_after_the_stamp_is_marked_and_one_before_it_is_not(repo):
     _stamp_head(repo)
     _commit(repo, "b", "feat: b\n\nBacklog: RW-2")
     assert GitVerification().unverified(repo) == {"RW-2"}
+
+
+def test_a_commit_after_the_stamp_that_only_files_an_entry_marks_nothing(repo):
+    """A commit that changes only `docs/backlog/` is read with its paths and leaves RW-3 unmarked."""
+    _stamp_head(repo)
+    _commit(repo, "docs/backlog/CODE.md", "docs(backlog): file it\n\nBacklog: RW-3")
+    _commit(repo, "source/b.py", "feat: do it\n\nBacklog: RW-4")
+    assert GitVerification().unverified(repo) == {"RW-4"}
 
 
 def test_run_git_returns_the_output_of_a_git_that_exits_zero(tmp_path: Path):
