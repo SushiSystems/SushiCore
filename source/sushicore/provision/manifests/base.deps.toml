@@ -81,7 +81,7 @@ linux_apt     = []
 windows_vcpkg = []
 version       = "nightly-2026-11-17"
 url           = { windows = "https://github.com/intel/llvm/releases/download/nightly-2026-11-17/sycl_windows.tar.gz", linux = "https://github.com/intel/llvm/releases/download/nightly-2026-11-17/sycl_linux.tar.gz" }
-sha256        = { windows = "95e885e96e95b2d2e4d3485beaed54648334bb20b8e10729e42a5bc8a75f4070", linux = "2b022d8c7db88becd91e0c98bec3678ba415863b61825c9c453ae803fcaaf768" }
+sha256        = { windows = "e4654153f8e0fce249b338dbd8ca1797d9c0dd613abceceab0a994318f4e8492", linux = "a6635eafa92ddbbcfad8685f987812418781e65915f5857b7463e4fccbf51342" }
 
 [git]
 # Windows: installed via winget (Git.Git), or by the installer direct-download runs when winget

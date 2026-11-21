@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-21 — downloads: Renewed the digests of the intel/llvm nightly bundle, whose assets intel re-uploaded after they were pinned, so `sr setup` and `sa setup` stop on a mismatch no more (RW-154, `manifests/base.deps.toml`).
+
 ## v0.15.4 — 2026-11-21
 
 - 2026-11-21 — code: Checked the staged tree beside the repository, with the ignored files on disk (RW-152, `tools/hooks/pre_commit.py`).
