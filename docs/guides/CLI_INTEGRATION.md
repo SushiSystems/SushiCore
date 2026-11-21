@@ -86,7 +86,8 @@ one of its own. A CLI that needs a root option of its own builds its callback fr
 `register_diagnostic_commands` takes `env=False` from a CLI whose `env` command has flags of its
 own and is declared there.
 
-`AliasTable` prints one notice per process, to a terminal only. Setting
+`AliasTable.flag_announcer(old)` gives the callback of a hidden old flag, so a renamed flag is one
+hidden option that ORs with the new one. `AliasTable` prints one notice per process, to a terminal only. Setting
 `<PROGRAM>_NO_DEPRECATION_NOTICE=1` silences it, for example `SR_NO_DEPRECATION_NOTICE=1`.
 
 `package` takes `--build-dir` (default `build/default-debug`), `--prefix` (default `build/dist`), `--no-archive`

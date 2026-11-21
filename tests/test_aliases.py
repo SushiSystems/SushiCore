@@ -119,6 +119,28 @@ def test_deprecated_announces_the_alias_once_and_calls_the_callback_unchanged(mo
 
 
 
+@pytest.mark.medium
+def test_flag_announcer_announces_the_old_flag_only_when_it_was_given(monkeypatch):
+    """The callback prints the notice for a given flag, returns the flag, and is silent otherwise."""
+    terminal = _Tty()
+    monkeypatch.setattr(sys, "stderr", terminal)
+    monkeypatch.delenv("SX_NO_DEPRECATION_NOTICE", raising=False)
+    table = _table()
+    announce = table.flag_announcer("sx doxygen")
+    assert announce(False) is False and terminal.getvalue() == ""
+    assert announce(True) is True
+    assert terminal.getvalue() == table.notice(table.alias_for("sx doxygen")) + "\n"
+
+
+
+@pytest.mark.small
+def test_flag_announcer_raises_for_an_unknown_spelling():
+    """An old flag the table does not hold raises when the callback is built, not when it runs."""
+    with pytest.raises(UnknownAliasError):
+        _table().flag_announcer("sx --nothing")
+
+
+
 @pytest.mark.small
 def test_alias_table_raises_for_an_unknown_spelling():
     """An unknown spelling raises."""

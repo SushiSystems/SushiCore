@@ -121,6 +121,21 @@ class AliasTable:
 
         return wrapper
 
+    def flag_announcer(self, old: str) -> Callable[[bool], bool]:
+        """Returns the callback of a hidden old flag: it announces *old* when the flag was given.
+
+        The callback returns the flag unchanged, so the command ORs it with the new flag.
+        """
+        alias = self.alias_for(old)
+
+        def announce_given(given: bool) -> bool:
+            """Announces the alias when the flag was given, and returns the flag."""
+            if given:
+                self.announce(alias)
+            return given
+
+        return announce_given
+
     def command(
         self, parent: "typer.Typer", word: str, callback: Callable[..., Any], old: str,
         *, hidden: bool = True, **options: Any,
