@@ -343,3 +343,9 @@ def test_a_tree_the_driver_holds_is_selected_though_it_is_not_on_disk(tmp_path):
 
     assert result.exit_code == 0
     assert target.driver.removed == [held]
+
+
+def test_the_help_example_names_a_type_the_cli_offers(tmp_path):
+    result = CliRunner().invoke(_named_app(_Target(tmp_path)), ["clean", "--help"])
+
+    assert "clean --type editor --yes" in result.output

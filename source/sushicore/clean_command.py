@@ -213,13 +213,15 @@ def register_clean_command(
     type_choice = enum.Enum(
         "BuildTypeChoice", {name: name for name in [*build_types, *type_trees, *named]}, type=str)
     sanitizer_choice = enum.Enum("SanitizerChoice", {name: name for name in sanitizers}, type=str)
+    sample = next(iter([*build_types, *type_trees, *named]), None)
+    by_type = (f"\n{program} clean --type {sample} {K_YES_FLAG}  # Remove the {sample} tree only"
+               if sample else "")
 
     @app.command(
         "clean",
         rich_help_panel=panel,
         epilog=f"{program} clean  # List every build tree, remove none\n"
-               f"{program} clean {K_YES_FLAG}  # Remove every build tree\n"
-               f"{program} clean --type debug {K_YES_FLAG}  # Remove the debug tree only",
+               f"{program} clean {K_YES_FLAG}  # Remove every build tree" + by_type,
     )
     def clean(
         ctx: typer.Context,
