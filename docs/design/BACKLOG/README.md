@@ -81,5 +81,5 @@ neither pays for itself yet.
 
 - The pre-commit hook runs `check_all` before the commit exists, so the stamp it writes names the
   parent. The entries the newest commit names show as unverified although the hook just verified
-  that commit. The stamp is written by `check_all.py`, a copy of the SushiSkills tool, so a stamp
-  that names the verified tree and not the parent commit is a change to that repository.
+  that commit. The stamp is written by `check_all.py`, a shared tool of SushiCore's `tools/`, so a stamp
+  that names the verified tree and not the parent commit is a change there.

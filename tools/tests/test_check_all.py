@@ -12,7 +12,7 @@ import sys
 import tempfile
 import tomllib
 import unittest
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from unittest import mock
 
@@ -60,6 +60,14 @@ def every_check_passes(checks: list[Check]) -> list[tuple[int, str]]:
     return [(0, "")] * len(checks)
 
 
+def recording_run(planned: list[str]) -> Callable[[Sequence[Check]], list[tuple[int, str]]]:
+    """Returns a run function that records the names it was given and passes every check."""
+    def run(checks: Sequence[Check]) -> list[tuple[int, str]]:
+        planned.extend(check.name for check in checks)
+        return [(0, "") for _ in checks]
+    return run
+
+
 class OwnCheckerNamesTest(unittest.TestCase):
     """Covers which of the found paths are own checkers that the shared list does not name."""
 
@@ -88,11 +96,16 @@ class PlanChecksTest(unittest.TestCase):
         plan = plan_checks(K_ROOT, K_TOOLS, "py", [], [])
         self.assertEqual(plan[0].command, ("py", str(K_TOOLS / K_CHECKERS[0]), str(K_ROOT)))
 
-    def test_suite_runs_unittest_discover_on_its_folder(self) -> None:
+    def test_suite_runs_the_suite_runner_on_its_folder(self) -> None:
         plan = plan_checks(K_ROOT, K_TOOLS, "py", [], [K_ROOT / "gui" / "tests"])
         self.assertEqual(plan[-1], Check("tests: gui/tests",
-                                         ("py", "-m", "unittest", "discover", "-q", "-s",
+                                         ("py", str(K_TOOLS / "checking" / "run_suite.py"),
                                           str(K_ROOT / "gui" / "tests")), True))
+
+    def test_a_skipped_checker_is_not_planned(self) -> None:
+        skipped = frozenset({K_CHECKERS[0]})
+        names = [check.name for check in plan_checks(K_ROOT, K_TOOLS, "py", [], [], skipped)]
+        self.assertEqual(names, list(K_CHECKERS[1:]))
 
 
 class ReportTest(unittest.TestCase):
@@ -208,6 +221,35 @@ class ShellTest(unittest.TestCase):
                 check_all.main([folder], first_check_fails("a.cs:1: rule_x: bad"))
         self.assertEqual(out.getvalue().splitlines()[-1].split(";", 1)[1],
                          " 1 known finding in 1 entry")
+
+    def test_skip_history_leaves_the_history_checkers_out_and_says_so(self) -> None:
+        planned: list[str] = []
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(out):
+            code = check_all.main([folder, "--skip-history"], recording_run(planned))
+        self.assertEqual(
+            (code, set(planned) & check_all.K_HISTORY_CHECKERS,
+             out.getvalue().splitlines()[-1].endswith("; 2 history checkers skipped")),
+            (0, set(), True))
+
+    def test_a_run_without_the_option_plans_the_history_checkers(self) -> None:
+        planned: list[str] = []
+        with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()):
+            check_all.main([folder], recording_run(planned))
+        self.assertEqual(set(planned) & check_all.K_HISTORY_CHECKERS, check_all.K_HISTORY_CHECKERS)
+
+    def test_an_unknown_option_returns_one(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = check_all.main([".", "--nope"], recording_run([]))
+        self.assertEqual((code, "--skip-history" in out.getvalue()), (1, True))
+
+    def test_a_baseline_entry_for_a_skipped_checker_is_not_an_orphan(self) -> None:
+        text = K_BASELINE_TEXT.replace("check_source_comments", "check_docs_follow")
+        with tempfile.TemporaryDirectory() as folder:
+            self.write_baseline(folder, text)
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = check_all.main([folder, "--skip-history"], recording_run([]))
+        self.assertEqual(code, 0)
 
     def test_a_baseline_entry_for_no_checker_fails(self) -> None:
         text = K_BASELINE_TEXT.replace("documentation/check_source_comments.py", "nope/check_x.py")

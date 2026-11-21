@@ -28,9 +28,11 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
+fields = [str(root), os.environ.get("GIT_INDEX_FILE", ""), " ".join(sys.argv[2:])]
 with open(os.environ["PRE_COMMIT_TEST_LOG"], "a", encoding="utf-8") as log:
-    log.write(str(root) + "\\t" + os.environ.get("GIT_INDEX_FILE", "") + "\\n")
-sys.exit(1 if (root / "bad.txt").exists() else 0)\n"""
+    log.write("\\t".join(fields) + "\\n")
+sys.exit(1 if (root / "bad.txt").exists() else 0)
+"""
 
 
 class PreCommitTest(unittest.TestCase):
@@ -61,6 +63,10 @@ class PreCommitTest(unittest.TestCase):
         lines = self.log.read_text(encoding="utf-8").splitlines()
         return [(Path(line.split("\t")[0]), line.split("\t")[1]) for line in lines]
 
+    def _logged_arguments(self) -> list[str]:
+        lines = self.log.read_text(encoding="utf-8").splitlines()
+        return [line.split("\t")[2] for line in lines]
+
     def _git_dir(self) -> Path:
         return Path(self.repo.git("rev-parse", "--absolute-git-dir").strip())
 
@@ -86,6 +92,10 @@ class PreCommitTest(unittest.TestCase):
         self._run()
         [(folder, _)] = self._logged()
         self.assertNotEqual(folder, self.repo.root)
+
+    def test_the_checkers_that_read_the_history_are_left_out(self) -> None:
+        self._run()
+        self.assertEqual(self._logged_arguments(), ["--skip-history"])
 
     def test_the_folder_of_the_checks_is_gone_afterwards(self) -> None:
         self._run()

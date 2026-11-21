@@ -39,6 +39,10 @@ python tools/documentation/check_source_comments.py .
 python -m unittest discover -s tools/tests
 ```
 
+The pre-commit hook runs `check_all.py` with `--skip-history`, which leaves out the two checkers that
+read every commit: a commit is not in the history yet, and the `commit-msg` hook judges its message
+and its pages. CI runs them in full.
+
 `check_changelog.py` prints nothing. `check_docs_layout.py` prints only the entries recorded
 under "Documentation and layout" in [Known issues](backlog/README.md), and
 `check_source_comments.py` only the findings counted in

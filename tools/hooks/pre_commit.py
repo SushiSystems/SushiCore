@@ -23,6 +23,7 @@ from pathlib import Path
 K_CHECK_ALL = Path("tools") / "check_all.py"
 K_EXIT_REFUSED = 1
 K_PREFIX = "pre-commit-"
+K_SKIP_HISTORY = "--skip-history"
 
 
 def absolute_git_dir(root: Path, environ: Mapping[str, str]) -> Path | None:
@@ -74,7 +75,8 @@ def check_index(root: Path, git_dir: Path, tree: Path, environ: Mapping[str, str
         print(f"pre-commit: the index holds no {K_CHECK_ALL.as_posix()}", file=sys.stderr)
         return K_EXIT_REFUSED
     env = checked_environment(git_dir, tree, environ)
-    return subprocess.run([sys.executable, str(entry), str(tree)], env=env, check=False).returncode
+    return subprocess.run([sys.executable, str(entry), str(tree), K_SKIP_HISTORY], env=env,
+                          check=False).returncode
 
 
 def remove_folder(folder: Path) -> None:
@@ -86,7 +88,11 @@ def remove_folder(folder: Path) -> None:
 
 
 def run(root: Path, environ: Mapping[str, str] | None = None) -> int:
-    """Returns the exit code of `check_all.py` run on the index of the repository at *root*."""
+    """Returns the exit code of `check_all.py` run on the index of the repository at *root*.
+
+    The checkers that read every commit are left out: a commit is not in the history yet, and the
+    `commit-msg` hook judges its message and its pages.
+    """
     environ = dict(os.environ if environ is None else environ)
     git_dir = absolute_git_dir(root, environ)
     if git_dir is None:
