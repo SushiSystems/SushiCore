@@ -18,7 +18,7 @@ from sushicore.profile import ModuleProfile
 from sushicore.testing.budget import K_UNUSABLE_TEXT
 from sushicore.testing.labels import TestLabel, select_labels
 from sushicore.testing.module_tests import ModuleTests, SanitizedTests
-from sushicore.testing.session import run_tests
+from sushicore.testing.session import K_UNJUDGED_TEXT, run_tests
 
 K_ROOT = Path("/repo")
 K_BUILD = K_ROOT / "build"
@@ -235,12 +235,13 @@ def test_a_run_is_marked_not_rebuilt_unless_the_module_says_it_rebuilt(rebuilt, 
     assert ("--not-rebuilt" in module.reader_argv()[0]) is flagged
 
 
-def test_a_sanitizer_run_is_rebuilt_because_it_builds_its_tree_first():
-    module = _Module(trees=(K_ASAN,))
+def test_a_sanitizer_run_is_not_judged_by_the_time_limits_and_says_so():
+    module = _Module(trees=(K_ASAN,), reader_code=1)
     module.carry_the_reader()
     sanitized = SanitizedTests(names=("address",), build=lambda name: 0, tree=lambda name: K_ASAN)
     assert module.run(module.tests(sanitized=sanitized), select_labels(None), sanitizer="address") == 0
-    assert "--not-rebuilt" not in module.reader_argv()[0]
+    assert module.reader_argv() == []
+    assert K_UNJUDGED_TEXT in module.console.texts("info")
 
 
 def test_a_run_shuffles_with_the_given_seed():

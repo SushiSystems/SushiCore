@@ -41,6 +41,9 @@ class _Stop(Exception):
         self.code = code
 
 
+K_UNJUDGED_TEXT = "The time limits are not judged under a sanitizer, which slows every test."
+
+
 def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Optional[str] = None,
               repeat: int = 0, jobs: Optional[int] = None, every_size: bool = False,
               sanitizer: Optional[str] = None, own_tests: bool = False,
@@ -49,6 +52,9 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               cpu_count: Callable[[], int | None] = os.cpu_count,
               free_memory: Callable[[], int] = free_memory_mb) -> int:
     """Run the tests *selection* names over the module's tree, then judge the run by its time limits.
+
+    A sanitized run is not judged by them: a sanitizer makes every test several times slower, and its
+    oracle is the report it prints, not the clock.
 
     Args:
         name_filter: A CTest ``-R`` pattern; a GoogleTest filter over sharded tests.
@@ -95,8 +101,12 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         code = _run_ctest(module, tree, selection, name_filter, repeat, jobs, shuffle_seed, junit, files)
     scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
     outcome = _rerun_failures(module, tree, junit, files) if code != 0 else K_NOTHING_RERUN
-    budget = judge_run(module, tree, junit, scope, time.monotonic() - started, rebuilt, files=files,
-                       cases=results, rerun=outcome.results)
+    if sanitizer is None:
+        budget = judge_run(module, tree, junit, scope, time.monotonic() - started, rebuilt, files=files,
+                           cases=results, rerun=outcome.results)
+    else:
+        console.info(K_UNJUDGED_TEXT)
+        budget = 0
     if code != 0:
         console.error(f"Tests failed (exit {code}).")
         return code
