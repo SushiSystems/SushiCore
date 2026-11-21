@@ -408,6 +408,9 @@ and the build types it builds. `--type debug` selects the plain `default-debug` 
 selected. A CLI whose `--type` also picks a sanitizer, as `sr build --type asan` does, names
 those types in `type_trees`, so `sr clean --type asan` removes `asan-release`. A CLI that keeps more than trees under `build/`
 may offer `--all` with `whole_build`, which selects the whole folder and takes no `--type`.
+`with_all` names the folders a clean that no filter narrows removes beside the trees, such as an
+assembled package folder, and `extra` offers one more flag that selects its own folders instead
+of the trees, such as evaluation output that a clean of the build must never take.
 `build` does not delete a tree: removing one is `clean` and nothing else.
 
 ### `module_config`

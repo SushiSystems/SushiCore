@@ -10,6 +10,7 @@ The reasoning is in docs/architecture/OVERVIEW.md, section `clean_command`. This
 
 import os
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Protocol
 
@@ -49,6 +50,21 @@ class CleanTarget(Protocol):
     root: Path
     console: CleanConsole
     driver: CleanDriver
+
+
+@dataclass(frozen=True)
+class CleanExtra:
+    """A selection of folders that one flag of the command stands for, instead of the trees.
+
+    Args:
+        flag: The flag that selects them, such as ``--predictions``.
+        help: What the flag selects, one sentence.
+        folders: Returns the folders the flag stands for, from what the command acts on.
+    """
+
+    flag: str
+    help: str
+    folders: Callable[[CleanTarget], Sequence[Path]]
 
 
 def select_trees(
@@ -144,6 +160,8 @@ def register_clean_command(
     app: "typer.Typer", resolve: Callable[["typer.Context"], CleanTarget], *,
     program: str, panel: str, names: Mapping[Optional[str], str], build_types: Sequence[str],
     type_trees: Optional[Mapping[str, str]] = None, whole_build: bool = False,
+    with_all: Optional[Callable[[CleanTarget], Sequence[Path]]] = None,
+    extra: Optional[CleanExtra] = None,
 ) -> None:
     """Adds ``clean`` to *app*.
 
@@ -158,6 +176,10 @@ def register_clean_command(
             ``asan-release`` for a CLI whose ``--type`` also picks a sanitizer.
         whole_build: Offers ``--all``, which selects the whole `build/` folder: every tree, the
             gate's state and the generated files beside them.
+        with_all: Returns the folders a clean that no filter narrows removes beside the trees,
+            such as an assembled package folder outside `build/`.
+        extra: Offers one more flag, which selects its own folders instead of the trees, such as
+            the evaluation output a clean of the build must never take.
     """
     import enum
 
@@ -189,6 +211,10 @@ def register_clean_command(
             False, "--all", hidden=not whole_build,
             help="Select the whole build folder: every tree, the gate's state and the "
                  "generated files. Takes no --type or --sanitize."),
+        selected_extra: bool = typer.Option(
+            False, extra.flag if extra else "--extra", hidden=extra is None,
+            help=(extra.help if extra else "")
+            + " Takes no --type, --sanitize or --all."),
         yes: bool = typer.Option(
             False, K_YES_FLAG, K_YES_SHORT_FLAG,
             help="Remove the trees. Without it the command only lists them."),
@@ -198,12 +224,21 @@ def register_clean_command(
             raise typer.BadParameter(
                 "--all selects the whole build folder and takes no --type or --sanitize."
                 if whole_build else f"{program} clean has no --all.")
+        if selected_extra and (extra is None or type or sanitize or everything):
+            raise typer.BadParameter(
+                f"{extra.flag} takes no --type, --sanitize or --all." if extra
+                else f"{program} clean has no such flag.")
         target = resolve(ctx)
         target.console.header("Project Clean")
-        if everything:
+        if selected_extra:
+            trees = [folder for folder in extra.folders(target) if folder.exists()]
+        elif everything:
             trees = [target.root / "build"] if (target.root / "build").is_dir() else []
         else:
             trees = select_trees(
                 target.root, names, build_types, types=[choice.value for choice in type or ()],
                 sanitizers=[choice.value for choice in sanitize or ()], type_trees=type_trees)
+            if with_all is not None and not type and not sanitize:
+                trees += [folder for folder in with_all(target)
+                          if folder.exists() and folder not in trees]
         raise typer.Exit(clean_trees(target, trees, yes=yes))

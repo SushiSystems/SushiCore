@@ -12,7 +12,8 @@ import typer
 from typer.testing import CliRunner
 
 from sushicore.build_tree import tree_dir
-from sushicore.clean_command import clean_trees, register_clean_command, select_trees, tree_size
+from sushicore.clean_command import (
+    CleanExtra, clean_trees, register_clean_command, select_trees, tree_size)
 from sushicore.console_memory import RecordingConsole
 
 
@@ -228,6 +229,64 @@ def test_all_takes_no_type(target):
 
 def test_all_is_refused_by_a_cli_that_does_not_offer_it(target):
     result = CliRunner().invoke(_app(target), ["clean", "--all", "--yes"])
+
+    assert result.exit_code == 2
+    assert target.driver.removed == []
+
+
+def _app_with(target: _Target, **options) -> typer.Typer:
+    """An application with the shared clean command and the given optional arguments."""
+    app = typer.Typer(name="sx", add_completion=False)
+
+    @app.command("other")
+    def other() -> None:
+        """Another command, so `clean` is a command and not the whole application."""
+
+    register_clean_command(
+        app, lambda ctx: target, program="sx", panel="Project", names=K_NAMES,
+        build_types=K_TYPES, **options)
+    return app
+
+
+def test_a_full_clean_also_removes_the_folders_with_all_names(target):
+    package = target.root / "package"
+    package.mkdir()
+    app = _app_with(target, with_all=lambda found: [found.root / "package"])
+
+    result = CliRunner().invoke(app, ["clean", "--yes"])
+
+    assert result.exit_code == 0
+    assert package in target.driver.removed
+
+
+def test_a_narrowed_clean_leaves_the_folders_with_all_names_alone(target):
+    package = target.root / "package"
+    package.mkdir()
+    app = _app_with(target, with_all=lambda found: [found.root / "package"])
+
+    CliRunner().invoke(app, ["clean", "--type", "debug", "--yes"])
+
+    assert package not in target.driver.removed
+
+
+def test_the_extra_flag_selects_its_own_folders_instead_of_the_trees(target):
+    predictions = target.root / "pred"
+    predictions.mkdir()
+    extra = CleanExtra("--predictions", "Select the prediction folders.",
+                       lambda found: [found.root / "pred"])
+    app = _app_with(target, extra=extra)
+
+    result = CliRunner().invoke(app, ["clean", "--predictions", "--yes"])
+
+    assert result.exit_code == 0
+    assert target.driver.removed == [predictions]
+
+
+def test_the_extra_flag_takes_no_type(target):
+    extra = CleanExtra("--predictions", "Select the prediction folders.", lambda found: [])
+    app = _app_with(target, extra=extra)
+
+    result = CliRunner().invoke(app, ["clean", "--predictions", "--type", "debug", "--yes"])
 
     assert result.exit_code == 2
     assert target.driver.removed == []
