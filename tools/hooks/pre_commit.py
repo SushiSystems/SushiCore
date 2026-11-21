@@ -13,6 +13,7 @@ Git runs it through the pre-commit hook; the index is written to a throwaway fol
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,7 +34,7 @@ def absolute_git_dir(root: Path, environ: Mapping[str, str]) -> Path | None:
 
 
 def index_file(git_dir: Path, environ: Mapping[str, str]) -> Path:
-    """Returns the index git hands the hook: its own for `commit -a` and `-o`, else the repository's."""
+    """Returns the index git hands the hook: `commit -a` and `-o` give their own."""
     given = environ.get("GIT_INDEX_FILE")
     if not given:
         return git_dir / "index"
@@ -41,46 +42,61 @@ def index_file(git_dir: Path, environ: Mapping[str, str]) -> Path:
     return path if path.is_absolute() else Path(environ.get("GIT_PREFIX", ".")).resolve() / path
 
 
-def checkout_index(root: Path, tree: Path, environ: Mapping[str, str]) -> bool:
-    """Writes every file of the index below *tree*; returns whether git succeeded."""
+def checked_environment(git_dir: Path, tree: Path, environ: Mapping[str, str]) -> dict[str, str]:
+    """Returns the environment `check_all.py` runs in: git points at the real repository."""
+    return {
+        **environ,
+        "GIT_DIR": str(git_dir),
+        "GIT_WORK_TREE": str(tree),
+        "GIT_INDEX_FILE": str(index_file(git_dir, environ)),
+        "GIT_OPTIONAL_LOCKS": "0",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+
+
+def checkout_index(root: Path, tree: Path, environ: Mapping[str, str]) -> str | None:
+    """Writes every file of the index below *tree*; returns git's error, or None on success."""
     prefix = tree.as_posix().rstrip("/") + "/"
     done = subprocess.run(
         ["git", "-C", str(root), "checkout-index", "--all", "--force", f"--prefix={prefix}"],
         capture_output=True, text=True, env=dict(environ), check=False)
-    if done.returncode != 0:
-        print(f"pre-commit: cannot write the index to {tree}: {done.stderr.strip()}", file=sys.stderr)
-    return done.returncode == 0
+    return None if done.returncode == 0 else done.stderr.strip() or "git failed"
+
+
+def check_index(root: Path, git_dir: Path, tree: Path, environ: Mapping[str, str]) -> int:
+    """Writes the index to *tree* and returns the exit code of `check_all.py` run there."""
+    error = checkout_index(root, tree, environ)
+    if error is not None:
+        print(f"pre-commit: cannot write the index to {tree}: {error}", file=sys.stderr)
+        return K_EXIT_REFUSED
+    entry = tree / K_CHECK_ALL
+    if not entry.is_file():
+        print(f"pre-commit: the index holds no {K_CHECK_ALL.as_posix()}", file=sys.stderr)
+        return K_EXIT_REFUSED
+    env = checked_environment(git_dir, tree, environ)
+    return subprocess.run([sys.executable, str(entry), str(tree)], env=env, check=False).returncode
+
+
+def remove_folder(folder: Path) -> None:
+    """Removes *folder*; a folder that stays is named on stderr, and the commit goes on."""
+    try:
+        shutil.rmtree(folder)
+    except OSError as error:
+        print(f"pre-commit: cannot remove {folder}: {error}", file=sys.stderr)
 
 
 def run(root: Path, environ: Mapping[str, str] | None = None) -> int:
-    """Returns the exit code of `check_all.py` run on the index of the repository at *root*.
-
-    A red file on disk that the commit does not hold cannot refuse it, and a fix on disk cannot
-    let a red staged file through. The index git hands the hook is the one read, so `git commit -a`,
-    `-o` and `--amend` check what they will commit.
-    """
+    """Returns the exit code of `check_all.py` run on the index of the repository at *root*."""
     environ = dict(os.environ if environ is None else environ)
     git_dir = absolute_git_dir(root, environ)
     if git_dir is None:
         print(f"pre-commit: {root} is not a git repository", file=sys.stderr)
         return K_EXIT_REFUSED
-    with tempfile.TemporaryDirectory(prefix=K_PREFIX, ignore_cleanup_errors=True) as folder:
-        tree = Path(folder)
-        if not checkout_index(root, tree, environ):
-            return K_EXIT_REFUSED
-        checked = {
-            **environ,
-            "GIT_DIR": str(git_dir),
-            "GIT_WORK_TREE": str(tree),
-            "GIT_INDEX_FILE": str(index_file(git_dir, environ)),
-            "GIT_OPTIONAL_LOCKS": "0",
-            "PYTHONDONTWRITEBYTECODE": "1",
-        }
-        entry = tree / K_CHECK_ALL
-        if not entry.is_file():
-            print(f"pre-commit: the index holds no {K_CHECK_ALL.as_posix()}", file=sys.stderr)
-            return K_EXIT_REFUSED
-        return subprocess.run([sys.executable, str(entry), str(tree)], env=checked, check=False).returncode
+    folder = Path(tempfile.mkdtemp(prefix=K_PREFIX))
+    try:
+        return check_index(root, git_dir, folder, environ)
+    finally:
+        remove_folder(folder)
 
 
 def main(argv: list[str] | None = None) -> int:

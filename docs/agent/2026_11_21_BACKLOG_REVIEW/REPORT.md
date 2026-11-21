@@ -173,3 +173,5 @@ skill say it once the new way; each repository changes its own line when it next
 
 The commit message of the pre-commit change says the old hook refused four commits. It refused two,
 both over another session's unfinished files; the other two were refused for the work's own faults.
+
+The same message puts the hook at 35 s. The hook alone takes 32 s; 35 s is a commit through both hooks.

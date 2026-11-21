@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — tools: Printed a pre-commit cleanup that fails instead of hiding it, and split the hook's `run` so the environment of the checks is tested alone (RW-136, `pre_commit.py`).
 - 2026-11-21 — tools: Skipped `__pycache__` folders by name in the test mirror checker, so a tree without git ignore data reports no finding for them (RW-115, `check_test_mirror.py`).
 - 2026-11-21 — clean: Added `register_clean_command`, the one `clean` of every CLI, which removes build trees only with `--yes` (RW-135, `f7eae08`).
 - 2026-11-21 — discovery: Made the picker choose nothing and say so when its input has ended or Ctrl+C stops it, so a script with no terminal does not hang.
