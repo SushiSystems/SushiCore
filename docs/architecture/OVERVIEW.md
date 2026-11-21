@@ -62,6 +62,7 @@ files a CLI hands it; the package re-exports it.
 | `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
 | `run_options` | `pick_option`, `list_all_option` and `old_pick_option`: the `--pick`, `--all` and old `--sort` options of a `run` command, declared once |
 | `run_program` | `run_program`: resolves a program under a build tree through an `ExecutableIndex` and runs it from the project root |
+| `clean_command` | `register_clean_command`, `select_trees` and `clean_trees`: the `clean` command, which lists the build trees a `--type` or `--sanitize` filter selects and removes them only with `--sure` |
 | `build_tree` | The tree a build type builds in, `build/<name>-<type>`, and the refusal of any other type in it |
 | `build_admission` | The launcher entries that put a tree's compiles and links behind the gate, and the job count |
 | `build_gate` | The memory gate itself, the script every compile and link of a tree runs through |
@@ -393,6 +394,18 @@ pick or the default through `ExecutableIndex`, name the program, then run it fro
 root under the tree's environment. `run_program` is those lines. A CLI keeps what is its own
 around the call, such as a build before the run or a memory limit, and hands over the tree, the
 environment and the runner it already has.
+
+### `clean_command`
+
+Six CLIs declared their own `clean`, and each removed every build tree the moment it was typed.
+A build tree of a large project costs hours, so the shared command removes nothing without
+`--sure`: it lists the trees the filter selects and exits with code 2, which a script that
+expected them gone cannot mistake for success.
+
+The command knows the trees of the CLI, because the CLI hands it the tree name of each sanitizer
+and the build types it builds. `--type debug` selects the plain `default-debug` tree and no other,
+`--sanitize address` selects the trees of that sanitizer, and with neither every tree is
+selected. `build` does not delete a tree: removing one is `clean` and nothing else.
 
 ### `module_config`
 

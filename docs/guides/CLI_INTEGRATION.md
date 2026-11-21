@@ -139,7 +139,9 @@ stays a traceback.
 
 ## Building and running
 
-`build`, `test`, `run` and `clean` stay in each CLI. SushiCore supplies what they call:
+`build`, `test` and `run` stay in each CLI, and `clean` is `clean_command.register_clean_command`,
+which lists the trees a `--type` or `--sanitize` filter selects and removes them only with
+`--sure`; a CLI gives it its tree names and build types. SushiCore supplies what they call:
 `proc.Runner` to spawn a child, `cmake_driver.CMakeDriver` for the cmake and ctest command
 lines, `build_env` for the environment they run under and `discovery.ExecutableIndex` to list
 what a build produced. A `run` command declares `pick_option()` and `list_all_option()` from `run_options`, and
