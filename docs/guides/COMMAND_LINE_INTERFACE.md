@@ -57,12 +57,14 @@ panel of a canonical verb.
 | `--define`, `-D` | `VAR=VALUE`, repeatable | Passes a CMake cache variable to configure. The tree keeps it; `VAR=` clears it |
 | `--jobs`, `-j` | `N` of 1 or more | Compile jobs at once; one per hardware thread when absent, or `CMAKE_BUILD_PARALLEL_LEVEL` |
 | `--no-test` | | Builds no test programs |
+| `--report`, `-r` | | Passed to the CLI's build service as `report` |
 
 ## run
 
 | Flag | Takes | Does |
 | --- | --- | --- |
 | `TARGET` | A program name | Runs the program of that exact name, else the one whose name holds it |
+| `--type`, `-t` | One of the CLI's build types | Runs the program from the tree of that type; the default is the CLI's, usually `debug` |
 | `--pick` | | Offers the built examples to choose from |
 | `--all` | | With `--pick`, lists the test and benchmark programs as well |
 | `--no-build` | | Runs what is built, building nothing first |

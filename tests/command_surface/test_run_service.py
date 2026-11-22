@@ -14,10 +14,10 @@ pytestmark = pytest.mark.small
 
 
 def test_run_request_by_default_builds_first_and_forwards_nothing():
-    assert (RunRequest().build, RunRequest().arguments, RunRequest().pick) == (True, (), False)
+    assert (RunRequest("debug").build, RunRequest("debug").arguments, RunRequest("debug").pick) == (True, (), False)
 
 
 def test_run_request_cannot_be_changed_by_the_service():
-    request = RunRequest()
+    request = RunRequest("debug")
     with pytest.raises(dataclasses.FrozenInstanceError):
         request.extra = {"report": True}

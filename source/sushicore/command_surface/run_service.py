@@ -16,6 +16,7 @@ class RunRequest:
     """One ``run`` the user asked for.
 
     Args:
+        build_type: The ``--type`` value, one of the CLI's build types.
         target: The program named, or None when none was.
         pick: True when ``--pick``, or its old spelling, was given.
         list_all: True when ``--all`` was given, so the pick lists every program.
@@ -25,6 +26,7 @@ class RunRequest:
         obj: The object the Typer context carries, ``ctx.obj``; None when the CLI sets none.
     """
 
+    build_type: str
     target: Optional[str] = None
     pick: bool = False
     list_all: bool = False

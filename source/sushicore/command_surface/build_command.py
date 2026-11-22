@@ -12,7 +12,7 @@ from .build_service import BuildRequest, BuildService
 from .build_types import BuildTypes
 from .command_function import command_function
 from .command_parameter import CommandParameter
-from .options import define_option, jobs_option, no_test_option, type_option
+from .options import define_option, jobs_option, no_test_option, report_option, type_option
 from .panels import K_BUILD_PANEL
 from .sanitize_option import K_SANITIZER_KINDS, parse_sanitizers, sanitize_option
 from .verbs import K_BUILD
@@ -28,7 +28,7 @@ def register_build_command(
     panel: str = K_BUILD_PANEL, sanitizers: Sequence[str] = K_SANITIZER_KINDS,
     parameters: Sequence[CommandParameter] = (), examples: Sequence[str] = (),
 ) -> None:
-    """Add ``build`` to *app*: ``--type``, ``--sanitize``, ``--define``, ``--jobs`` and ``--no-test``.
+    """Add ``build`` to *app*: ``--type``, ``--sanitize``, ``--define``, ``--jobs``, ``--no-test`` and ``--report``.
 
     Args:
         app: The CLI's Typer application.
@@ -48,12 +48,13 @@ def register_build_command(
             defines=tuple(values["define"] or ()),
             jobs=values["jobs"],
             tests=not values["no_test"],
+            report=values["report"],
             extra=extra,
             obj=ctx.obj,
         ))
 
     shared = (type_option(build_types), sanitize_option(sanitizers), define_option(), jobs_option(),
-              no_test_option())
+              no_test_option(), report_option())
     sanitized = (f"{program} build --sanitize {sanitizers[0]}  # A tree of its own",) if sanitizers else ()
     epilog = "\n".join((
         f"{program} build",

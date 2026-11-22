@@ -63,8 +63,8 @@ Every Sushi CLI registers the same surfaces, each with one call.
 | `sushicore.provision.commands.register_provision_commands(app, module)` | `setup`, `doctor`, `link`, `unlink` |
 | `sushicore.provision.package_command.register_package_command(app, module)` | `package`, which installs a built tree to a prefix; every library CLI registers it |
 | `sushicore.testing.register_test_command(app, module)` | `test`, which runs the CTest tests by size label, writes a JUnit file and prints the budget line; every CLI with CTest tests registers it |
-| `sushicore.command_surface.register_build_command(app, service, *, program, build_types, ...)` | `build` with `--type`, `--sanitize`, `--define`, `--jobs` and `--no-test` |
-| `sushicore.command_surface.register_run_command(app, service, *, program, ...)` | `run` with `TARGET`, `--pick`, `--all`, `--no-build` and the arguments after `--` |
+| `sushicore.command_surface.register_build_command(app, service, *, program, build_types, ...)` | `build` with `--type`, `--sanitize`, `--define`, `--jobs`, `--no-test` and `--report` |
+| `sushicore.command_surface.register_run_command(app, service, *, program, build_types, ...)` | `run` with `TARGET`, `--type`, `--pick`, `--all`, `--no-build` and the arguments after `--` |
 | `sushicore.command_surface.register_bench_command(app, service, *, program, build_types, ...)` | `bench` with `--type` |
 | `sushicore.command_surface.register_check_command(app, service, *, program, ...)` | `check` with `--report` and `--rule` |
 | `sushicore.aliases.AliasTable(program, aliases, *, stream=None, environ=None)` | Old spellings that still run, hidden, and name their replacement; the notice goes to `stream`, the standard error stream when None |
@@ -151,8 +151,8 @@ request and returns the exit code. The command parses the flags, refuses a bad v
 
 | Command | Service method | Request |
 | --- | --- | --- |
-| `build` | `BuildService.build` | `BuildRequest`: `build_type`, `sanitizers`, `defines`, `jobs`, `tests` |
-| `run` | `RunService.run` | `RunRequest`: `target`, `pick`, `list_all`, `build`, `arguments` |
+| `build` | `BuildService.build` | `BuildRequest`: `build_type`, `sanitizers`, `defines`, `jobs`, `tests`, `report` |
+| `run` | `RunService.run` | `RunRequest`: `build_type`, `target`, `pick`, `list_all`, `build`, `arguments` |
 | `bench` | `BenchService.bench` | `BenchRequest`: `build_type` |
 | `check` | `CheckService.check` | `CheckRequest`: `report`, `rule` |
 
@@ -168,13 +168,13 @@ class _Build:
     def build(self, request: BuildRequest) -> int:
         return project_svc.build(request.build_type, request.sanitizers, request.defines,
                                  jobs=request.jobs, tests=request.tests,
-                                 report=request.extra["report"], workspace=request.obj)
+                                 edges=request.extra["edges"], report=request.report, workspace=request.obj)
 
 
 register_build_command(
     app, _Build(), program="sd", build_types=BuildTypes(("debug", "release", "relwithdebinfo"), "debug"),
-    parameters=[CommandParameter("report", bool, typer.Option(False, "--report", help="..."))],
-    examples=["sd build --report  # Print the build's edges by kind"])
+    parameters=[CommandParameter("edges", bool, typer.Option(False, "--edges", help="..."))],
+    examples=["sd build --edges  # Print the build's edges by kind"])
 ```
 
 Source: not compiled

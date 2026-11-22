@@ -48,10 +48,10 @@ def test_build_hands_every_shared_flag_to_the_service():
     service = _RecordingBuild()
     CliRunner().invoke(_app(service), [
         "build", "-t", "release", "--sanitize", "undefined,address", "-D", "A=1", "--define", "B=",
-        "-j", "4", "--no-test"])
+        "-j", "4", "--no-test", "-r"])
     assert service.requests == [BuildRequest(
         build_type="release", sanitizers=("address", "undefined"), defines=("A=1", "B="), jobs=4,
-        tests=False, obj="workspace")]
+        tests=False, report=True, obj="workspace")]
 
 
 def test_build_exits_with_the_code_the_service_returns():
@@ -75,9 +75,9 @@ def test_build_refuses_a_sanitizer_the_cli_does_not_build():
 
 def test_build_hands_a_clis_own_option_over_as_extra():
     service = _RecordingBuild()
-    report = CommandParameter("report", bool, typer.Option(False, "--report"))
-    CliRunner().invoke(_app(service, parameters=[report]), ["build", "--report"])
-    assert service.requests[0].extra == {"report": True}
+    role = CommandParameter("role", str, typer.Option("master", "--role"))
+    CliRunner().invoke(_app(service, parameters=[role]), ["build", "--role", "worker"])
+    assert service.requests[0].extra == {"role": "worker"}
 
 
 def test_build_is_listed_under_the_panel_it_is_given():
@@ -88,4 +88,5 @@ def test_build_is_listed_under_the_panel_it_is_given():
 def test_build_declares_the_canonical_flags():
     command = typer.main.get_command(_app(_RecordingBuild())).commands["build"]
     names = {name for parameter in command.params for name in parameter.opts}
-    assert names == {"--type", "-t", "--sanitize", "--define", "-D", "--jobs", "-j", "--no-test"}
+    assert names == {"--type", "-t", "--sanitize", "--define", "-D", "--jobs", "-j", "--no-test",
+                     "--report", "-r"}

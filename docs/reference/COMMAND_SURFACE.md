@@ -103,7 +103,7 @@ once.
 | Command | Options | Does |
 | --- | --- | --- |
 | `clean` | `--type` or `-t` (repeatable), `--sanitize` (repeatable), `--all`, the extra flag a CLI names, `--yes` or `-y` | Lists the build trees the selection holds and removes them only with `--yes`; without it nothing is removed and the exit code is `2`. `--all` selects the whole build folder and takes no `--type` or `--sanitize` |
-| `run` | `--pick`, `--all` | `--pick` offers the built examples to choose from, and `--all` with it also lists the test and benchmark programs. `--sort`, the old spelling of `--pick`, is hidden and names its replacement |
+| `run` | `--type` or `-t`, `--pick`, `--all` | `--type` runs from the tree of that type. `--pick` offers the built examples to choose from, and `--all` with it also lists the test and benchmark programs. `--sort`, the old spelling of `--pick`, is hidden and names its replacement |
 
 ## Building, running, benchmarks and checks
 

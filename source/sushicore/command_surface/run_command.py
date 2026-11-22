@@ -9,9 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 from ..run_options import list_all_option, old_pick_option, pick_option
+from .build_types import BuildTypes
 from .command_function import command_function
 from .command_parameter import CommandParameter
-from .options import no_build_option, target_argument
+from .options import no_build_option, target_argument, type_option
 from .panels import K_RUN_PANEL
 from .run_service import RunRequest, RunService
 from .verbs import K_RUN
@@ -27,16 +28,17 @@ K_OLD_PICK_FLAGS = ("--sort",)
 
 
 def register_run_command(
-    app: "typer.Typer", service: RunService, *, program: str, panel: str = K_RUN_PANEL,
-    aliases: Optional["AliasTable"] = None, old_pick: Sequence[str] = K_OLD_PICK_FLAGS,
+    app: "typer.Typer", service: RunService, *, program: str, build_types: BuildTypes,
+    panel: str = K_RUN_PANEL, aliases: Optional["AliasTable"] = None, old_pick: Sequence[str] = K_OLD_PICK_FLAGS,
     parameters: Sequence[CommandParameter] = (), examples: Sequence[str] = (),
 ) -> None:
-    """Add ``run`` to *app*: ``TARGET``, ``--pick``, ``--all``, ``--no-build`` and the arguments after ``--``.
+    """Add ``run`` to *app*: ``TARGET``, ``--type``, ``--pick``, ``--all``, ``--no-build``, the arguments after ``--``.
 
     Args:
         app: The CLI's Typer application.
         service: Starts the program a request names.
         program: The CLI's command, such as ``sd``, which the examples are written with.
+        build_types: The values of ``--type`` and its default.
         panel: The help panel the command is listed under.
         aliases: The CLI's alias table; with one, the hidden *old_pick* flags also mean ``--pick``,
             and the table must hold the row ``<program> run <first old flag>``.
@@ -47,6 +49,7 @@ def register_run_command(
     def act(ctx: Any, values: Mapping[str, Any], extra: Mapping[str, object]) -> int:
         """Builds the request from the parsed values and hands it to the service."""
         return service.run(RunRequest(
+            build_type=values["build_type"].value,
             target=values["target"],
             pick=bool(values["pick"] or values.get("old_pick")),
             list_all=values["list_all"],
@@ -56,7 +59,8 @@ def register_run_command(
             obj=ctx.obj,
         ))
 
-    shared = [target_argument(), CommandParameter("pick", bool, pick_option()),
+    shared = [target_argument(), type_option(build_types, "Tree to run from"),
+              CommandParameter("pick", bool, pick_option()),
               CommandParameter("list_all", bool, list_all_option()), no_build_option()]
     if aliases is not None:
         old = f"{program} {K_RUN} {old_pick[0]}"

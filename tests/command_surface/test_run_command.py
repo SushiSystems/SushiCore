@@ -11,7 +11,7 @@ import typer
 from typer.testing import CliRunner
 
 from sushicore.aliases import Alias, AliasTable
-from sushicore.command_surface import CommandParameter, RunRequest, register_run_command
+from sushicore.command_surface import BuildTypes, CommandParameter, RunRequest, register_run_command
 
 pytestmark = pytest.mark.small
 
@@ -34,27 +34,28 @@ def _app(service: _RecordingRun, **keywords) -> typer.Typer:
     def root() -> None:
         """Root."""
 
-    register_run_command(app, service, program="sx", **keywords)
+    register_run_command(app, service, program="sx",
+                         build_types=BuildTypes(("debug", "release"), "debug"), **keywords)
     return app
 
 
 def test_run_without_flags_asks_for_no_program_and_a_build_first():
     service = _RecordingRun()
     CliRunner().invoke(_app(service), ["run"])
-    assert service.requests == [RunRequest()]
+    assert service.requests == [RunRequest(build_type="debug")]
 
 
 def test_run_hands_the_target_the_flags_and_the_arguments_after_the_separator():
     service = _RecordingRun()
     CliRunner().invoke(_app(service), ["run", "demo", "--no-build", "--", "--gtest_filter=A.*", "-v"])
     assert service.requests == [RunRequest(
-        target="demo", build=False, arguments=("--gtest_filter=A.*", "-v"))]
+        build_type="debug", target="demo", build=False, arguments=("--gtest_filter=A.*", "-v"))]
 
 
 def test_run_hands_the_pick_over_every_program():
     service = _RecordingRun()
     CliRunner().invoke(_app(service), ["run", "--pick", "--all"])
-    assert service.requests == [RunRequest(pick=True, list_all=True)]
+    assert service.requests == [RunRequest(build_type="debug", pick=True, list_all=True)]
 
 
 def test_run_takes_the_old_spelling_of_pick_from_the_alias_table():
@@ -75,3 +76,15 @@ def test_run_hands_a_clis_own_option_over_as_extra():
     role = CommandParameter("role", str, typer.Option("master", "--role"))
     CliRunner().invoke(_app(service, parameters=[role]), ["run", "--role", "worker"])
     assert service.requests[0].extra == {"role": "worker"}
+
+
+def test_run_hands_the_type_over():
+    service = _RecordingRun()
+    CliRunner().invoke(_app(service), ["run", "-t", "release"])
+    assert service.requests == [RunRequest(build_type="release")]
+
+
+def test_run_refuses_a_type_outside_its_build_types_before_the_service_runs():
+    service = _RecordingRun()
+    result = CliRunner().invoke(_app(service), ["run", "--type", "minsizerel"])
+    assert (result.exit_code, service.requests) == (2, [])

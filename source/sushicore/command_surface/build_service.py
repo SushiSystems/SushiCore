@@ -21,6 +21,7 @@ class BuildRequest:
         defines: Each ``-D`` value, ``VAR=VALUE``, in the order given.
         jobs: The ``--jobs`` count; None leaves the choice to the service.
         tests: False when ``--no-test`` was given.
+        report: True when ``--report`` was given.
         extra: The value of each parameter the CLI added, by name.
         obj: The object the Typer context carries, ``ctx.obj``; None when the CLI sets none.
     """
@@ -30,6 +31,7 @@ class BuildRequest:
     defines: tuple[str, ...] = ()
     jobs: Optional[int] = None
     tests: bool = True
+    report: bool = False
     extra: Mapping[str, object] = field(default_factory=dict)
     obj: object = None
 

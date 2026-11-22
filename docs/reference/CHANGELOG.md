@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-22 — commands: Added `--report` to the shared `build` command, as every CLI declares it (RW-159, `build_command.py`).
+- 2026-11-22 — commands: Added `--type` to the shared `run` command, which now takes the build types of the CLI (RW-159, `run_command.py`).
 - 2026-11-22 — commands: Added the shared `build` and `run` commands, which a CLI registers with a service of its own (RW-158, `build_command.py`).
 - 2026-11-22 — commands: Added the shared `bench` and `check` commands, each calling a service the CLI supplies (RW-158, `check_command.py`).
 - 2026-11-22 — commands: Added the shared `--sanitize` option, which takes the kinds `sushi_sanitizers` builds as one set (RW-158, `sanitize_option.py`).
