@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-22 — commands: Keep the test job ceiling lowered by free memory while -j stays exact (RW-161).
 - 2026-11-22 — commands: Declare --report on build and --type on run in the shared command surface (RW-159).
 - 2026-11-22 — commands: Took the default job count of build and test from the hardware threads less four, and resolved it as the flag, then the config key, then that default (RW-160, `job_resolution.py`).
 - 2026-11-22 — commands: Added the `build_jobs` config key, which `register_build_command` and `ModuleTests` read through `configured_jobs` (RW-160, `config_base.py`).

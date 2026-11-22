@@ -55,25 +55,25 @@ def given_jobs(monkeypatch):
     monkeypatch.delenv("CMAKE_BUILD_PARALLEL_LEVEL", raising=False)
     monkeypatch.setattr(build_admission.os, "cpu_count", lambda: 16)
     seen = []
-    monkeypatch.setattr(test_commands, "run_tests", lambda module, selection, **keywords: seen.append(keywords["jobs"]) or 0)
+    monkeypatch.setattr(test_commands, "run_tests", lambda module, selection, **keywords: seen.append((keywords["jobs"], keywords["ceiling"])) or 0)
     return seen
 
 
-def test_the_command_hands_the_threads_less_four_when_no_flag_or_config_key_is_given(given_jobs):
+def test_the_command_hands_the_threads_less_four_as_the_ceiling_when_no_flag_or_config_key_is_given(given_jobs):
     CliRunner().invoke(_app(), ["test"])
-    assert given_jobs == [12]
+    assert given_jobs == [(None, 12)]
 
 
-def test_the_command_hands_the_configured_count_over_the_default(given_jobs):
+def test_the_command_hands_the_configured_count_as_the_ceiling_over_the_default(given_jobs):
     CliRunner().invoke(_app(configured_jobs=lambda: 6), ["test"])
-    assert given_jobs == [6]
+    assert given_jobs == [(None, 6)]
 
 
-def test_the_command_hands_the_flag_over_the_configured_count(given_jobs):
+def test_the_command_hands_the_flag_as_the_exact_count_beside_the_configured_ceiling(given_jobs):
     CliRunner().invoke(_app(configured_jobs=lambda: 6), ["test", "-j", "2"])
-    assert given_jobs == [2]
+    assert given_jobs == [(2, 6)]
 
 
 def test_the_command_hands_the_own_tests_run_only_the_flag_so_it_can_name_an_ignored_one(given_jobs):
     CliRunner().invoke(_app(cli_tests=lambda selection: 0), ["test", "--cli"])
-    assert given_jobs == [None]
+    assert given_jobs == [(None, None)]

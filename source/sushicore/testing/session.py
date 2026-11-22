@@ -50,7 +50,8 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               shuffle: bool = True, seed: Optional[int] = None,
               files: Files | None = None, seed_source: Callable[[int, int], int] | None = None,
               default_count: Callable[[], int] = default_jobs,
-              free_memory: Callable[[], int] = free_memory_mb) -> int:
+              free_memory: Callable[[], int] = free_memory_mb,
+              ceiling: Optional[int] = None) -> int:
     """Run the tests *selection* names over the module's tree, then judge the run by its time limits.
 
     A sanitized run is not judged by them: a sanitizer makes every test several times slower, and its
@@ -59,6 +60,9 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     Args:
         name_filter: A CTest ``-R`` pattern; a GoogleTest filter over sharded tests.
         repeat: Reruns each test up to this many times, stopping at its first failure.
+        jobs: The ``-j`` value; used exactly as given, never lowered.
+        ceiling: The most jobs a run without *jobs* may use (the ``build_jobs`` key or the default);
+            memory may lower it. None means *default_count*.
 
     Returns CTest's exit code when not 0, else the budget's: 1 or 2.
     """
@@ -86,7 +90,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     console.info("Labels: " + ", ".join(
         [size.value for size in selection.sizes] + (["quarantined"] if selection.quarantined else [])))
     if jobs is None:
-        choice = choose_jobs(default_count(), free_memory(), share_of(selection.sizes))
+        choice = choose_jobs(ceiling if ceiling is not None else default_count(), free_memory(), share_of(selection.sizes))
         console.info(choice.line())
         jobs = choice.jobs
     shuffle_seed = (seed if seed is not None else (seed_source or random.randint)(K_SEED_MIN, K_SEED_MAX)) if shuffle else None

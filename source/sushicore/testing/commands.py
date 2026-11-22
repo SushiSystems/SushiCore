@@ -56,5 +56,5 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
         """
         selection = select_labels(label, every_size=all_sizes)
         raise typer.Exit(run_tests(module, selection, name_filter=filter, repeat=repeat,
-                                   jobs=jobs if own else resolve_jobs(jobs, module.configured_jobs()), every_size=all_sizes, sanitizer=sanitize, own_tests=own,
+                                   jobs=jobs, ceiling=None if own else resolve_jobs(None, module.configured_jobs()), every_size=all_sizes, sanitizer=sanitize, own_tests=own,
                                    shuffle=shuffle, seed=seed))

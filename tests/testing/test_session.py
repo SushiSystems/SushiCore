@@ -122,6 +122,24 @@ def test_a_run_given_little_memory_takes_fewer_jobs_than_the_default():
     assert module.ctest_calls[0]["jobs"] == 4
 
 
+def test_a_run_given_a_ceiling_lowers_it_to_fit_the_free_memory():
+    module = _Module()
+    module.run(module.tests(), select_labels(None), ceiling=32, free_memory=lambda: 5632)
+    assert module.ctest_calls[0]["jobs"] == 4
+
+
+def test_a_run_given_a_ceiling_below_the_memory_limit_keeps_the_ceiling():
+    module = _Module()
+    module.run(module.tests(), select_labels(None), ceiling=2, free_memory=lambda: 100000)
+    assert module.ctest_calls[0]["jobs"] == 2
+
+
+def test_a_run_given_a_job_count_is_not_lowered_by_the_memory_or_the_ceiling():
+    module = _Module()
+    module.run(module.tests(), select_labels(None), jobs=16, ceiling=4, free_memory=lambda: 0)
+    assert module.ctest_calls[0]["jobs"] == 16
+
+
 def test_a_run_given_a_job_count_keeps_it_and_prints_no_choice():
     module = _Module()
     module.run(module.tests(), select_labels(None), jobs=3)
