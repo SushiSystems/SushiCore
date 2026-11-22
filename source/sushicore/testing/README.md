@@ -44,10 +44,11 @@ a run that wrote no file prints a warning in its place. The shards of a build wr
 command empties that folder before a run and hands it to the reader as `--cases`. `ModuleTests.run_program` runs a test
 program by the name its CTest tests carry; without it a failed shard reruns whole. `ModuleTests.rebuilt` says whether the tree was current
 when the run began, which a CLI answers with `CMakeDriver.tree_is_current`; when it is absent the line ends "(not rebuilt)" and never
-gates, and a sanitizer run is always rebuilt.
+gates, and a sanitizer run is always rebuilt. Neither a `--sanitize` run nor a run given `time_limits=False`, which a
+CLI passes for a sanitizer tree it built itself, is judged by the time limits.
 
 The reader runs twice. The first call, with `--list-over`, writes the tests over a limit to
-`over_limit.txt` in the tree's `Testing` folder; `SlowTestRerun` reruns them alone into `test_results/slow/<shard>.xml` or `slow_junit.xml`; the second
+`over_limit.txt` in the tree's `Testing` folder; `SlowTestRerun` reruns them alone into `test_results/slow/<shard>.xml` or `slow_junit.xml`, and a shard whose rerun wrote no file is named with why: no executable in the tree, or the program's exit code; the second
 call, with `--gate`, judges each by its time alone and its exit code becomes the run's when CTest passed. A reader that
 cannot judge the run, such as one older than this command, fails it. `programs.json` there maps each suite to its program
 for `--programs`, and `resources.json` is the resource file CTest gets as `--resource-spec-file`.

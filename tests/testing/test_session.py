@@ -262,6 +262,14 @@ def test_a_sanitizer_run_is_not_judged_by_the_time_limits_and_says_so():
     assert K_UNJUDGED_TEXT in module.console.texts("info")
 
 
+def test_a_run_without_time_limits_is_not_judged_and_says_so():
+    module = _Module(reader_code=1)
+    module.carry_the_reader()
+    assert module.run(module.tests(), select_labels(None), time_limits=False) == 0
+    assert module.reader_argv() == []
+    assert K_UNJUDGED_TEXT in module.console.texts("info")
+
+
 def test_a_run_shuffles_with_the_given_seed():
     module = _Module()
     assert module.run(module.tests(), select_labels(None), seed=4242) == 0

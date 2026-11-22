@@ -51,7 +51,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               files: Files | None = None, seed_source: Callable[[int, int], int] | None = None,
               default_count: Callable[[], int] = default_jobs,
               free_memory: Callable[[], int] = free_memory_mb,
-              ceiling: Optional[int] = None) -> int:
+              ceiling: Optional[int] = None, time_limits: bool = True) -> int:
     """Run the tests *selection* names over the module's tree, then judge the run by its time limits.
 
     A sanitized run is not judged by them: a sanitizer makes every test several times slower, and its
@@ -63,6 +63,8 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         jobs: The ``-j`` value; used exactly as given, never lowered.
         ceiling: The most jobs a run without *jobs* may use (the ``build_jobs`` key or the default);
             memory may lower it. None means *default_count*.
+        time_limits: False for a tree the module built under a sanitizer itself; it is not judged by
+            the time limits either.
 
     Returns CTest's exit code when not 0, else the budget's: 1 or 2.
     """
@@ -105,7 +107,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
         code = _run_ctest(module, tree, selection, name_filter, repeat, jobs, shuffle_seed, junit, files)
     scope = scope_of(selection, filtered=bool(name_filter), every_size=every_size, repeated=repeat > 0)
     outcome = _rerun_failures(module, tree, junit, files) if code != 0 else K_NOTHING_RERUN
-    if sanitizer is None:
+    if sanitizer is None and time_limits:
         budget = judge_run(module, tree, junit, scope, time.monotonic() - started, rebuilt, files=files,
                            cases=results, rerun=outcome.results)
     else:

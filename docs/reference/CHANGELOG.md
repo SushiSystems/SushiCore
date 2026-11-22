@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-22 — testing: Added `time_limits` to `run_tests`, so a module that builds its sanitizer tree itself runs it without the time gate (`sushicore/testing/session.py`).
+- 2026-11-22 — testing: Said when the rerun of a test over its limit finds no executable for its program, apart from a program that wrote no result (`sushicore/testing/slow_rerun.py`).
 - 2026-11-22 — hooks: Fixed the pre-commit hook leaving a copy of the repository beside it; it checks in place and refuses a staged file that differs on disk (`tools/hooks/pre_commit.py`).
 - 2026-11-22 — cmake: Ran the CMake modules in medium tests that configure small fixture projects under `tests/test_cmake_modules/fixtures/` (RW-163).
 - 2026-11-22 — cmake: Linked each module archive of a `sushi_tier_archives` target through the link feature `SUSHI_WHOLE_ARCHIVE` on Windows, a plain item a SYCL driver sees, loaded whole (RW-163, `SushiTierLibraries.cmake`).

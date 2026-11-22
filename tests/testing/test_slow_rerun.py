@@ -19,6 +19,7 @@ from sushicore.testing.slow_rerun import SlowTestRerun, slow_results_folder
 K_TREE = Path("/repo/build")
 K_CASES = K_TREE / "test_results" / "gtest"
 K_SLOW = K_TREE / "test_results" / "slow"
+K_SHARD_REGISTRATION = 'add_test([=[core.small_shard_1of1]=] "/repo/build/core" "--gtest_filter=Small_*")\n'
 
 
 def _gtest(*names):
@@ -87,12 +88,22 @@ def test_nothing_to_rerun_runs_nothing():
 
 @pytest.mark.small
 def test_a_rerun_that_wrote_no_result_is_said_and_names_no_folder():
-    files = MemoryFiles({K_CASES / "core.small_shard_1of1.xml": _gtest("Small_A.One")})
+    files = MemoryFiles({K_CASES / "core.small_shard_1of1.xml": _gtest("Small_A.One"),
+                         K_TREE / "CTestTestfile.cmake": K_SHARD_REGISTRATION})
     module = _Module(files, writes_result=False)
     written = SlowTestRerun(module.tests, K_TREE, files).rerun(["Small_A.One"])
     assert written == ()
     warnings = [call.text for call in module.console.calls if call.kind == "warn"]
     assert len(warnings) == 1 and "core.small_shard_1of1" in warnings[0] and "exited 0" in warnings[0]
+
+
+@pytest.mark.small
+def test_a_rerun_whose_program_the_tree_does_not_register_says_so():
+    files = MemoryFiles({K_CASES / "core.small_shard_1of1.xml": _gtest("Small_A.One")})
+    module = _Module(files, writes_result=False)
+    assert SlowTestRerun(module.tests, K_TREE, files).rerun(["Small_A.One"]) == ()
+    warnings = [call.text for call in module.console.calls if call.kind == "warn"]
+    assert len(warnings) == 1 and "found no executable for core" in warnings[0]
 
 
 

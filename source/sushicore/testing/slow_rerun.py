@@ -15,7 +15,7 @@ from typing import final
 from ..files import Files
 from .module_tests import ModuleTests
 from .result_files import ResultFileError, case_names
-from .shards import gtest_results_folder, program_of, slow_results_folder
+from .shards import gtest_results_folder, program_executable, program_of, slow_results_folder
 
 
 @final
@@ -60,6 +60,10 @@ class SlowTestRerun:
                                                                     f"--gtest_output=xml:{report}"])
                 if self._files.is_file(report):
                     wrote_any = True
+                elif program_executable(self._tree, program_of(shard), self._files) is None:
+                    self._module.console().warn(
+                        f"The rerun of {len(cases)} case(s) of {shard} found no executable for {program_of(shard)} "
+                        f"in the tree's test files, so their time is judged in the run.")
                 else:
                     self._module.console().warn(
                         f"The rerun of {len(cases)} case(s) of {shard} through {program_of(shard)} exited {code} "
