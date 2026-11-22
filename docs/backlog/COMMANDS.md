@@ -7,6 +7,7 @@
 | RW-142 | P3 | open | Write one gpus slot per accelerator the machine carries, not a fixed one | resources.json holds a slot for each detected accelerator |  | `source/sushicore/testing/accelerator_slots.py` | 2026-11-21 |
 | RW-143 | P3 | open | Replace the signature feature detection of run_tests with a declared interface | run_tests asks the module for options through a protocol, not inspect.signature |  | `source/sushicore/testing/session.py` | 2026-11-21 |
 | RW-159 | P2 | open | Declare --report on build and --type on run in the shared command surface | build takes --report and run takes --type, tested and documented |  | `source/sushicore/command_surface/run_command.py` | 2026-11-22 |
+| RW-160 | P2 | open | Resolve the build and test job count in one place: -j, build_jobs, threads minus 4 | one resolver serves build and test; build_jobs is a shared config key; report_option takes a subject |  | `source/sushicore/build_admission.py` | 2026-11-22 |
 
 ## Known issues
 
