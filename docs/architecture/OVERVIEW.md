@@ -511,6 +511,10 @@ of content and not of a commit, so a commit that touches only documentation chan
 The key lists the packages below it, so a library never links a dependency built against
 another one than the closure's.
 
+`RunDirs` keeps the run-time folders of the packages a tree linked in a file of that tree, so the
+commands that run the tree resolve nothing again. `RunDirs.for_module(<module>)` names the file
+`.<module>_package_dirs.json`, the name every module CLI uses.
+
 ### `theme`
 
 `rule_line` styles the dashes either side of a `console.rule()` title and, through Rich's

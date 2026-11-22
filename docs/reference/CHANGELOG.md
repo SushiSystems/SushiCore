@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-22 — provision: Added `RunDirs.for_module`, which keeps a tree's run-time folders in the `.<module>_package_dirs.json` every module CLI names (RW-157, `consumer_build.py`).
 - 2026-11-22 — commands: Shipped `SushiBuild.cmake`, the build policy and helpers every Sushi C++ repository copied, and put its folder on the module path of every configure (RW-157, `cmake_modules.py`).
 - 2026-11-22 — commands: Removed `lld_linker` and the `platform` argument of `CMakeDriver`, since the build policy of the CMake modules links with lld (RW-157, `cmake_driver.py`).
 

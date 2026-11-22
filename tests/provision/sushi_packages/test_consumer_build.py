@@ -77,3 +77,10 @@ def test_the_folders_lead_the_path_of_the_platform():
     windows = {"PATH": "/old"}
     RunDirs(K_FILE).prepend(windows, ["/one"], windows=True)
     assert windows["PATH"].split(os.pathsep) == ["/one", "/old"]
+
+
+@pytest.mark.medium
+def test_the_folders_of_a_module_are_kept_in_the_file_its_cli_names(tmp_path):
+    """Check that a module's folders land in ``.<module>_package_dirs.json``, which the CLIs read."""
+    RunDirs.for_module("sushiblas").save(tmp_path, ["/one"])
+    assert RunDirs(".sushiblas_package_dirs.json").read(tmp_path) == ["/one"]

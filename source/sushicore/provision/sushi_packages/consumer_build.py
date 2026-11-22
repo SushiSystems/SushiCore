@@ -20,6 +20,9 @@ K_WINDOWS_PATH = "PATH"
 #: The search path variable a Linux program finds its shared objects on.
 K_POSIX_PATH = "LD_LIBRARY_PATH"
 
+#: The end of the file name a module CLI keeps a tree's run-time folders in, after ``.<module>``.
+K_RUN_DIRS_SUFFIX = "_package_dirs.json"
+
 
 class _Definitions(Protocol):
     """A module config that names the checkouts of the pinned libraries it does not package."""
@@ -75,6 +78,18 @@ class RunDirs:
     def __init__(self, file_name: str) -> None:
         """Name the file the folders are kept in, such as ``.sushiruntime_package_dirs.json``."""
         self._file_name = file_name
+
+    @classmethod
+    def for_module(cls, module: str) -> RunDirs:
+        """Return the folders of *module*'s trees, kept in ``.<module>_package_dirs.json``.
+
+        Every module CLI names its file this way, so ``RunDirs.for_module("sushiblas")`` replaces
+        the wrappers each one kept.
+
+        Args:
+            module: The lower-case module name, such as ``sushiblas``.
+        """
+        return cls(f".{module}{K_RUN_DIRS_SUFFIX}")
 
     def save(self, tree: Path, dirs: Sequence[str]) -> None:
         """Write *dirs* into *tree*, making the folder when it is not there."""
