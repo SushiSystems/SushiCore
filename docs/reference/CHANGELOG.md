@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.16.0 — 2026-11-22
 
 - 2026-11-22 — testing: Added `time_limits` to `run_tests`, so a module that builds its sanitizer tree itself runs it without the time gate (`sushicore/testing/session.py`).
 - 2026-11-22 — testing: Said when the rerun of a test over its limit finds no executable for its program, apart from a program that wrote no result (`sushicore/testing/slow_rerun.py`).
@@ -26,7 +26,3 @@
 - 2026-11-22 — provision: Added `RunDirs.for_module`, which keeps a tree's run-time folders in the `.<module>_package_dirs.json` every module CLI names (RW-157, `consumer_build.py`).
 - 2026-11-22 — commands: Shipped `SushiBuild.cmake`, the build policy and helpers every Sushi C++ repository copied, and put its folder on the module path of every configure (RW-157, `cmake_modules.py`).
 - 2026-11-22 — commands: Removed `lld_linker` and the `platform` argument of `CMakeDriver`, since the build policy of the CMake modules links with lld (RW-157, `cmake_driver.py`).
-
-## v0.15.7 — 2026-11-22
-
-- 2026-11-22 — commands: Linked a Linux configure with lld when its clang or icpx compiler has it, and said so in a line, unless the configure chose a linker (RW-156, `lld_linker.py`).
