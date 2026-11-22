@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests for the deprecated names ``sushicore.provision.packages`` exported before 0.16.0."""
+"""Tests for the deprecated names ``sushicore.provision.packages`` exported before 0.17.0."""
 
 from __future__ import annotations
 

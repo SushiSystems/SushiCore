@@ -51,7 +51,7 @@ from .store import (
 )
 
 K_DEPRECATION = (
-    "backlog import is deprecated since 0.15.0 and is removed in 0.16.0; "
+    "backlog import is deprecated since 0.15.0 and is removed in 0.17.0; "
     "no repository of the workspace holds the retired files it reads"
 )
 K_LEGACY_WORK = Path("docs/design/REMAINING_WORK.md")

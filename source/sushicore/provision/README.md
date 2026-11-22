@@ -48,7 +48,7 @@ them. The designs are [`docs/design/PROVISION/README.md`](../../docs/design/PROV
 | `glob_search.py`, `vs_locator.py`, `gpu_vendor.py` | The tool glob tables and lookups, the Visual Studio script finder, and the GPU vendor named from tools and display adapters |
 | `system.py`, `intel_oneapi_repo.py` | The operating-system facts and the bash call, which also answers the deprecated `ensure_intel_oneapi_repo` from `intel_oneapi_repo.py`; the Intel oneAPI apt repository setup |
 | `toolchains/` | The `Toolchain` contract and `ToolchainEnv` in `toolchain.py`, one file per toolchain (intel/llvm, AdaptiveCpp, oneAPI) each declaring its `Toolchain`, `registry.py` listing them in install order, and the `.sushi_toolchain.json` stamp. A new toolchain adds a file and one line in `registry.py`, as a GPU backend does in `gpu/registry.py` |
-| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.16.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
+| `gpu/` | The GPU backend registry, the CUDA, ROCm and Level Zero locators, the CUDA and ROCm release selection, the adapter builder, the Windows installer helpers (deprecated, removed in 0.17.0); `backend_memory.py` and `windows_installer_memory.py` hold the in-memory `ToolkitLocator` and `MachineEnvironment` |
 | `pipeline.py` | `InstallPipeline`; it re-exports `Step`, `StepResult`, `InstallContext` and `ToolchainSelection` for the module CLIs that import them from here |
 | `step.py`, `step_result.py`, `install_context.py`, `toolchain_selection.py` | `Step`, `StepResult`, `InstallContext` and `ToolchainSelection`, one file each |
 | `pipeline_memory.py` | `ScriptedStep`, a `Step` that answers a scripted result and logs that it ran |
@@ -315,7 +315,7 @@ entries each platform downloads; one is listed when a fragment declares it and p
 
 `gpu/windows_installer.py` compares an installer with the MD5 its publisher lists. No
 backend calls it since CUDA moved to the redistributable archives. It is deprecated:
-it warns with `DeprecationWarning` on import and is removed in 0.16.0.
+it warns with `DeprecationWarning` on import and is removed in 0.17.0.
 
 ## The commands
 

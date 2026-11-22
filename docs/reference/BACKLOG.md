@@ -97,7 +97,7 @@ The pins are at most ten IDs in `backlog.toml`.
 | `backlog pin <ID> [--at n]`, `backlog unpin <ID>` | Changes the pins |
 | `backlog area list [--json]`, `backlog area add <AREA>`, `backlog area merge <INTO> <FROM>` | Lists, adds or merges areas |
 | `backlog renumber [--target main]` | Merges both sides of a conflicted `ids.toml`, rewrites the index and gives each entry that shares an ID with a different one the next free number |
-| `backlog import` | Moves the retired files into the store, once; deprecated, to be removed in 0.16.0 |
+| `backlog import` | Moves the retired files into the store, once; deprecated, to be removed in 0.17.0 |
 | `backlog check [--report]` | Checks every rule below; `--report` also lists the late work |
 
 Every change refuses a value that breaks a rule of its kind, writes the files it touched and
@@ -127,7 +127,7 @@ in `backlog.toml` is resolved by hand, and `backlog check` says so.
 
 ## Import
 
-`backlog import`, deprecated, to be removed in 0.16.0, reads `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md`, the
+`backlog import`, deprecated, to be removed in 0.17.0, reads `docs/design/REMAINING_WORK.md` and `docs/reference/KNOWN_ISSUES.md`, the
 form the store replaced, and deletes them:
 
 - Each `## <Area>` section becomes an area: its words in upper case, small words dropped. The

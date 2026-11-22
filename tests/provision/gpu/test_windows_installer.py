@@ -236,6 +236,6 @@ class TestRegistryMachineEnvironmentKeepsTheMachineEnvironmentContract(
 
 @pytest.mark.small
 def test_importing_the_module_warns_with_deprecation_naming_the_removal_release():
-    with pytest.warns(DeprecationWarning, match=r"removed in 0\.16\.0") as recorded:
+    with pytest.warns(DeprecationWarning, match=r"removed in 0\.17\.0") as recorded:
         importlib.reload(windows_installer)
     assert "0.15.0" in str(recorded[0].message)

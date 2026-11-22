@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-22 — provision: The deprecated names promised for removal in 0.16.0 are now promised for removal in 0.17.0, since RW-117, RW-118 and RW-119 stay open (RW-117, RW-118, RW-119, `windows_installer.py`).
 - 2026-11-22 — commands: Ship the shared CMake build policy and the CLI helpers every Sushi C++ repository copies (RW-157).
 - 2026-11-22 — commands: Added `sushicore.docker`, the `docker build` and `docker run` of a module's developer image that three module CLIs copied (RW-157, `docker_environment.py`).
 - 2026-11-22 — commands: Added `ExecutableIndex.select_interactive`, which asks through the console the index was made with `console=` (RW-157, `discovery.py`).

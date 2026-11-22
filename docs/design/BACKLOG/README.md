@@ -39,7 +39,7 @@ The owner's order of 2026-11-21 carried out five findings of the review:
   entry. It files, records or closes entries and carries no work, yet the commit that filed an
   entry named it and so marked the entry it had just filed. A commit that lists no path counts as
   work.
-- `backlog import` is deprecated, to be removed in 0.16.0, with `BacklogImporter`,
+- `backlog import` is deprecated, to be removed in 0.17.0, with `BacklogImporter`,
   `ImportResult`, the check for the retired files and the shared checker's branch for them. None
   of the 21 repositories of the workspace holds a retired file, but the shared tests of all twelve
   repositories that carry the tools pin the check for them, and SushiEngine's CLI test lists the

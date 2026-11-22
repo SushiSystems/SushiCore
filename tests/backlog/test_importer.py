@@ -212,5 +212,5 @@ def test_import_reads_each_legacy_file_s_dates_through_the_runner(tmp_path: Path
 def test_import_warns_that_it_is_deprecated_and_when_it_goes(tmp_path: Path):
     """The class says since when it is deprecated and in which release it is removed."""
     root = _repository(tmp_path)
-    with pytest.warns(DeprecationWarning, match="deprecated since 0.15.0 and is removed in 0.16.0"):
+    with pytest.warns(DeprecationWarning, match="deprecated since 0.15.0 and is removed in 0.17.0"):
         BacklogImporter(BacklogStore(root, lambda: K_TODAY)).run()

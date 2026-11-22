@@ -4,7 +4,7 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """Download, elevated launch and machine-environment helpers for vendor Windows installers.
 
-Deprecated since 0.15.0 and removed in 0.16.0; no SushiCore backend calls it.
+Deprecated since 0.15.0 and removed in 0.17.0; no SushiCore backend calls it.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from ..system import USER_AGENT
 
 warnings.warn(
     "sushicore.provision.gpu.windows_installer is deprecated since 0.15.0 and is removed in "
-    "0.16.0; no replacement exists because no backend uses it",
+    "0.17.0; no replacement exists because no backend uses it",
     DeprecationWarning,
     stacklevel=2,
 )
