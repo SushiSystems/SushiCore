@@ -52,3 +52,9 @@ def test_a_shard_that_declares_resource_groups_needs_an_accelerator():
     assert [shard.needs_accelerator for shard in found] == [True]
     plain = shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": K_FILE}))
     assert [shard.needs_accelerator for shard in plain] == [False]
+
+
+def test_a_file_that_quotes_its_test_names_gives_the_same_shard():
+    text = K_FILE.replace("[=[", '"').replace("]=]", '"')
+    found = shard_registrations(K_TREE, MemoryFiles({K_TREE / "CTestTestfile.cmake": text}))
+    assert [(shard.name, shard.timeout) for shard in found] == [("core.small_shard_1of2", 1260.0)]

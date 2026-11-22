@@ -59,3 +59,9 @@ def test_the_executable_of_a_program_is_the_one_its_shards_run():
 def test_a_program_no_shard_names_has_no_executable():
     files = MemoryFiles({K_TREE / "CTestTestfile.cmake": K_SHARD_FILE})
     assert program_executable(K_TREE, "other", files) is None
+
+
+def test_the_executable_is_found_when_the_file_quotes_its_test_names():
+    text = 'add_test("core.mem.small_shard_0of1" "/repo/build/core.exe" "--gtest_filter=Small_*")\n'
+    files = MemoryFiles({K_TREE / "CTestTestfile.cmake": text})
+    assert program_executable(K_TREE, "core.mem", files) == Path("/repo/build/core.exe")

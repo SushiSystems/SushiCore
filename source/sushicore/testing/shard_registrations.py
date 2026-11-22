@@ -15,10 +15,10 @@ from ..files import Files
 from .shards import test_file_texts
 
 #: An ``add_test`` call of a generated CTest test file: the test's name and its quoted command line.
-_K_ADD_TEST = re.compile(r'^[ 	]*add_test\(\[=\[(?P<name>[^\]]+)\]=\]\s+(?P<command>.*)\)\s*$', re.MULTILINE)
+_K_ADD_TEST = re.compile(r'^[ 	]*add_test\((?:\[=\[(?P<name>[^\]]+)\]=\]|"(?P<qname>[^"]+)")\s+(?P<command>.*)\)\s*$', re.MULTILINE)
 
 #: A ``set_tests_properties`` call of a generated CTest test file: the test's name and its properties.
-_K_PROPERTIES = re.compile(r'^[ 	]*set_tests_properties\(\[=\[(?P<name>[^\]]+)\]=\]\s+PROPERTIES\s+(?P<properties>.*)\)\s*$',
+_K_PROPERTIES = re.compile(r'^[ 	]*set_tests_properties\((?:\[=\[(?P<name>[^\]]+)\]=\]|"(?P<qname>[^"]+)")\s+PROPERTIES\s+(?P<properties>.*)\)\s*$',
                            re.MULTILINE)
 
 #: One quoted word of a command line or one ``KEY "value"`` property.
@@ -60,11 +60,11 @@ def shard_registrations(tree: Path, files: Files) -> list[ShardRegistration]:
     registered: list[ShardRegistration] = []
     seen: set[str] = set()
     for text in test_file_texts(tree, files):
-        properties = {found.group("name"): _properties(found.group("properties"))
+        properties = {_name(found): _properties(found.group("properties"))
                       for found in _K_PROPERTIES.finditer(text)}
         for found in _K_ADD_TEST.finditer(text):
-            shard = _shard(found.group("name"), _K_QUOTED.findall(found.group("command")),
-                           properties.get(found.group("name"), {}))
+            shard = _shard(_name(found), _K_QUOTED.findall(found.group("command")),
+                           properties.get(_name(found), {}))
             if shard is not None and shard.name not in seen:
                 seen.add(shard.name)
                 registered.append(shard)
@@ -74,6 +74,11 @@ def shard_registrations(tree: Path, files: Files) -> list[ShardRegistration]:
 def _properties(text: str) -> dict[str, str]:
     """Return the ``KEY "value"`` properties of a ``set_tests_properties`` call."""
     return {found.group("key"): found.group("value") for found in _K_PROPERTY.finditer(text)}
+
+
+def _name(found: re.Match[str]) -> str:
+    """Return the test name of a call, written in brackets or in quotes."""
+    return found.group("name") or found.group("qname")
 
 
 def _shard(name: str, command: list[str], properties: dict[str, str]) -> ShardRegistration | None:
