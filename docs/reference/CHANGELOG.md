@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-11-22 — commands: Shipped `SushiBuild.cmake`, the build policy and helpers every Sushi C++ repository copied, and put its folder on the module path of every configure (RW-157, `cmake_modules.py`).
+- 2026-11-22 — commands: Removed `lld_linker` and the `platform` argument of `CMakeDriver`, since the build policy of the CMake modules links with lld (RW-157, `cmake_driver.py`).
+
 ## v0.15.7 — 2026-11-22
 
 - 2026-11-22 — commands: Linked a Linux configure with lld when its clang or icpx compiler has it, and said so in a line, unless the configure chose a linker (RW-156, `lld_linker.py`).

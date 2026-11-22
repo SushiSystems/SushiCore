@@ -1,0 +1,16 @@
+/**
+ * @file @SUSHI_EXPORT_NAME@_export.hpp
+ * @brief Defines @SUSHI_EXPORT_MACRO@, the mark of a declaration the @SUSHI_EXPORT_NAME@ shared library exports.
+ */
+
+#pragma once
+
+#if defined(_WIN32)
+    #if defined(@SUSHI_EXPORT_BUILDING@)
+        #define @SUSHI_EXPORT_MACRO@ __declspec(dllexport)
+    #else
+        #define @SUSHI_EXPORT_MACRO@ __declspec(dllimport)
+    #endif
+#else
+    #define @SUSHI_EXPORT_MACRO@ __attribute__((visibility("default")))
+#endif

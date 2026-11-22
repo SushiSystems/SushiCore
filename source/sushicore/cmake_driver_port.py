@@ -41,7 +41,10 @@ class CMakeDriverPort(Protocol):
 
     def configure(self, args: Sequence[str], cwd: Path,
                   env: Mapping[str, str] | None = None) -> int:
-        """Runs a configure whose argv the caller assembled and returns its exit code."""
+        """Runs a configure whose argv the caller assembled and returns its exit code.
+
+        The argv gains SushiCore's CMake modules on ``CMAKE_MODULE_PATH``.
+        """
 
     def compile(self, cfg: CMakeToolConfig, build_dir: Path, cwd: Path,
                 env: Mapping[str, str] | None, *,

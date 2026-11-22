@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.cmake_driver import CleanTreeError, CMakeDriver
+from sushicore.cmake_modules import K_CMAKE_MODULES, with_cmake_modules
 from sushicore.config_base import ToolConfig
 from sushicore.console_memory import RecordingConsole
 from sushicore.proc_memory import RecordingRunner
@@ -38,9 +39,9 @@ def _runner():
     return RecordingRunner(RecordingConsole())
 
 
-def _driver(platform="win32"):
+def _driver():
     runner = _runner()
-    return CMakeDriver(RecordingConsole(), runner, platform=platform), runner
+    return CMakeDriver(RecordingConsole(), runner), runner
 
 
 @pytest.mark.small
@@ -334,7 +335,7 @@ def test_configure_drops_the_cache_when_the_compiler_path_changed(tmp_path):
             "-DCMAKE_CXX_COMPILER=D:/new/bin/clang++.exe", "-DSUSHI_OPTION=ON"]
     assert driver.configure(args, tmp_path) == 0
     assert not (build / "CMakeCache.txt").exists()
-    assert _calls(runner) == [("run", args, str(tmp_path))]
+    assert _calls(runner) == [("run", with_cmake_modules(args), str(tmp_path))]
 
 
 @pytest.mark.medium
@@ -467,53 +468,12 @@ def test_a_dry_run_asks_only_of_the_targets_given(tmp_path):
                                              "--", "-n"]
 
 
-K_CLANG_ARGV = ["cmake", "-B", "tree", "-DCMAKE_CXX_COMPILER=/opt/llvm/bin/clang++"]
+K_CONFIGURE_ARGV = ["cmake", "-S", "source", "-B", "tree", "-G", "Ninja"]
 
 
 @pytest.mark.small
-def test_a_linux_configure_with_a_compiler_that_has_lld_links_with_it(tmp_path):
-    lld = tmp_path / "ld.lld"
-    lld.write_text("", encoding="utf-8")
-    driver, runner = _driver("linux")
-    runner.script(0, (str(lld),))
-    driver.configure(K_CLANG_ARGV, tmp_path)
-    assert _calls(runner)[-1][1] == [
-        *K_CLANG_ARGV,
-        "-DCMAKE_EXE_LINKER_FLAGS_INIT=-fuse-ld=lld",
-        "-DCMAKE_SHARED_LINKER_FLAGS_INIT=-fuse-ld=lld",
-        "-DCMAKE_MODULE_LINKER_FLAGS_INIT=-fuse-ld=lld",
-    ]
-
-
-@pytest.mark.small
-def test_a_linux_configure_says_it_links_with_lld(tmp_path):
-    lld = tmp_path / "ld.lld"
-    lld.write_text("", encoding="utf-8")
-    console = RecordingConsole()
-    runner = RecordingRunner(console)
-    runner.script(0, (str(lld),))
-    CMakeDriver(console, runner, platform="linux").configure(K_CLANG_ARGV, tmp_path)
-    assert "Linking with lld." in _lines(console)
-
-
-@pytest.mark.small
-def test_a_compiler_that_answers_with_the_bare_name_keeps_the_default_linker(tmp_path):
-    driver, runner = _driver("linux")
-    runner.script(0, ("ld.lld",))
-    driver.configure(K_CLANG_ARGV, tmp_path)
-    assert _calls(runner)[-1][1] == K_CLANG_ARGV
-
-
-@pytest.mark.small
-def test_a_configure_on_windows_never_asks_the_compiler(tmp_path):
-    driver, runner = _driver("win32")
-    driver.configure(K_CLANG_ARGV, tmp_path)
-    assert _calls(runner) == [("run", K_CLANG_ARGV, str(tmp_path))]
-
-
-@pytest.mark.small
-def test_a_configure_that_chose_a_linker_keeps_it(tmp_path):
-    argv = [*K_CLANG_ARGV, "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=gold"]
-    driver, runner = _driver("linux")
-    driver.configure(argv, tmp_path)
-    assert _calls(runner) == [("run", argv, str(tmp_path))]
+def test_configure_puts_the_sushicore_cmake_modules_on_the_module_path(tmp_path):
+    driver, runner = _driver()
+    driver.configure(K_CONFIGURE_ARGV, tmp_path)
+    assert _calls(runner) == [
+        ("run", [*K_CONFIGURE_ARGV, f"-DCMAKE_MODULE_PATH={K_CMAKE_MODULES.as_posix()}"], str(tmp_path))]
