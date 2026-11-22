@@ -39,6 +39,21 @@ The platform table is named after `platform.system()` in lower case: `windows`, 
 | `color` | `auto` colours a TTY and nothing else |
 | `background` | Whether the logo gets its white glow; `auto` reads `COLORFGBG` and otherwise leaves the glow off |
 
+## The `[tool]` table
+
+`ToolConfig`, the config every module CLI loads with `load_tool_config`, keeps the host build-tool
+paths and one setting every CLI shares. It is layered like `[cli]`: each file in order, then the
+platform table `[tool.<platform>]`, then the variable the CLI maps to the key.
+
+```toml
+[tool]
+build_jobs = 0         # 0 or absent: the hardware threads less four, at least one
+```
+
+| Key | Effect |
+| --- | --- |
+| `build_jobs` | The job count of `build` and `test` when `--jobs` is not given. A value that is not a whole number of 0 or more is a `ConfigError` that names the key |
+
 ## Precedence
 
 Low to high:
@@ -71,7 +86,7 @@ Low to high:
 | `<NAME>_PACKAGE` | `provision/sushi_packages/forced_packages.py` | The install prefix of the built package of the Sushi library `<name>`, handed to a nested library build; ignored with a warning without `SUSHISTACK_PACKAGE_NESTED` |
 | `SUSHISTACK_CXX` | `provision/sushi_packages/package_environment.py` | The consumer's compiler, handed to a library CLI that builds a package; the CLI uses it in place of its configured compiler |
 | `<PREFIX>_<TOOL>` | `profile.py` | Overrides one tool path or build setting of one CLI, such as `SR_CMAKE`; the prefix is `ModuleProfile.env_prefix` |
-| `CMAKE_BUILD_PARALLEL_LEVEL` | `build_admission.py` | The job count of a build, when it is a whole number above 0; otherwise the hardware threads |
+| `CMAKE_BUILD_PARALLEL_LEVEL` | `build_admission.py` | The hardware threads `default_jobs` counts, when it is a whole number above 0; otherwise the processor's threads. The job count is `--jobs`, else `build_jobs`, else those threads less four |
 | `VSINSTALLDIR` | `provision/target/windows.py` | Set in a Visual Studio developer shell; the Windows target takes MSVC from it |
 | `ProgramFiles`, `ProgramFiles(x86)` | `provision/vs_locator.py` | Where the Visual Studio locator looks for an installation |
 | `<PROGRAM>_NO_DEPRECATION_NOTICE` | `aliases.py` | Set to `1`, silences the notice an old command spelling prints |

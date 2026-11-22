@@ -193,13 +193,19 @@ Source: not compiled
 - `panel` defaults to the canonical panel of the verb. A CLI with commands of its own puts them in
   one domain panel; `CommandPanels(domain).order()` is the order to register in.
 - `examples` adds lines to the help page after the shared ones.
+- `configured_jobs` is a function that reads the `build_jobs` key of the CLI's config when the command runs, such as
+  `lambda: load_config().build_jobs`. `register_build_command` and `register_test_command` (through
+  `ModuleTests.configured_jobs`) hand the service `resolve_jobs(--jobs, build_jobs)`: the flag, else the
+  key when it is above 0, else `default_jobs()`, the hardware threads less four and at least one. A
+  CLI that declares `jobs_option` itself calls `sushicore.job_resolution.resolve_jobs` the same way.
 
 A CLI that keeps its own `build`, `run`, `bench` or `check`, because it has not moved yet or the
 command takes a shape the shared one has not, declares the shared options from
 `sushicore.command_surface` (`type_option`, `sanitize_option`, `define_option`, `jobs_option`,
 `no_test_option`, `target_argument`, `no_build_option`, `report_option`, `rule_option`), each a
 `CommandParameter` whose `annotation` and `default` it writes into its function. `parse_sanitizers`
-reads a `--sanitize` value the same way the shared command does.
+reads a `--sanitize` value the same way the shared command does. `report_option(help)` takes the help line of
+the command that declares it; `build` says what its report holds, and `check` keeps the default.
 
 `clean` is `clean_command.register_clean_command`, which lists the trees a `--type` or `--sanitize`
 filter selects and removes them only with `--yes`; a CLI gives it its tree names and build types.

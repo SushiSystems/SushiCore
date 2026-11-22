@@ -7,12 +7,12 @@
 from __future__ import annotations
 
 import inspect
-import os
 import random
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from ..build_admission import default_jobs
 from ..memory_reading import free_memory_mb
 from ..files import DiskFiles, Files
 from .accelerator_slots import write_resource_spec
@@ -49,7 +49,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
               sanitizer: Optional[str] = None, own_tests: bool = False,
               shuffle: bool = True, seed: Optional[int] = None,
               files: Files | None = None, seed_source: Callable[[int, int], int] | None = None,
-              cpu_count: Callable[[], int | None] = os.cpu_count,
+              default_count: Callable[[], int] = default_jobs,
               free_memory: Callable[[], int] = free_memory_mb) -> int:
     """Run the tests *selection* names over the module's tree, then judge the run by its time limits.
 
@@ -86,7 +86,7 @@ def run_tests(module: ModuleTests, selection: LabelSelection, *, name_filter: Op
     console.info("Labels: " + ", ".join(
         [size.value for size in selection.sizes] + (["quarantined"] if selection.quarantined else [])))
     if jobs is None:
-        choice = choose_jobs(cpu_count(), free_memory(), share_of(selection.sizes))
+        choice = choose_jobs(default_count(), free_memory(), share_of(selection.sizes))
         console.info(choice.line())
         jobs = choice.jobs
     shuffle_seed = (seed if seed is not None else (seed_source or random.randint)(K_SEED_MIN, K_SEED_MAX)) if shuffle else None

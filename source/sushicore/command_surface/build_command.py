@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
+from ..job_resolution import resolve_jobs
 from .build_service import BuildRequest, BuildService
 from .build_types import BuildTypes
 from .command_function import command_function
@@ -20,6 +21,7 @@ from .verbs import K_BUILD
 if TYPE_CHECKING:
     import typer
 
+K_BUILD_REPORT_HELP = "Print the edges the build compiled by kind, with their time and memory."
 K_BUILD_SUMMARY = "Configure the tree of the build type when needed, then build it."
 
 
@@ -27,6 +29,7 @@ def register_build_command(
     app: "typer.Typer", service: BuildService, *, program: str, build_types: BuildTypes,
     panel: str = K_BUILD_PANEL, sanitizers: Sequence[str] = K_SANITIZER_KINDS,
     parameters: Sequence[CommandParameter] = (), examples: Sequence[str] = (),
+    configured_jobs: Callable[[], int | None] = lambda: None,
 ) -> None:
     """Add ``build`` to *app*: ``--type``, ``--sanitize``, ``--define``, ``--jobs``, ``--no-test`` and ``--report``.
 
@@ -39,6 +42,8 @@ def register_build_command(
         sanitizers: The sanitizers ``--sanitize`` takes; a subset of ``K_SANITIZER_KINDS``.
         parameters: Options of the CLI's own, listed after the shared ones and handed over as ``extra``.
         examples: Example lines of the CLI's own, listed after the shared ones.
+        configured_jobs: Reads the ``build_jobs`` config key when the command runs; None or 0 for none.
+            ``--jobs`` wins over it, and the default of ``default_jobs`` follows it.
     """
     def act(ctx: Any, values: Mapping[str, Any], extra: Mapping[str, object]) -> int:
         """Builds the request from the parsed values and hands it to the service."""
@@ -46,7 +51,7 @@ def register_build_command(
             build_type=values["build_type"].value,
             sanitizers=parse_sanitizers(values["sanitize"], sanitizers),
             defines=tuple(values["define"] or ()),
-            jobs=values["jobs"],
+            jobs=resolve_jobs(values["jobs"], configured_jobs()),
             tests=not values["no_test"],
             report=values["report"],
             extra=extra,
@@ -54,7 +59,7 @@ def register_build_command(
         ))
 
     shared = (type_option(build_types), sanitize_option(sanitizers), define_option(), jobs_option(),
-              no_test_option(), report_option())
+              no_test_option(), report_option(K_BUILD_REPORT_HELP))
     sanitized = (f"{program} build --sanitize {sanitizers[0]}  # A tree of its own",) if sanitizers else ()
     epilog = "\n".join((
         f"{program} build",

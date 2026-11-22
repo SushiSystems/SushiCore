@@ -62,6 +62,7 @@ class ModuleTests:
         build_tree: The built tree CTest runs over.
         run_ctest: Runs CTest over a tree and returns its exit code.
         run_program: Runs one of the module's programs by its CTest test name; None when none.
+        configured_jobs: Reads the ``build_jobs`` config key when the command runs; None or 0 for none.
     """
 
     profile: ModuleProfile
@@ -76,3 +77,4 @@ class ModuleTests:
     cli_tests: Optional[Callable[[LabelSelection], int]] = None
     rebuilt: Optional[Callable[[Path], bool]] = None
     run_program: Optional[Callable[..., int]] = None
+    configured_jobs: Callable[[], Optional[int]] = lambda: None

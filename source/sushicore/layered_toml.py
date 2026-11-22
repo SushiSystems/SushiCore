@@ -106,7 +106,8 @@ def merge_platform_table(doc: dict, plat: str, section: str = "tool") -> dict:
 
 
 def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
-                 section: str = "tool", bool_keys: Iterable[str] = (), *,
+                 section: str = "tool", bool_keys: Iterable[str] = (),
+                 int_keys: Iterable[str] = (), *,
                  environment: Environment | None = None, files: Files | None = None) -> dict:
     """Merge ``[section]`` from each path (low to high) then apply env overrides.
 
@@ -116,6 +117,10 @@ def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
         env_map: ``field -> ENV_VAR``; a set env var overrides that field.
         section: Top-level table name to read (default ``tool``).
         bool_keys: Fields to coerce from string to bool.
+        int_keys: Fields to coerce from string to a whole number.
+
+    Raises:
+        ConfigError: When an ``int_keys`` value is not a whole number of 0 or more.
     """
     env = ProcessEnvironment() if environment is None else environment
     values: dict = {}
@@ -129,4 +134,21 @@ def load_layered(paths: Iterable[Path], plat: str, env_map: dict[str, str],
     for key in bool_keys:
         if isinstance(values.get(key), str):
             values[key] = values[key].strip().lower() in ("1", "true", "yes", "on")
+    for key in int_keys:
+        if key in values:
+            values[key] = _whole_number(key, values[key])
     return values
+
+
+def _whole_number(key: str, value: object) -> int:
+    """Return *value* as a whole number of 0 or more.
+
+    Raises:
+        ConfigError: When *value* is a bool, a float, text that is not digits or below 0.
+    """
+    text = value.strip() if isinstance(value, str) else value
+    if isinstance(text, str) and text.isdigit():
+        return int(text)
+    if isinstance(text, int) and not isinstance(text, bool) and text >= 0:
+        return text
+    raise ConfigError(f"{key} must be a whole number of 0 or more, not {value!r}.")

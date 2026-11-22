@@ -38,7 +38,8 @@ def jobs_option() -> "typer.models.OptionInfo":
     import typer
 
     return typer.Option(None, "--jobs", "-j", min=1, metavar="N",
-                        help="Run up to N tests concurrently (ctest --parallel).")
+                        help="Run up to N tests concurrently (ctest --parallel). Default: the build_jobs "
+                             "config key, else the hardware threads less four, at least one.")
 
 
 def all_option() -> "typer.models.OptionInfo":

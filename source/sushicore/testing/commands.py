@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from ..job_resolution import resolve_jobs
 from .labels import TestLabel, select_labels
 from .module_tests import ModuleTests
 from .options import all_option, filter_option, jobs_option, label_option, repeat_option, seed_option, shuffle_option
@@ -55,5 +56,5 @@ def register_test_command(app: "typer.Typer", module: ModuleTests) -> None:
         """
         selection = select_labels(label, every_size=all_sizes)
         raise typer.Exit(run_tests(module, selection, name_filter=filter, repeat=repeat,
-                                   jobs=jobs, every_size=all_sizes, sanitizer=sanitize, own_tests=own,
+                                   jobs=jobs if own else resolve_jobs(jobs, module.configured_jobs()), every_size=all_sizes, sanitizer=sanitize, own_tests=own,
                                    shuffle=shuffle, seed=seed))

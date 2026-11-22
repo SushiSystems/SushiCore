@@ -19,7 +19,8 @@ class BuildRequest:
         build_type: The ``--type`` value, one of the CLI's build types.
         sanitizers: The ``--sanitize`` set in the order of ``K_SANITIZER_KINDS``; empty for none.
         defines: Each ``-D`` value, ``VAR=VALUE``, in the order given.
-        jobs: The ``--jobs`` count; None leaves the choice to the service.
+        jobs: The job count: ``--jobs``, else the ``build_jobs`` config key, else the default;
+            the command always sets it, None only in a request made by hand.
         tests: False when ``--no-test`` was given.
         report: True when ``--report`` was given.
         extra: The value of each parameter the CLI added, by name.

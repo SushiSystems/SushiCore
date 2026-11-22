@@ -8,9 +8,16 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from sushicore import build_admission
 from sushicore.command_surface import BuildRequest, BuildTypes, CommandParameter, register_build_command
 
 pytestmark = pytest.mark.small
+
+
+@pytest.fixture(autouse=True)
+def _sixteen_threads(monkeypatch):
+    monkeypatch.delenv("CMAKE_BUILD_PARALLEL_LEVEL", raising=False)
+    monkeypatch.setattr(build_admission.os, "cpu_count", lambda: 16)
 
 
 class _RecordingBuild:
@@ -41,7 +48,34 @@ def _app(service: _RecordingBuild, **keywords) -> typer.Typer:
 def test_build_without_flags_asks_for_the_default_type_with_tests():
     service = _RecordingBuild()
     CliRunner().invoke(_app(service), ["build"])
-    assert service.requests == [BuildRequest(build_type="debug", obj="workspace")]
+    assert service.requests == [BuildRequest(build_type="debug", jobs=12, obj="workspace")]
+
+
+def test_build_takes_the_configured_job_count_when_no_flag_is_given():
+    service = _RecordingBuild()
+    CliRunner().invoke(_app(service, configured_jobs=lambda: 6), ["build"])
+    assert service.requests[0].jobs == 6
+
+
+def test_build_takes_the_flag_over_the_configured_job_count():
+    service = _RecordingBuild()
+    CliRunner().invoke(_app(service, configured_jobs=lambda: 6), ["build", "-j", "2"])
+    assert service.requests[0].jobs == 2
+
+
+def test_build_reads_the_configured_job_count_when_it_runs_not_when_it_registers():
+    service = _RecordingBuild()
+    configured = []
+    app = _app(service, configured_jobs=lambda: configured[-1] if configured else None)
+    configured.append(5)
+    CliRunner().invoke(app, ["build"])
+    assert service.requests[0].jobs == 5
+
+
+def test_build_report_says_what_the_build_reports():
+    command = typer.main.get_command(_app(_RecordingBuild())).commands["build"]
+    report = next(parameter for parameter in command.params if "--report" in parameter.opts)
+    assert "edges" in report.help and "finding" not in report.help
 
 
 def test_build_hands_every_shared_flag_to_the_service():

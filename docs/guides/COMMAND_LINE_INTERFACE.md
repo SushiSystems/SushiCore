@@ -55,9 +55,9 @@ panel of a canonical verb.
 | `--type`, `-t` | One of the CLI's build types | Builds the tree of that type; each type has a tree of its own. The default is the CLI's, usually `debug` |
 | `--sanitize` | `KINDS`, comma-separated: `address`, `undefined`, `thread` | Builds with the sanitizers `sushi_sanitizers` adds, in a tree of their own. The order does not matter, and `address` with `thread` is refused |
 | `--define`, `-D` | `VAR=VALUE`, repeatable | Passes a CMake cache variable to configure. The tree keeps it; `VAR=` clears it |
-| `--jobs`, `-j` | `N` of 1 or more | Compile jobs at once; one per hardware thread when absent, or `CMAKE_BUILD_PARALLEL_LEVEL` |
+| `--jobs`, `-j` | `N` of 1 or more | Compile jobs at once; when absent, the `build_jobs` key of `[tool]` in the config, else the hardware threads less four, at least one (`CMAKE_BUILD_PARALLEL_LEVEL` sets the threads counted) |
 | `--no-test` | | Builds no test programs |
-| `--report`, `-r` | | Passed to the CLI's build service as `report` |
+| `--report`, `-r` | | Prints the edges the build compiled by kind, with their time and memory; passed to the CLI's build service as `report` |
 
 ## run
 

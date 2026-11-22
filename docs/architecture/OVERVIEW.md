@@ -142,7 +142,9 @@ a real one is.
 
 ### `build_admission`
 
-A CLI passes `launcher_defines` to its configure and compiles at `hardware_threads`. Every compile
+A CLI passes `launcher_defines` to its configure and compiles at the count `resolve_jobs` gives. `default_jobs`
+is `hardware_threads` less four, at least one; `hardware_threads` is the raw count, or
+`CMAKE_BUILD_PARALLEL_LEVEL` when it is set. `resolve_jobs` takes `-j`, else the `build_jobs` key, else `default_jobs`. Every compile
 and link of the tree then runs as `python -I build_gate.py <state> [--cache <ccache>] -- <command>`.
 The state folder, `build/build_gate`, sits beside the trees and every tree of a checkout shares
 it, so two builds at once share one memory budget and a unit measured in one build type is known
@@ -312,6 +314,8 @@ helpers.
 The module knows nothing about SYCL, toolchains or any module's compute schema. A CLI that
 provisions a SYCL toolchain subclasses `ToolConfig` and adds those fields in its own
 repository.
+
+`build_jobs`, a whole number, is the job count of a build and a test run; 0 or absent means `default_jobs`.
 
 Three of the fields exist because of where Windows installs the tools:
 

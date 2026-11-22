@@ -53,7 +53,7 @@ class _Module:
                            **extras)
 
     def run(self, tests, selection, **options):
-        options.setdefault("cpu_count", lambda: 8)
+        options.setdefault("default_count", lambda: 8)
         options.setdefault("free_memory", lambda: 16384)
         return run_tests(tests, selection, files=self.files, **options)
 
@@ -109,16 +109,16 @@ def test_a_run_hands_the_junit_file_and_its_scope_to_the_reader():
     assert str(module.ctest_calls[0]["output_junit"]) in argv and "partial" in argv
 
 
-def test_a_run_given_no_job_count_takes_one_per_core_and_prints_it():
+def test_a_run_given_no_job_count_takes_the_default_count_and_prints_it():
     module = _Module()
     module.run(module.tests(), select_labels(None))
     assert module.ctest_calls[0]["jobs"] == 8
-    assert any(text.startswith("Jobs: 8 (cores 8") for text in module.console.texts("info"))
+    assert any(text.startswith("Jobs: 8 (default 8") for text in module.console.texts("info"))
 
 
-def test_a_run_given_little_memory_takes_fewer_jobs_than_cores():
+def test_a_run_given_little_memory_takes_fewer_jobs_than_the_default():
     module = _Module()
-    module.run(module.tests(), select_labels(None), cpu_count=lambda: 32, free_memory=lambda: 5632)
+    module.run(module.tests(), select_labels(None), default_count=lambda: 32, free_memory=lambda: 5632)
     assert module.ctest_calls[0]["jobs"] == 4
 
 

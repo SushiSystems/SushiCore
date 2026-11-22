@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from sushicore.config_base import ToolConfig, load_tool_config, write_toml_document, write_tool_section
+from sushicore.environment_memory import MemoryEnvironment
 from sushicore.layered_toml import read_toml
 
 
@@ -67,3 +68,14 @@ def test_load_tool_config_keeps_only_the_declared_fields_and_coerces_the_bool_ke
     cfg = load_tool_config(ToolConfig, [target], "windows", {})
     assert (cfg.generator, cfg.use_vcpkg, cfg.platform) == ("Make", True, "windows")
     assert not hasattr(cfg, "undeclared")
+
+
+def test_build_jobs_is_zero_when_no_file_names_it_and_a_whole_number_when_one_does(tmp_path):
+    """Check the shared key: 0 or absent means the default, a layer or a variable sets it."""
+    target = tmp_path / "config.toml"
+    target.write_text('[tool]\nbuild_jobs = 6\n', encoding="utf-8")
+    absent = load_tool_config(ToolConfig, [tmp_path / "none.toml"], "linux", {})
+    from_file = load_tool_config(ToolConfig, [target], "linux", {})
+    from_env = load_tool_config(ToolConfig, [target], "linux", {"build_jobs": "X_JOBS"},
+                                environment=MemoryEnvironment({"X_JOBS": "3"}))
+    assert (absent.build_jobs, from_file.build_jobs, from_env.build_jobs) == (0, 6, 3)

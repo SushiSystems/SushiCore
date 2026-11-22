@@ -27,19 +27,19 @@ class JobChoice:
 
     Attributes:
         jobs: How many tests run at once, at least one.
-        cores: The cores the machine has.
+        ceiling: The default job count, which the free memory may lower.
         free_mb: The memory free when the choice was made, in megabytes.
         share_mb: The memory each running test was counted to hold, in megabytes.
     """
 
     jobs: int
-    cores: int
+    ceiling: int
     free_mb: int
     share_mb: int = K_TEST_SHARE_MB
 
     def line(self) -> str:
         """Return the line the run prints to name the count and what bounded it."""
-        return (f"Jobs: {self.jobs} (cores {self.cores}, free memory {self.free_mb} MB "
+        return (f"Jobs: {self.jobs} (default {self.ceiling}, free memory {self.free_mb} MB "
                 f"less {K_RESERVE_MB} MB reserved, {self.share_mb} MB per test)")
 
 
@@ -54,14 +54,14 @@ def share_of(sizes: Iterable[TestLabel]) -> int:
     return K_SMALL_SHARE_MB if chosen and all(size is TestLabel.SMALL for size in chosen) else K_TEST_SHARE_MB
 
 
-def choose_jobs(cores: int | None, free_mb: int, share_mb: int = K_TEST_SHARE_MB) -> JobChoice:
-    """Return one job per core, lowered until the jobs' shares fit the free memory.
+def choose_jobs(ceiling: int, free_mb: int, share_mb: int = K_TEST_SHARE_MB) -> JobChoice:
+    """Return the default job count, lowered until the jobs' shares fit the free memory.
 
     Args:
-        cores: The core count, or ``None`` when the machine cannot tell, which counts as one.
+        ceiling: The default job count, from ``default_jobs``.
         free_mb: The physical memory free now, in megabytes.
         share_mb: The memory one running test is counted to hold, from :func:`share_of`.
     """
-    count = max(1, cores or 1)
+    count = max(1, ceiling)
     fitting = max(1, (free_mb - K_RESERVE_MB) // share_mb)
-    return JobChoice(jobs=min(count, fitting), cores=count, free_mb=free_mb, share_mb=share_mb)
+    return JobChoice(jobs=min(count, fitting), ceiling=count, free_mb=free_mb, share_mb=share_mb)

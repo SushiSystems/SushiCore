@@ -54,6 +54,9 @@ class ToolConfig:
     # Run defaults. Subclasses override the default for their primary binary.
     target_bin: str = ""
 
+    #: The job count of a build and a test run; 0 means the default of ``default_jobs``.
+    build_jobs: int = 0
+
     # Derived at load time.
     platform: str = ""
 
@@ -72,7 +75,8 @@ C = TypeVar("C", bound=ToolConfig)
 
 def load_tool_config(cls: Type[C], sources: Iterable[Path], plat: str,
                      env_map: dict[str, str],
-                     bool_keys: Iterable[str] = ("use_vcpkg",), *,
+                     bool_keys: Iterable[str] = ("use_vcpkg",),
+                     int_keys: Iterable[str] = ("build_jobs",), *,
                      environment: Environment | None = None, files: Files | None = None) -> C:
     """Load *cls* from layered TOML sources, keeping only fields it declares.
 
@@ -82,8 +86,9 @@ def load_tool_config(cls: Type[C], sources: Iterable[Path], plat: str,
         plat: Platform key selecting the ``[tool.<platform>]`` override.
         env_map: ``field -> ENV_VAR``; a set env var overrides that field.
         bool_keys: Fields to coerce from string to bool.
+        int_keys: Fields to coerce from string to a whole number.
     """
-    values = load_layered(sources, plat, env_map, bool_keys=bool_keys,
+    values = load_layered(sources, plat, env_map, bool_keys=bool_keys, int_keys=int_keys,
                             environment=environment, files=files)
     known = {f.name for f in fields(cls)}
     cfg = cls(**{k: v for k, v in values.items() if k in known})

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-11-22 — commands: Took the default job count of build and test from the hardware threads less four, and resolved it as the flag, then the config key, then that default (RW-160, `job_resolution.py`).
+- 2026-11-22 — commands: Added the `build_jobs` config key, which `register_build_command` and `ModuleTests` read through `configured_jobs` (RW-160, `config_base.py`).
+- 2026-11-22 — commands: Gave `report_option` a help argument, so build says what its report holds and check keeps its own line (RW-160, `options.py`).
 - 2026-11-22 — commands: Added `--report` to the shared `build` command, as every CLI declares it (RW-159, `build_command.py`).
 - 2026-11-22 — commands: Added `--type` to the shared `run` command, which now takes the build types of the CLI (RW-159, `run_command.py`).
 - 2026-11-22 — commands: Added the shared `build` and `run` commands, which a CLI registers with a service of its own (RW-158, `build_command.py`).

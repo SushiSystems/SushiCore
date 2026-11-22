@@ -72,3 +72,17 @@ def test_clearing_time_trace_requests_removes_the_file_and_tolerates_none(tmp_pa
     build_admission.clear_time_traces(build_dir)
     build_admission.clear_time_traces(build_dir)
     assert not path.exists()
+
+
+@pytest.mark.small
+@pytest.mark.parametrize(("threads", "expected"), [(32, 28), (8, 4), (5, 1), (4, 1), (1, 1)])
+def test_the_default_job_count_is_the_threads_less_four_and_at_least_one(monkeypatch, threads, expected):
+    monkeypatch.delenv("CMAKE_BUILD_PARALLEL_LEVEL", raising=False)
+    monkeypatch.setattr(build_admission.os, "cpu_count", lambda: threads)
+    assert build_admission.default_jobs() == expected
+
+
+@pytest.mark.small
+def test_the_default_job_count_counts_the_threads_the_environment_states(monkeypatch):
+    monkeypatch.setenv("CMAKE_BUILD_PARALLEL_LEVEL", "10")
+    assert (build_admission.hardware_threads(), build_admission.default_jobs()) == (10, 6)

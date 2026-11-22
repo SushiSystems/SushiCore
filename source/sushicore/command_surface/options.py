@@ -55,8 +55,8 @@ def jobs_option() -> CommandParameter:
         annotation=Optional[int],
         default=typer.Option(
             None, "--jobs", "-j", min=1, metavar="N",
-            help="Compile jobs run at once. Default: one per hardware thread, or "
-                 "CMAKE_BUILD_PARALLEL_LEVEL when it is set."),
+            help="Compile jobs run at once. Default: the build_jobs config key, else the hardware "
+                 "threads less four, at least one."),
     )
 
 
@@ -95,15 +95,22 @@ def no_build_option() -> CommandParameter:
     )
 
 
-def report_option() -> CommandParameter:
-    """Returns the ``--report``/``-r`` parameter of ``check``, named ``report``."""
+K_CHECK_REPORT_HELP = "Print the finding count of each rule without failing."
+
+
+def report_option(help: str = K_CHECK_REPORT_HELP) -> CommandParameter:
+    """Returns the ``--report``/``-r`` parameter, named ``report``.
+
+    Args:
+        help: The help line of the flag; the default is the one of ``check``.
+    """
     import typer
 
     return CommandParameter(
         name="report",
         annotation=bool,
         default=typer.Option(
-            False, "--report", "-r", help="Print the finding count of each rule without failing."),
+            False, "--report", "-r", help=help),
     )
 
 

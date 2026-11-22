@@ -68,3 +68,21 @@ def test_walk_up_returns_the_nearest_ancestor_holding_the_marker(tmp_path):
 def test_walk_up_is_none_when_no_ancestor_holds_the_marker(tmp_path):
     """Check that a marker nobody holds gives None."""
     assert walk_up(tmp_path, has_marker(".no-such-marker-xyz")) is None
+
+
+def test_an_int_key_is_read_from_a_file_and_from_the_environment_as_a_whole_number(tmp_path):
+    """A TOML integer stays, and the variable's text becomes one."""
+    file = tmp_path / "a.toml"
+    file.write_text("[tool]\nbuild_jobs = 6\nother = 2\n", encoding="utf-8")
+    kept = load_layered([file], "linux", {}, int_keys=["build_jobs", "other"])
+    from_env = load_layered([file], "linux", {"build_jobs": "JOBS"}, int_keys=["build_jobs"],
+                            environment=MemoryEnvironment({"JOBS": " 12 "}))
+    assert (kept["build_jobs"], from_env["build_jobs"]) == (6, 12)
+
+
+@pytest.mark.parametrize("text", ["many", "-3", "2.5", ""])
+def test_an_int_key_that_is_not_a_whole_number_is_refused_by_name(text):
+    """Check that the error names the key, so the user knows what to fix."""
+    with pytest.raises(ConfigError, match="build_jobs"):
+        load_layered([], "linux", {"build_jobs": "JOBS"}, int_keys=["build_jobs"],
+                     environment=MemoryEnvironment({"JOBS": text}))

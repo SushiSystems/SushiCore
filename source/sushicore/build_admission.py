@@ -24,6 +24,9 @@ K_STATE_FOLDER = "build_gate"
 K_STOP_FILE = "stop"
 
 
+#: The hardware threads a default job count leaves to the rest of the machine.
+K_RESERVED_THREADS = 4
+
 #: The file in the state folder that lists the units whose compiles are time-traced.
 K_TIME_TRACE_FILE = "time_trace.txt"
 
@@ -103,3 +106,8 @@ def hardware_threads() -> int:
     """Returns the job count: CMAKE_BUILD_PARALLEL_LEVEL when it is set, else the threads."""
     stated = os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL", "")
     return int(stated) if stated.isdigit() and int(stated) > 0 else (os.cpu_count() or 1)
+
+
+def default_jobs() -> int:
+    """Returns the job count of a build or a test run given none: the threads less four, at least one."""
+    return max(hardware_threads() - K_RESERVED_THREADS, 1)

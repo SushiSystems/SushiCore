@@ -32,6 +32,12 @@ def test_type_option_names_every_type_and_the_default_in_its_help():
     assert help.startswith("Tree to run from: debug | relwithdebinfo.") and "Default: debug." in help
 
 
+def test_report_option_takes_the_help_of_the_command_that_declares_it():
+    default = report_option().default.help
+    given = report_option("Print the edges of the build.").default.help
+    assert ("finding count" in default, given) == (True, "Print the edges of the build.")
+
+
 def test_target_argument_is_an_optional_argument():
     parameter = target_argument()
     assert isinstance(parameter.default, typer.models.ArgumentInfo) and parameter.default.default is None
