@@ -28,7 +28,6 @@
 | RW-133 | P2 | blocked | Remove backlog import after its deprecation release, once the siblings take the tools | backlog import, BacklogImporter, ImportResult and the retired-files check are gone, and the shared tests of the siblings no longer pin them | external: the siblings take the tools of the release that deprecates backlog import | `docs/design/BACKLOG/README.md` | 2026-11-21 |
 | RW-144 | P3 | open | Move RecordingApiBuild and FixedCommit out of the shipped package into the tests | no test double sits under source/sushicore |  | `source/sushicore/docs_bundle/api_reference.py` | 2026-11-21 |
 | RW-145 | P3 | open | Ask the Renderer whether it is machine mode, and read the environment through Environment | Console tests no concrete renderer, and stack_config and build_admission read no os.environ |  | `source/sushicore/console.py` | 2026-11-21 |
-| RW-163 | P1 | open | Run the CMake modules in tests that configure small fixture projects | medium pytest tests configure fixture projects through SushiBuild.cmake and assert on each module's outcome |  | `source/sushicore/cmake/README.md` | 2026-11-22 |
 
 ## Known issues
 

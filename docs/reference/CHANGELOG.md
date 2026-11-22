@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-11-22 — cmake: Ran the CMake modules in medium tests that configure small fixture projects under `tests/test_cmake_modules/fixtures/` (RW-163).
+- 2026-11-22 — cmake: Linked each module archive of a `sushi_tier_archives` target through the link feature `SUSHI_WHOLE_ARCHIVE` on Windows, a plain item a SYCL driver sees, loaded whole (RW-163, `SushiTierLibraries.cmake`).
 - 2026-11-22 — cmake: Added `sushi_tier_archives`, which marks a target to link the tier modules it reaches as whole archives and no tier library (RW-162, `SushiTierLibraries.cmake`).
 - 2026-11-22 — commands: Keep the test job ceiling lowered by free memory while -j stays exact (RW-161).
 - 2026-11-22 — commands: Declare --report on build and --type on run in the shared command surface (RW-159).

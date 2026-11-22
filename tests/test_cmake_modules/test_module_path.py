@@ -1,4 +1,4 @@
-# test_cmake_modules.py
+# test_module_path.py
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.

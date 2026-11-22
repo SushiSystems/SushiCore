@@ -49,6 +49,21 @@ function(sushi_tier_libraries)
         endif()
     endforeach()
 
+    # The link feature _sushi_tier_archive_item() names. A cache entry, so every directory's
+    # targets see it at generation.
+    # A feature is one element per library; LINKER: is read only at an element's start, so the
+    # driver's own pass-through flag is named. The MSVC front end hands its link line to the
+    # linker as it is.
+    foreach(lang IN ITEMS C CXX)
+        if(CMAKE_${lang}_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+            set(whole "<LIBRARY> /WHOLEARCHIVE:<LIBRARY>")
+        else()
+            set(whole "<LIBRARY> -Xlinker /WHOLEARCHIVE:<LIBRARY>")
+        endif()
+        set(CMAKE_${lang}_LINK_LIBRARY_USING_SUSHI_WHOLE_ARCHIVE "${whole}" CACHE INTERNAL "")
+        set(CMAKE_${lang}_LINK_LIBRARY_USING_SUSHI_WHOLE_ARCHIVE_SUPPORTED TRUE CACHE INTERNAL "")
+    endforeach()
+
     set(export_root "${CMAKE_CURRENT_BINARY_DIR}/${ARG_PREFIX}_tier_export")
     set_property(GLOBAL PROPERTY SUSHI_TIER_PREFIX "${ARG_PREFIX}")
     set_property(GLOBAL PROPERTY SUSHI_TIER_MACRO_PREFIX "${ARG_MACRO_PREFIX}")
@@ -182,19 +197,15 @@ function(sushi_tier_link target scope)
             endif()
             get_property(item_tier TARGET ${named} PROPERTY SUSHI_TIER)
         endif()
-        # The objects of a module archive were compiled for its tier library, so a reference to
-        # another tier's symbol is an import. A linker binds an import to a symbol defined in the
-        # program only once that symbol's object is loaded, and an import alone loads none, so an
-        # archive consumer links each module archive whole.
-        set(archive_of_${item} "$<LINK_LIBRARY:WHOLE_ARCHIVE,${item}>")
         if("${item_tier}" STREQUAL "")
             list(APPEND resolved "${item}")
             if(NOT "${own_tier}" STREQUAL "" AND NOT scope STREQUAL "PRIVATE")
                 list(APPEND handed_on "$<LINK_ONLY:${item}>")
             endif()
         elseif(item_tier STREQUAL own_tier)
+            _sushi_tier_archive_item(${named} archive)
             list(APPEND resolved "$<${libraries}:$<COMPILE_ONLY:${item}>>"
-                "$<${archives}:${archive_of_${item}}>")
+                "$<${archives}:${archive}>")
         else()
             list(FIND tiers "${item_tier}" item_index)
             if(NOT "${own_tier}" STREQUAL "" AND item_index GREATER own_index)
@@ -202,8 +213,9 @@ function(sushi_tier_link target scope)
                     "sushi_tier_link(${target}): the ${own_tier} module ${target} links ${item}, a "
                     "module of the higher tier ${item_tier}; a tier links only the tiers below it.")
             endif()
+            _sushi_tier_archive_item(${named} archive)
             list(APPEND resolved "$<${libraries}:${prefix}_${item_tier}_tier>"
-                "$<${archives}:${archive_of_${item}}>")
+                "$<${archives}:${archive}>")
         endif()
     endforeach()
 
@@ -215,9 +227,27 @@ function(sushi_tier_link target scope)
     endif()
 endfunction()
 
+# _sushi_tier_archive_item(<module> <out>)
+#   Sets <out> to the link item that a target linking the archives takes for <module>. On Windows a
+#   STATIC module's archive loads whole: its objects were compiled for its tier library, so a
+#   reference to another tier's symbol is an import, and a linker binds an import to a symbol of
+#   the program only once that symbol's object is loaded, which an import alone never does. The
+#   SUSHI_WHOLE_ARCHIVE feature names the archive on the link line as well as in the linker's
+#   whole-archive option, so a SYCL driver still sees it and links its device code, and it stays
+#   in the library list that a long link line hands to a response file. Elsewhere a tier library
+#   hides no symbol behind an import, and the archive links as it is.
+function(_sushi_tier_archive_item module out)
+    get_target_property(type ${module} TYPE)
+    if(WIN32 AND type STREQUAL "STATIC_LIBRARY")
+        set(${out} "$<LINK_LIBRARY:SUSHI_WHOLE_ARCHIVE,${module}>" PARENT_SCOPE)
+    else()
+        set(${out} "${module}" PARENT_SCOPE)
+    endif()
+endfunction()
+
 # sushi_tier_archives(<target>...)
-#   Marks each target to link the archives of the tier modules it reaches, each whole, and no tier
-#   library. A program inside the tree that reaches modules the tier libraries do not export, such
+#   Marks each target to link the archives of the tier modules it reaches, each whole on Windows
+#   (see _sushi_tier_archive_item), and no tier library. A program inside the tree that reaches modules the tier libraries do not export, such
 #   as a test or a probe, links this way; its code then exists once in its process, since no tier
 #   library is loaded beside it. A program the tree ships links the tier libraries.
 function(sushi_tier_archives)
