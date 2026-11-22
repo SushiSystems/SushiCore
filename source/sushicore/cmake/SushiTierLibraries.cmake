@@ -151,6 +151,10 @@ endfunction()
 #   tier becomes that tier's library. A module that links a module of a higher tier is refused,
 #   since the tier libraries link downwards. A module that links any other item PUBLIC or
 #   INTERFACE hands it to the targets of its tier library as well, for their link.
+#
+#   Both resolutions are made for the target that finally links: one that sushi_tier_archives()
+#   marked takes every tier module as its own archive instead, down the whole chain, and links no
+#   tier library.
 function(sushi_tier_link target scope)
     _sushi_tier_setting(SUSHI_TIER_PREFIX prefix)
     _sushi_tier_setting(SUSHI_TIER_ORDER tiers)
@@ -164,6 +168,8 @@ function(sushi_tier_link target scope)
     get_property(own_tier TARGET ${target} PROPERTY SUSHI_TIER)
     list(FIND tiers "${own_tier}" own_index)
 
+    set(archives "$<BOOL:$<TARGET_PROPERTY:SUSHI_TIER_ARCHIVES>>")
+    set(libraries "$<NOT:${archives}>")
     set(resolved "")
     set(handed_on "")
     foreach(item IN LISTS ARGN)
@@ -176,13 +182,19 @@ function(sushi_tier_link target scope)
             endif()
             get_property(item_tier TARGET ${named} PROPERTY SUSHI_TIER)
         endif()
+        # The objects of a module archive were compiled for its tier library, so a reference to
+        # another tier's symbol is an import. A linker binds an import to a symbol defined in the
+        # program only once that symbol's object is loaded, and an import alone loads none, so an
+        # archive consumer links each module archive whole.
+        set(archive_of_${item} "$<LINK_LIBRARY:WHOLE_ARCHIVE,${item}>")
         if("${item_tier}" STREQUAL "")
             list(APPEND resolved "${item}")
             if(NOT "${own_tier}" STREQUAL "" AND NOT scope STREQUAL "PRIVATE")
                 list(APPEND handed_on "$<LINK_ONLY:${item}>")
             endif()
         elseif(item_tier STREQUAL own_tier)
-            list(APPEND resolved "$<COMPILE_ONLY:${item}>")
+            list(APPEND resolved "$<${libraries}:$<COMPILE_ONLY:${item}>>"
+                "$<${archives}:${archive_of_${item}}>")
         else()
             list(FIND tiers "${item_tier}" item_index)
             if(NOT "${own_tier}" STREQUAL "" AND item_index GREATER own_index)
@@ -190,7 +202,8 @@ function(sushi_tier_link target scope)
                     "sushi_tier_link(${target}): the ${own_tier} module ${target} links ${item}, a "
                     "module of the higher tier ${item_tier}; a tier links only the tiers below it.")
             endif()
-            list(APPEND resolved ${prefix}_${item_tier}_tier)
+            list(APPEND resolved "$<${libraries}:${prefix}_${item_tier}_tier>"
+                "$<${archives}:${archive_of_${item}}>")
         endif()
     endforeach()
 
@@ -200,6 +213,20 @@ function(sushi_tier_link target scope)
     if(handed_on)
         target_link_libraries(${prefix}_${own_tier}_tier INTERFACE ${handed_on})
     endif()
+endfunction()
+
+# sushi_tier_archives(<target>...)
+#   Marks each target to link the archives of the tier modules it reaches, each whole, and no tier
+#   library. A program inside the tree that reaches modules the tier libraries do not export, such
+#   as a test or a probe, links this way; its code then exists once in its process, since no tier
+#   library is loaded beside it. A program the tree ships links the tier libraries.
+function(sushi_tier_archives)
+    foreach(target IN LISTS ARGN)
+        if(NOT TARGET ${target})
+            message(FATAL_ERROR "sushi_tier_archives(${target}): no target of that name exists.")
+        endif()
+        set_property(TARGET ${target} PROPERTY SUSHI_TIER_ARCHIVES ON)
+    endforeach()
 endfunction()
 
 # _sushi_tier_setting(<property> <out>)

@@ -142,7 +142,7 @@ a real one is.
 
 ### `build_admission`
 
-A CLI passes `launcher_defines` to its configure and compiles at the count `resolve_jobs` gives. `default_jobs`
+A CLI passes `launcher_defines` to its configure and compiles at the count `resolve_jobs` gives; the test command hands that count over exactly only for an explicit `-j`, and otherwise as a ceiling that `choose_jobs` lowers to fit free memory. `default_jobs`
 is `hardware_threads` less four, at least one; `hardware_threads` is the raw count, or
 `CMAKE_BUILD_PARALLEL_LEVEL` when it is set. `resolve_jobs` takes `-j`, else the `build_jobs` key, else `default_jobs`. Every compile
 and link of the tree then runs as `python -I build_gate.py <state> [--cache <ccache>] -- <command>`.

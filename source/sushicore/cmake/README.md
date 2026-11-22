@@ -26,6 +26,7 @@ sushi_sanitizers(sushiexample)
 | `sushi_tier_libraries(PREFIX <prefix> MACRO_PREFIX <macro> TIERS <tier>... [HEADER_FOLDER <folder>])` | `SushiTierLibraries.cmake` | Declare the tiers, lowest first, and create the shared library `<prefix>_<tier>_tier` and the export header of each |
 | `sushi_tier_module(<target> <tier>)` | `SushiTierLibraries.cmake` | Make a STATIC or INTERFACE module part of its tier's library |
 | `sushi_tier_link(<target> <PUBLIC\|PRIVATE\|INTERFACE> <item>...)` | `SushiTierLibraries.cmake` | Link a target with every tier module among the items resolved to its headers or its tier's library |
+| `sushi_tier_archives(<target>...)` | `SushiTierLibraries.cmake` | Mark a target, such as a test or a probe, to link the archives of the tier modules it reaches, each whole, and no tier library |
 | `sushi_tier_export_header(<name> <building define>)` | `SushiTierLibraries.cmake` | Write the export header of a shared library outside the tiers |
 | `sushi_sanitizers(<prefix> [OPTION <name>])` | `SushiSanitizers.cmake` | Create the INTERFACE target `<prefix>_sanitizers` from the comma-separated cache entry `<PREFIX>_SANITIZE` |
 | `sushi_sycl_target(<target> [DEVICE_SOURCES <source>...] [HOST_ONLY])`, `sushi_sycl_device_options(<out_compile> <out_link>)` | `SushiSyclTarget.cmake` | Apply the SYCL policy to a target: device compilation for the DEVICE_SOURCES only on intel-llvm, the whole target elsewhere |
@@ -66,6 +67,16 @@ No pass at the end of the configure rewrites the links, so a module comes and go
 calls and touches no other target. The order it asks: a module is declared with
 `sushi_tier_module` before any target links it. A link to a module not yet declared is linked as
 written, and its code reaches the linking target a second time.
+
+Both resolutions are made for the target that finally links. A target that `sushi_tier_archives`
+marked (the property `SUSHI_TIER_ARCHIVES`) links every tier module it reaches as that module's
+own archive, whole, through `$<LINK_LIBRARY:WHOLE_ARCHIVE,...>`, and links no tier library. A
+program inside the tree, such as a test or a probe, reaches internal modules the tier libraries do
+not export, so it links this way. The objects of a module archive were compiled for their tier
+library, so a reference to another tier's symbol is an import, and a linker binds an import to a
+definition in the program only once that definition's object is loaded; an import alone loads
+none, hence the whole archives. A program the tree ships, and any unmarked target, links the tier
+libraries as above.
 
 The tier library takes no SYCL policy of its own. A tier whose modules compile device code is
 given it with `sushi_sycl_target(<prefix>_<tier>_tier)`, after which its link pulls the device

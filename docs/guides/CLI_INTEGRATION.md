@@ -198,6 +198,8 @@ Source: not compiled
   `ModuleTests.configured_jobs`) hand the service `resolve_jobs(--jobs, build_jobs)`: the flag, else the
   key when it is above 0, else `default_jobs()`, the hardware threads less four and at least one. A
   CLI that declares `jobs_option` itself calls `sushicore.job_resolution.resolve_jobs` the same way.
+  The build command compiles at that count. The test command hands it over exactly only for an
+  explicit `-j`; otherwise it is a ceiling that `choose_jobs` lowers to fit free memory.
 
 A CLI that keeps its own `build`, `run`, `bench` or `check`, because it has not moved yet or the
 command takes a shape the shared one has not, declares the shared options from
