@@ -1,28 +1,5 @@
 # Changelog
 
-## v0.16.0 — 2026-11-22
+## v0.16.1 — 2026-11-22
 
-- 2026-11-22 — testing: Added `time_limits` to `run_tests`, so a module that builds its sanitizer tree itself runs it without the time gate (`sushicore/testing/session.py`).
-- 2026-11-22 — testing: Said when the rerun of a test over its limit finds no executable for its program, apart from a program that wrote no result (`sushicore/testing/slow_rerun.py`).
-- 2026-11-22 — hooks: Fixed the pre-commit hook leaving a copy of the repository beside it; it checks in place and refuses a staged file that differs on disk (`tools/hooks/pre_commit.py`).
-- 2026-11-22 — cmake: Ran the CMake modules in medium tests that configure small fixture projects under `tests/test_cmake_modules/fixtures/` (RW-163).
-- 2026-11-22 — cmake: Linked each module archive of a `sushi_tier_archives` target through the link feature `SUSHI_WHOLE_ARCHIVE` on Windows, a plain item a SYCL driver sees, loaded whole (RW-163, `SushiTierLibraries.cmake`).
-- 2026-11-22 — cmake: Added `sushi_tier_archives`, which marks a target to link the tier modules it reaches as whole archives and no tier library (RW-162, `SushiTierLibraries.cmake`).
-- 2026-11-22 — commands: Keep the test job ceiling lowered by free memory while -j stays exact (RW-161).
-- 2026-11-22 — commands: Declare --report on build and --type on run in the shared command surface (RW-159).
-- 2026-11-22 — commands: Took the default job count of build and test from the hardware threads less four, and resolved it as the flag, then the config key, then that default (RW-160, `job_resolution.py`).
-- 2026-11-22 — commands: Added the `build_jobs` config key, which `register_build_command` and `ModuleTests` read through `configured_jobs` (RW-160, `config_base.py`).
-- 2026-11-22 — commands: Gave `report_option` a help argument, so build says what its report holds and check keeps its own line (RW-160, `options.py`).
-- 2026-11-22 — commands: Added `--report` to the shared `build` command, as every CLI declares it (RW-159, `build_command.py`).
-- 2026-11-22 — commands: Added `--type` to the shared `run` command, which now takes the build types of the CLI (RW-159, `run_command.py`).
-- 2026-11-22 — commands: Added the shared `build` and `run` commands, which a CLI registers with a service of its own (RW-158, `build_command.py`).
-- 2026-11-22 — commands: Added the shared `bench` and `check` commands, each calling a service the CLI supplies (RW-158, `check_command.py`).
-- 2026-11-22 — commands: Added the shared `--sanitize` option, which takes the kinds `sushi_sanitizers` builds as one set (RW-158, `sanitize_option.py`).
-- 2026-11-22 — commands: Added the help panels, the canonical verb list and `assert_registers_verbs`, which fails a CLI's test that lacks a verb (RW-158, `verbs.py`).
-- 2026-11-22 — provision: The deprecated names promised for removal in 0.16.0 are now promised for removal in 0.17.0, since RW-117, RW-118 and RW-119 stay open (RW-117, RW-118, RW-119, `windows_installer.py`).
-- 2026-11-22 — commands: Ship the shared CMake build policy and the CLI helpers every Sushi C++ repository copies (RW-157).
-- 2026-11-22 — commands: Added `sushicore.docker`, the `docker build` and `docker run` of a module's developer image that three module CLIs copied (RW-157, `docker_environment.py`).
-- 2026-11-22 — commands: Added `ExecutableIndex.select_interactive`, which asks through the console the index was made with `console=` (RW-157, `discovery.py`).
-- 2026-11-22 — provision: Added `RunDirs.for_module`, which keeps a tree's run-time folders in the `.<module>_package_dirs.json` every module CLI names (RW-157, `consumer_build.py`).
-- 2026-11-22 — commands: Shipped `SushiBuild.cmake`, the build policy and helpers every Sushi C++ repository copied, and put its folder on the module path of every configure (RW-157, `cmake_modules.py`).
-- 2026-11-22 — commands: Removed `lld_linker` and the `platform` argument of `CMakeDriver`, since the build policy of the CMake modules links with lld (RW-157, `cmake_driver.py`).
+- 2026-11-22 — tools: Fixed `rule_unsafe_name` of `check_test_odr.py` flagging rows of a table no instantiation passes, and `std::to_string` of an unsigned member of the parameter (`tools/testing/check_test_odr.py`).
