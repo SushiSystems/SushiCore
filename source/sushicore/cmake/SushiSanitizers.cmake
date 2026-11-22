@@ -36,7 +36,7 @@ function(sushi_sanitizers prefix)
 
     add_library(${prefix}_sanitizers INTERFACE)
     set(sanitizers "${${option}}")
-    if(sanitizers STREQUAL "")
+    if("${sanitizers}" STREQUAL "")
         return()
     endif()
     if(NOT sanitizers MATCHES "^[a-z_-]+(,[a-z_-]+)*$")

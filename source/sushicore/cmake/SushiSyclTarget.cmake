@@ -95,7 +95,7 @@ function(sushi_sycl_target target)
     endif()
 
     sushi_sycl_include_dir(include_dir)
-    if(include_dir STREQUAL "")
+    if("${include_dir}" STREQUAL "")
         message(FATAL_ERROR
             "sushi_sycl_target(${target}): no sycl/sycl.hpp beside ${CMAKE_CXX_COMPILER}, so a unit "
             "compiled for the host alone cannot find the SYCL headers.")
