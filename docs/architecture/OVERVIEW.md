@@ -59,6 +59,7 @@ files a CLI hands it; the package re-exports it.
 | `cmake_modules` | `K_CMAKE_MODULES`, the folder of the [CMake modules](../../source/sushicore/cmake/README.md) the package ships, and `with_cmake_modules`, which puts it on a configure's `CMAKE_MODULE_PATH` |
 | `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`, `configured_generator`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
+| [`docker`](../../source/sushicore/docker/README.md) | `DockerEnvironment`, the `docker build` and `docker run` of a module's developer image, named by a `DockerImage` |
 | `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --pick` offers; `select_interactive` asks through the console the index was made with |
 | `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
 | `run_options` | `pick_option`, `list_all_option` and `old_pick_option`: the `--pick`, `--all` and old `--sort` options of a `run` command, declared once |
