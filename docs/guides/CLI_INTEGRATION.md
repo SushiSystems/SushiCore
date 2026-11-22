@@ -63,6 +63,10 @@ Every Sushi CLI registers the same surfaces, each with one call.
 | `sushicore.provision.commands.register_provision_commands(app, module)` | `setup`, `doctor`, `link`, `unlink` |
 | `sushicore.provision.package_command.register_package_command(app, module)` | `package`, which installs a built tree to a prefix; every library CLI registers it |
 | `sushicore.testing.register_test_command(app, module)` | `test`, which runs the CTest tests by size label, writes a JUnit file and prints the budget line; every CLI with CTest tests registers it |
+| `sushicore.command_surface.register_build_command(app, service, *, program, build_types, ...)` | `build` with `--type`, `--sanitize`, `--define`, `--jobs` and `--no-test` |
+| `sushicore.command_surface.register_run_command(app, service, *, program, ...)` | `run` with `TARGET`, `--pick`, `--all`, `--no-build` and the arguments after `--` |
+| `sushicore.command_surface.register_bench_command(app, service, *, program, build_types, ...)` | `bench` with `--type` |
+| `sushicore.command_surface.register_check_command(app, service, *, program, ...)` | `check` with `--report` and `--rule` |
 | `sushicore.aliases.AliasTable(program, aliases, *, stream=None, environ=None)` | Old spellings that still run, hidden, and name their replacement; the notice goes to `stream`, the standard error stream when None |
 | `sushicore.entry.run(app, report)` | An entry point that turns a `SushiCoreError` into one line and exit code 1 |
 
@@ -139,15 +143,76 @@ stays a traceback.
 
 ## Building and running
 
-`build`, `test` and `run` stay in each CLI, and `clean` is `clean_command.register_clean_command`,
-which lists the trees a `--type` or `--sanitize` filter selects and removes them only with
-`--yes`; a CLI gives it its tree names and build types. SushiCore supplies what they call:
-`proc.Runner` to spawn a child, `cmake_driver.CMakeDriver` for the cmake and ctest command
-lines, `build_env` for the environment they run under and `discovery.ExecutableIndex` to list
-what a build produced. A `run` command declares `pick_option()` and `list_all_option()` from `run_options`, and
-`old_pick_option(table, old)` for a renamed flag, and starts its program through
-`run_program.run_program`, so every CLI offers the built examples, each described, and `--all`
-lists every program.
+[Command line interface](COMMAND_LINE_INTERFACE.md) is the surface these commands give. Each of
+`build`, `run`, `bench` and `check` is one call in `sushicore.command_surface`, and the CLI hands it
+a service: an object with one method, `build`, `run`, `bench` or `check`, that takes the command's
+request and returns the exit code. The command parses the flags, refuses a bad value with exit code
+`2` before the service runs, and builds the request:
+
+| Command | Service method | Request |
+| --- | --- | --- |
+| `build` | `BuildService.build` | `BuildRequest`: `build_type`, `sanitizers`, `defines`, `jobs`, `tests` |
+| `run` | `RunService.run` | `RunRequest`: `target`, `pick`, `list_all`, `build`, `arguments` |
+| `bench` | `BenchService.bench` | `BenchRequest`: `build_type` |
+| `check` | `CheckService.check` | `CheckRequest`: `report`, `rule` |
+
+Every request also carries `extra`, the values of the CLI's own options by name, and `obj`, the
+`ctx.obj` the CLI's root callback set, such as its workspace.
+
+```python
+from sushicore.command_surface import (BuildRequest, BuildTypes, CommandParameter,
+                                       register_build_command)
+
+
+class _Build:
+    def build(self, request: BuildRequest) -> int:
+        return project_svc.build(request.build_type, request.sanitizers, request.defines,
+                                 jobs=request.jobs, tests=request.tests,
+                                 report=request.extra["report"], workspace=request.obj)
+
+
+register_build_command(
+    app, _Build(), program="sd", build_types=BuildTypes(("debug", "release", "relwithdebinfo"), "debug"),
+    parameters=[CommandParameter("report", bool, typer.Option(False, "--report", help="..."))],
+    examples=["sd build --report  # Print the build's edges by kind"])
+```
+
+Source: not compiled
+
+- `build_types` is a `BuildTypes(names, default)`; `bench` takes its own, whose default is the type
+  a timing is taken on. `--type` arrives as the name, a `str`.
+- `--sanitize` arrives as `sanitizers`, each kind once in the order `address`, `undefined`,
+  `thread`, so `",".join(request.sanitizers)` is the `<PREFIX>_SANITIZE` value `sushi_sanitizers`
+  reads and two spellings of one set name one tree. `sanitizers=` narrows the kinds a CLI builds.
+- `parameters` adds options of the CLI's own after the shared ones. A `CommandParameter(name,
+  annotation, default)` is one function parameter as Typer reads it; a name the command already
+  declares is refused with `ParameterNameError`.
+- `register_run_command` takes `aliases=` and `old_pick=` for a renamed `--pick`: with the table,
+  the hidden flags `old_pick` names (`--sort` by default) also mean `--pick`, and the table holds
+  the row `<program> run <first flag>`.
+- `panel` defaults to the canonical panel of the verb. A CLI with commands of its own puts them in
+  one domain panel; `CommandPanels(domain).order()` is the order to register in.
+- `examples` adds lines to the help page after the shared ones.
+
+A CLI that keeps its own `build`, `run`, `bench` or `check`, because it has not moved yet or the
+command takes a shape the shared one has not, declares the shared options from
+`sushicore.command_surface` (`type_option`, `sanitize_option`, `define_option`, `jobs_option`,
+`no_test_option`, `target_argument`, `no_build_option`, `report_option`, `rule_option`), each a
+`CommandParameter` whose `annotation` and `default` it writes into its function. `parse_sanitizers`
+reads a `--sanitize` value the same way the shared command does.
+
+`clean` is `clean_command.register_clean_command`, which lists the trees a `--type` or `--sanitize`
+filter selects and removes them only with `--yes`; a CLI gives it its tree names and build types.
+SushiCore supplies what the services call: `proc.Runner` to spawn a child,
+`cmake_driver.CMakeDriver` for the cmake and ctest command lines, `build_env` for the environment
+they run under and `discovery.ExecutableIndex` to list what a build produced. A run service starts
+its program through `run_program.run_program`, so every CLI offers the built examples, each
+described, and `--all` lists every program. A CLI's own `run` command declares `pick_option()` and
+`list_all_option()` from `run_options`, and `old_pick_option(table, old)` for a renamed flag.
+
+A CLI's test asserts its surface with `assert_registers_verbs(app, excluded=[...])`, which fails
+naming each canonical verb the application lacks, `excluded` aside, and refuses to exclude a verb
+that is not canonical.
 
 ## Testing a CLI
 

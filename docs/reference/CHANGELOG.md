@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 2026-11-22 — commands: Added the shared `build` and `run` commands, which a CLI registers with a service of its own (RW-158, `build_command.py`).
+- 2026-11-22 — commands: Added the shared `bench` and `check` commands, each calling a service the CLI supplies (RW-158, `check_command.py`).
+- 2026-11-22 — commands: Added the shared `--sanitize` option, which takes the kinds `sushi_sanitizers` builds as one set (RW-158, `sanitize_option.py`).
+- 2026-11-22 — commands: Added the help panels, the canonical verb list and `assert_registers_verbs`, which fails a CLI's test that lacks a verb (RW-158, `verbs.py`).
 - 2026-11-22 — provision: The deprecated names promised for removal in 0.16.0 are now promised for removal in 0.17.0, since RW-117, RW-118 and RW-119 stay open (RW-117, RW-118, RW-119, `windows_installer.py`).
 - 2026-11-22 — commands: Ship the shared CMake build policy and the CLI helpers every Sushi C++ repository copies (RW-157).
 - 2026-11-22 — commands: Added `sushicore.docker`, the `docker build` and `docker run` of a module's developer image that three module CLIs copied (RW-157, `docker_environment.py`).

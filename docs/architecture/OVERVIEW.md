@@ -1,6 +1,6 @@
 # Architecture overview
 
-SushiCore is one Python package, `sushicore`, with eight sub-packages. Seven CLIs import it:
+SushiCore is one Python package, `sushicore`, with ten sub-packages. Seven CLIs import it:
 `hub`, `sr`, `se`, `sa`, `sb`, `sd` and `st`. It registers commands on their Typer applications
 and has no application of its own.
 
@@ -85,6 +85,7 @@ files a CLI hands it; the package re-exports it.
 | [`provision`](../../source/sushicore/provision/README.md) | The dependency root, the registry, the doctor and the commands `setup`, `doctor`, `link`, `unlink` |
 | [`docs_bundle`](../../source/sushicore/docs_bundle/README.md) | The `docs` command group and the documentation bundle `docs bundle` writes |
 | [`testing`](../../source/sushicore/testing/README.md) | `register_test_command`, the `test` command of every CLI with CTest tests, and the pieces it is built from |
+| `command_surface` | The canonical verbs and panels, `register_build_command`, `register_run_command`, `register_bench_command` and `register_check_command`, the service each calls, the shared `--sanitize` option and `assert_registers_verbs` |
 | [`backlog`](../../source/sushicore/backlog/README.md), [`design`](../../source/sushicore/design/README.md) | The `backlog` and `design` command groups, and the stores of `docs/backlog/` and `docs/design/` they read and write |
 | `command_groups` | The names of the groups a CLI adds beside its own commands, and the check that it exposes them |
 | [`shared_tools`](../../source/sushicore/shared_tools/README.md) | The `sync` and `check` commands that copy the shared `tools/` of a release tag into a repository |
@@ -101,8 +102,8 @@ files a CLI hands it; the package re-exports it.
 - A component in `ui` imports `Theme`, `brand`, `markup`, the component base and Rich, and nothing
   else. `tools/layering/check_package_layers.py` reports one that imports more.
 - `typer_help` is the only module that imports Typer when it is loaded. `typer_theme`,
-  `root_options`, `diag_commands`, `provision/commands.py` and `docs_bundle/commands.py` import it
-  inside the function that needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`
+  `root_options`, `diag_commands`, `provision/commands.py`, `docs_bundle/commands.py` and the
+  modules of `command_surface` import it inside the function that needs it, and `aliases`, `describe` and `entry` only for type checking, so `import sushicore`
   works without the `typer` extra.
 - Inside `provision`, lower layers do not import higher ones; the layer table is `K_LAYERED` in
   `tools/layering/check_package_layers.py`, which fails an import that breaks it.
@@ -430,6 +431,19 @@ of the trees, such as evaluation output that a clean of the build must never tak
 folders each name selects. A tree exists when the driver says so through `tree_exists`, which the
 in-memory driver answers from memory, and otherwise when the disk holds it.
 `build` does not delete a tree: removing one is `clean` and nothing else.
+
+### `command_surface`
+
+Eight CLIs declared `build`, `run`, `bench` and `check` each in its own words: `se`, `sr` and `st`
+took `--no-test` and the others did not, `--sanitize address-undefined` in `sa`, `sb` and `se` was
+`--sanitize address` in `sd`, `sl`, `sp` and `st`, and `run` sat under Project in four CLIs and
+Build in the other four. The verbs, their panels and their flags
+are declared once, and the CLI supplies only what differs: a service with one method that takes a
+frozen request and returns the exit code. A command builds its Typer function from a list of
+`CommandParameter`s, so a CLI adds its own options to a shared command without declaring the
+command again, and its service reads them from `extra`. `--sanitize` takes the kinds
+`sushi_sanitizers` builds and returns them in one order, so one set names one tree whatever order
+it was typed in. The canonical page is [Command line interface](../guides/COMMAND_LINE_INTERFACE.md).
 
 ### `module_config`
 

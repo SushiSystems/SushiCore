@@ -81,6 +81,19 @@ K_LAYERED = (
         forbidden=frozenset({"typer", "click"}),
     ),
     LayeredPackage(
+        name="sushicore.command_surface",
+        layers={
+            "errors": 0, "verbs": 0, "command_parameter": 0,
+            "build_service": 0, "run_service": 0, "bench_service": 0, "check_service": 0,
+            "panels": 1, "build_types": 1, "sanitize_option": 1, "command_function": 1,
+            "verb_assertions": 1, "options": 2,
+            "build_command": 3, "run_command": 3, "bench_command": 3, "check_command": 3,
+        },
+        strict=True,
+        nested=False,
+        forbidden=frozenset({"typer", "click"}),
+    ),
+    LayeredPackage(
         name="sushicore.provision",
         layers={
             "default_console": 0, "dependency_home": 0, "download_checking": 0, "verifier_slot": 0, "output_memory": 0, "config": 0, "home": 0, "manifests": 0, "integrity": 0, "closure": 1, "closure_memory": 1,

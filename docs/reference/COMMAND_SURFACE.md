@@ -1,9 +1,9 @@
 # Command surface
 
-**Describes:** `source/sushicore/provision/commands.py`, `source/sushicore/provision/package_command.py`, `source/sushicore/diag_commands.py`, `source/sushicore/root_options.py`, `source/sushicore/command_groups.py`, `source/sushicore/testing/commands.py`, `source/sushicore/testing/session.py`, `source/sushicore/clean_command.py`, `source/sushicore/run_options.py`
+**Describes:** `source/sushicore/provision/commands.py`, `source/sushicore/provision/package_command.py`, `source/sushicore/diag_commands.py`, `source/sushicore/root_options.py`, `source/sushicore/command_groups.py`, `source/sushicore/testing/commands.py`, `source/sushicore/testing/session.py`, `source/sushicore/clean_command.py`, `source/sushicore/run_options.py`, `source/sushicore/command_surface/build_command.py`, `source/sushicore/command_surface/run_command.py`, `source/sushicore/command_surface/bench_command.py`, `source/sushicore/command_surface/check_command.py`
 
 The commands below are the ones this package declares for a CLI. A module's own commands, such
-as `build`, are declared by the module and are not listed here. `--describe` prints the surface of a
+as `sa train`, are declared by the module and are not listed here. `--describe` prints the surface of a
 CLI, its own commands included and its hidden ones left out, as one JSON document.
 
 ## Exit codes
@@ -104,6 +104,14 @@ once.
 | --- | --- | --- |
 | `clean` | `--type` or `-t` (repeatable), `--sanitize` (repeatable), `--all`, the extra flag a CLI names, `--yes` or `-y` | Lists the build trees the selection holds and removes them only with `--yes`; without it nothing is removed and the exit code is `2`. `--all` selects the whole build folder and takes no `--type` or `--sanitize` |
 | `run` | `--pick`, `--all` | `--pick` offers the built examples to choose from, and `--all` with it also lists the test and benchmark programs. `--sort`, the old spelling of `--pick`, is hidden and names its replacement |
+
+## Building, running, benchmarks and checks
+
+`build`, `run`, `bench` and `check` are declared by `register_build_command`, `register_run_command`,
+`register_bench_command` and `register_check_command` in `command_surface`. Their flags, and the verbs
+and panels every CLI shares, are in [Command line interface](../guides/COMMAND_LINE_INTERFACE.md). A
+value the shared flags refuse, such as a build type the CLI does not build or `--sanitize
+address,thread`, exits `2` before the CLI's service runs; otherwise the exit code is the service's.
 
 ## Diagnostics
 
