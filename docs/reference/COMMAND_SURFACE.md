@@ -89,7 +89,8 @@ a warning instead. The reader first lists the tests over a limit, which run agai
 code 1, and a reader that cannot judge the run, such as one older than the CLI, with 2; when CTest failed, the code
 stays CTest's. A run the module does not report as current (a sanitizer run always is) ends its line with
 "(not rebuilt)" and never gates; the repository's budget exemption file, `budget_exemptions.toml` in its tests folder
-when present, is handed to the reader.
+when present, is handed to the reader. An entry there is `"Suite.Case" = "RW-12"`, or
+`{ id = "RW-12", platforms = ["linux"] }` to hold only on the platforms named (`linux`, `windows`, `macos`).
 
 CTest gets `resources.json` in the tree's `Testing` folder as its resource file: one `gpus` slot, the accelerator the
 machines that run the tests carry, so the shards that declare `RESOURCE_GROUPS gpus:1` run one at a time. A filtered run
