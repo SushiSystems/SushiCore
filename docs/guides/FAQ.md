@@ -65,8 +65,12 @@ Every Sushi CLI then registers the same surfaces, each with one call:
   `register_clean_command` gives `clean`.
 - `AliasTable` keeps old command spellings running, hidden, and names their replacement.
 
-`build` and `run` stay in each CLI; `run_program` and the `run` options hold what a `run` command
-shares. The `backlog` and `design` command groups come from SushiCore too.
+- `register_build_command`, `register_run_command`, `register_bench_command` and
+  `register_check_command` give `build`, `run`, `bench` and `check`, each calling a service the CLI
+  supplies.
+
+The `backlog` and `design` command groups come from SushiCore too. The verbs, panels and flags every
+CLI shares are in [Command line interface](COMMAND_LINE_INTERFACE.md).
 [CLI integration](CLI_INTEGRATION.md) has the code for each step.
 
 ## How does configuration work, and which source wins?
