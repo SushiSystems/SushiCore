@@ -42,7 +42,10 @@ class PreCommitTest(unittest.TestCase):
     K_TEST_SIZE = "medium"
 
     def setUp(self) -> None:
-        self.repo = Repo()
+        # The repository's own parent, so no other process writes beside it during a test.
+        parent = tempfile.TemporaryDirectory()
+        self.addCleanup(parent.cleanup)
+        self.repo = Repo(Path(parent.name))
         self.addCleanup(self.repo.close)
         self.log = self.repo.root.parent / f"{self.repo.root.name}_checked.log"
         self.addCleanup(lambda: self.log.unlink(missing_ok=True))
