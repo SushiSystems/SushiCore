@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from sushicore.console_memory import RecordingConsole
-from sushicore.discovery import ExecutableIndex
+from sushicore.discovery import ExecutableIndex, NoConsoleError
 from sushicore.example_catalog import ExampleCatalog
 
 
@@ -232,3 +232,18 @@ def test_sort_picks_nothing_and_says_so_when_the_input_has_ended(examples_tree):
 
     assert exe is None
     assert console.texts("error") == ["Nothing selected."]
+
+
+def test_select_interactive_asks_through_the_console_the_index_was_made_with(tmp_path):
+    _exe(tmp_path, "alpha")
+    _exe(tmp_path, "beta")
+    console = RecordingConsole(answer="2")
+
+    exe = ExecutableIndex(console=console).select_interactive(tmp_path)
+
+    assert exe == tmp_path / "beta.exe"
+
+
+def test_select_interactive_refuses_an_index_made_without_a_console():
+    with pytest.raises(NoConsoleError):
+        ExecutableIndex().select_interactive(Path("tree"))

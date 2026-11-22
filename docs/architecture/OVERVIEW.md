@@ -59,7 +59,7 @@ files a CLI hands it; the package re-exports it.
 | `cmake_modules` | `K_CMAKE_MODULES`, the folder of the [CMake modules](../../source/sushicore/cmake/README.md) the package ships, and `with_cmake_modules`, which puts it on a configure's `CMAKE_MODULE_PATH` |
 | `cmake_driver`, `cmake_driver_port`, `cmake_driver_memory`, `cmake_tool_config` | `CMakeToolConfig`, the tool paths and path expansion the driver reads from a config; `CMakeDriverPort`, what a CLI asks of a CMake driver: the cmake and ctest commands and what a build tree holds (`tree_exists`, `cached_value`, `configured_generator`); `CMakeDriver`, which runs them over real trees; `MemoryCMakeDriver`, which holds its trees in memory and records each call |
 | `toolchain_args` | The compiler and vcpkg prefix arguments of a configure |
-| `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --pick` offers |
+| `discovery` | `ExecutableIndex`, the built executables under a build tree, and the choice `run --pick` offers; `select_interactive` asks through the console the index was made with |
 | `example_catalog` | `ExampleCatalog`, the examples a repository registers under `applications/examples/`, each with the `@brief` of its source |
 | `run_options` | `pick_option`, `list_all_option` and `old_pick_option`: the `--pick`, `--all` and old `--sort` options of a `run` command, declared once |
 | `run_program` | `run_program`: resolves a program under a build tree through an `ExecutableIndex` and runs it from the project root |
@@ -376,7 +376,9 @@ Shared objects on Linux come as `*.so` and as versioned names such as `*.so.1`. 
 check misses the versioned ones, so the walk matches the substring `.so`.
 
 `ExecutableIndex` imports nothing from Rich: `select` prints through the `table` and `prompt` of
-the console it is given, and `find` and `match` run on every `run`.
+the console it is given, and `find` and `match` run on every `run`. An index made with
+`console=` answers `select_interactive(build_root)` through that console, so a CLI binds its
+console once instead of wrapping `select`.
 
 ### `example_catalog`
 

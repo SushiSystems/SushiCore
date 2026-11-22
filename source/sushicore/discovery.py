@@ -14,6 +14,7 @@ import platform
 from pathlib import Path
 from typing import Protocol, final
 
+from .errors import SushiCoreError
 from .example_catalog import Example, ExampleCatalog
 
 _DEFAULT_MAX_DEPTH = 4
@@ -64,6 +65,10 @@ def _is_executable(path: Path) -> bool:
     return os.access(path, os.X_OK)
 
 
+class NoConsoleError(SushiCoreError):
+    """Reports a :meth:`ExecutableIndex.select_interactive` on an index made without a console."""
+
+
 @final
 class ExecutableIndex:
     """Finds runnable programs under a build tree, skipping what the CLI names.
@@ -72,14 +77,17 @@ class ExecutableIndex:
     build system's own bookkeeping -- in practice the sibling module checkouts
     this project builds in-tree (sushiengine skips ``sushiruntime``; sushiai
     skips that and ``sushiblas``). Names, not paths: the walk prunes by
-    directory name at any depth.
+    directory name at any depth. *console*, a CLI's console module, is the one
+    :meth:`select_interactive` asks through.
     """
 
-    __slots__ = ("_skip_dirs", "_max_depth")
+    __slots__ = ("_skip_dirs", "_max_depth", "_console")
 
-    def __init__(self, *, skip_dirs: object = (), max_depth: int = _DEFAULT_MAX_DEPTH) -> None:
+    def __init__(self, *, skip_dirs: object = (), max_depth: int = _DEFAULT_MAX_DEPTH,
+                 console: ConsoleLike | None = None) -> None:
         self._skip_dirs = _BUILD_SYSTEM_DIRS | frozenset(skip_dirs)  # type: ignore[arg-type]
         self._max_depth = max_depth
+        self._console = console
 
     def find(self, build_root: Path) -> list[Path]:
         """Return candidate executables under *build_root*, depth-limited.
@@ -136,6 +144,18 @@ class ExecutableIndex:
             console, ["#", "Name", "Path"],
             [[exe.name, str(exe.relative_to(build_root.parent))] for exe in exes],
             exes, "Available executables")
+
+    def select_interactive(self, build_root: Path, *,
+                           examples: ExampleCatalog | None = None) -> Path | None:
+        """Ask through the console the index was made with, as :meth:`select` does.
+
+        Raises:
+            NoConsoleError: The index was made without a console.
+        """
+        if self._console is None:
+            raise NoConsoleError(
+                "ExecutableIndex.select_interactive needs the index made with console=.")
+        return self.select(build_root, self._console, examples=examples)
 
     @staticmethod
     def _built_examples(exes: list[Path], examples: ExampleCatalog) -> list[tuple[Example, Path]]:
