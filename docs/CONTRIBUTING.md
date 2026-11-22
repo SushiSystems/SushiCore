@@ -43,6 +43,9 @@ The pre-commit hook runs `check_all.py` with `--skip-history`, which leaves out 
 read every commit: a commit is not in the history yet, and the `commit-msg` hook judges its message
 and its pages. CI runs them in full.
 
+The hook checks the repository in place and writes nothing to disk. A staged file whose disk copy
+differs from the index refuses the commit, and the hook names it: stage it or restore it.
+
 `check_changelog.py`, `check_docs_layout.py` and `check_source_comments.py` print nothing when the
 repository is clean, and a change adds no finding to them. A claim that a check passed carries the
 command and its output.
