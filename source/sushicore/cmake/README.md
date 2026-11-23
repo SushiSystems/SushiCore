@@ -72,8 +72,9 @@ their link.
 
 No pass at the end of the configure rewrites the links, so a module comes and goes with its own
 calls and touches no other target. The order it asks: a module is declared with
-`sushi_tier_module` before any target links it. A link to a module not yet declared is linked as
-written, and its code reaches the linking target a second time.
+`sushi_tier_module` before any target links it. `sushi_tier_link` records each item that names no
+target yet, and `sushi_tier_module` stops the configure when it is given a module of that name,
+naming the targets that linked it too early.
 
 Both resolutions are made for the target that finally links. A target that `sushi_tier_archives`
 marked (the property `SUSHI_TIER_ARCHIVES`) links every tier module it reaches as that module's

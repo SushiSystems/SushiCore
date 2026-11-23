@@ -62,6 +62,14 @@ def test_tier_link_to_a_higher_tier_module_stops_the_configure(configure):
 
 
 @pytest.mark.medium
+def test_tier_module_linked_before_it_was_declared_stops_the_configure(configure):
+    configured = configure("tiers", "-DTIERS_LINK_EARLY=ON")
+    assert configured.code != 0
+    refusal = "'early' linked high_mod before it was declared"
+    assert configured.says(refusal), configured.output
+
+
+@pytest.mark.medium
 @pytest.mark.parametrize("module", ["high_peer", "high_mod", "low_mod"])
 def test_tier_archives_link_each_module_archive_of_the_chain(tiers_tree, module):
     assert re.search(archive(module), tiers_tree.link_block("marked"))

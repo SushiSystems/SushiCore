@@ -13,7 +13,8 @@
 # tier becomes that tier's library. The code of a module therefore exists once in the process.
 # No pass at the end of the configure rewrites the links, so a module comes and goes with its own
 # calls. The one order it asks: a module is declared with sushi_tier_module() before a target
-# links it.
+# links it. A link that names no target yet stays a plain item, and sushi_tier_module() stops the
+# configure when it is later given a module of that name.
 
 include_guard(GLOBAL)
 
@@ -136,6 +137,12 @@ function(sushi_tier_module target tier)
         message(FATAL_ERROR
             "sushi_tier_module(${target} ${tier}): the target is already a module of '${declared}'.")
     endif()
+    get_property(linkers GLOBAL PROPERTY SUSHI_TIER_EARLY_LINK_${target})
+    if(linkers)
+        message(FATAL_ERROR
+            "sushi_tier_module(${target} ${tier}): '${linkers}' linked ${target} before it was "
+            "declared, so the link was taken as a plain item; declare ${target} first.")
+    endif()
 
     set(library ${prefix}_${tier}_tier)
     get_target_property(type ${target} TYPE)
@@ -163,9 +170,10 @@ endfunction()
 # sushi_tier_link(<target> <PUBLIC|PRIVATE|INTERFACE> <item>...)
 #   Links <target> to each item as target_link_libraries() would, with every tier module among them
 #   resolved: a module of <target>'s own tier is kept for its headers only, and a module of another
-#   tier becomes that tier's library. A module that links a module of a higher tier is refused,
-#   since the tier libraries link downwards. A module that links any other item PUBLIC or
-#   INTERFACE hands it to the targets of its tier library as well, for their link.
+#   tier becomes that tier's library. An item that names no target yet is linked as it is and
+#   recorded, so that sushi_tier_module() refuses it later. A module that links a module of a
+#   higher tier is refused, since the tier libraries link downwards. A module that links any other
+#   item PUBLIC or INTERFACE hands it to the targets of its tier library as well, for their link.
 #
 #   Both resolutions are made for the target that finally links: one that sushi_tier_archives()
 #   marked takes every tier module as its own archive instead, down the whole chain, and links no
@@ -198,6 +206,9 @@ function(sushi_tier_link target scope)
             get_property(item_tier TARGET ${named} PROPERTY SUSHI_TIER)
         endif()
         if("${item_tier}" STREQUAL "")
+            if(NOT TARGET ${item} AND item MATCHES "^[A-Za-z0-9_.+-]+$")
+                set_property(GLOBAL APPEND PROPERTY SUSHI_TIER_EARLY_LINK_${item} ${target})
+            endif()
             list(APPEND resolved "${item}")
             if(NOT "${own_tier}" STREQUAL "" AND NOT scope STREQUAL "PRIVATE")
                 list(APPEND handed_on "$<LINK_ONLY:${item}>")
