@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-23 — testing: Indexed the file lists of the test mirror checker once instead of scanning the tree for each module, so a full run on SushiEngine drops from over 60 s to about 3 s (`tools/testing/check_test_mirror.py`).
 - 2026-11-23 — provision: Added the llvm-sycl licence texts under `share/licenses/llvm-sycl/<component>/`; `install_intel_llvm` and the adapter build fail without them (`toolchain_licence.py`).
 - 2026-11-23 — testing: Added budget exemptions that hold only on the platforms they name, `{ id = "RW-12", platforms = ["linux"] }` (`tools/testing/test_budget.py`).
 - 2026-11-23 — documentation: Fixed the docs truth checker skipping cited paths under `tools/build/`, which are source and are now checked (`tools/documentation/check_docs_truth.py`).
