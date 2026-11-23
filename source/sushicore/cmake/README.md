@@ -29,7 +29,7 @@ sushi_sanitizers(sushiexample)
 | `sushi_tier_archives(<target>...)` | `SushiTierLibraries.cmake` | Mark a target, such as a test or a probe, to link the archives of the tier modules it reaches, each whole on Windows, and no tier library |
 | `sushi_tier_export_header(<name> <building define>)` | `SushiTierLibraries.cmake` | Write the export header of a shared library outside the tiers |
 | `sushi_sanitizers(<prefix> [OPTION <name>])` | `SushiSanitizers.cmake` | Create the INTERFACE target `<prefix>_sanitizers` from the comma-separated cache entry `<PREFIX>_SANITIZE` |
-| `sushi_sycl_target(<target> [DEVICE_SOURCES <source>...] [HOST_ONLY])`, `sushi_sycl_device_options(<out_compile> <out_link>)` | `SushiSyclTarget.cmake` | Apply the SYCL policy to a target: device compilation for the DEVICE_SOURCES only on intel-llvm, the whole target elsewhere |
+| `sushi_sycl_target(<target> [DEVICE_SOURCES <source>...] [HOST_ONLY])`, `sushi_sycl_device_options(<out_compile> <out_link>)`, `sushi_sycl_source_options(<out> <option>...)` | `SushiSyclTarget.cmake` | Apply the SYCL policy to a target: device compilation for the DEVICE_SOURCES only on intel-llvm, the whole target elsewhere; give device options the form a source file's COMPILE_OPTIONS takes |
 | `sushi_check_test_sizes(<target> SOURCES <source>... [SUITE_REGEX <regex>])` | `SushiTestSizes.cmake`, `SushiCheckTestSizes.cmake` | Fail the build of a test program that declares a GoogleTest suite whose name carries no size |
 | `sushi_sycl_include_dir(<out>)`, `sushi_compiler_is_sycl(<out>)`, `sushi_host_flags(<out> <flag>...)` | `SushiSyclCompiler.cmake` | Find the SYCL headers beside the compiler, and wrap a flag in `-Xarch_host` for a SYCL compiler |
 

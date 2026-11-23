@@ -41,6 +41,23 @@ function(sushi_sycl_device_options out_compile out_link)
     set(${out_link} "${link}" PARENT_SCOPE)
 endfunction()
 
+# sushi_sycl_source_options(<out> <option>...)
+#   Sets <out> to <option>... in the form a source file's COMPILE_OPTIONS takes. That property does
+#   not expand a SHELL: group the way a target's options do, and hands it to the compiler as one
+#   word, so each group becomes its own words here.
+function(sushi_sycl_source_options out)
+    set(options "")
+    foreach(option IN LISTS ARGN)
+        if(option MATCHES "^SHELL:(.*)$")
+            separate_arguments(group NATIVE_COMMAND "${CMAKE_MATCH_1}")
+            list(APPEND options ${group})
+        else()
+            list(APPEND options "${option}")
+        endif()
+    endforeach()
+    set(${out} "${options}" PARENT_SCOPE)
+endfunction()
+
 # sushi_sycl_target(<target> [DEVICE_SOURCES <source>...] [HOST_ONLY])
 #   Applies the SYCL policy to <target>. On intel-llvm:
 #     - with DEVICE_SOURCES, those sources compile for the device and every other unit for the host
@@ -104,16 +121,7 @@ function(sushi_sycl_target target)
     target_compile_definitions(${target} PRIVATE SYCL_DISABLE_FSYCL_SYCLHPP_WARNING)
 
     if(ARG_DEVICE_SOURCES)
-        # A source's COMPILE_OPTIONS does not expand SHELL: groups, so each group becomes its words.
-        set(source_options "")
-        foreach(option IN LISTS device_compile)
-            if(option MATCHES "^SHELL:(.*)$")
-                separate_arguments(group NATIVE_COMMAND "${CMAKE_MATCH_1}")
-                list(APPEND source_options ${group})
-            else()
-                list(APPEND source_options "${option}")
-            endif()
-        endforeach()
+        sushi_sycl_source_options(source_options ${device_compile})
         set_property(SOURCE ${ARG_DEVICE_SOURCES} TARGET_DIRECTORY ${target}
             APPEND PROPERTY COMPILE_OPTIONS ${source_options})
     endif()
