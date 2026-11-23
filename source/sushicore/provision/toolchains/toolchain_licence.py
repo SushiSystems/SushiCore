@@ -10,6 +10,8 @@ import shutil
 from pathlib import Path
 from typing import Callable
 
+from ...errors import SushiCoreError
+
 __all__ = [
     "LICENCE_FILE", "LICENCE_MARKER", "LICENCE_SUBDIR", "LicenceTextError",
     "bundled_licence", "fetch_licence", "install_licence", "licence_path", "llvm_licence_url"]
@@ -26,7 +28,7 @@ LICENCE_MARKER = "LLVM Exceptions"
 _LLVM_RAW_URL = "https://raw.githubusercontent.com/intel/llvm/{ref}/llvm/LICENSE.TXT"
 
 
-class LicenceTextError(RuntimeError):
+class LicenceTextError(SushiCoreError, RuntimeError):
     """A component's licence text is missing or is not the Apache-2.0 with LLVM exception text."""
 
 
