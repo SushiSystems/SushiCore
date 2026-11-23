@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 2026-11-23 — testing: Added budget exemptions that hold only on the platforms they name, `{ id = "RW-12", platforms = ["linux"] }` (`tools/testing/test_budget.py`).
+- 2026-11-23 — documentation: Fixed the docs truth checker skipping cited paths under `tools/build/`, which are source and are now checked (`tools/documentation/check_docs_truth.py`).
 
 ## v0.16.2 — 2026-11-23
 
