@@ -86,6 +86,17 @@ class PackageStore:
             return None
         return Package(name, digest, folder, stamp) if isinstance(stamp, dict) else None
 
+    def latest(self, name: str, exclude: str = "") -> Package | None:
+        """Return the complete package of *name* installed last, apart from digest *exclude*."""
+        folder = self._root / name
+        if not folder.is_dir():
+            return None
+        packages = [package for package in (
+            self.find_digest(name, entry.name) for entry in folder.iterdir()
+            if _is_package_folder(entry) and entry.name != exclude) if package is not None]
+        return max(packages, key=lambda package: float(package.stamp.get("installed_at", 0.0)),
+                   default=None)
+
     def stage(self, key: PackageKey) -> Path:
         """Return the empty prefix inside a fresh ``<digest>.partial`` folder for *key*.
 

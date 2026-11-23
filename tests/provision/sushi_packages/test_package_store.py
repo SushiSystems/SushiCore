@@ -170,3 +170,12 @@ def test_a_keep_below_one_raises(tmp_path):
     """Check that a store that keeps nothing is refused."""
     with pytest.raises(PackageError, match="at least one"):
         PackageStore(tmp_path, keep=0)
+
+
+@pytest.mark.medium
+def test_latest_returns_the_last_installed_apart_from_the_excluded(store, clock):
+    """Check that the newest install wins and an excluded digest is skipped."""
+    keys = _install_three(store, clock)
+    assert store.latest("sushiruntime").digest == keys[2].digest()
+    assert store.latest("sushiruntime", exclude=keys[2].digest()).digest == keys[1].digest()
+    assert store.latest("sushiblas") is None

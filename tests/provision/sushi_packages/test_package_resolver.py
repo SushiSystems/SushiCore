@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from sushicore.provision import links
@@ -19,6 +21,9 @@ from sushicore.provision.sushi_packages.package_error import (
 from .package_fakes import Rig
 
 pytestmark = pytest.mark.medium
+
+#: A modification time long before any test run, in seconds.
+K_LONG_AGO = 1_000_000_000
 
 
 @pytest.fixture
@@ -192,3 +197,28 @@ def test_the_key_of_a_library_is_the_same_with_and_without_the_filter(rig):
     assert [_digest(filtered, n) for n in names] == [_digest(whole, n) for n in names]
     assert [filtered.get(n).key for n in names] == [whole.get(n).key for n in names]
     assert len(rig.builder.requests) == 3
+
+
+def test_a_new_install_keeps_the_times_of_the_files_it_did_not_change(rig):
+    """A second install of a library gives its unchanged file the first package's time."""
+    original = rig.builder.build
+
+    def build_with_headers(request):
+        """Install the recorded files, then two headers: one fixed, one that follows the source."""
+        original(request)
+        include = request.prefix / "include"
+        include.mkdir()
+        (include / "same.hpp").write_text("same", encoding="utf-8")
+        source = (request.checkout / "src" / "a.cpp").read_text(encoding="utf-8")
+        (include / "changing.hpp").write_text(source, encoding="utf-8")
+
+    rig.builder.build = build_with_headers
+    first = rig.resolver.resolve(rig.request()).get("sushiruntime").package
+    for path in first.prefix.rglob("*"):
+        if path.is_file():
+            os.utime(path, (K_LONG_AGO, K_LONG_AGO))
+    rig.edit("sushiruntime", "src/a.cpp", "// changed")
+    second = rig.resolver.resolve(rig.request()).get("sushiruntime").package
+    assert second.digest != first.digest
+    assert (second.prefix / "include" / "same.hpp").stat().st_mtime == K_LONG_AGO
+    assert (second.prefix / "include" / "changing.hpp").stat().st_mtime > K_LONG_AGO

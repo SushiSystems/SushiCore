@@ -25,6 +25,9 @@ class ILinkStore(Protocol):
     def targets(self, name: str) -> set[str]:
         """Return the digests, as folder names, that any link of *name* points at."""
 
+    def current(self, name: str, config: str, consumer: str) -> str | None:
+        """Return the digest the link of *consumer* names now, or None when it names none."""
+
 
 @final
 class MemoryLinks:
@@ -54,6 +57,11 @@ class MemoryLinks:
     def targets(self, name: str) -> set[str]:
         """Return the folder names the links of *name* name."""
         return {target.name for link, target in self._links.items() if link.parent.name == name}
+
+    def current(self, name: str, config: str, consumer: str) -> str | None:
+        """Return the folder name the link of *consumer* names, or None."""
+        target = self._links.get(Path(name) / f"{K_MARK}{config}-{consumer}")
+        return None if target is None else target.name
 
 
 @final
@@ -88,6 +96,11 @@ class StableLink:
         link.parent.mkdir(parents=True, exist_ok=True)
         self._host.replace_dir_link(link, target)
         return link
+
+    def current(self, name: str, config: str, consumer: str) -> str | None:
+        """Return the digest the link of *consumer* names now, or None when it is not a link."""
+        target = links.link_target(self.path(name, config, consumer))
+        return None if target is None else target.name
 
     def targets(self, name: str) -> set[str]:
         """Return the digests, as folder names, that any link of *name* points at."""

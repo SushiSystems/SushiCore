@@ -28,6 +28,7 @@ from .package_request import PackageRequest
 from .package_set import PackageSet, ResolvedPackage
 from .package_store import PackageStore
 from .system_monotonic_clock import SystemMonotonicClock
+from .timestamp_carrier import TimestampCarrier
 
 #: The owner recorded for a package chosen from the source tree.
 K_SOURCE_OWNER = "the source tree"
@@ -54,7 +55,8 @@ class PackageResolver:
     def __init__(self, walk: ClosureWalk, keys: KeyFactory, store: PackageStore,
                  builder: IPackageBuilder, forced: ForcedPackages, locks: PackageLocks,
                  publisher: LinkPublisher, report: Callable[[str], None],
-                 clock: IMonotonicClock = SystemMonotonicClock()) -> None:
+                 clock: IMonotonicClock = SystemMonotonicClock(),
+                 carrier: TimestampCarrier = TimestampCarrier()) -> None:
         """Bind the resolver to its collaborators.
 
         Args:
@@ -67,6 +69,7 @@ class PackageResolver:
             publisher: Points the consumer's link at the chosen package.
             report: Receives one line per library.
             clock: Reads the monotonic time in seconds; replaced in tests.
+            carrier: Gives a new install's unchanged files the times of the previous package.
         """
         self._walk = walk
         self._keys = keys
@@ -77,6 +80,7 @@ class PackageResolver:
         self._publisher = publisher
         self._report = report
         self._clock = clock
+        self._carrier = carrier
 
     def resolve(self, request: PackageRequest) -> PackageSet:
         """Return the package of every library the consumer's chain links, dependencies first.
@@ -193,10 +197,20 @@ class PackageResolver:
             self._builder.build(BuildRequest(key, node.checkout, node.cli, prefix,
                                              state.request.compiler, below))
             seconds = self._clock() - started
+            previous = self._previous(key, state)
+            if previous is not None:
+                self._carrier.carry(previous.prefix, prefix)
             return self._store.commit(key, seconds), seconds
         except PackageError:
             self._store.discard(key)
             raise
+
+    def _previous(self, key: PackageKey, state: _Resolution) -> Package | None:
+        """Return the package the consumer's link names now, else the latest one in the store."""
+        tree = BuildTree(key.build_type, key.options, key.toolchain)
+        linked = self._publisher.linked(key.name, tree.id, state.request.owner)
+        package = None if linked is None else self._store.find_digest(key.name, linked)
+        return package or self._store.latest(key.name, key.digest())
 
     @staticmethod
     def _below_names(node: LibraryNode, state: _Resolution) -> list[str]:

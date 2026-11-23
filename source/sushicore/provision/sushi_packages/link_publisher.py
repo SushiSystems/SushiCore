@@ -43,6 +43,10 @@ class LinkPublisher:
                     f"cannot link {package.name} {package.digest[:12]} for {consumer}: {exc}"
                 ) from exc
 
+    def linked(self, name: str, config: str, consumer: str) -> str | None:
+        """Return the digest the link of *consumer* for *config* names now, or None."""
+        return self._link.current(name, config, consumer)
+
     def protected(self, name: str) -> set[str]:
         """Return the digests of *name* that any consumer's link points at."""
         return self._link.targets(name)
