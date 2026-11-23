@@ -23,6 +23,9 @@ from sushicore.provision.toolchains.stamp import (
 pytestmark = pytest.mark.medium
 
 _URL = "http://example.invalid/a"
+_RAW_PREFIX = "https://raw.githubusercontent.com/intel/llvm/"
+_LICENCE_TEXT = "Apache License 2.0\n\n--- LLVM Exceptions to the Apache 2.0 License ----\n"
+_LICENCE_PATH = Path("share") / "licenses" / "llvm-sycl" / "llvm" / "LICENSE.TXT"
 
 
 class _Pinner:
@@ -43,24 +46,40 @@ class _Pinner:
 
 
 class _Fetcher:
-    """Writes a tar.gz of the named members as the download, or raises *error*; counts the downloads."""
+    """Writes a tar.gz of the named members as the download, or raises *error*; counts the downloads.
 
-    def __init__(self, members: tuple[str, ...] = (), error: Exception | None = None) -> None:
-        """Download an archive holding *members*, or fail with *error*."""
-        self._members = members
+    A raw GitHub URL, the licence text, is answered with *licence_text* or *licence_error* and
+    listed in ``licence_urls``, so no test reaches the network.
+    """
+
+    def __init__(self, members: tuple[str, ...] | dict[str, bytes] = (),
+                 error: Exception | None = None, licence_text: str = _LICENCE_TEXT,
+                 licence_error: Exception | None = None) -> None:
+        """Download an archive holding *members* (a name, or a name with its bytes), or fail with *error*."""
+        self._members = (dict(members) if isinstance(members, dict)
+                         else {name: b"binary" for name in members})
         self._error = error
+        self._licence_text = licence_text
+        self._licence_error = licence_error
         self.downloads = 0
+        self.licence_urls: list[str] = []
 
     def __call__(self, url: str, dest: Path) -> None:
         """Count the download and write the archive to *dest*."""
+        if url.startswith(_RAW_PREFIX):
+            self.licence_urls.append(url)
+            if self._licence_error is not None:
+                raise self._licence_error
+            dest.write_text(self._licence_text, encoding="utf-8")
+            return
         self.downloads += 1
         if self._error is not None:
             raise self._error
         with tarfile.open(dest, "w:gz") as archive:
-            for name in self._members:
+            for name, data in self._members.items():
                 info = tarfile.TarInfo(name=name)
-                info.size = len(b"binary")
-                archive.addfile(info, io.BytesIO(b"binary"))
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
 
 
 def _linux_cfg() -> ProvisionSettings:
@@ -195,3 +214,61 @@ def test_locate_reports_the_installed_bundle_with_its_stamped_tag(provision_home
 def test_locate_reports_nothing_when_the_bundle_has_no_compiler(provision_home):
     """Check that locate returns None for a toolchains folder with no bundle."""
     assert intel_llvm.INTEL_LLVM.locate(_linux_cfg()) is None
+
+
+def test_a_first_install_fetches_llvms_licence_text_at_the_pinned_tag(
+        provision_home, recording_console):
+    """Check that a bundle without a licence file gets LLVM's text from intel/llvm at its pinned tag."""
+    root = toolchains_dir() / "llvm-sycl"
+    fetcher = _Fetcher(("bin/clang++",))
+
+    intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False, pin=_Pinner("nightly-2"), fetch=fetcher,
+        console=recording_console)
+
+    assert (root / _LICENCE_PATH).read_text(encoding="utf-8") == _LICENCE_TEXT
+    assert fetcher.licence_urls == [
+        "https://raw.githubusercontent.com/intel/llvm/nightly-2/llvm/LICENSE.TXT"]
+
+
+def test_a_licence_file_the_bundle_carries_is_installed_without_a_fetch(
+        provision_home, recording_console):
+    """Check that a LICENSE.TXT at the bundle root is copied and nothing is fetched for it."""
+    root = toolchains_dir() / "llvm-sycl"
+    bundled = _LICENCE_TEXT + "bundled\n"
+    fetcher = _Fetcher({"bin/clang++": b"binary", "LICENSE.TXT": bundled.encode()})
+
+    intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False, pin=_Pinner(), fetch=fetcher, console=recording_console)
+
+    assert (root / _LICENCE_PATH).read_text(encoding="utf-8") == bundled
+    assert fetcher.licence_urls == []
+
+
+def test_a_licence_text_that_cannot_be_fetched_fails_the_install_and_removes_the_bundle(
+        provision_home, recording_console):
+    """Check that a failed licence fetch returns None, names the licence and leaves no bundle."""
+    root = toolchains_dir() / "llvm-sycl"
+
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False, pin=_Pinner(),
+        fetch=_Fetcher(("bin/clang++",), licence_error=OSError("offline")),
+        console=recording_console)
+
+    assert result is None
+    assert not root.exists()
+    assert any("licence text" in text for text in recording_console.texts("error"))
+
+
+@pytest.mark.parametrize("text", ["", "an unrelated page\n", "Apache License 2.0 without the clause\n"])
+def test_a_fetched_text_that_is_not_the_licence_is_never_installed(
+        provision_home, recording_console, text):
+    """Check that an empty or foreign text fails the install and writes no licence file."""
+    root = toolchains_dir() / "llvm-sycl"
+
+    result = intel_llvm.install_intel_llvm(
+        _linux_cfg(), dry_run=False, pin=_Pinner(),
+        fetch=_Fetcher(("bin/clang++",), licence_text=text), console=recording_console)
+
+    assert result is None
+    assert not (root / _LICENCE_PATH).exists()

@@ -52,6 +52,10 @@ def _bundle_bytes() -> bytes:
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
         info = tarfile.TarInfo("llvm-sycl/bin/clang++")
         archive.addfile(info, io.BytesIO(b""))
+        licence = b"Apache License 2.0\n--- LLVM Exceptions to the Apache 2.0 License ----\n"
+        licence_info = tarfile.TarInfo("llvm-sycl/LICENSE.TXT")
+        licence_info.size = len(licence)
+        archive.addfile(licence_info, io.BytesIO(licence))
     return buffer.getvalue()
 
 

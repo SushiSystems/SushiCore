@@ -29,6 +29,7 @@ from sushicore.provision.toolchains.stamp import TOOLCHAIN_STAMP
 _COMMIT = "d5f649b706f63b5c74e1929bc95db8de91085560"
 _OTHER_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 _PIN = GitPin("unified-runtime", "nightly-test", _COMMIT)
+_LICENCE_TEXT = "Apache License 2.0\n\n--- LLVM Exceptions to the Apache 2.0 License ----\n"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -142,6 +143,36 @@ def _produce(work_root: Path, names: list[str]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     for name in names:
         (output_dir / name).write_bytes(b"fake")
+    _plant_licences(work_root)
+
+
+def _plant_licences(work_root: Path, text: str = _LICENCE_TEXT) -> None:
+    """Write the LICENSE.TXT the fetched Unified Memory Framework source tree holds."""
+    framework = work_root / f"d-{_COMMIT[:8]}" / "unified-memory-framework-src"
+    framework.mkdir(parents=True, exist_ok=True)
+    (framework / "LICENSE.TXT").write_text(text, encoding="utf-8")
+
+
+def _plant_runtime_licence(source_dir: Path) -> None:
+    """Write the LICENSE.TXT a checkout of the unified-runtime folder holds."""
+    folder = source_dir / "unified-runtime"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "LICENSE.TXT").write_text(_LICENCE_TEXT, encoding="utf-8")
+
+
+class _CheckoutRunner:
+    """Runs commands through *inner* and, on the checkout, writes the licence the checkout would bring."""
+
+    def __init__(self, inner: InMemoryBuildStepExecutor) -> None:
+        """Wrap *inner*, whose recorded calls stay the ones the tests read."""
+        self._inner = inner
+
+    def run(self, argv: list[str], cwd: Path | None, env: dict[str, str] | None) -> int:
+        """Run *argv* through the wrapped executor and plant the runtime licence on a passing checkout."""
+        code = self._inner.run(argv, cwd, env)
+        if code == 0 and argv[:2] == ["git", "checkout"] and cwd is not None:
+            _plant_runtime_licence(cwd)
+        return code
 
 
 def _builder(tmp_path: Path, work_root: Path, *, console, cfg: ProvisionSettings | None = None,
@@ -152,7 +183,7 @@ def _builder(tmp_path: Path, work_root: Path, *, console, cfg: ProvisionSettings
     chosen = runner or InMemoryBuildStepExecutor()
     seams.setdefault("git", InMemoryGitClient(default_head=_COMMIT))
     seams.setdefault("pin", _PIN)
-    builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=chosen, console=console,
+    builder = AdapterBuilder(cfg=cfg or _windows_cfg(), runner=_CheckoutRunner(chosen), console=console,
                              work_root=work_root,
                              environment=lambda cfg: {}, **seams)
     install = _ToolkitInstall(root=tmp_path / "toolkit", version="1.0")
@@ -516,7 +547,7 @@ def test_a_reused_source_that_holds_the_patch_is_not_patched_again(
         tmp_path, short_work_root, recording_console):
     """Check that a passing reverse check skips the apply on a reused source directory."""
     _produce(short_work_root, ["ur_adapter_fake.dll"])
-    (short_work_root / f"s-{_COMMIT[:8]}" / "unified-runtime").mkdir(parents=True)
+    _plant_runtime_licence(short_work_root / f"s-{_COMMIT[:8]}")
 
     scene = _run(_patched_scene(tmp_path, short_work_root, recording_console,
                                 InMemoryBuildStepExecutor()),
@@ -650,3 +681,63 @@ def test_the_default_pin_is_the_commit_the_base_fragment_pins(recording_console)
                              console=recording_console, git=InMemoryGitClient())
 
     assert (builder.pin.name, len(builder.pin.commit)) == ("unified-runtime", 40)
+
+
+@pytest.mark.medium
+def test_a_full_build_installs_the_runtime_and_framework_licence_texts(
+        tmp_path, short_work_root, recording_console):
+    """Check that both components' LICENSE.TXT land under share/licenses/llvm-sycl with their text."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
+
+    licences = scene.toolchain_root / "share" / "licenses" / "llvm-sycl"
+    assert scene.result is True
+    assert (licences / "unified-runtime" / "LICENSE.TXT").read_text(encoding="utf-8") == _LICENCE_TEXT
+    assert (licences / "unified-memory-framework" / "LICENSE.TXT").read_text(
+        encoding="utf-8") == _LICENCE_TEXT
+
+
+@pytest.mark.medium
+def test_a_missing_framework_licence_fails_the_build_before_any_binary_is_installed(
+        tmp_path, short_work_root, recording_console):
+    """Check that a source tree without its LICENSE.TXT installs no binary, no stamp and no text."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    (short_work_root / f"d-{_COMMIT[:8]}" / "unified-memory-framework-src" / "LICENSE.TXT").unlink()
+
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
+
+    assert scene.result is False
+    assert not (scene.toolchain_root / "bin").exists()
+    assert not (scene.toolchain_root / TOOLCHAIN_STAMP).exists()
+    assert any("unified-memory-framework" in text for text in recording_console.texts("warn"))
+
+
+@pytest.mark.medium
+def test_an_empty_licence_file_is_never_installed(tmp_path, short_work_root, recording_console):
+    """Check that an empty LICENSE.TXT fails the build instead of shipping an empty text."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    _plant_licences(short_work_root, text="")
+
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
+
+    assert scene.result is False
+    assert not (scene.toolchain_root / "share" / "licenses" / "llvm-sycl"
+                / "unified-memory-framework").exists()
+    assert not (scene.toolchain_root / "bin").exists()
+
+
+@pytest.mark.medium
+def test_a_stamped_build_without_licence_texts_is_built_again(
+        tmp_path, short_work_root, recording_console):
+    """Check that an adapter built before the texts were installed is not skipped as up to date."""
+    _produce(short_work_root, ["ur_adapter_fake.dll"])
+    scene = _run(_builder(tmp_path, short_work_root, console=recording_console))
+    shutil.rmtree(scene.toolchain_root / "share")
+    calls_before = len(scene.runner.calls)
+
+    scene.builder.build(_fake_spec(), scene.install, scene.toolchain_root, _COMMIT, dry_run=False)
+
+    assert len(scene.runner.calls) > calls_before
+    assert (scene.toolchain_root / "share" / "licenses" / "llvm-sycl" / "unified-runtime"
+            / "LICENSE.TXT").is_file()

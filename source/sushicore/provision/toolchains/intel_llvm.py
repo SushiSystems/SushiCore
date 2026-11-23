@@ -29,6 +29,7 @@ from ..target import target_of
 from .stamp import (
     has_sanitizer_runtime, read_toolchain_stamp, toolchains_dir, write_toolchain_stamp)
 from .toolchain import ToolchainEnv
+from .toolchain_licence import bundled_licence, fetch_licence, install_licence, llvm_licence_url
 
 if typing.TYPE_CHECKING:
     from ..config import ProvisionConfig
@@ -142,6 +143,7 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
             (fetch or downloader(console))(url, archive)
             verify_download("intel-llvm", archive, verifier=verifier)
             _extract_tar_gz(archive, root)
+            _install_llvm_licence(root, tag, fetch or downloader(console), Path(tmp))
         except (DigestMismatchError, ConfigError):
             raise
         except Exception as exc:
@@ -160,6 +162,26 @@ def install_intel_llvm(cfg: "ProvisionConfig", dry_run: bool,
         return str(root)
     console.error(f"intel/llvm bundle extracted but {clang.name} is missing.")
     return None
+
+
+def _install_llvm_licence(root: Path, tag: str, fetch: Callable[[str, Path], None],
+                          scratch: Path) -> None:
+    """Install LLVM's licence text under *root*, from the bundle when it carries one, else from *tag*.
+
+    Args:
+        root: The extracted bundle.
+        tag: The intel/llvm tag the bundle was pinned at.
+        fetch: Downloads a URL to a file.
+        scratch: A folder the fetched text may be written in.
+
+    Raises:
+        LicenceTextError: Neither source yields a valid text.
+    """
+    bundled = bundled_licence(root)
+    if bundled is not None:
+        install_licence(root, "llvm", bundled)
+        return
+    fetch_licence(root, "llvm", llvm_licence_url(tag), scratch / "LLVM_LICENSE.TXT", fetch)
 
 
 def _extract_tar_gz(archive: Path, dest: Path) -> None:

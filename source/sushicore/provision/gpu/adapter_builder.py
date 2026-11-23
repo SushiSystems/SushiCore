@@ -26,6 +26,8 @@ from ..process_run import provision_runner
 from ..source_pins import base_git_pin
 from ..target import ITarget, target_of
 from ..toolchains.stamp import record_toolchain_adapter, toolchain_adapter_commit
+from ..toolchains.toolchain_licence import (
+    LICENCE_FILE, LicenceTextError, install_licence, licence_path)
 from .adapter_builder_compat import renamed_attribute
 
 if typing.TYPE_CHECKING:
@@ -105,6 +107,12 @@ def _adapters_present(toolchain_root: Path, spec: "GpuBackendSpec",
     return True
 
 
+def _licences_present(toolchain_root: Path) -> bool:
+    """Report whether the Unified Runtime and Unified Memory Framework licence texts are installed."""
+    return all(licence_path(toolchain_root, component).is_file()
+               for component in ("unified-runtime", "unified-memory-framework"))
+
+
 @typing.final
 class AdapterBuilder:
     """Builds one vendor's Unified Runtime adapter into a toolchain tree."""
@@ -175,7 +183,8 @@ class AdapterBuilder:
         patches = [self.patches_dir / name for name in spec.adapter_patches]
         stamp_key = self._stamp_key(commit, patches)
         stamped = toolchain_adapter_commit(toolchain_root, spec.vendor)
-        if stamped == stamp_key and _adapters_present(toolchain_root, spec, target_of(self.cfg)):
+        if (stamped == stamp_key and _adapters_present(toolchain_root, spec, target_of(self.cfg))
+                and _licences_present(toolchain_root)):
             self.console.info(f"{spec.vendor} adapter already built for {commit[:12]}.")
             return True
 
@@ -208,6 +217,9 @@ class AdapterBuilder:
         staged = self._stage_binaries(spec, build_dir)
         if staged is None:
             return False
+        if not self._install_licences(toolchain_root, src_dir, commit):
+            shutil.rmtree(self.work_root / f"{spec.vendor}-stage", ignore_errors=True)
+            return False
 
         staging_dir = self.work_root / f"{spec.vendor}-stage"
         try:
@@ -218,6 +230,24 @@ class AdapterBuilder:
             return False
         record_toolchain_adapter(toolchain_root, spec.vendor, stamp_key)
         self.console.success(f"{spec.vendor} adapter built for {commit[:12]}.")
+        return True
+
+    def _licence_sources(self, src_dir: Path, commit: str) -> dict[str, Path]:
+        """Return each component's licence file in the source trees this build reads."""
+        fetched = self.work_root / f"d-{commit[:_COMMIT_PREFIX_LENGTH]}"
+        return {
+            "unified-runtime": src_dir / "unified-runtime" / LICENCE_FILE,
+            "unified-memory-framework": fetched / "unified-memory-framework-src" / LICENCE_FILE,
+        }
+
+    def _install_licences(self, toolchain_root: Path, src_dir: Path, commit: str) -> bool:
+        """Install the Unified Runtime and Unified Memory Framework licence texts, or report why not."""
+        for component, source in self._licence_sources(src_dir, commit).items():
+            try:
+                install_licence(toolchain_root, component, source)
+            except LicenceTextError as exc:
+                self.console.warn(f"The adapter is not installed: {exc}")
+                return False
         return True
 
     def _environment(self) -> dict[str, str]:

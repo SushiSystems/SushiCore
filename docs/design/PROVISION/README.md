@@ -59,7 +59,7 @@ Lower layers never import higher ones. Each file has one job.
 | `provision/fragments.py` | Merges dependency fragments from a caller-supplied source list (`IDependencySource`). |
 | `provision/packages/` | `IPackageManager` and one file per manager: apt, dnf, yum, pacman, zypper, winget, direct download, vcpkg. |
 | `provision/probe.py` | Finds tools on this machine: vcvars, oneAPI, cmake, ninja, doxygen, compilers. |
-| `provision/toolchains/` | `intel_llvm.py`, `adaptivecpp.py`, `oneapi.py`, and `stamp.py` for `.sushi_toolchain.json`. |
+| `provision/toolchains/` | `intel_llvm.py`, `adaptivecpp.py`, `oneapi.py`, `stamp.py` for `.sushi_toolchain.json`, and `toolchain_licence.py`, which installs each toolchain component's licence text under `share/licenses/`. |
 | `provision/gpu/` | Backend spec and registry, CUDA, ROCm and Level Zero locators, CUDA and ROCm release selection, adapter builder, Windows elevated-installer helpers. A spec's `adapter_patches` name files under `provision/gpu/patches/`; the builder applies them with `git apply` after the fetch and before the configure, skips one a reused source already holds, and stamps the adapter as `<commit>+p<sha256[:12]>` of the patch contents, so a toolchain stamped with the bare commit is rebuilt. On Windows the build compiles with the toolchain's `bin/clang-cl.exe` and links with `bin/lld-link.exe`, under the vcvars environment. |
 | `provision/pipeline.py` | `StepResult`, `Step`, `InstallContext`, `InstallPipeline`. |
 | `provision/machine_actions.py` | `MachineActions`, the machine calls the steps share. |

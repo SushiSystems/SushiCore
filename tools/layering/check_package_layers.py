@@ -109,7 +109,7 @@ K_LAYERED = (
             "gpu.cuda_release": 0, "gpu.rocm": 2,
             "gpu.level_zero": 2, "gpu.registry": 2, "gpu.provisioning": 2, "gpu.adapter_builder": 2,
             "gpu": 2, "checks": 2, "packages": 3, "toolchains": 4, "toolchains.intel_llvm": 4,
-            "toolchains.adaptivecpp": 4, "toolchains.oneapi": 4, "toolchains._process": 1,
+            "toolchains.adaptivecpp": 4, "toolchains.oneapi": 4, "toolchains._process": 1, "toolchains.toolchain_licence": 0,
             "install_location": 0, "toolchains.toolchain": 3, "toolchains.registry": 4,
             "gpu_machine": 0, "result_console": 0, "provision_console": 0, "doctor_console": 1, "adapter_provisioner": 3, "machine_actions": 5, "gpu_stage": 5, "package_lists": 0, "dependency_presence": 4, "detect_step": 5, "uninstall_step": 5, "configure_step": 6, "install_deps_step": 6, "licence_consent": 1, "licence_consent_memory": 2, "licence_consent_step": 2, "outcome": 0, "module_manifest": 2, "machine_seams": 3, "module_provision": 5, "link_command": 6, "module_plan": 6,
             "doctor_command": 7, "setup_command": 8, "commands": 9, "sushi_sources": 1, "git_client": 2, "process_run": 1, "source_pins": 1, "pinned_checkout": 2,
