@@ -15,6 +15,7 @@ from typing import final
 from ..files import Files
 from .module_tests import ModuleTests
 from .result_files import ResultFileError, case_names
+from .shard_case_run import run_shard_cases
 from .shards import gtest_results_folder, program_executable, program_of, slow_results_folder
 
 
@@ -56,8 +57,7 @@ class SlowTestRerun:
             wrote_any = False
             for shard, cases in by_shard.items():
                 report = folder / (shard + ".xml")
-                code = self._module.run_program(program_of(shard), [f"--gtest_filter={':'.join(cases)}",
-                                                                    f"--gtest_output=xml:{report}"])
+                code = run_shard_cases(self._module, self._tree, self._files, shard, cases, report)
                 if self._files.is_file(report):
                     wrote_any = True
                 elif program_executable(self._tree, program_of(shard), self._files) is None:

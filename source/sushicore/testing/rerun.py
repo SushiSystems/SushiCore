@@ -15,6 +15,7 @@ from typing import final
 from ..files import Files
 from .module_tests import ModuleTests
 from .result_files import ResultFileError, failed_tests, failing_cases
+from .shard_case_run import run_shard_cases
 from .shards import gtest_results_folder, program_of, rerun_results_folder
 
 
@@ -99,8 +100,7 @@ class FailedTestRerun:
     def _rerun_cases(self, shard: str, cases: Sequence[str], folder: Path) -> int:
         """Run the *cases* of *shard* alone through the module's program and return its exit code."""
         report = folder / f"{shard}.xml"
-        return self._module.run_program(program_of(shard), [f"--gtest_filter={':'.join(cases)}",
-                                                            f"--gtest_output=xml:{report}"])
+        return run_shard_cases(self._module, self._tree, self._files, shard, cases, report)
 
     def _rerun_whole(self, names: Sequence[str], junit: Path) -> frozenset[str]:
         """Rerun the CTest tests *names* alone, one job, and return the ones that failed again."""

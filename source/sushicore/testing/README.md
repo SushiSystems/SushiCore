@@ -20,6 +20,7 @@ that breaks a time limit. Its options are in
 | `ProgramRunner`, `run_with_timeout` | `program_runner.py` | Run a test program of a tree by the name its shards carry, under the module's environment, with variables and a timeout when given; a CLI hands it to `ModuleTests` as `run_program` |
 | `intersect_filters` | `gtest_filter.py` | Join a shard's GoogleTest filter and the caller's into the filter that selects the cases both select |
 | `ShardRegistration`, `shard_registrations` | `shard_registrations.py` | Read each shard's program, size filter, variables, labels, timeout and whether it declares `RESOURCE_GROUPS` from the tree's CTest test files |
+| `run_shard_cases` | `shard_case_run.py` | Run some cases of one shard through its program with the arguments, variables and timeout the shard registers, without its sharding variables |
 | `junit_text` | `junit_report.py` | Write the JUnit file of a run the command made itself |
 | `programs_file`, `suites_by_program`, `may_hold_a_case` | `program_cases.py` | Read the suites each program held in the last run from `programs.json`, and say whether a filter can reach one; a program the listing does not name is never skipped |
 | `run_filtered_shards` | `filtered_run.py` | Run the selected shards under the caller's case filter through `run_program`, skipping a program whose listed suites the filter cannot reach, at most `--jobs` at once, the shards that need an accelerator one after another |

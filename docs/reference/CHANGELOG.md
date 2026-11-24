@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 2026-11-24 — testing: Fixed the slow and failed case reruns starting a shard's program without the arguments, environment and timeout the shard registers (`source/sushicore/testing/shard_case_run.py`).
+
 ## v0.17.0 — 2026-11-24
 
 - 2026-11-23 — provision: Fixed a new package install restamping every file, which made a consumer rebuild everything; files equal to the previous package keep its time (`timestamp_carrier.py`, `package_resolver.py`).
