@@ -12,10 +12,10 @@ Load `sushiskills` before working here; it names the skill each task needs. This
 
 ```
 python -m pytest                          the tests; small and medium run anywhere
-python tools/check_all.py .               every checker and the checker tests
+python -m sushicore.tools check .         every checker and the repository's own tests
 python -m sushicore.backlog next          what to do next
 python -m sushicore.design owner <path>   which design topic owns a path
-python tools/hooks/install_hooks.py       once per clone, so git runs the checks before a commit
+python -m sushicore.tools install-hooks . once per clone, so git runs the checks before a commit
 ```
 
 A build tool of another repository is never run from here; a repository is built through its own
@@ -27,7 +27,8 @@ command line.
 | --- | --- |
 | `source/sushicore/` | The package; `provision/` is the dependency provisioning, `backlog/`, `design/` and `docs_bundle/` are the documentation tools |
 | `tests/` | A tree that mirrors the source, one test file per source file |
-| `tools/` | The checkers and the hooks, copied from SushiSkills; `tools/layering/check_package_layers.py` holds the layer table of each package |
+| `source/sushicore/tools/` | The checkers every Sushi repository runs, `python -m sushicore.tools`; `layering/check_package_layers.py` holds the layer table of each package |
+| `tools/` | This repository's settings, known findings and git hooks for those checkers |
 | `docs/` | The manual, the backlog, the design topics and the work folders |
 
 The layout is the single-package Python layout of `python-code-style`: `pyproject.toml` at the root, the package

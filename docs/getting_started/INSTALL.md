@@ -40,18 +40,18 @@ python -m pytest tests -q
 
 The `test` extra adds pytest, pytest-timeout, Typer and Click. CI runs the tests job,
 `python -m pytest -q -m "(small or medium) and not quarantined"`, on Ubuntu and Windows with Python 3.10 and 3.11,
-and the `checks` job, `python tools/check_all.py .`, on Ubuntu and Windows with Python 3.11 (`.github/workflows/ci.yml`).
+and the `checks` job, `python -m sushicore.tools check .`, on Ubuntu and Windows with Python 3.11 (`.github/workflows/ci.yml`).
 
 ## Running the checkers
 
 The checkers under `tools/` read the repository and change no file of it; after a clean run `check_all.py` writes the commit it checked to `.git/sushicore/verified`. They need Python 3.11.
 
 ```bash
-python tools/documentation/check_docs_layout.py .
-python tools/documentation/check_changelog.py .
-python tools/documentation/check_source_comments.py .
-python tools/layering/check_layering.py .
-python -m unittest discover -s tools/tests
+python -m sushicore.tools.documentation.check_docs_layout .
+python -m sushicore.tools.documentation.check_changelog .
+python -m sushicore.tools.documentation.check_source_comments .
+python -m sushicore.tools.layering.check_layering .
+python -m pytest tests/tools
 ```
 
 [`tools/README.md`](../../tools/README.md) says what each one checks.

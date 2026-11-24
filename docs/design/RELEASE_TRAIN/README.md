@@ -2,7 +2,7 @@
 
 **Status:** Open — no phase planned yet
 **About:** How a SushiCore change reaches every Sushi library without a release of each one
-**Modules:** `source/sushicore/shared_tools`, `source/sushicore/release_train`
+**Modules:** `source/sushicore/tools`, `source/sushicore/release_train`
 
 ## Problem
 

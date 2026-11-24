@@ -130,5 +130,5 @@ address,thread`, exits `2` before the CLI's service runs; otherwise the exit cod
 | --- | --- | --- |
 | `backlog` | Reads and changes the backlog; `check` exits `1` on a finding | [Backlog](BACKLOG.md) |
 | `design` | Reads and changes the design topics; `check` exits `1` on a finding | [Design topics](DESIGN.md) |
-| `sync`, `check` | Copies the shared tools from a SushiCore tag and checks them against the lock; `register_shared_tools_commands` adds them to an app, and `python -m sushicore.shared_tools` runs them with no CLI | [Shared tools](SHARED_TOOLS.md) |
+| `check`, `install-hooks` | Runs every shared checker on a repository, and points git at its hooks; `python -m sushicore.tools` runs them | [Shared tools](../../source/sushicore/tools/README.md) |
 | `docs bundle` | Bundles the published documentation for a release | [Documentation bundle](DOCS_BUNDLE.md) |

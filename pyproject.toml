@@ -37,7 +37,7 @@ where = ["source"]
 include = ["sushicore*"]
 
 [tool.setuptools.package-data]
-sushicore = ["py.typed", "provision/manifests/*.deps.toml", "provision/gpu/patches/*.patch", "shared_tools/pre_move_digests.toml", "cmake/*.cmake", "cmake/*.hpp.in"]
+sushicore = ["py.typed", "provision/manifests/*.deps.toml", "provision/gpu/patches/*.patch", "tools/testing/support/*.hpp", "cmake/*.cmake", "cmake/*.hpp.in"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

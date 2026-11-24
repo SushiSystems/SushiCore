@@ -1,0 +1,77 @@
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/checking/source_file.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/documentation/check_docs_facts.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/documentation/check_docs_follow.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/documentation/design_topics.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/documentation/facts_cli.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/documentation/generate_design_views.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/documentation/tooling_bridge.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/testing/nunit_results.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/testing/source_blanking.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_untested_unit"
+path = "source/sushicore/tools/testing/timing.py"
+count = 1
+backlog = "RW-170"
+
+[[finding]]
+checker = "testing/check_test_mirror.py"
+rule = "rule_orphan_test"
+path = "tests/tools/testing/test_tolerance_header.py"
+count = 1
+backlog = "RW-170"
+

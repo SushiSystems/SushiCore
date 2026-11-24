@@ -31,12 +31,12 @@ SushiCore follows the Sushi Systems skills: `documentation`, `source-comments`,
 ## Checks
 
 ```bash
-python tools/check_all.py .
+python -m sushicore.tools check .
 python -m pytest -q
-python tools/documentation/check_docs_layout.py .
-python tools/documentation/check_changelog.py .
-python tools/documentation/check_source_comments.py .
-python -m unittest discover -s tools/tests
+python -m sushicore.tools.documentation.check_docs_layout .
+python -m sushicore.tools.documentation.check_changelog .
+python -m sushicore.tools.documentation.check_source_comments .
+python -m pytest tests/tools
 ```
 
 The pre-commit hook runs `check_all.py` with `--skip-history`, which leaves out the two checkers that

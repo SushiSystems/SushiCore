@@ -8,7 +8,6 @@
 | RW-94 | P2 | open | Shape the provision contracts as one kind, Protocol or ABC | IDependencySource, IPackageManager, Step, Check, ConfigSink, ProvisionConfig and ToolkitLocator are all Protocols or all ABCs |  | `source/sushicore/provision/pipeline.py` | 2026-11-17 |
 | RW-95 | P3 | open | Merge the write sequence that write_module and remove_module repeat | workspace.py writes a module file through one function both call |  | `source/sushicore/workspace.py` | 2026-11-17 |
 | RW-97 | P3 | open | Bring the four :param: modules and five absolute imports to the package style | no module under provision uses :param: or imports sushicore.provision absolutely |  | `source/sushicore/provision/gpu/adapter_builder.py` | 2026-11-17 |
-| RW-99 | P3 | open | Give pre_move_digest_writer a __main__ of its own and log in the library part | the writer's library function logs, and only a __main__ entry module writes to stdout or stderr |  | `source/sushicore/shared_tools/pre_move_digest_writer.py` | 2026-11-17 |
 | RW-100 | P3 | open | Move the clock contracts into one shared test module | test_system_*_clock.py import their contract from a contract module, not from a sibling test file |  | `tests/provision/sushi_packages/test_wall_clock.py` | 2026-11-17 |
 | RW-102 | P2 | open | Replace the module globals of download_verifier and home with injected seams | download_verifier.py and home.py hold no global statement |  | `source/sushicore/provision/home.py` | 2026-11-17 |
 | RW-103 | P3 | open | Give IPackageManager a licence method so install_deps_step needs no isinstance check | install_deps_step.py holds no isinstance check against IWingetLicences |  | `source/sushicore/provision/install_deps_step.py` | 2026-11-17 |
@@ -23,12 +22,13 @@
 | RW-116 | P3 | open | Give ModuleCycleError its own module and a provision layer | ModuleCycleError lives in a provision errors module listed in the layer table, and deps_fragment no longer defines it |  | `source/sushicore/deps_fragment.py` | 2026-11-17 |
 | RW-120 | P3 | open | Type the console seam in the provision files the audit did not name | no provision module takes console: Any; each takes ProvisionConsole or a narrower protocol |  | `source/sushicore/provision/provision_console.py` | 2026-11-17 |
 | RW-121 | P3 | open | Give each class in the multi-class files its own file | no file outside ui and help holds more than one public class beside its memory twin or its error |  | `source/sushicore/provision/doctor.py` | 2026-11-17 |
-| RW-122 | P3 | open | Run a type checker over the package in check_all | check_all runs mypy or pyright over source/sushicore and it passes |  | `tools/check_all.py` | 2026-11-17 |
+| RW-122 | P3 | open | Run a type checker over the package in check_all | check_all runs mypy or pyright over source/sushicore and it passes |  | `source/sushicore/tools/check_all.py` | 2026-11-17 |
 | RW-123 | P3 | open | Give install_adaptivecpp a parameter object instead of about 20 parameters | install_adaptivecpp takes at most five parameters |  | `source/sushicore/provision/toolchains/adaptivecpp.py` | 2026-11-17 |
 | RW-133 | P2 | blocked | Remove backlog import after its deprecation release, once the siblings take the tools | backlog import, BacklogImporter, ImportResult and the retired-files check are gone, and the shared tests of the siblings no longer pin them | external: the siblings take the tools of the release that deprecates backlog import | `docs/design/BACKLOG/README.md` | 2026-11-21 |
 | RW-144 | P3 | open | Move RecordingApiBuild and FixedCommit out of the shipped package into the tests | no test double sits under source/sushicore |  | `source/sushicore/docs_bundle/api_reference.py` | 2026-11-21 |
 | RW-145 | P3 | open | Ask the Renderer whether it is machine mode, and read the environment through Environment | Console tests no concrete renderer, and stack_config and build_admission read no os.environ |  | `source/sushicore/console.py` | 2026-11-21 |
 | RW-164 | P1 | open | Make test_linux.py of probe_plans run no real compiler | test_a_configured_oneapi_root_with_setvars_is_recorded starts no process, and the Windows CI job no longer times out on it |  | `tests/provision/probe_plans/test_linux.py` | 2026-11-22 |
+| RW-170 | P2 | open | Test the ten shared-tool modules that came into the package without a test | check_test_mirror reports no untested unit under source/sushicore/tools |  | `source/sushicore/tools/README.md` | 2026-11-24 |
 
 ## Known issues
 

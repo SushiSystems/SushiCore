@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Command
         shell: bash
-        run: echo "python tools/check_all.py ."
+        run: echo "python -m sushicore.tools check ."
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
@@ -37,7 +37,7 @@ jobs:
       - name: Install
         run: pip install -e ".[test]"
       - name: Run every checker
-        run: python tools/check_all.py .
+        run: python -m sushicore.tools check .
 
   tests:
     name: Tests small and medium (${{ matrix.os }}, ${{ matrix.python }})

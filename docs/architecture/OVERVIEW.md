@@ -88,7 +88,8 @@ files a CLI hands it; the package re-exports it.
 | `command_surface` | The canonical verbs and panels, `register_build_command`, `register_run_command`, `register_bench_command` and `register_check_command`, the service each calls, the shared `--sanitize` option and `assert_registers_verbs` |
 | [`backlog`](../../source/sushicore/backlog/README.md), [`design`](../../source/sushicore/design/README.md) | The `backlog` and `design` command groups, and the stores of `docs/backlog/` and `docs/design/` they read and write |
 | `command_groups` | The names of the groups a CLI adds beside its own commands, and the check that it exposes them |
-| [`shared_tools`](../../source/sushicore/shared_tools/README.md) | The `sync` and `check` commands that copy the shared `tools/` of a release tag into a repository |
+| [`tools`](../../source/sushicore/tools/README.md) | The checkers every repository runs with `python -m sushicore.tools check .`, and its git hooks |
+| [`release_train`](../../source/sushicore/release_train/README.md) | Releases a library and every library that pins it, in dependency order |
 
 ## Rules the code keeps
 

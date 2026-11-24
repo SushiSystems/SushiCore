@@ -1,3 +1,6 @@
 #!/bin/sh
-# Runs the commit message check; see tools/hooks/commit_msg.py.
-exec python "$(dirname "$0")/commit_msg.py" "$1"
+# Runs the commit message check from the installed sushicore package; the SushiCore checkout runs its
+# own source. See sushicore/tools/hooks/commit_msg.py.
+root=$(git rev-parse --show-toplevel)
+[ -d "$root/source/sushicore/tools" ] && export PYTHONPATH="$root/source"
+exec python -m sushicore.tools.hooks.commit_msg "$1"
