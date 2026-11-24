@@ -72,6 +72,7 @@ K_CHECKERS = (
     "testing/check_probes.py",
     "logs/check_logging.py",
     "ci/check_workflows.py",
+    "checking/check_sushicore_pin.py",
 )
 
 

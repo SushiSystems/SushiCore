@@ -11,6 +11,7 @@ command is in [Shared tools](../docs/reference/SHARED_TOOLS.md).
 | `settings.py` | Nothing; holds the settings that differ between repositories | |
 | `checking/ignored_paths.py` | Nothing itself; names the files and folders git ignores, which no checker reads | |
 | `checking/check_shared_tools.py` | The shared tools lock: present unless the repository is SushiCore, readable, and every locked file present and hashing to its lock | Repository root |
+| `checking/check_sushicore_pin.py` | The sushicore requirement of the CLI's pyproject.toml: a lower bound only, so a SushiCore release forces no release of the repository | Repository root |
 | `documentation/check_source_comments.py` | C++, GLSL, TypeScript and Python: license block, file header, block ceiling, `//` and `#` runs, separators, history words, `@date` | Files or folders |
 | `documentation/check_docs_layout.py` | `docs/` entries, required documents, document names, work folders, status lines in the four forms, design ceiling, links under `docs/`, reachability from `docs/README.md`, READMEs under `modules/<tier>/`, archive candidates by the date in the status line, roadmap, journal, handover, milestone, priority and to-do files | Repository root |
 | `documentation/check_changelog.py` | Headings and entry shape, releases kept live, length, one sentence, nesting, cited places | Repository root |
