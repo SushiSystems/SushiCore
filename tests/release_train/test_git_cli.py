@@ -39,7 +39,7 @@ def test_the_latest_release_and_the_files_of_the_last_release_commit_are_read(re
     _git(repo, "tag", "v0.1.1")
     assert git.is_clean(repo)
     assert git.latest_release(repo) == Version(0, 1, 1)
-    assert sorted(git.last_release_files(repo)) == [Path("VERSION"), Path("other.txt")]
+    assert set(git.last_release_files(repo)) == {Path("VERSION"), Path("other.txt")}
 
 
 def test_a_change_makes_the_tree_dirty(repo):
