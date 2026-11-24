@@ -41,6 +41,8 @@ K_REPO_TOOLS = Path("tools")
 #: How many checks run at once.
 K_WORKERS = min(8, os.cpu_count() or 1)
 K_EXTRA_TEST_FOLDERS: tuple[str, ...] = getattr(settings, "K_EXTRA_TEST_FOLDERS", ())
+#: The checkers of the package a repository runs beside the shared list, such as SushiCore's own.
+K_PACKAGE_CHECKERS: tuple[str, ...] = getattr(settings, "K_PACKAGE_CHECKERS", ())
 #: The variables that point git at a repository; a test suite runs without them.
 K_REPOSITORY_VARIABLES: tuple[str, ...] = (
     "GIT_DIR",
@@ -117,7 +119,7 @@ def plan_checks(root: Path, tools: Path, interpreter: str, own: Sequence[str],
     """
     shared = [
         Check(name, (interpreter, "-m", module_of(name), str(root)), False)
-        for name in K_CHECKERS if name not in skipped
+        for name in (*K_CHECKERS, *K_PACKAGE_CHECKERS) if name not in skipped
     ]
     owned = [
         Check(name, (interpreter, str(tools / name), str(root)), False)

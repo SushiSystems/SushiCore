@@ -33,6 +33,8 @@ K_CONSOLE_PATHS: tuple[str, ...] = (
     "source/sushicore/renderer.py",
 )
 K_DESIGN_TOPICS = True
+#: The package checkers this repository runs beside the shared list.
+K_PACKAGE_CHECKERS: tuple[str, ...] = ("layering/check_package_layers.py", "provision/check_config_reads.py")
 K_FOLDER_CEILING = 60
 K_CLOSED_GRACE_DAYS = 0
 K_ARCHIVE_UNTRACKED = True
