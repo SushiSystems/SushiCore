@@ -1,6 +1,6 @@
 # Release train
 
-**Status:** Open — no phase planned yet
+**Status:** Shipped — 2026-11-24
 **About:** How a SushiCore change reaches every Sushi library without a release of each one
 **Modules:** `source/sushicore/tools`, `source/sushicore/release_train`
 
@@ -35,7 +35,7 @@ release commit changed, closes the changelog, waits for CI, tags, and waits for 
 | Id | Phase | State |
 | --- | --- | --- |
 | R1 | Consumers require sushicore with a lower bound only; done in every library at v0.17.1 | built |
-| R2 | The shared checkers run from the installed sushicore package instead of copies under tools/, so the lock and the sync commits go | planned |
+| R2 | The shared checkers run from the installed sushicore package instead of copies under tools/, so the lock and the sync commits go | built |
 | R3 | Downstream CI jobs already install upstream CLIs from their checked-out tags; `check_sushicore_pin.py` refuses an upper bound on sushicore, so their side-by-side install cannot clash again | built |
 | R4 | One command walks the library graph in dependency order: bump, wait for green, tag, wait for the index, go on | built |
 

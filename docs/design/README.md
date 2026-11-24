@@ -11,7 +11,7 @@ it.
 | [BACKLOG](BACKLOG/README.md) | Open | The backlog commands read the entries and mark an open entry unverified when a commit after the last green check_all run names it. |
 | [GPU_TOOLKIT_SELECTION](GPU_TOOLKIT_SELECTION/README.md) | Shipped | Setup installs the CUDA or ROCm release that this machine's own graphics card supports, instead of one release pinned for every machine. |
 | [PROVISION](PROVISION/README.md) | Shipped | A Sushi module installs its build tools into one dependency root with setup and checks them with doctor, on any machine. |
-| [RELEASE_TRAIN](RELEASE_TRAIN/README.md) | Open | How a SushiCore change reaches every Sushi library without a release of each one |
+| [RELEASE_TRAIN](RELEASE_TRAIN/README.md) | Shipped | How a SushiCore change reaches every Sushi library without a release of each one |
 | [STANDALONE_PROVISIONING](STANDALONE_PROVISIONING/README.md) | Shipped | A person who clones one Sushi module can set it up and build it with that module's own setup command, without installing the hub. |
 <!-- topics:end -->
 

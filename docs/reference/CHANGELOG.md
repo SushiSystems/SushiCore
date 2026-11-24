@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 2026-11-24 — tools: Moved every Sushi library to run the shared checkers from the package, with no copy or lock left in any of them (RW-167).
+
 ## v0.18.0 — 2026-11-24
 
 - 2026-11-24 — tools: Moved the shared checkers into the package as `sushicore.tools`, run with `python -m sushicore.tools check .`; the copies, the lock and `shared_tools` sync are gone (`source/sushicore/tools/`, RW-167).
