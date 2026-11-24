@@ -22,7 +22,9 @@ from sushicore.tools.checking.known_findings import parse_entries  # noqa: E402
 from tests.tools.repo_builder import Repo  # noqa: E402
 from sushicore.tools.check_all import (  # noqa: E402
     K_CHECKERS,
+    K_PACKAGE_CHECKERS,
     Check,
+    module_of,
     _read_found,
     _read_suite_folders,
     _run_all,
@@ -89,22 +91,22 @@ class PlanChecksTest(unittest.TestCase):
     def test_shared_checkers_run_first_then_own_then_suites(self) -> None:
         plan = plan_checks(K_ROOT, K_TOOLS, "py", ["layering/check_x.py"], [K_TOOLS / "tests"])
         names = [check.name for check in plan]
-        self.assertEqual(names, [*K_CHECKERS, "layering/check_x.py", "tests"])
+        self.assertEqual(names, [*K_CHECKERS, *K_PACKAGE_CHECKERS, "layering/check_x.py", "tests"])
 
     def test_each_checker_runs_with_the_interpreter_and_the_root(self) -> None:
         plan = plan_checks(K_ROOT, K_TOOLS, "py", [], [])
-        self.assertEqual(plan[0].command, ("py", str(K_TOOLS / K_CHECKERS[0]), str(K_ROOT)))
+        self.assertEqual(plan[0].command, ("py", "-m", module_of(K_CHECKERS[0]), str(K_ROOT)))
 
     def test_suite_runs_the_suite_runner_on_its_folder(self) -> None:
         plan = plan_checks(K_ROOT, K_TOOLS, "py", [], [K_ROOT / "gui" / "tests"])
         self.assertEqual(plan[-1], Check("tests: gui/tests",
-                                         ("py", str(K_TOOLS / "checking" / "run_suite.py"),
+                                         ("py", "-m", "sushicore.tools.checking.run_suite",
                                           str(K_ROOT / "gui" / "tests")), True))
 
     def test_a_skipped_checker_is_not_planned(self) -> None:
         skipped = frozenset({K_CHECKERS[0]})
         names = [check.name for check in plan_checks(K_ROOT, K_TOOLS, "py", [], [], skipped)]
-        self.assertEqual(names, list(K_CHECKERS[1:]))
+        self.assertEqual(names, [*K_CHECKERS[1:], *K_PACKAGE_CHECKERS])
 
 
 class ReportTest(unittest.TestCase):
@@ -197,9 +199,10 @@ class ShellTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / "present").mkdir()
+            (root / "tools" / "tests").mkdir(parents=True)
             with mock.patch.object(check_all, "K_EXTRA_TEST_FOLDERS", ("present", "absent")):
                 folders = _read_suite_folders(root)
-            self.assertEqual(folders, [check_all.K_TOOLS / "tests", root / "present"])
+            self.assertEqual(folders, [root / "tools" / "tests", root / "present"])
 
     def test_main_returns_one_when_a_check_fails(self) -> None:
         with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()):

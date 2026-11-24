@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path, PurePosixPath
 
+from sushicore.errors import SushiCoreError
+
 
 from sushicore.tools.checking.source_file import SourceFile  # noqa: E402
 from sushicore.tools.documentation.check_source_comments import K_C_SUFFIXES, K_FROM_SETTINGS, K_LICENCE, K_PART_OF  # noqa: E402
@@ -44,7 +46,7 @@ K_EXIT_PENDING = 1
 K_EXIT_USAGE = 2
 
 
-class LicenseWriterError(Exception):
+class LicenseWriterError(SushiCoreError):
     """Signals a repository or an argument the writer cannot work with."""
 
 

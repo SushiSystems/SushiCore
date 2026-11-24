@@ -47,7 +47,8 @@ class PreCommitTest(unittest.TestCase):
         self.addCleanup(self.repo.close)
         self.log = self.repo.root.parent / f"{self.repo.root.name}_checked.log"
         self.addCleanup(lambda: self.log.unlink(missing_ok=True))
-        self.repo.write("tools/check_all.py", K_STUB)
+        self.repo.write("tools/settings.py", "K_X = 1\n")
+        self.repo.write("check_stub.py", K_STUB)
         self.repo.write("src/a.py", "x = 1\n")
         self.repo.commit("first")
 
@@ -57,7 +58,8 @@ class PreCommitTest(unittest.TestCase):
             if name not in extra:
                 environment.pop(name, None)
         with contextlib.redirect_stderr(io.StringIO()) as errors:
-            code = pre_commit.run(self.repo.root, environment)
+            code = pre_commit.run(self.repo.root, environment,
+                                  [sys.executable, str(self.repo.root / "check_stub.py")])
         self.errors = errors.getvalue()
         return code
 
@@ -152,10 +154,10 @@ class PreCommitTest(unittest.TestCase):
         code = self._run(GIT_INDEX_FILE=str(broken))
         self.assertEqual((code, "cannot read the index" in self.errors), (1, True))
 
-    def test_an_index_without_check_all_is_refused_and_named(self) -> None:
-        self.repo.git("rm", "--cached", "tools/check_all.py")
+    def test_an_index_without_the_settings_is_refused_and_named(self) -> None:
+        self.repo.git("rm", "--cached", "tools/settings.py")
         code = self._run()
-        self.assertEqual((code, "holds no tools/check_all.py" in self.errors), (1, True))
+        self.assertEqual((code, "holds no tools/settings.py" in self.errors), (1, True))
 
     def test_a_folder_that_is_no_repository_is_refused(self) -> None:
         with contextlib.redirect_stderr(io.StringIO()) as errors:

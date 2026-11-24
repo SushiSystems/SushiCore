@@ -13,11 +13,16 @@ import argparse
 import json
 import re
 import sys
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+from sushicore.errors import SushiCoreError
 
 
 from sushicore.tools import repo_settings as settings  # noqa: E402
@@ -31,7 +36,7 @@ K_EXIT_FAILED = 1
 K_EXIT_USAGE = 2
 
 
-class KnownFindingsError(Exception):
+class KnownFindingsError(SushiCoreError):
     """Signals a baseline file that cannot be read or written."""
 
 

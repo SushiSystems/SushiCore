@@ -24,6 +24,8 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from sushicore.errors import SushiCoreError
+
 
 from sushicore.tools.checking.ignored_paths import walk_files  # noqa: E402
 
@@ -48,7 +50,7 @@ K_COMPARE_FLIPS: dict[type[ast.cmpop], tuple[bytes, str, str]] = {
 }
 
 
-class MutateError(Exception):
+class MutateError(SushiCoreError):
     """Raised when the mutation run cannot start or cannot trust its baseline."""
 
 

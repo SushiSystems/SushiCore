@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from sushicore.tools.repo_settings import K_ROOT_VARIABLE, K_SETTINGS
@@ -87,11 +87,12 @@ def refusal(root: Path, environ: Mapping[str, str]) -> str | None:
     return None
 
 
-def run(root: Path, environ: Mapping[str, str] | None = None) -> int:
+def run(root: Path, environ: Mapping[str, str] | None = None, check: Sequence[str] | None = None) -> int:
     """Returns the exit code of `check_all.py` run in place on the repository at *root*.
 
     The checkers that read every commit are left out: a commit is not in the history yet, and the
-    `commit-msg` hook judges its message and its pages.
+    `commit-msg` hook judges its message and its pages. *check* is the command that runs the checks,
+    the root and the option following it; `python -m sushicore.tools.check_all` when None.
     """
     environ = dict(os.environ if environ is None else environ)
     git_dir = absolute_git_dir(root, environ)
@@ -103,7 +104,8 @@ def run(root: Path, environ: Mapping[str, str] | None = None) -> int:
         print(f"pre-commit: {problem}", file=sys.stderr)
         return K_EXIT_REFUSED
     tree = root.resolve()
-    return subprocess.run([sys.executable, "-m", K_CHECK_ALL, str(tree), K_SKIP_HISTORY], cwd=tree,
+    command = list(check) if check is not None else [sys.executable, "-m", K_CHECK_ALL]
+    return subprocess.run([*command, str(tree), K_SKIP_HISTORY], cwd=tree,
                           env=checked_environment(git_dir, tree, environ), check=False).returncode
 
 

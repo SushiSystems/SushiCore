@@ -14,7 +14,10 @@ from __future__ import annotations
 
 import re
 import sys
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path

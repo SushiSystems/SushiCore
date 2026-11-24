@@ -150,7 +150,7 @@ class TestRules(unittest.TestCase):
         pages = {"home.md": K_HOME, "page.md": K_QUOTE.replace("last phase", "final phase")}
         message = _messages(check_docs_facts.rule_quote_current, pages)[0]
         self.assertIn("home.md", message)
-        self.assertIn("facts_cli.py apply", message)
+        self.assertIn("facts_cli apply", message)
 
     def test_a_quote_whose_fact_has_no_home_is_left_to_the_existence_rule(self) -> None:
         self.assertEqual(_messages(check_docs_facts.rule_quote_current, {"page.md": K_QUOTE}), [])
@@ -358,7 +358,7 @@ class TestTreeOnDisk(unittest.TestCase):
         code, output = self._check()
         self.assertEqual(code, 1)
         self.assertIn("rule_quote_current", output)
-        self.assertIn("facts_cli.py apply", output)
+        self.assertIn("facts_cli apply", output)
 
     def _check(self) -> tuple[int, str]:
         """Returns the exit code and the printed findings of the checker run on the tree."""
