@@ -44,4 +44,6 @@ The list is generated in `docs/design/README.md`.
 
 **GPU_TOOLKIT_SELECTION**: The estate pinned CUDA 12.6.3 on every machine, for one reason: CUDA 13 dropped Pascal (sm_6x), and the owner develops on a Pascal card, so a newer toolkit broke that build at the ptxas... See [the design](../design/GPU_TOOLKIT_SELECTION/README.md).
 
+**RELEASE_TRAIN**: A one-line SushiCore fix took a release of every Sushi library in dependency order; the topic removes the upper bound, the copied checkers and the hand walk that caused it. See [the design](../design/RELEASE_TRAIN/README.md).
+
 **STANDALONE_PROVISIONING**: A person who clones one open-source Sushi module must be able to build it after one command, without installing hub. See [the design](../design/STANDALONE_PROVISIONING/README.md).
