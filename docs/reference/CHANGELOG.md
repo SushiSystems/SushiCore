@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-24 — code: Tested the ten shared-tool modules that came into the package without a test; the tolerance header test moved to `tests/support/` (`tests/tools/`, RW-170).
 - 2026-11-24 — tools: Moved every Sushi library to run the shared checkers from the package, with no copy or lock left in any of them (RW-167).
 
 ## v0.18.0 — 2026-11-24

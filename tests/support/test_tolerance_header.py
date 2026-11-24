@@ -17,7 +17,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-K_HEADER = Path(__file__).resolve().parents[3] / "source" / "sushicore" / "tools" / "testing" / "support" / "tolerance.hpp"
+import pytest
+
+K_HEADER = Path(__file__).resolve().parents[2] / "source" / "sushicore" / "tools" / "testing" / "support" / "tolerance.hpp"
 K_COMPILERS = ("c++", "g++", "clang++", "cl")
 K_CHECK = r"""
 #include "tolerance.hpp"
@@ -64,6 +66,7 @@ int main()
 
 
 K_TEST_SIZE = "medium"
+pytestmark = pytest.mark.medium
 
 
 def find_compiler() -> str | None:
