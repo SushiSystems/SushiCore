@@ -11,7 +11,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sushicore.tools.hooks.index_tree import K_OWNER_FILE, IndexTree, differing_files, tree_prefix  # noqa: E402
+from sushicore.tools.hooks.index_tree import (  # noqa: E402
+    K_OWNER_FILE,
+    IndexTree,
+    differing_files,
+    outermost,
+    tree_prefix,
+)
 from tests.tools.repo_builder import Repo, without_commit_dates  # noqa: E402
 
 
@@ -44,12 +50,23 @@ class IndexTreeTest(unittest.TestCase):
             text = (self._write(tree) / "src" / "a.py").read_text(encoding="utf-8")
         self.assertEqual(text, "x = 1\n")
 
-    def test_a_file_that_equals_the_index_is_the_disk_file_itself(self) -> None:
-        self.repo.write("src/a.py", "x = 2\n")
+    def test_a_file_that_equals_the_index_is_a_copy_apart_from_the_disk_file(self) -> None:
+        self.repo.write("src/a.py", "x = 2" + chr(10))
         with IndexTree(self.repo.root, self.environ) as tree:
-            same = os.path.samefile(self._write(tree) / "src" / "b.py",
-                                    self.repo.root / "src" / "b.py")
-        self.assertTrue(same)
+            copy = self._write(tree) / "src" / "b.py"
+            found = (copy.read_text(encoding="utf-8"),
+                     os.path.samefile(copy, self.repo.root / "src" / "b.py"))
+        self.assertEqual(found, ("y = 1" + chr(10), False))
+
+    def test_an_ignored_folder_is_reached_through_a_link(self) -> None:
+        self.repo.write(".gitignore", "out/" + chr(10))
+        self.repo.commit("ignore")
+        self.repo.write("out/log.txt", "kept" + chr(10))
+        self.repo.write("src/a.py", "x = 2" + chr(10))
+        with IndexTree(self.repo.root, self.environ) as tree:
+            text = (self._write(tree) / "out" / "log.txt").read_text(encoding="utf-8")
+        self.assertEqual((text, (self.repo.root / "out" / "log.txt").is_file()),
+                         ("kept" + chr(10), True))
 
     def test_the_tree_is_gone_after_the_block(self) -> None:
         self.repo.write("src/a.py", "x = 2\n")
@@ -87,6 +104,16 @@ class IndexTreeTest(unittest.TestCase):
             self._write(tree)
         self.assertEqual((self.repo.root / "src" / "b.py").read_text(encoding="utf-8"), "y = 1\n")
 
+
+
+class OutermostTest(unittest.TestCase):
+    """Reads the ignored paths git lists."""
+
+    K_TEST_SIZE = "small"
+
+    def test_the_files_and_folders_inside_an_ignored_folder_are_dropped(self) -> None:
+        listed = [".cache/", ".cache/.gitignore", ".cache/v/", "notes.log", "out/"]
+        self.assertEqual(outermost(listed), [".cache/", "notes.log", "out/"])
 
 if __name__ == "__main__":
     unittest.main()

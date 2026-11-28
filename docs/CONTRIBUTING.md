@@ -46,11 +46,11 @@ and its pages. CI runs them in full.
 When every tracked file on disk matches the index, the hook checks the repository in place and
 writes nothing. When one differs, the hook builds the commit's tree in a hidden folder beside the
 repository, `.<name>-pre-commit-*`, and runs the checks there. The files that differ, and staged
-files missing on disk, are written from the index. Every other file, the ignored files outside an
-ignored folder and the submodules are links to the working tree, so a checker never writes a file
-in place. The working tree keeps its content and its modification times, and a commit needs no
-stash while other work stays unstaged. The links change each file's inode change time on Linux,
-so the next `git status` there reads every file once. The folder is removed afterwards. The next
+files missing on disk, are written from the index. Every other tracked file and every ignored file
+outside an ignored folder is copied from the disk. Submodules and ignored folders are folder links,
+so `build/` costs nothing. The hook only reads the working tree, which keeps its content and its
+modification times, and a commit needs no stash while other work stays unstaged. A copy, unlike a
+hard link, can be removed while an editor holds its source open. The folder is removed afterwards. The next
 commit removes a folder that an earlier one could not, but only a folder whose
 `.sushicore-pre-commit` file names this repository.
 

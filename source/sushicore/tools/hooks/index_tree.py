@@ -4,8 +4,8 @@
 # Licensed under the Apache License 2.0. See LICENSE.
 """Writes the tree the index holds into a folder beside the repository, and removes it again.
 
-A file whose disk copy equals the index is hard linked, so the tree costs no copy and the working
-tree's files keep their bytes and times; a file that differs is written from the index.
+A file that differs from the index is written from it, every other file is copied from the disk,
+and submodules and ignored folders are folder links, so the working tree is read and never written.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ K_GITLINK_MODE = "160000"
 K_SYMLINK_MODE = "120000"
 #: The name of a tree folder, after a dot and the repository's name.
 K_TREE_MARK = "-pre-commit-"
-#: The file in a tree folder that names the repository the tree belongs to.
+#: The file in a tree folder that names its repository, then each of its folder links, one a line.
 K_OWNER_FILE = ".sushicore-pre-commit"
 
 
@@ -47,15 +47,25 @@ def index_entries(root: Path, environ: Mapping[str, str]) -> list[tuple[str, str
     return [(meta.split(" ", 1)[0], path) for meta, _, path in entries]
 
 
-def ignored_files(root: Path, environ: Mapping[str, str]) -> list[str] | None:
-    """Returns the ignored files outside an ignored folder, or None when git fails."""
+def ignored_paths(root: Path, environ: Mapping[str, str]) -> list[str] | None:
+    """Returns the ignored files and folders, a folder ending in `/`, or None when git fails."""
     done = subprocess.run(
         ["git", "-C", str(root), "ls-files", "--others", "--ignored", "--exclude-standard",
          "--directory", "-z"],
         capture_output=True, text=True, env=dict(environ), check=False)
     if done.returncode != 0:
         return None
-    return [entry for entry in done.stdout.split("\0") if entry and not entry.endswith("/")]
+    return [entry for entry in done.stdout.split("\0") if entry]
+
+
+def outermost(paths: Sequence[str]) -> list[str]:
+    """Returns the ignored paths that lie in no ignored folder of *paths*, a folder ending in `/`.
+
+    Git lists the files of an ignored folder beside it when the folder holds its own ignore file.
+    """
+    folders = [path for path in paths if path.endswith("/")]
+    return [path for path in paths
+            if not any(path != folder and path.startswith(folder) for folder in folders)]
 
 
 def tree_prefix(root: Path) -> str:
@@ -63,32 +73,29 @@ def tree_prefix(root: Path) -> str:
     return f".{root.resolve().name}{K_TREE_MARK}"
 
 
-def is_tree_of(folder: Path, root: Path) -> bool:
-    """Returns whether *folder* is a tree folder that names the repository at *root* as its own."""
+def owner_lines(folder: Path) -> list[str]:
+    """Returns the lines of the owner file of *folder*, or none when it has no readable one."""
     try:
-        owner = (folder / K_OWNER_FILE).read_text(encoding="utf-8").strip()
+        return (folder / K_OWNER_FILE).read_text(encoding="utf-8").splitlines()
     except OSError:
-        return False
-    return owner == str(root.resolve())
+        return []
 
 
-def remove_stale_trees(root: Path, submodules: Sequence[str]) -> None:
+def remove_stale_trees(root: Path) -> None:
     """Removes the tree folders of the repository at *root* that an earlier commit left.
 
     Git holds the index lock while the hook runs, so no other commit of the repository is live.
     """
     for folder in root.resolve().parent.glob(f"{tree_prefix(root)}*"):
-        if folder.is_dir() and is_tree_of(folder, root):
-            remove_tree(folder, submodules)
+        lines = owner_lines(folder) if folder.is_dir() else []
+        if lines and lines[0] == str(root.resolve()):
+            remove_tree(folder, lines[1:])
 
 
-def link_file(source: Path, target: Path) -> None:
-    """Makes *target* a hard link to *source*, or a copy where the disk refuses the link."""
+def copy_file(source: Path, target: Path) -> None:
+    """Copies the content and the mode of *source* to *target*."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.link(source, target)
-    except OSError:
-        shutil.copy2(source, target)
+    shutil.copy(source, target)
 
 
 def link_folder(source: Path, target: Path) -> str | None:
@@ -138,9 +145,9 @@ def unlink_folder(target: Path) -> None:
             return
 
 
-def remove_tree(tree: Path, submodules: Sequence[str]) -> str | None:
-    """Removes *tree*, unlinking its submodule links first; returns the error, or None."""
-    for path in submodules:
+def remove_tree(tree: Path, links: Sequence[str]) -> str | None:
+    """Removes *tree*, unlinking its folder links first; returns the error, or None."""
+    for path in links:
         unlink_folder(tree / path)
     try:
         shutil.rmtree(tree)
@@ -156,7 +163,7 @@ class IndexTree:
         self.root = root.resolve()
         self.environ = dict(environ)
         self.path: Path | None = None
-        self.submodules: list[str] = []
+        self.links: list[str] = []
         self.problems: list[str] = []
 
     def __enter__(self) -> IndexTree:
@@ -164,22 +171,26 @@ class IndexTree:
 
     def __exit__(self, *_: object) -> None:
         if self.path is not None:
-            error = remove_tree(self.path, self.submodules)
+            error = remove_tree(self.path, self.links)
             if error is not None:
                 self.problems.append(f"cannot remove {self.path}: {error}")
 
     def write(self, differing: Sequence[str]) -> str | None:
-        """Writes the tree, *differing* from the index and the rest linked; returns why it failed."""
+        """Writes the tree, *differing* from the index and the rest from disk; returns why it failed."""
         entries = index_entries(self.root, self.environ)
         if entries is None:
             return "git cannot read the index"
-        ignored = ignored_files(self.root, self.environ)
-        if ignored is None:
+        listed = ignored_paths(self.root, self.environ)
+        if listed is None:
             return "git cannot list the ignored files"
-        self.submodules = [name for mode, name in entries if mode == K_GITLINK_MODE]
-        remove_stale_trees(self.root, self.submodules)
+        ignored = outermost(listed)
+        remove_stale_trees(self.root)
         self.path = Path(tempfile.mkdtemp(prefix=tree_prefix(self.root), dir=self.root.parent))
-        (self.path / K_OWNER_FILE).write_text(f"{self.root}\n", encoding="utf-8")
+        folders = [name for mode, name in entries if mode == K_GITLINK_MODE]
+        folders += [name.rstrip("/") for name in ignored if name.endswith("/")]
+        (self.path / K_OWNER_FILE).write_text(
+            "".join(f"{line}\n" for line in [str(self.root), *folders]), encoding="utf-8")
+        self.links = folders
         changed = set(differing)
         from_index: list[str] = []
         for mode, name in entries:
@@ -188,15 +199,15 @@ class IndexTree:
             if mode == K_SYMLINK_MODE or name in changed or not (self.root / name).is_file():
                 from_index.append(name)
             else:
-                link_file(self.root / name, self.path / name)
+                copy_file(self.root / name, self.path / name)
         error = checkout_paths(self.root, self.path, from_index, self.environ)
         if error is not None:
             return f"cannot write the index to {self.path}: {error}"
         for name in ignored:
-            if (self.root / name).is_file() and not (self.path / name).exists():
-                link_file(self.root / name, self.path / name)
-        for name in self.submodules:
+            if not name.endswith("/") and (self.root / name).is_file():
+                copy_file(self.root / name, self.path / name)
+        for name in folders:
             problem = link_folder(self.root / name, self.path / name)
             if problem is not None:
-                self.problems.append(f"cannot link the submodule {name}: {problem}")
+                self.problems.append(f"cannot link the folder {name}: {problem}")
         return None
