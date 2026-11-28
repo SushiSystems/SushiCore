@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Callable
 from ..command_groups import K_BACKLOG
 from . import command_read, command_write
 from .command_context import CommandContext
+from .history import GitHistory, Recorded
 from .verification import GitVerification
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ def register_backlog_commands(
     report: Callable[[str], None] = print,
     group_cls: type | None = None,
     unverified: Callable[[Path], frozenset[str] | None] = GitVerification().unverified,
+    history: Callable[[Path], Recorded | None] = GitHistory().read,
 ) -> None:
     """Adds the `backlog` group to *app* under *panel*, with examples that name *program*.
 
@@ -42,6 +44,7 @@ def register_backlog_commands(
         project_root: Returns the repository root; called when a command runs.
         report: Prints one line of the result the way the CLI prints.
         unverified: Returns the IDs named after the verification stamp, or None without a stamp.
+        history: Returns what git recorded of the backlog, or None when git cannot read it.
     """
     import typer
 
@@ -53,7 +56,8 @@ def register_backlog_commands(
         return typer.Typer(**options)
 
     context = CommandContext(
-        program=program, project_root=project_root, report=report, unverified=unverified)
+        program=program, project_root=project_root, report=report, unverified=unverified,
+        history=history)
     backlog_app = typer_app(K_HELP)
     add_app = typer_app("Add a work entry or a known issue.")
     area_app = typer_app("List or add the areas of the backlog.")
@@ -61,7 +65,10 @@ def register_backlog_commands(
     command_read.register_list(backlog_app, context)
     command_read.register_show(backlog_app, context)
     command_read.register_next(backlog_app, context)
+    command_read.register_here(backlog_app, context)
     command_read.register_decisions(backlog_app, context)
+    command_read.register_flow(backlog_app, context)
+    command_read.register_stale(backlog_app, context)
     command_write.register_add_work(add_app, context)
     command_write.register_add_issue(add_app, context)
     command_write.register_promote(backlog_app, context)

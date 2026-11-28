@@ -20,7 +20,7 @@ def test_the_group_holds_every_command_in_the_order_help_lists_them(store):
     register_backlog_commands(app, program="sx", panel="Project", project_root=lambda: store.root)
     group = typer.main.get_command(app).commands["backlog"]
     assert list(group.commands) == [
-        "list", "show", "next", "decisions", "promote", "set", "close", "pin", "unpin", "move",
+        "list", "show", "next", "here", "decisions", "flow", "stale", "promote", "set", "close", "pin", "unpin", "move",
         "renumber", "import", "check", "add", "area",
     ]
 

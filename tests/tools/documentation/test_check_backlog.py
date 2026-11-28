@@ -103,6 +103,20 @@ class DelegationTest(unittest.TestCase):
             editor.add_work(area="BUILD", priority="P1", title="Fix the gate", done_when="it passes")
             self.assertEqual(list(rule_backlog(repository)), [])
 
+    def test_reports_nothing_for_an_open_design_no_entry_cites(self) -> None:
+        """A design topic's phases are read with the design commands, so no work entry mirrors them."""
+        backlog = tooling_bridge.load("backlog", Path(__file__).resolve().parents[3])
+
+        with tempfile.TemporaryDirectory() as folder:
+            repository = _repository(folder, {
+                "docs/README.md": "# Docs\n",
+                "docs/design/PHYSICS/README.md": "# Physics\n\n**Status:** Open — phase P1 to be built\n",
+            })
+            editor = backlog.BacklogEditor(backlog.BacklogStore(repository.root))
+            editor.add_area("BUILD")
+            editor.add_work(area="BUILD", priority="P1", title="Fix the gate", done_when="it passes")
+            self.assertEqual(list(rule_backlog(repository)), [])
+
 
 if __name__ == "__main__":
     unittest.main()

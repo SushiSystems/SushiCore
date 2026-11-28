@@ -11,6 +11,7 @@ Each rule is a function of one `BacklogCheck` and yields the faults it finds. Th
 from __future__ import annotations
 
 import datetime
+import warnings
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,7 +53,6 @@ class BacklogCheck:
     """What one run of the check reads from a repository, read once and shared by the rules."""
 
     store: BacklogStore
-    open_designs: Callable[[], Iterable[Path]] = lambda: ()
     config: BacklogConfig | None = None
     ledger: IdLedger | None = None
     areas: list[AreaFile] = field(default_factory=list)
@@ -252,17 +252,6 @@ def rule_index(check: BacklogCheck) -> Iterator[Fault]:
         yield Fault(path, 1, "the index is stale; any `backlog` command that writes regenerates it")
 
 
-def rule_design_coverage(check: BacklogCheck) -> Iterator[Fault]:
-    """Yields a fault for each open design topic that no work entry's Source cites."""
-    root = check.store.root
-    cited = [source_path(entry.source) or "" for entry in check.work()]
-    for document in check.open_designs():
-        relative = document.relative_to(root).as_posix()
-        folder = relative.rsplit("/", 1)[0] + "/"
-        if not any(path == relative or path.startswith(folder) for path in cited):
-            yield Fault(document, 1, "an open design topic is cited by the Source of a work entry")
-
-
 K_RULES: dict[str, Callable[[BacklogCheck], Iterator[Fault]]] = {
     "retired_files": rule_retired_files,
     "shape": rule_shape,
@@ -276,20 +265,26 @@ K_RULES: dict[str, Callable[[BacklogCheck], Iterator[Fault]]] = {
     "pins": rule_pins,
     "details": rule_details,
     "index": rule_index,
-    "design_coverage": rule_design_coverage,
 }
 
 
 def check_backlog(
-    store: BacklogStore, open_designs: Callable[[], Iterable[Path]] = lambda: (),
+    store: BacklogStore, open_designs: Callable[[], Iterable[Path]] | None = None,
 ) -> list[Fault]:
     """Returns every fault of a repository's backlog; none for a repository without one.
+
+    *open_designs* is deprecated and read by no rule: a design topic's phases are read with the
+    `design` commands, not mirrored as work entries.
 
     A repository that still holds the two retired files and no store gets the fault that sends
     it to `backlog import`. A store that cannot be read gets the faults that say why and no other,
     since every rule would otherwise report what the unread files hide.
     """
-    check = BacklogCheck(store, open_designs)
+    if open_designs is not None:
+        warnings.warn(
+            "check_backlog(open_designs=...) is read by no rule; call check_backlog(store)",
+            DeprecationWarning, stacklevel=2)
+    check = BacklogCheck(store)
     if not store.exists():
         return list(rule_retired_files(check))
     check.load()

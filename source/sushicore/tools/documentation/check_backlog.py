@@ -53,10 +53,8 @@ def rule_backlog(repository: Repository,
     if backlog is None:
         yield missing(repository.root / "docs", "backlog")
         return
-    design = load_module("design", repository.root)
     store = backlog.BacklogStore(repository.root)
-    open_designs = design.DesignStore(repository.root).open_documents if design else (lambda: [])
-    for fault in backlog.check_backlog(store, open_designs):
+    for fault in backlog.check_backlog(store):
         yield Issue(fault.path, fault.line, fault.message)
 
 

@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""What every `backlog` command shares: where the repository is, how a result is printed and which entries are unverified."""
+"""What every `backlog` command shares: the repository, the printing, the unverified entries and the history."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, final
 
+from .history import Recorded
 from .model import IssueEntry, WorkEntry
 from .order import age, is_late
 from .store import AnyEntry, BacklogStore, Located
@@ -62,7 +63,7 @@ def is_unverified(entry: AnyEntry, ids: frozenset[str]) -> bool:
 
 @final
 class CommandContext:
-    """The repository, the printing and the stamp a command reads, held once for the whole group."""
+    """The repository, the printing, the stamp and the history a command reads, held once for the group."""
 
     def __init__(
         self,
@@ -71,12 +72,18 @@ class CommandContext:
         project_root: Callable[[], Path],
         report: Callable[[str], None],
         unverified: Callable[[Path], frozenset[str] | None],
+        history: Callable[[Path], Recorded | None],
     ) -> None:
-        """Keeps the program name for examples, the root, the printer and the stamp reader."""
+        """Keeps the program name for examples, the root, the printer, the stamp and history readers."""
         self.program = program
         self.project_root = project_root
         self.report = report
         self._unverified = unverified
+        self._history = history
+
+    def history(self) -> Recorded | None:
+        """Returns what git recorded of the backlog, or None when git cannot read it."""
+        return self._history(self.project_root())
 
     def store(self) -> BacklogStore:
         """Returns the store of the repository the CLI runs in."""

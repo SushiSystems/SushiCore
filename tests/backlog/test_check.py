@@ -15,7 +15,6 @@ from sushicore.backlog import BacklogStore, WorkEntry, check_backlog
 from sushicore.backlog.check import (
     BacklogCheck,
     rule_blocked_ready,
-    rule_design_coverage,
     rule_ids,
     rule_pins,
     rule_references,
@@ -29,9 +28,9 @@ K_AREA_FILE = K_ROOT / "docs" / "backlog" / "PHYSICS.md"
 K_TOPIC = K_ROOT / "docs" / "design" / "PHYSICS" / "README.md"
 
 
-def _messages(store: BacklogStore, open_designs=lambda: ()) -> list[str]:
+def _messages(store: BacklogStore) -> list[str]:
     """Returns the message of every fault."""
-    return [fault.message for fault in check_backlog(store, open_designs)]
+    return [fault.message for fault in check_backlog(store)]
 
 
 def _work(editor, **changes):
@@ -239,20 +238,10 @@ def test_a_detail_whose_entry_is_closed_is_a_fault(editor, store):
 
 
 @pytest.mark.small
-def test_an_open_design_no_entry_cites_is_a_fault(memory_store):
-    """Each open design is reached by work."""
-    found = _faults(rule_design_coverage, memory_store, open_designs=lambda: [K_TOPIC])
-    assert found == ["an open design topic is cited by the Source of a work entry"]
-
-
-@pytest.mark.small
-def test_an_open_design_a_source_cites_is_clean(memory_store):
-    """A work entry whose Source is the topic reaches it."""
-    cited = _entry(source="`docs/design/PHYSICS/README.md`")
-    found = _faults(
-        rule_design_coverage, memory_store, open_designs=lambda: [K_TOPIC], located=_located(cited),
-    )
-    assert found == []
+def test_check_backlog_warns_when_given_open_designs(memory_store):
+    """The open_designs argument is deprecated, since no rule reads it."""
+    with pytest.warns(DeprecationWarning, match="read by no rule"):
+        check_backlog(memory_store, lambda: [K_TOPIC])
 
 
 @pytest.mark.medium

@@ -44,7 +44,8 @@ K_LAYERED = (
         layers={
             "errors": 0, "model": 1, "store": 2, "order": 2,
             "check": 3, "importer": 3, "renumber": 3, "editor": 3, "unverified": 0, "verification": 1,
-            "command_context": 4, "command_read": 5, "command_write": 5, "commands": 6, "__main__": 7,
+            "admission": 3, "history": 4, "flow": 5, "triage": 5,
+            "command_context": 6, "command_read": 7, "command_write": 7, "commands": 8, "__main__": 9,
         },
         strict=True,
         nested=False,

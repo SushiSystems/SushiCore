@@ -87,7 +87,10 @@ The pins are at most ten IDs in `backlog.toml`.
 | `backlog list [--area A] [--state S] [--priority P0..P1] [--kind work\|issue] [--late] [--json]` | Lists entries |
 | `backlog show <ID> [--json]` | Prints an entry and its detail file |
 | `backlog next [--count n] [--json]` | Prints the work to take, first to last |
+| `backlog here <PATH>... [--json]` | Lists the open entries whose `Source` covers a path, to read before changing it |
 | `backlog decisions [--json]` | Lists the entries waiting for the owner |
+| `backlog flow [--days n] [--json]` | Measures the work opened and closed in the last `n` days, 14 by default, from git |
+| `backlog stale [--days n] [--json]` | Lists the work opened more than `n` days ago, 14 by default, for the owner's triage |
 | `backlog add work --area A --priority P --title T --done-when D [--source S] [--blocked-by IDS] [--decision] [--json]` | Adds work and prints its ID |
 | `backlog add issue --area A --origin O --symptom T --workaround W [--fix F] [--source S] [--json]` | Adds a known issue and prints its ID |
 | `backlog promote <KI-n> --priority P --title T --done-when D [--json]` | Opens work from an issue and writes its ID into the issue's `Fix` |
@@ -112,6 +115,34 @@ closes or records entries and carries no work, so it marks nothing. That run wri
 never committed. Without a stamp nothing is marked and the text output ends with one line saying
 so. The state is derived on each read and never stored; `docs/design/BACKLOG/README.md` holds the
 ruling.
+
+## A commit and the backlog
+
+A `Source` covers a path when it names the path or a folder that holds it. A path under `docs/` is
+a citation, not a place of work, so neither rule below reads it. In a repository that sets
+`K_TRAILER_SINCE`, the `commit-msg` hook refuses a commit that:
+
+- changes a path an open work entry's `Source` covers, and neither closes that entry nor names it
+  in its `Backlog:` line, so work an agent touched is closed or left open on purpose;
+- opens more than three work entries whose `Source` covers a path it changes, the remainder of
+  its own change; that work is finished in the commit, or kept in the one entry of its work folder.
+
+`StagedChange` and `admission_problems` hold the two rules; the hook reads the change and the
+store and prints each refusal.
+
+## Flow and triage
+
+`backlog flow` reads from git when each entry opened and closed and which paths each commit
+changed. For a window of days ending today it prints the work opened, the work closed, the work
+closed the day it opened, the work open now, and the open work whose `Source`, outside `docs/`, a
+commit changed on a day after the entry opened. A backlog whose work closes the day it opens and
+leaves little changed and open is used as the list of the work in hand; one whose open count grows
+while that last count rises is not.
+
+`backlog stale` lists the work entries opened more than the triage age ago, 14 days by default,
+the oldest first, each with the number of later commits that changed its `Source`. An entry with
+later commits was touched and left open: it is closed, or kept with its reason. One with none is
+kept, given another priority, or dropped by the owner, who rules on the list as a whole.
 
 ## Two branches, one ID
 
@@ -161,7 +192,8 @@ would report what the unread files hide.
 - a table whose rows are not sorted;
 - more than ten pins, and a pin that names no open work or names a decision;
 - a detail file whose entry is closed;
-- a `README.md` that is not what the entries say;
-- an `Open` design topic, outside `_REVISION/`, that no work entry's `Source` cites.
+- a `README.md` that is not what the entries say.
+
+A design topic's phases are read with the `design` commands; no work entry mirrors them.
 
 A repository without `docs/backlog/` and without the retired files has nothing to check.

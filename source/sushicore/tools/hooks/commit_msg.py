@@ -6,7 +6,7 @@
 
 Usage: python -m sushicore.tools.hooks.commit_msg MESSAGE_FILE
 
-Git runs it through the commit-msg hook: the `Backlog:` line, the pages and the test, each when its setting is on.
+Git runs it as the commit-msg hook: the `Backlog:` line, the entries touched, the pages, the test.
 An amend is judged against the parent of the commit it replaces, since HEAD is that commit.
 """
 
@@ -21,7 +21,7 @@ from pathlib import Path
 
 from sushicore.tools.commits import check_backlog_trailer, tests_trailer  # noqa: E402
 from sushicore.tools.commits.history import git  # noqa: E402
-from sushicore.tools.documentation import docs_follow  # noqa: E402
+from sushicore.tools.documentation import docs_follow, tooling_bridge  # noqa: E402
 from sushicore.tools.documentation.docs_follow import Follow  # noqa: E402
 
 K_EXIT_CLEAN = 0
@@ -86,6 +86,37 @@ def _read_known(root: Path, parent: str) -> frozenset[str] | None:
     return check_backlog_trailer.open_ids(root, parent) | check_backlog_trailer.open_ids(root, None)
 
 
+def named_ids(message: str) -> frozenset[str]:
+    """Returns the IDs of this repository that the `Backlog:` line of a message names."""
+    value = check_backlog_trailer.trailer_value(message) or ""
+    if value.startswith("none"):
+        return frozenset()
+    return frozenset(item.strip() for item in value.split(",") if " " not in item.strip())
+
+
+def _read_admission(root: Path, message: str, parent: str) -> list[str]:
+    """Returns why the backlog refuses the staged change; nothing without a base for the `Backlog:` line.
+
+    Without the tooling package or a store there is nothing to judge; the pre-commit checks report a
+    package that cannot be loaded.
+    """
+    if not check_backlog_trailer.K_SINCE:
+        return []
+    backlog = tooling_bridge.load("backlog", root)
+    store = backlog.BacklogStore(root) if backlog is not None else None
+    if store is None or not store.exists():
+        return []
+    listing = git(root, "diff", "--cached", "--name-only", "--no-renames", parent) or ""
+    change = backlog.StagedChange(
+        tuple(line for line in listing.splitlines() if line),
+        check_backlog_trailer.open_ids(root, parent), named_ids(message))
+    try:
+        entries = store.entries()
+    except backlog.BacklogError as error:
+        return [f"the backlog cannot be read: {error}"]
+    return backlog.admission_problems(entries, change)
+
+
 def _read_follow(root: Path, message: str, parent: str) -> Follow | None:
     """Returns the staged change against *parent* as the page rules read it, or None when no base is set for the pages."""
     if not docs_follow.K_SINCE:
@@ -108,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     problems = commit_problems(
         message, _read_known(root, parent), check_backlog_trailer.K_ID_PATTERN,
         _read_follow(root, message, parent), check_backlog_trailer.sibling_lookup(root))
+    problems += _read_admission(root, message, parent)
     if tests_trailer.K_TESTS_LINE:
         staged = (git(root, "diff", "--cached", "--name-only") or "").splitlines()
         problems += tests_trailer.tests_problems(message, staged)

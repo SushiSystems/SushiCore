@@ -14,7 +14,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from sushicore.backlog import BacklogEditor, BacklogError, BacklogStore, register_backlog_commands
+from sushicore.backlog import BacklogEditor, BacklogError, BacklogStore, Recorded, register_backlog_commands
 from sushicore.console_memory import RecordingConsole
 from sushicore.files_memory import MemoryFiles
 
@@ -25,12 +25,14 @@ K_TODAY = datetime.date(2026, 10, 28)
 def invoke() -> Callable[..., tuple[int, list[str]]]:
     """Returns a function that runs one command of an application named `sx` and returns its code and its lines.
 
-    The function takes the repository root, the arguments after `backlog`, and *unverified*, which
-    stands for the stamp; by default a stamp exists and names nothing. A BacklogError reaches the
-    caller, as it reaches a CLI's entry point.
+    The function takes the repository root, the arguments after `backlog`, *unverified*, which
+    stands for the stamp, and *history*, which stands for git; by default a stamp exists and names
+    nothing, and git recorded nothing. A BacklogError reaches the caller, as it reaches a CLI's entry point.
     """
 
-    def run(root: Path, *arguments: str, unverified=lambda _root: frozenset()) -> tuple[int, list[str]]:
+    def run(
+        root: Path, *arguments: str, unverified=lambda _root: frozenset(), history=lambda _root: Recorded(),
+    ) -> tuple[int, list[str]]:
         console = RecordingConsole()
         app = typer.Typer(name="sx", no_args_is_help=True, add_completion=False)
 
@@ -40,7 +42,7 @@ def invoke() -> Callable[..., tuple[int, list[str]]]:
 
         register_backlog_commands(
             app, program="sx", panel="Project", project_root=lambda: root, report=console.info,
-            unverified=unverified,
+            unverified=unverified, history=history,
         )
         result = CliRunner().invoke(app, ["backlog", *arguments])
         if result.exception and not isinstance(result.exception, SystemExit):

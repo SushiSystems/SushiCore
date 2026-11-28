@@ -6,9 +6,13 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 
 import pytest
+
+from sushicore.backlog import Recorded
+from sushicore.backlog.history import EntryLife, PathChange
 
 pytestmark = pytest.mark.medium
 
@@ -58,3 +62,44 @@ def test_check_exits_one_on_a_finding(store, invoke):
     code, lines = invoke(store.root, "check")
     assert code == 1
     assert lines[0].startswith("docs/backlog/NOTES.md:1:")
+
+
+def test_here_lists_the_open_entries_whose_source_covers_a_path(editor, store, invoke):
+    """An entry on the folder and one on the file are listed; one on another file is not."""
+    editor.add_work(area="PHYSICS", priority="P2", title="Fix the step", done_when="it passes",
+                    source="modules/physics")
+    editor.add_work(area="PHYSICS", priority="P2", title="Fix the gate", done_when="it passes",
+                    source="docs/design")
+    _, lines = invoke(store.root, "here", "modules/physics/step.cpp")
+    assert [line.split()[0] for line in lines] == ["RW-1"]
+
+
+def test_here_says_so_when_no_entry_names_the_paths(editor, store, invoke):
+    """An empty answer is a line, not silence."""
+    _, lines = invoke(store.root, "here", "modules/physics/step.cpp")
+    assert lines == ["no open entry names these paths"]
+
+
+def test_flow_prints_the_measures_git_recorded(store, invoke):
+    """The window's opened and closed work comes from the history reader, dated against the real clock."""
+    day = datetime.date.today()
+    recorded = Recorded([EntryLife("RW-1", day, "`src/a.cpp`", closed=day)], [])
+    _, lines = invoke(store.root, "flow", "--json", history=lambda _root: recorded)
+    payload = json.loads(lines[0])
+    assert (payload["opened"], payload["closed"], payload["closed_same_day"]) == (1, 1, 1)
+
+
+def test_flow_exits_one_when_git_cannot_read_the_history(store, invoke):
+    """No history is a finding, not an empty flow."""
+    code, lines = invoke(store.root, "flow", history=lambda _root: None)
+    assert (code, lines) == (1, ["git cannot read the history of docs/backlog/"])
+
+
+def test_stale_lists_old_work_with_its_later_commits(editor, store, invoke):
+    """Work the fixture opened a month before the real clock is past a triage age of 14 days."""
+    editor.add_work(area="PHYSICS", priority="P2", title="Fix the step", done_when="it passes",
+                    source="modules/physics")
+    later = store.today() + datetime.timedelta(days=1)
+    recorded = Recorded([], [PathChange(later, ("modules/physics/step.cpp",))])
+    _, lines = invoke(store.root, "stale", "--days", "14", history=lambda _root: recorded)
+    assert (lines[0].split()[0], lines[0].endswith("(1 later commits to its Source)")) == ("RW-1", True)

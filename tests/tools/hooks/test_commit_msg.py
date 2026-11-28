@@ -17,7 +17,7 @@ from unittest import mock
 
 
 from sushicore.tools.commits import check_backlog_trailer  # noqa: E402
-from sushicore.tools.documentation import docs_follow  # noqa: E402
+from sushicore.tools.documentation import docs_follow, tooling_bridge  # noqa: E402
 from sushicore.tools.documentation.docs_follow import Change, Follow, PageFacts  # noqa: E402
 from sushicore.tools.hooks import commit_msg  # noqa: E402
 from sushicore.tools.hooks.commit_msg import commit_problems, is_merge, refusal_lines, strip_comments  # noqa: E402
@@ -151,6 +151,7 @@ class HookTest(unittest.TestCase):
         try:
             with (mock.patch.object(check_backlog_trailer, "K_SINCE", self.base),
                   mock.patch.object(docs_follow, "K_SINCE", self.base),
+                  mock.patch.object(tooling_bridge, "K_PACKAGE", ""),
                   mock.patch.dict(os.environ, {**without_commit_dates(), **(environ or {})}, clear=True),
                   clock,
                   contextlib.redirect_stderr(errors)):
@@ -224,6 +225,78 @@ class HookTest(unittest.TestCase):
 
     def test_the_hook_accepts_a_merge(self) -> None:
         self.assertEqual(self._run("Merge branch 'x'\n"), (0, ""))
+
+
+class NamedIdsTest(unittest.TestCase):
+    """Covers the IDs of this repository a `Backlog:` line names."""
+
+    K_TEST_SIZE = "small"
+
+    def test_names_the_local_ids_and_leaves_out_a_sibling(self) -> None:
+        """A sibling's entry is written `<repository> <ID>`, so it is not an entry of this backlog."""
+        found = commit_msg.named_ids("fix: a\n\nBacklog: RW-1, RW-2, sushicore RW-3\n")
+        self.assertEqual(found, frozenset({"RW-1", "RW-2"}))
+
+    def test_a_none_line_names_nothing(self) -> None:
+        """`none (<reason>)` names no entry."""
+        self.assertEqual(commit_msg.named_ids("fix: a\n\nBacklog: none (typo)\n"), frozenset())
+
+
+class AdmissionHookTest(unittest.TestCase):
+    """Runs the hook on a repository whose store the backlog commands wrote, with RW-1 on src/a.py."""
+
+    K_TEST_SIZE = "medium"
+
+    def setUp(self) -> None:
+        from sushicore.backlog import BacklogEditor, BacklogStore
+
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        self.editor = BacklogEditor(BacklogStore(self.repo.root))
+        self.editor.add_area("GENERAL")
+        self.editor.add_work(
+            area="GENERAL", priority="P2", title="Fix a", done_when="it passes", source="src/a.py")
+        self.repo.write("src/a.py", "x = 1\n")
+        self.base = self.repo.commit("first").sha
+
+    def _run(self, message: str) -> tuple[int, str]:
+        """Stages everything and runs the hook with the `Backlog:` line required and the pages left alone."""
+        self.repo.git("add", "-A")
+        path = self.repo.root / "MESSAGE"
+        path.write_text(message, encoding="utf-8")
+        errors = io.StringIO()
+        previous = Path.cwd()
+        os.chdir(self.repo.root)
+        try:
+            with (mock.patch.object(check_backlog_trailer, "K_SINCE", self.base),
+                  mock.patch.object(docs_follow, "K_SINCE", ""),
+                  mock.patch.object(tooling_bridge, "K_PACKAGE", "sushicore"),
+                  mock.patch.dict(os.environ, without_commit_dates(), clear=True),
+                  contextlib.redirect_stderr(errors)):
+                code = commit_msg.main([str(path)])
+        finally:
+            os.chdir(previous)
+        return code, errors.getvalue()
+
+    def test_the_hook_refuses_a_change_to_the_source_of_an_entry_it_neither_closes_nor_names(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        code, errors = self._run("fix: change a\n\nTests: none (the hook test)\nBacklog: none (a test)\n")
+        self.assertEqual(code, 1)
+        self.assertIn("changes the Source of RW-1 (Fix a)", errors)
+
+    def test_the_hook_accepts_a_change_that_names_the_entry(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        self.assertEqual(self._run("fix: change a\n\nTests: none (the hook test)\nBacklog: RW-1\n"), (0, ""))
+
+    def test_the_hook_refuses_a_fourth_entry_opened_on_a_file_the_commit_changes(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        for number in range(4):
+            self.editor.add_work(
+                area="GENERAL", priority="P3", title=f"Finish a, part {number}", done_when="it passes",
+                source="src/a.py")
+        code, errors = self._run("fix: change a\n\nTests: none (the hook test)\nBacklog: RW-1\n")
+        self.assertEqual(code, 1)
+        self.assertIn("this commit opens 4 entries on files it changes", errors)
 
 
 if __name__ == "__main__":
