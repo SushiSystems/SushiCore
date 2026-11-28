@@ -52,6 +52,7 @@ def test_the_probe_lookup_builds_the_plan_with_the_home_it_is_given(tmp_path, mo
     cfg = ProvisionSettings(platform="linux")
 
     seen = []
+    monkeypatch.setattr(linux_plan.shutil, "which", lambda _name: None)
     monkeypatch.setattr(linux_plan, "discover_installed_toolchains",
                         lambda _cfg, _values, *, home: seen.append(home))
     PROBE_PLANS.plan_for(target_of(cfg), home=held).resolve_local_config(cfg)
