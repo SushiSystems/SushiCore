@@ -50,8 +50,8 @@ files missing on disk, are written from the index. Every other tracked file and 
 outside an ignored folder is copied from the disk. Submodules and ignored folders are folder links,
 so `build/` costs nothing. The hook only reads the working tree, which keeps its content and its
 modification times, and a commit needs no stash while other work stays unstaged. A copy, unlike a
-hard link, can be removed while an editor holds its source open. The folder is removed afterwards. The next
-commit removes a folder that an earlier one could not, but only a folder whose
+hard link, can be removed while an editor holds its source open. The folder is removed afterwards.
+The next commit removes a folder that an earlier one could not, but only a folder whose
 `.sushicore-pre-commit` file names this repository.
 
 `check_changelog.py`, `check_docs_layout.py` and `check_source_comments.py` print nothing when the
