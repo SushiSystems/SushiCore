@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 2026-11-28 — tools: Made the commit-msg hook refuse a commit that changes the `Source` of an open work entry and neither closes nor names it in its `Backlog:` line (`tools/hooks/commit_msg.py`, `backlog/admission.py`, RW-171).
+- 2026-11-28 — tools: Made the commit-msg hook refuse a commit that changes a path an open work entry's `Source` covers and neither closes nor names that entry in its `Backlog:` line (`backlog/admission.py`, RW-171).
 - 2026-11-28 — tools: Made the commit-msg hook refuse a commit that opens more than three work entries on files it changes (`tools/hooks/commit_msg.py`, `backlog/admission.py`, RW-172).
 - 2026-11-28 — backlog: Added `backlog here <PATH>...`, which lists the open entries whose `Source` covers a path (`backlog/command_read.py`, RW-173).
 - 2026-11-28 — backlog: Dropped the `backlog check` rule that every open design topic is cited by a work entry, and deprecated the `open_designs` argument of `check_backlog` (`backlog/check.py`, RW-174).
