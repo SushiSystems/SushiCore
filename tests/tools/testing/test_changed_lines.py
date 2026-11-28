@@ -84,6 +84,12 @@ class TestChangedLinesShell(unittest.TestCase):
         found = changed_lines(self.root, self.base)
         self.assertEqual(found[self.root / "b.txt"], frozenset({2}))
 
+    def test_a_latin_1_line_in_the_diff_is_named_by_its_number(self) -> None:
+        (self.root / "b.txt").write_bytes(b"keep\ncaf\xe9\n")
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-am", "latin")
+        found = changed_lines(self.root, self.base)
+        self.assertEqual(found[self.root / "b.txt"], frozenset({2}))
+
     def test_an_untracked_file_in_a_repository_is_named(self) -> None:
         self.write("c.txt", "x\ny\n")
         found = changed_lines(self.root, self.base)

@@ -57,10 +57,15 @@ def parse_blob_stream(data: bytes) -> dict[str, str]:
 
 
 def git(root: Path, *arguments: str) -> str | None:
-    """Returns the output of a git command, or None when it fails."""
+    """Returns the output of a git command, or None when it fails.
+
+    A byte that is not UTF-8, as in the diff of a Latin-1 file, reads as U+FFFD, so every line keeps
+    its place.
+    """
     try:
         completed = subprocess.run(
-            ["git", "-C", str(root), *arguments], capture_output=True, text=True, encoding="utf-8")
+            ["git", "-C", str(root), *arguments], capture_output=True, text=True, encoding="utf-8",
+            errors="replace")
     except OSError:
         return None
     return completed.stdout if completed.returncode == 0 else None
