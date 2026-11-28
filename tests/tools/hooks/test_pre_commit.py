@@ -32,7 +32,8 @@ if (root / "notes.log").is_file():
 fields = [str(root), os.environ.get("GIT_INDEX_FILE", ""), " ".join(sys.argv[2:]), ",".join(seen)]
 with open(os.environ["PRE_COMMIT_TEST_LOG"], "a", encoding="utf-8") as log:
     log.write("\\t".join(fields) + "\\n")
-sys.exit(1 if (root / "bad.txt").exists() else 0)
+red = (root / "bad.txt").exists() or "BAD" in (root / "src" / "a.py").read_text(encoding="utf-8")
+sys.exit(1 if red else 0)
 """
 
 
@@ -90,7 +91,7 @@ class PreCommitTest(unittest.TestCase):
         self.repo.git("add", "src/a.py")
         self.assertEqual(self._run(), 0)
 
-    def test_a_staged_file_changed_on_disk_is_checked_as_the_index_holds_it(self) -> None:
+    def test_a_staged_red_file_deleted_on_disk_refuses_the_commit(self) -> None:
         self.repo.write("bad.txt", "staged\n")
         self.repo.git("add", "bad.txt")
         self.repo.remove("bad.txt")
@@ -152,8 +153,36 @@ class PreCommitTest(unittest.TestCase):
                       str(sub.root), "third_party/sub")
         self.repo.write("src/a.py", "x = 2\n")
         self._run()
-        self.assertEqual((self._logged_sightings(), (sub.root / "marker.txt").is_file()),
-                         (["submodule"], True))
+        self.assertEqual(self._logged_sightings(), ["submodule"])
+
+    def test_removing_the_tree_beside_the_repository_leaves_the_submodule_whole(self) -> None:
+        sub = Repo()
+        self.addCleanup(sub.close)
+        sub.write("marker.txt", "x\n")
+        sub.commit("marker")
+        self.repo.git("-c", "protocol.file.allow=always", "submodule", "add", "-q",
+                      str(sub.root), "third_party/sub")
+        self.repo.write("src/a.py", "x = 2\n")
+        self._run()
+        self.assertTrue((self.repo.root / "third_party" / "sub" / "marker.txt").is_file())
+
+    def test_a_red_change_left_unstaged_in_a_staged_file_passes(self) -> None:
+        self._stage_a_py("x = 2\n")
+        self.repo.write("src/a.py", "x = 2  # BAD\n")
+        self.assertEqual(self._run(), 0)
+
+    def test_a_red_change_staged_beside_a_clean_disk_copy_refuses_the_commit(self) -> None:
+        self._stage_a_py("x = 2  # BAD\n")
+        self.repo.write("src/a.py", "x = 2\n")
+        self.assertEqual(self._run(), 1)
+
+    def _stage_a_py(self, text: str) -> None:
+        """Stages *text* as src/a.py without writing it to disk, as `git add -p` would."""
+        blob = self.repo.root / "staged_blob.tmp"
+        blob.write_text(text, encoding="utf-8")
+        name = self.repo.git("hash-object", "-w", str(blob)).strip()
+        blob.unlink()
+        self.repo.git("update-index", "--cacheinfo", f"100644,{name},src/a.py")
 
     def test_an_ignored_file_is_present_in_the_tree_written_beside_the_repository(self) -> None:
         self.repo.write(".gitignore", "*.log\n")

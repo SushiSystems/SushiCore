@@ -23,6 +23,8 @@ K_GITLINK_MODE = "160000"
 K_SYMLINK_MODE = "120000"
 #: The name of a tree folder, after a dot and the repository's name.
 K_TREE_MARK = "-pre-commit-"
+#: The file in a tree folder that names the repository the tree belongs to.
+K_OWNER_FILE = ".sushicore-pre-commit"
 
 
 def differing_files(root: Path, environ: Mapping[str, str]) -> list[str] | None:
@@ -45,18 +47,39 @@ def index_entries(root: Path, environ: Mapping[str, str]) -> list[tuple[str, str
     return [(meta.split(" ", 1)[0], path) for meta, _, path in entries]
 
 
-def ignored_files(root: Path, environ: Mapping[str, str]) -> list[str]:
-    """Returns the ignored files outside an ignored folder, which a page may cite on disk."""
+def ignored_files(root: Path, environ: Mapping[str, str]) -> list[str] | None:
+    """Returns the ignored files outside an ignored folder, or None when git fails."""
     done = subprocess.run(
         ["git", "-C", str(root), "ls-files", "--others", "--ignored", "--exclude-standard",
          "--directory", "-z"],
         capture_output=True, text=True, env=dict(environ), check=False)
+    if done.returncode != 0:
+        return None
     return [entry for entry in done.stdout.split("\0") if entry and not entry.endswith("/")]
 
 
 def tree_prefix(root: Path) -> str:
     """Returns the name every tree folder of the repository at *root* starts with."""
     return f".{root.resolve().name}{K_TREE_MARK}"
+
+
+def is_tree_of(folder: Path, root: Path) -> bool:
+    """Returns whether *folder* is a tree folder that names the repository at *root* as its own."""
+    try:
+        owner = (folder / K_OWNER_FILE).read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+    return owner == str(root.resolve())
+
+
+def remove_stale_trees(root: Path, submodules: Sequence[str]) -> None:
+    """Removes the tree folders of the repository at *root* that an earlier commit left.
+
+    Git holds the index lock while the hook runs, so no other commit of the repository is live.
+    """
+    for folder in root.resolve().parent.glob(f"{tree_prefix(root)}*"):
+        if folder.is_dir() and is_tree_of(folder, root):
+            remove_tree(folder, submodules)
 
 
 def link_file(source: Path, target: Path) -> None:
@@ -150,9 +173,13 @@ class IndexTree:
         entries = index_entries(self.root, self.environ)
         if entries is None:
             return "git cannot read the index"
+        ignored = ignored_files(self.root, self.environ)
+        if ignored is None:
+            return "git cannot list the ignored files"
         self.submodules = [name for mode, name in entries if mode == K_GITLINK_MODE]
-        self.remove_stale_trees()
+        remove_stale_trees(self.root, self.submodules)
         self.path = Path(tempfile.mkdtemp(prefix=tree_prefix(self.root), dir=self.root.parent))
+        (self.path / K_OWNER_FILE).write_text(f"{self.root}\n", encoding="utf-8")
         changed = set(differing)
         from_index: list[str] = []
         for mode, name in entries:
@@ -165,7 +192,7 @@ class IndexTree:
         error = checkout_paths(self.root, self.path, from_index, self.environ)
         if error is not None:
             return f"cannot write the index to {self.path}: {error}"
-        for name in ignored_files(self.root, self.environ):
+        for name in ignored:
             if (self.root / name).is_file() and not (self.path / name).exists():
                 link_file(self.root / name, self.path / name)
         for name in self.submodules:
@@ -173,9 +200,3 @@ class IndexTree:
             if problem is not None:
                 self.problems.append(f"cannot link the submodule {name}: {problem}")
         return None
-
-    def remove_stale_trees(self) -> None:
-        """Removes the trees an earlier commit of this repository could not remove."""
-        for stale in self.root.parent.glob(f"{tree_prefix(self.root)}*"):
-            if stale.is_dir():
-                remove_tree(stale, self.submodules)

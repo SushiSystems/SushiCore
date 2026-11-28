@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sushicore.tools.hooks.index_tree import IndexTree, differing_files, tree_prefix  # noqa: E402
+from sushicore.tools.hooks.index_tree import K_OWNER_FILE, IndexTree, differing_files, tree_prefix  # noqa: E402
 from tests.tools.repo_builder import Repo, without_commit_dates  # noqa: E402
 
 
@@ -57,10 +57,26 @@ class IndexTreeTest(unittest.TestCase):
             path = self._write(tree)
         self.assertEqual((path.exists(), tree.problems), (False, []))
 
+    def test_a_folder_that_names_no_owner_is_left_alone(self) -> None:
+        other = self.repo.root.parent / f"{tree_prefix(self.repo.root)}x"
+        other.mkdir()
+        with IndexTree(self.repo.root, self.environ) as tree:
+            self._write(tree)
+        self.assertTrue(other.is_dir())
+
+    def test_a_tree_of_another_repository_is_left_alone(self) -> None:
+        other = self.repo.root.parent / f"{tree_prefix(self.repo.root)}x"
+        other.mkdir()
+        (other / K_OWNER_FILE).write_text(f"{self.repo.root.parent / 'other'}\n", encoding="utf-8")
+        with IndexTree(self.repo.root, self.environ) as tree:
+            self._write(tree)
+        self.assertTrue(other.is_dir())
+
     def test_a_tree_an_earlier_commit_left_is_removed(self) -> None:
         stale = self.repo.root.parent / f"{tree_prefix(self.repo.root)}stale"
         (stale / "src").mkdir(parents=True)
         (stale / "src" / "a.py").write_text("old\n", encoding="utf-8")
+        (stale / K_OWNER_FILE).write_text(f"{self.repo.root.resolve()}\n", encoding="utf-8")
         with IndexTree(self.repo.root, self.environ) as tree:
             self._write(tree)
         self.assertFalse(stale.exists())

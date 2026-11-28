@@ -44,11 +44,15 @@ read every commit: a commit is not in the history yet, and the `commit-msg` hook
 and its pages. CI runs them in full.
 
 When every tracked file on disk matches the index, the hook checks the repository in place and
-writes nothing. When one differs, the hook writes the index to a hidden folder beside the
-repository, `.<name>-pre-commit-*`, and runs the checks there. A file that matches the index is hard
-linked, not copied, and the working tree keeps its bytes and its modification times, so a commit
-needs no stash while other work stays unstaged. The folder is removed afterwards, and the next
-commit removes one that an earlier commit could not.
+writes nothing. When one differs, the hook builds the commit's tree in a hidden folder beside the
+repository, `.<name>-pre-commit-*`, and runs the checks there. The files that differ, and staged
+files missing on disk, are written from the index. Every other file, the ignored files outside an
+ignored folder and the submodules are links to the working tree, so a checker never writes a file
+in place. The working tree keeps its content and its modification times, and a commit needs no
+stash while other work stays unstaged. The links change each file's inode change time on Linux,
+so the next `git status` there reads every file once. The folder is removed afterwards. The next
+commit removes a folder that an earlier one could not, but only a folder whose
+`.sushicore-pre-commit` file names this repository.
 
 `check_changelog.py`, `check_docs_layout.py` and `check_source_comments.py` print nothing when the
 repository is clean, and a change adds no finding to them. A claim that a check passed carries the

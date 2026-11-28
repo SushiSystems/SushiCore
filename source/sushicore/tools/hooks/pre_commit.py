@@ -99,14 +99,19 @@ def run(root: Path, environ: Mapping[str, str] | None = None, check: Sequence[st
         return K_EXIT_REFUSED
     if not differing:
         return check_tree(root.resolve(), git_dir, environ, check)
+    return check_index_tree(root, git_dir, differing, environ, check)
+
+
+def check_index_tree(root: Path, git_dir: Path, differing: Sequence[str],
+                     environ: Mapping[str, str], check: Sequence[str] | None) -> int:
+    """Returns the exit code of the checks run on the index written beside the repository."""
     with IndexTree(root, environ) as tree:
         problem = tree.write(differing)
         if problem is None and tree.path is not None:
             code = check_tree(tree.path, git_dir, environ, check)
         else:
-            print(f"pre-commit: {problem}", file=sys.stderr)
             code = K_EXIT_REFUSED
-    for line in tree.problems:
+    for line in ([] if problem is None else [problem]) + tree.problems:
         print(f"pre-commit: {line}", file=sys.stderr)
     return code
 
