@@ -27,7 +27,6 @@
 | RW-133 | P2 | blocked | Remove backlog import after its deprecation release, once the siblings take the tools | backlog import, BacklogImporter, ImportResult and the retired-files check are gone, and the shared tests of the siblings no longer pin them | external: the siblings take the tools of the release that deprecates backlog import | `docs/design/BACKLOG/README.md` | 2026-11-21 |
 | RW-144 | P3 | open | Move RecordingApiBuild and FixedCommit out of the shipped package into the tests | no test double sits under source/sushicore |  | `source/sushicore/docs_bundle/api_reference.py` | 2026-11-21 |
 | RW-145 | P3 | open | Ask the Renderer whether it is machine mode, and read the environment through Environment | Console tests no concrete renderer, and stack_config and build_admission read no os.environ |  | `source/sushicore/console.py` | 2026-11-21 |
-| RW-164 | P1 | open | Make test_linux.py of probe_plans run no real compiler | test_a_configured_oneapi_root_with_setvars_is_recorded starts no process, and the Windows CI job no longer times out on it |  | `tests/provision/probe_plans/test_linux.py` | 2026-11-22 |
 
 ## Known issues
 

@@ -55,7 +55,7 @@ class WindowsProbePlan(IProbePlan):
         icx = cfg.expand(cfg.icx_compiler) if cfg.icx_compiler else ""
         if icx and Path(icx).is_file() and binary_works(icx):
             return ("icx-cl", icx)
-        hit = first_glob_match(K_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
+        hit = self._first_glob(K_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
         if hit and binary_works(hit):
             return ("icx-cl", hit)
         return (None, "")
@@ -76,12 +76,12 @@ class WindowsProbePlan(IProbePlan):
         if oneapi:
             values["oneapi_root"] = oneapi
 
-        icx = first_glob_match(K_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
+        icx = self._first_glob(K_ICX_GLOBS) or shutil.which("icx-cl") or shutil.which("icx") or ""
         if icx:
             values["icx_compiler"] = icx
 
         # clang++ runs GNU-like, not clang-cl, so vcvars is never sourced for rc.exe.
-        rc = shutil.which("rc") or first_glob_match(K_RC_GLOBS)
+        rc = shutil.which("rc") or self._first_glob(K_RC_GLOBS)
         if rc:
             values["rc_exe"] = rc
 

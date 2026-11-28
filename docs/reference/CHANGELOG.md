@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 2026-11-28 — provision: Made the Windows probe plan look for icx and rc through its glob seam, and the probe-plan tests stop reading the runner's compilers and disk (`provision/probe_plans/windows.py`, RW-164).
+
 ## v0.18.1 — 2026-11-28
 
 - 2026-11-28 — tools: Made the commit-msg hook refuse a commit that changes a path an open work entry's `Source` covers and neither closes nor names that entry in its `Backlog:` line (`backlog/admission.py`, RW-171).
