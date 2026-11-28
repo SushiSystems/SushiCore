@@ -22,7 +22,6 @@ from sushicore.tools.checking.checker import Checker, Issue, run  # noqa: E402
 from sushicore.tools.documentation.tooling_bridge import load, missing  # noqa: E402
 
 K_BACKLOG = Path("docs/backlog")
-K_RETIRED = (Path("docs/design/REMAINING_WORK.md"), Path("docs/reference/KNOWN_ISSUES.md"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,8 +31,8 @@ class Repository:
     root: Path
 
     def has_backlog(self) -> bool:
-        """Returns whether the repository holds a store or a retired file to check."""
-        return (self.root / K_BACKLOG).is_dir() or any((self.root / path).is_file() for path in K_RETIRED)
+        """Returns whether the repository holds a store to check."""
+        return (self.root / K_BACKLOG).is_dir()
 
 
 def collect(paths: list[Path]) -> Iterable[Repository]:

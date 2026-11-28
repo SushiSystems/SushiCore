@@ -45,16 +45,3 @@ def test_a_refused_change_reaches_the_caller_as_the_backlog_error(store, invoke)
     with pytest.raises(BacklogError):
         invoke(store.root, "add", "work", "--area", "AUDIO", "--priority", "P1",
                "--title", "Fix it", "--done-when", "it passes")
-
-
-def test_import_says_it_is_deprecated_before_it_imports(tmp_path, invoke):
-    """The command prints the deprecation first, and the class does not warn a second time."""
-    root = tmp_path / "repo"
-    (root / "docs" / "design").mkdir(parents=True)
-    (root / "docs" / "reference").mkdir(parents=True)
-    (root / "docs" / "design" / "REMAINING_WORK.md").write_text(
-        "# Remaining work\n\nNext id: RW-2\n\n## Physics\n\n### RW-1 Fix the step\n- State: open\n"
-        "- Done when: it passes\n", encoding="utf-8")
-    (root / "docs" / "reference" / "KNOWN_ISSUES.md").write_text("# Known issues\n\nNext id: KI-1\n", encoding="utf-8")
-    code, lines = invoke(root, "import")
-    assert (code, lines[0].startswith("deprecated: backlog import is deprecated since 0.15.0")) == (0, True)

@@ -1,6 +1,6 @@
 # Backlog
 
-**Status:** Open — phases B7 to be built
+**Status:** Shipped — 2026-11-28
 **About:** The backlog commands read the entries and mark an open entry unverified when a commit after the last green check_all run names it.
 **Modules:** `source/sushicore/backlog`
 
@@ -39,13 +39,13 @@ The owner's order of 2026-11-21 carried out five findings of the review:
   entry. It files, records or closes entries and carries no work, yet the commit that filed an
   entry named it and so marked the entry it had just filed. A commit that lists no path counts as
   work.
-- `backlog import` is deprecated, to be removed in 0.17.0, with `BacklogImporter`,
-  `ImportResult`, the check for the retired files and the shared checker's branch for them. None
+- `backlog import` went in 0.19.0, with `BacklogImporter`, `ImportResult`, the check for the
+  retired files and the shared checker's branch for them, a release after its deprecation. None
   of the 21 repositories of the workspace holds a retired file, but the shared tests of all twelve
   repositories that carry the tools pin the check for them, and SushiEngine's CLI test lists the
   command. A removal in one commit made every one of those fail on a machine whose CLIs run the
-  library from its checkout, so the command stays for one release, as `api-stability` says, and
-  the siblings take the tools of that release before it goes.
+  library from its checkout, so the command stayed for one release, as `api-stability` says, and
+  SushiEngine's CLI test dropped it in the same window.
 
 ## Design
 
@@ -73,9 +73,9 @@ neither pays for itself yet.
 | B2 | The mark: backlog list and next print an open entry unverified when a commit after the stamp names it | built |
 | B3 | The close: backlog close takes no commit, so an entry closes in the commit that does the work | built |
 | B4 | The merge: backlog check reports a conflicted or unreadable store alone, and renumber says what it rewrote | built |
-| B5 | The brick: renumber.py holds renumber alone and importer.py holds the import alone | built |
+| B5 | The brick: renumber.py holds renumber alone and importer.py held the import alone | built |
 | B6 | The filter: a commit that changes only the backlog and the changelog never marks an entry unverified | built |
-| B7 | The removal: backlog import and the check for the retired files are gone | planned |
+| B7 | The removal: backlog import and the check for the retired files are gone | built |
 
 ## Open questions
 

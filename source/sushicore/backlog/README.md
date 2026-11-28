@@ -20,7 +20,6 @@ command are in [Backlog](../../../docs/reference/BACKLOG.md).
 | `Commit`, `unverified_ids` | `unverified.py` | Judge which IDs the commits after the stamp, with their paths, leave unverified |
 | `GitVerification` | `verification.py` | Read the stamp in the git directory and the commits after it with their paths |
 | `BacklogEditor`, `Closed` | `editor.py` | Add, promote, set, move, close, pin, and the areas |
-| `BacklogImporter`, `ImportResult` | `importer.py` | `import` from the retired files, deprecated |
 | `BacklogRenumberer`, `RenumberResult` | `renumber.py` | `renumber` after a merge: both sides of every conflict, the counters, the index and clashing IDs |
 | `CommandContext`, `json_option`, `entry_payload`, `entry_line` | `command_context.py` | The repository, the printing, the unverified mark and the history every command shares |
 | `register_list`, `register_show`, `register_next`, `register_here`, `register_decisions`, `register_flow`, `register_stale`, `register_check` | `command_read.py` | One function per command that reads the store |

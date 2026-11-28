@@ -13,7 +13,6 @@ from .editor import BacklogEditor, Closed
 from .errors import BacklogError, EntryNotFoundError, RefusedChangeError, RowError
 from .flow import Flow, measure_flow
 from .history import GitHistory, Recorded
-from .importer import BacklogImporter, ImportResult
 from .model import IssueEntry, WorkEntry
 from .order import decisions, is_late, next_work
 from .renumber import BacklogRenumberer, RenumberResult
@@ -24,7 +23,6 @@ __all__ = [
     "BacklogConfig",
     "BacklogEditor",
     "BacklogError",
-    "BacklogImporter",
     "BacklogRenumberer",
     "BacklogStore",
     "Closed",
@@ -33,7 +31,6 @@ __all__ = [
     "Flow",
     "GitHistory",
     "IdLedger",
-    "ImportResult",
     "IssueEntry",
     "Recorded",
     "RefusedChangeError",
