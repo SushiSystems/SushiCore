@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 2026-11-28 — tools: Made the pre-commit hook check the index beside the repository when a tracked file differs, linking the files that match, so a shared tree commits with no stash (`tools/hooks/index_tree.py`, RW-207).
+
 ## v0.18.3 — 2026-11-28
 
 - 2026-11-28 — provision: Kept the Linux plan lookup test off the runner's PATH, where a hanging clang++ stopped the Windows runs; v0.18.2 never reached PyPI, so its changes ship here (`tests/provision/probe_plans/test_linux.py`).

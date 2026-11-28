@@ -2,7 +2,7 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Tests that the pre-commit hook checks the repository in place, with a stub for check_all."""
+"""Tests that the pre-commit hook checks the files the commit will hold, with a stub for check_all."""
 
 from __future__ import annotations
 
@@ -27,6 +27,8 @@ root = Path(sys.argv[1])
 seen = []
 if (root / "third_party" / "sub" / "marker.txt").is_file():
     seen.append("submodule")
+if (root / "notes.log").is_file():
+    seen.append("ignored")
 fields = [str(root), os.environ.get("GIT_INDEX_FILE", ""), " ".join(sys.argv[2:]), ",".join(seen)]
 with open(os.environ["PRE_COMMIT_TEST_LOG"], "a", encoding="utf-8") as log:
     log.write("\\t".join(fields) + "\\n")
@@ -88,22 +90,39 @@ class PreCommitTest(unittest.TestCase):
         self.repo.git("add", "src/a.py")
         self.assertEqual(self._run(), 0)
 
-    def test_a_staged_file_changed_on_disk_refuses_and_is_named_without_running_checks(
-            self) -> None:
-        self.repo.write("src/a.py", "x = 2\n")
-        self.repo.git("add", "src/a.py")
-        self.repo.write("src/a.py", "x = 3\n")
-        code = self._run()
-        self.assertEqual((code, "src/a.py" in self.errors, self.log.exists()), (1, True, False))
-
-    def test_a_staged_file_deleted_on_disk_refuses_the_commit(self) -> None:
+    def test_a_staged_file_changed_on_disk_is_checked_as_the_index_holds_it(self) -> None:
         self.repo.write("bad.txt", "staged\n")
         self.repo.git("add", "bad.txt")
         self.repo.remove("bad.txt")
-        code = self._run()
-        self.assertEqual((code, "bad.txt" in self.errors), (1, True))
+        self.assertEqual(self._run(), 1)
 
-    def test_the_checks_run_in_the_repository_itself(self) -> None:
+    def test_an_untracked_red_file_beside_a_changed_file_is_not_checked(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        self.repo.write("bad.txt", "untracked\n")
+        self.assertEqual(self._run(), 0)
+
+    def test_a_changed_file_runs_the_checks_beside_the_repository(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        self._run()
+        [(folder, _)] = self._logged()
+        self.assertEqual((folder.parent, folder == self.repo.root.resolve()),
+                         (self.repo.root.resolve().parent, False))
+
+    def test_a_changed_file_keeps_its_bytes_and_its_time(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        disk = self.repo.root / "src" / "a.py"
+        before = (disk.read_bytes(), disk.stat().st_mtime_ns)
+        self._run()
+        self.assertEqual((disk.read_bytes(), disk.stat().st_mtime_ns), before)
+
+    def test_a_changed_file_leaves_nothing_beside_the_repository(self) -> None:
+        self.repo.write("src/a.py", "x = 2\n")
+        before = sorted(self.repo.root.parent.iterdir())
+        self._run()
+        after = [path for path in sorted(self.repo.root.parent.iterdir()) if path != self.log]
+        self.assertEqual(after, before)
+
+    def test_the_checks_run_in_the_repository_itself_when_nothing_differs(self) -> None:
         self._run()
         [(folder, _)] = self._logged()
         self.assertEqual(folder, self.repo.root.resolve())
@@ -123,6 +142,26 @@ class PreCommitTest(unittest.TestCase):
                       str(sub.root), "third_party/sub")
         self._run()
         self.assertEqual(self._logged_sightings(), ["submodule"])
+
+    def test_a_submodule_is_present_in_the_tree_written_beside_the_repository(self) -> None:
+        sub = Repo()
+        self.addCleanup(sub.close)
+        sub.write("marker.txt", "x\n")
+        sub.commit("marker")
+        self.repo.git("-c", "protocol.file.allow=always", "submodule", "add", "-q",
+                      str(sub.root), "third_party/sub")
+        self.repo.write("src/a.py", "x = 2\n")
+        self._run()
+        self.assertEqual((self._logged_sightings(), (sub.root / "marker.txt").is_file()),
+                         (["submodule"], True))
+
+    def test_an_ignored_file_is_present_in_the_tree_written_beside_the_repository(self) -> None:
+        self.repo.write(".gitignore", "*.log\n")
+        self.repo.commit("ignore")
+        self.repo.write("notes.log", "x\n")
+        self.repo.write("src/a.py", "x = 2\n")
+        self._run()
+        self.assertEqual(self._logged_sightings(), ["ignored"])
 
     def test_the_checkers_that_read_the_history_are_left_out(self) -> None:
         self._run()

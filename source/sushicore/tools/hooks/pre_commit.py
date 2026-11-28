@@ -2,12 +2,12 @@
 # SushiCore - https://github.com/SushiSystems/SushiCore
 # Copyright (c) 2026-present Mustafa Garip & Sushi Systems
 # Licensed under the Apache License 2.0. See LICENSE.
-"""Runs every checker on the repository in place, when the disk holds what the commit will hold.
+"""Runs every checker on the files the commit will hold.
 
 Usage: python -m sushicore.tools.hooks.pre_commit [repository root]
 
-Git runs it through the pre-commit hook. Nothing is written to disk: a staged file whose disk copy
-differs from the index refuses the commit, because the checkers read the disk.
+Git runs it through the pre-commit hook: in place when the disk holds the index, otherwise on the
+index written beside the repository, with the working tree left as it is.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from sushicore.tools.hooks.index_tree import IndexTree, differing_files
 from sushicore.tools.repo_settings import K_ROOT_VARIABLE, K_SETTINGS
 
 #: The module that runs every check.
@@ -56,16 +57,6 @@ def checked_environment(git_dir: Path, root: Path, environ: Mapping[str, str]) -
     }
 
 
-def unstaged_files(root: Path, environ: Mapping[str, str]) -> list[str] | None:
-    """Returns the staged files whose disk copy differs from the index, or None when git fails."""
-    done = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "--no-renames", "-z"],
-        capture_output=True, text=True, env=dict(environ), check=False)
-    if done.returncode != 0:
-        return None
-    return [name for name in done.stdout.split("\0") if name]
-
-
 def staged(root: Path, path: Path, environ: Mapping[str, str]) -> bool:
     """Returns whether the index holds *path*."""
     done = subprocess.run(
@@ -75,20 +66,22 @@ def staged(root: Path, path: Path, environ: Mapping[str, str]) -> bool:
 
 
 def refusal(root: Path, environ: Mapping[str, str]) -> str | None:
-    """Returns why the repository at *root* cannot be checked in place, or None when it can."""
-    differing = unstaged_files(root, environ)
-    if differing is None:
-        return "git cannot read the index"
-    if differing:
-        names = "\n  ".join(differing)
-        return (f"these files differ on disk from the index; stage or restore them:\n  {names}")
+    """Returns why the index of the repository at *root* cannot be checked, or None when it can."""
     if not staged(root, K_SETTINGS, environ):
         return f"the index holds no {K_SETTINGS.as_posix()}"
     return None
 
 
+def check_tree(tree: Path, git_dir: Path, environ: Mapping[str, str],
+               check: Sequence[str] | None) -> int:
+    """Returns the exit code of the checks run on *tree*, with git reading the repository's index."""
+    command = list(check) if check is not None else [sys.executable, "-m", K_CHECK_ALL]
+    return subprocess.run([*command, str(tree), K_SKIP_HISTORY], cwd=tree,
+                          env=checked_environment(git_dir, tree, environ), check=False).returncode
+
+
 def run(root: Path, environ: Mapping[str, str] | None = None, check: Sequence[str] | None = None) -> int:
-    """Returns the exit code of `check_all.py` run in place on the repository at *root*.
+    """Returns the exit code of the checks run on the index of the repository at *root*.
 
     The checkers that read every commit are left out: a commit is not in the history yet, and the
     `commit-msg` hook judges its message and its pages. *check* is the command that runs the checks,
@@ -99,14 +92,23 @@ def run(root: Path, environ: Mapping[str, str] | None = None, check: Sequence[st
     if git_dir is None:
         print(f"pre-commit: {root} is not a git repository", file=sys.stderr)
         return K_EXIT_REFUSED
-    problem = refusal(root, environ)
+    differing = differing_files(root, environ)
+    problem = "git cannot read the index" if differing is None else refusal(root, environ)
     if problem is not None:
         print(f"pre-commit: {problem}", file=sys.stderr)
         return K_EXIT_REFUSED
-    tree = root.resolve()
-    command = list(check) if check is not None else [sys.executable, "-m", K_CHECK_ALL]
-    return subprocess.run([*command, str(tree), K_SKIP_HISTORY], cwd=tree,
-                          env=checked_environment(git_dir, tree, environ), check=False).returncode
+    if not differing:
+        return check_tree(root.resolve(), git_dir, environ, check)
+    with IndexTree(root, environ) as tree:
+        problem = tree.write(differing)
+        if problem is None and tree.path is not None:
+            code = check_tree(tree.path, git_dir, environ, check)
+        else:
+            print(f"pre-commit: {problem}", file=sys.stderr)
+            code = K_EXIT_REFUSED
+    for line in tree.problems:
+        print(f"pre-commit: {line}", file=sys.stderr)
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:

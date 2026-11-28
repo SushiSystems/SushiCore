@@ -32,7 +32,6 @@
 | RW-204 | P2 | open | Read cited paths under tools/build in check_docs_truth | check_docs_truth reports a missing path cited under tools/build in a test tree |  | `source/sushicore/tools/documentation/check_docs_truth.py` | 2026-11-28 |
 | RW-205 | P2 | open | Make check_test_mirror finish inside a minute on SushiEngine's tree | check_test_mirror runs on SushiEngine's tree in under 60 s, measured on the dev machine |  | `source/sushicore/tools/testing/check_test_mirror.py` | 2026-11-28 |
 | RW-206 | P3 | open | Give check_test_mirror a scoped mode for one module and its tests | check_test_mirror takes a module path and reports findings for that module and its tests only |  | `source/sushicore/tools/testing/check_test_mirror.py` | 2026-11-28 |
-| RW-207 | P2 | open | Let pre-commit check the index while other files stay unstaged | a commit whose staged files pass is admitted while another tracked file differs on disk, shown by a test |  | `source/sushicore/tools/hooks/pre_commit.py` | 2026-11-28 |
 
 ## Known issues
 

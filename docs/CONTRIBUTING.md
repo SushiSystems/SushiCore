@@ -43,8 +43,12 @@ The pre-commit hook runs `check_all.py` with `--skip-history`, which leaves out 
 read every commit: a commit is not in the history yet, and the `commit-msg` hook judges its message
 and its pages. CI runs them in full.
 
-The hook checks the repository in place and writes nothing to disk. A staged file whose disk copy
-differs from the index refuses the commit, and the hook names it: stage it or restore it.
+When every tracked file on disk matches the index, the hook checks the repository in place and
+writes nothing. When one differs, the hook writes the index to a hidden folder beside the
+repository, `.<name>-pre-commit-*`, and runs the checks there. A file that matches the index is hard
+linked, not copied, and the working tree keeps its bytes and its modification times, so a commit
+needs no stash while other work stays unstaged. The folder is removed afterwards, and the next
+commit removes one that an earlier commit could not.
 
 `check_changelog.py`, `check_docs_layout.py` and `check_source_comments.py` print nothing when the
 repository is clean, and a change adds no finding to them. A claim that a check passed carries the
