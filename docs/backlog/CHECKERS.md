@@ -29,6 +29,9 @@
 | RW-201 | P2 | open | Find a test that makes a device, queue or runtime outside its module's one fixture base | check_test_value.py reports a test source that constructs a device, queue or runtime outside the fixture base, as testing's Running fast rule 3 says |  | `source/sushicore/tools/testing/check_test_value.py` | 2026-11-28 |
 | RW-202 | P2 | open | Judge a row name by the table the name generator reads, not by the file | check_test_odr passes a SCOPED_TRACE-only table in a file whose generator reads another table's name |  | `source/sushicore/tools/testing/check_test_odr.py` | 2026-11-28 |
 | RW-203 | P2 | open | Run the shared checkers' mutation sample in each release of SushiCore | the release step of SushiCore runs a mutation sample and records its survivors |  |  | 2026-11-28 |
+| RW-204 | P2 | open | Read cited paths under tools/build in check_docs_truth | check_docs_truth reports a missing path cited under tools/build in a test tree |  | `source/sushicore/tools/documentation/check_docs_truth.py` | 2026-11-28 |
+| RW-205 | P2 | open | Make check_test_mirror finish inside a minute on SushiEngine's tree | check_test_mirror runs on SushiEngine's tree in under 60 s, measured on the dev machine |  | `source/sushicore/tools/testing/check_test_mirror.py` | 2026-11-28 |
+| RW-206 | P3 | open | Give check_test_mirror a scoped mode for one module and its tests | check_test_mirror takes a module path and reports findings for that module and its tests only |  | `source/sushicore/tools/testing/check_test_mirror.py` | 2026-11-28 |
 
 ## Known issues
 
